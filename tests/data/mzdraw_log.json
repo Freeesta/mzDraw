@@ -580,11 +580,26 @@
       }
     },
     {
-      "error_key": "error.draw2.style",
+      "error_key": "error.draw2.styleNewer",
       "request": {
         "import": "CC",
         "style": {
           "format": "mzdraw-settings/2"
+        }
+      }
+    },
+    {
+      "error_key": "error.draw2.documentNewer",
+      "request": {
+        "import": "{\"format\":\"mzdraw/2\",\"next\":1,\"atoms\":[],\"bonds\":[]}"
+      }
+    },
+    {
+      "error_key": "error.draw2.style",
+      "request": {
+        "import": "CC",
+        "style": {
+          "format": "mzdraw-settings/0"
         }
       }
     }

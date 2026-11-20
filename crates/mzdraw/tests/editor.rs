@@ -294,14 +294,18 @@ fn a_saved_document_opens_with_the_same_bytes_and_an_empty_history() {
     again.undo();
     assert_eq!(again.doc().to_json(), saved);
     // what is not a document, or an empty one, is not offered; a bad text opens nothing
-    for bad in [
-        "",
-        "CCO",
-        "{}",
-        r#"{"format":"mzdraw/2","next":1,"atoms":[],"bonds":[]}"#,
+    // (a file of a later version is refused too, and said to be one: the version rule)
+    for (bad, key) in [
+        ("", "error.draw2.document"),
+        ("CCO", "error.draw2.document"),
+        ("{}", "error.draw2.document"),
+        (
+            r#"{"format":"mzdraw/2","next":1,"atoms":[],"bonds":[]}"#,
+            "error.draw2.documentNewer",
+        ),
     ] {
         assert_eq!(mzdraw::io::saved_summary(bad), None, "{bad}");
-        assert_eq!(again.open(bad).unwrap_err(), "error.draw2.document");
+        assert_eq!(again.open(bad).unwrap_err(), key, "{bad}");
         assert_eq!(again.doc().to_json(), saved);
     }
     assert_eq!(

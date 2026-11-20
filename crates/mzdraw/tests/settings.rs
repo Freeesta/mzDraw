@@ -2,7 +2,7 @@
 
 use mzdraw::editor::MOUSE;
 use mzdraw::settings::{Style, PRESETS};
-use mzdraw::{svg, Editor};
+use mzdraw::{svg, Document, Editor};
 
 fn close(a: f64, b: f64) -> bool {
     (a - b).abs() < 1e-9
@@ -76,7 +76,6 @@ fn a_settings_file_overrides_its_preset_and_bad_ones_are_refused() {
         "",
         "ACS",
         "{}",
-        r#"{"format":"mzdraw-settings/2"}"#,
         r#"{"format":"mzdraw/1","next":1,"atoms":[],"bonds":[]}"#,
         r#"{"format":"mzdraw-settings/1","style":7}"#,
         r#"{"format":"mzdraw-settings/1","style":{"preset":"nature"}}"#,
@@ -168,4 +167,70 @@ fn a_style_gives_the_file_its_true_size_in_points() {
     assert_eq!(e.doc().to_json(), doc);
     assert!(!e.session.can_undo() || e.session.steps() == 1);
     e.pointer_move(0.0, 0.0, MOUSE);
+}
+
+#[test]
+fn unknown_keys_survive_a_round_and_newer_versions_are_said_to_be_newer() {
+    // a file as a later mzDraw of the same version might write it: keys this one does not know, at both levels
+    let newer = r#"{"editor":{"snap":15},"format":"mzdraw-settings/1","shortcuts":{"w":"bond:up"},"style":{"arrow":{"head":4.5},"bond_length":20.0,"labels":"terminal","preset":"acs-1996"},"templates":[]}"#;
+    let s = Style::from_text(newer).unwrap();
+    assert_eq!(s.bond_length, 20.0);
+    assert_eq!(s.unknown.file.len(), 3);
+    assert_eq!(s.unknown.style.len(), 2);
+    // written back: every unknown key with its value, every known field, alphabetical order, the same bytes each time
+    let out = s.to_json();
+    assert_eq!(
+        out,
+        r#"{"editor":{"snap":15},"format":"mzdraw-settings/1","shortcuts":{"w":"bond:up"},"style":{"arrow":{"head":4.5},"bold_width":2.0,"bond_length":20.0,"bond_spacing":0.18,"colour":"mono","font_size":10.0,"hash_spacing":2.5,"labels":"terminal","line_width":0.6,"margin":1.6,"preset":"acs-1996","subscript_scale":0.7},"templates":[]}"#
+    );
+    let again = Style::from_text(&out).unwrap();
+    assert_eq!(again, s);
+    assert_eq!(again.to_json(), out);
+    // a known key never comes back from the unknown ones, and the format is always this version's
+    let mut edited = again.clone();
+    edited.bond_length = 25.0;
+    assert!(
+        edited.to_json().contains(r#""bond_length":25.0"#)
+            && edited.to_json().contains(r#""labels":"terminal""#)
+    );
+    // a preset has nothing unknown
+    assert!(Style::preset("slides").unwrap().unknown.file.is_empty());
+    // the version rule: version 1 is read; a higher version is a file of a newer mzDraw; anything else is no settings file
+    for (format, key) in [
+        ("mzdraw-settings/2", "error.draw2.styleNewer"),
+        ("mzdraw-settings/17", "error.draw2.styleNewer"),
+        ("mzdraw-settings/0", "error.draw2.style"),
+        ("mzdraw-settings/01", "error.draw2.style"),
+        ("mzdraw-settings/1.5", "error.draw2.style"),
+        ("mzdraw-settings/", "error.draw2.style"),
+        ("mzdraw-settings", "error.draw2.style"),
+        ("mzdraw-settings/-1", "error.draw2.style"),
+        ("mzdraw-settings/99999999999999999999", "error.draw2.style"),
+        ("mzdraw/1", "error.draw2.style"),
+        ("other/2", "error.draw2.style"),
+    ] {
+        let text = format!(r#"{{"format":"{format}","style":{{}}}}"#);
+        assert_eq!(Style::from_text(&text).unwrap_err(), key, "{format}");
+    }
+    // the same rule for the document
+    let doc = |format: &str| format!(r#"{{"format":"{format}","next":1,"atoms":[],"bonds":[]}}"#);
+    assert!(Document::from_json(&doc("mzdraw/1")).is_ok());
+    assert_eq!(
+        Document::from_json(&doc("mzdraw/2")).unwrap_err(),
+        "error.draw2.documentNewer"
+    );
+    for format in [
+        "mzdraw/0",
+        "mzdraw/01",
+        "mzdraw",
+        "mzdraw/1.0",
+        "mzdraw-settings/1",
+        "mzdraw/x",
+    ] {
+        assert_eq!(
+            Document::from_json(&doc(format)).unwrap_err(),
+            "error.draw2.document",
+            "{format}"
+        );
+    }
 }
