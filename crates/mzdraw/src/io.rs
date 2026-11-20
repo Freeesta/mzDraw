@@ -190,7 +190,7 @@ impl Document {
         }
         let placeholder = m.coords.is_none() && !m.atoms.is_empty();
         if placeholder {
-            layout::placeholder(&mut d);
+            layout::computed(&mut d, m);
         } else {
             d.normalise();
         }
