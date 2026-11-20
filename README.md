@@ -19,4 +19,4 @@ node tests/e2e.mjs         # needs Playwright with Chromium
 
 ## Licence
 
-MIT, see [`LICENSE`](LICENSE). If you use mzDraw in published work, please cite mzDraw / mzLab.
+MIT, see [`LICENSE`](LICENSE). If you use mzDraw in published work, please cite mzDraw and mzLab: see [`CITATION.cff`](CITATION.cff).

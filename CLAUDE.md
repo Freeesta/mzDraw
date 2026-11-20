@@ -22,7 +22,7 @@ mzDraw is a 2D molecule editor in Rust compiled to wasm, published at https://fr
 11. Every edit operation has an exact inverse: the property test "apply then undo returns the identical document" covers every new operation.
 12. Each PR is one small slice with unit tests, golden parity wasm == native, and e2e in Chromium (keep touch/pen and keyboard in the tests). UI changes come with screenshots at deviceScaleFactor 2.
 13. Scope out: macromolecules, query features, S-groups other than abbreviations. A file carrying them opens with the unsupported parts listed, never silently dropped.
-14. Cite mzDraw / mzLab when published (a `CITATION.cff` will be added).
+14. Cite mzDraw / mzLab when published (`CITATION.cff`; keep its `version` equal to the workspace version and add `date-released` and `doi` with the first tagged release).
 
 ## Commands
 ```
