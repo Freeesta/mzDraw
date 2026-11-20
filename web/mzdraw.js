@@ -286,14 +286,28 @@ async function savePng() {
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
-/** the style choice: the presets Rust names; the choice changes the screen and the saved SVG, not the document */
-function styles() {
-  const sel = /** @type {HTMLSelectElement} */ ($("d2-style"));
+/** the style choice: the presets Rust names; the choice changes the screen and the saved SVG, not the document. The settings file the
+ * module writes for the chosen style is kept in the browser (OPFS) and given back to the module on the next visit; a file the module
+ * refuses is ignored. */
+async function styles() {
+  const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), NAME = "mzdraw-settings.json";
   for (const name of ed.styles()) { const o = document.createElement("option"); o.value = name; o.textContent = t(`draw2.style.${name}`); sel.append(o); }
+  const keep = async () => {
+    try {
+      const w = await (await (await navigator.storage.getDirectory()).getFileHandle(NAME, { create: true })).createWritable();
+      await w.write(ed.style()); await w.close();
+      document.documentElement.dataset.d2Style = String(Number(document.documentElement.dataset.d2Style || 0) + 1);
+    } catch { /* no storage: the style lasts for this visit */ }
+  };
   sel.addEventListener("change", () => {
-    try { after(ed.set_style(sel.value) | CHANGED); $("d2-style-note").textContent = t(`draw2.style.${sel.value}.note`); $("d2-live").textContent = t("draw2.say.style", { what: sel.selectedOptions[0].textContent || "" }); }
+    try { after(ed.set_style(sel.value) | CHANGED); $("d2-style-note").textContent = t(`draw2.style.${sel.value}.note`); $("d2-live").textContent = t("draw2.say.style", { what: sel.selectedOptions[0].textContent || "" }); keep(); }
     catch (e) { $("d2-style-note").textContent = I.err(JSON.parse(String(e))).message; }
   });
+  try {
+    ed.set_style(await (await (await (await navigator.storage.getDirectory()).getFileHandle(NAME)).getFile()).text());
+    sel.value = JSON.parse(ed.state()).style;
+    if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+  } catch { /* nothing kept, or a file the module refuses */ }
   $("d2-style-note").textContent = t(`draw2.style.${sel.value}.note`);
 }
 
@@ -315,7 +329,7 @@ document.title = t("draw2.name");
 try {
   ed = await load();
   /** @type {any} */ (window).MZDRAW = ed;
-  toolbar(); events(); clipboardEvents(); panels(); styles(); size(); refresh();
+  toolbar(); events(); clipboardEvents(); panels(); await styles(); size(); refresh();
   document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });
   await autosave.offer();
   document.documentElement.dataset.d2Ready = "1";

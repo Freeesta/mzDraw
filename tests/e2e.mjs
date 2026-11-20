@@ -418,7 +418,7 @@ try {
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
-  await step("autosave: the drawing is saved in the browser, offered on the next visit, restored with the same bytes, or discarded", async () => {
+  await step("autosave: the drawing is saved in the browser, offered on the next visit, restored with the same bytes, or discarded; the style is remembered", async () => {
     const ready = () => until(pg, "document.documentElement.dataset.d2Ready === '1'");
     const saves = () => pg.evaluate("Number(document.documentElement.dataset.d2Saved || 0)");
     eq(await pg.evaluate("document.documentElement.dataset.d2Autosave"), "on");
@@ -457,6 +457,26 @@ try {
     await tool(pg, "clear"); await until(pg, "Number(document.documentElement.dataset.d2Saved || 0) >= 2");
     await pg.reload(); await ready();
     assert(await pg.isHidden("#d2-restore"), "an empty drawing is not offered");
+    // the style is remembered too: as the settings file the module writes, read back by the module on the next visit
+    const kept = () => pg.evaluate("Number(document.documentElement.dataset.d2Style || 0)");
+    await pg.selectOption("#d2-style", "acs-1996"); await want(pg, { style: "acs-1996" });
+    await until(pg, "Number(document.documentElement.dataset.d2Style || 0) >= 1");
+    await pg.reload(); await ready();
+    eq((await state(pg)).style, "acs-1996");
+    eq(await pg.inputValue("#d2-style"), "acs-1996");
+    eq(await pg.innerText("#d2-style-note"), await pg.evaluate("I18N.t('draw2.style.acs-1996.note')"));
+    eq(await kept(), 0);                                    // reading it back is not a change
+    // a kept file the module refuses (damaged, or of a newer mzDraw) is ignored: the page starts in the default style
+    for (const bad of ['{"format":"mzdraw-settings/1","style":{"bondLength":', '{"format":"mzdraw-settings/9","style":{}}']) {
+      await pg.evaluate(async text => { const w = await (await (await navigator.storage.getDirectory()).getFileHandle("mzdraw-settings.json", { create: true })).createWritable(); await w.write(text); await w.close(); }, bad);
+      await pg.reload(); await ready();
+      eq((await state(pg)).style, "mzlab");
+      eq(await pg.inputValue("#d2-style"), "mzlab");
+    }
+    await pg.selectOption("#d2-style", "slides"); await until(pg, "Number(document.documentElement.dataset.d2Style || 0) >= 1");
+    await pg.reload(); await ready();
+    eq((await state(pg)).style, "slides");
+    await pg.selectOption("#d2-style", "mzlab"); await until(pg, "Number(document.documentElement.dataset.d2Style || 0) >= 1");
   });
   await ctx.close();
 
