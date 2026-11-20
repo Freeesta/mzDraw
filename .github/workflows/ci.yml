@@ -1,0 +1,47 @@
+# Fast CI of every PR and of main: format, lints, Rust tests, the site build (wasm + size cap), golden parity wasm == native, e2e in Chromium.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
+  PLAYWRIGHT_VERSION: 1.63.0
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            tools/.bin
+          key: ci-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'tools/install_tools.sh') }}
+      - name: Format and lints
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked -- -D warnings
+      - name: Rust tests
+        run: cargo test --locked
+      - name: Site build (wasm, wasm-bindgen, wasm-opt, size cap)
+        run: tools/build_site.sh
+      - name: Golden parity wasm == native
+        run: |
+          cargo build --locked -p mzdraw --example replay
+          node tests/parity.mjs
+      - name: Playwright (Chromium)
+        run: |
+          npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" "playwright@$PLAYWRIGHT_VERSION"
+          echo "NODE_PATH=$RUNNER_TEMP/pw/node_modules" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps --only-shell chromium
+      - name: e2e of the built page
+        run: node tests/e2e.mjs
