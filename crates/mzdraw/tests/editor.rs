@@ -1,7 +1,7 @@
 //! The tools driven as the page drives them: pointer and key events in pixels, the document and the display list out.
 
 use mzdraw::editor::{CHANGED, CTRL, HANDLED, MOUSE, SHIFT, TOOL, TOUCH};
-use mzdraw::scene::{DISC, LINE, RING, TEXT};
+use mzdraw::scene::{DISC, LINE, RING, TEXT, TRI};
 use mzdraw::{svg, Editor};
 
 fn click(e: &mut Editor, x: f64, y: f64) -> u32 {
@@ -31,6 +31,8 @@ fn count(e: &Editor, op: f32) -> usize {
             7
         } else if d[i] == 3.0 {
             6
+        } else if d[i] == TRI {
+            8
         } else {
             5
         };

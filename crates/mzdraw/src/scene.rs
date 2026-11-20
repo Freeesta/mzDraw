@@ -2,9 +2,10 @@
 //! without knowing chemistry. The page paints it on a canvas; `svg` writes the same list as a file.
 //!
 //! Layout of `data` (f32): `LINE x1 y1 x2 y2 width colour` · `TEXT x y size colour string anchor` (anchor 0 middle, 1 start) ·
-//! `RECT x y w h colour` · `DISC x y r colour` · `RING x y r colour`. Coordinates are in output pixels, y down.
+//! `RECT x y w h colour` · `DISC x y r colour` · `RING x y r colour` · `TRI x1 y1 x2 y2 x3 y3 colour` (a filled triangle).
+//! Coordinates are in output pixels, y down.
 
-use crate::doc::{Atom, Document};
+use crate::doc::{Atom, Document, WEDGE_DOWN, WEDGE_UP};
 use crate::m;
 
 pub const LINE: f32 = 1.0;
@@ -12,6 +13,7 @@ pub const TEXT: f32 = 2.0;
 pub const RECT: f32 = 3.0;
 pub const DISC: f32 = 4.0;
 pub const RING: f32 = 5.0;
+pub const TRI: f32 = 6.0;
 
 /// Colour indices; the surface owns the actual colours (CSS variables on the page, the style palette in a file).
 pub mod colour {
@@ -165,6 +167,9 @@ impl Painter<'_> {
         let off = self.view.scale * 0.13;
         let (nx, ny) = (-uy * off, ux * off);
         let shift = |p: (f64, f64), k: f64| (p.0 + nx * k, p.1 + ny * k);
+        if b.s != 0 {
+            return self.wedge(b.s, s, e, w);
+        }
         match b.o {
             2 => {
                 let side = self.double_side(b, (ux, uy));
@@ -194,6 +199,39 @@ impl Painter<'_> {
                 }
             }
             _ => self.line(s, e, w, colour::INK),
+        }
+    }
+
+    /// A wedge mark from `s` (narrow end) to `e`: a filled triangle, a ladder of widening rungs, or a wave.
+    fn wedge(&mut self, mark: u8, s: (f64, f64), e: (f64, f64), w: f64) {
+        let (dx, dy) = (e.0 - s.0, e.1 - s.1);
+        let len = m::hypot(dx, dy).max(1e-6);
+        let half = self.view.scale * 0.1;
+        let (nx, ny) = (-dy / len * half, dx / len * half);
+        let at = |t: f64, k: f64| (s.0 + dx * t + nx * k, s.1 + dy * t + ny * k);
+        match mark {
+            WEDGE_UP => {
+                let (p, q) = (at(1.0, 1.0), at(1.0, -1.0));
+                self.push(&[TRI as f64, s.0, s.1, p.0, p.1, q.0, q.1, colour::INK as f64]);
+            }
+            WEDGE_DOWN => {
+                let n = ((len / (self.view.scale * 0.12)).round() as usize).clamp(3, 12);
+                for i in 1..=n {
+                    let t = i as f64 / n as f64;
+                    self.line(at(t, t), at(t, -t), w, colour::INK);
+                }
+            }
+            _ => {
+                // four waves, eight straight pieces each
+                let n = 32;
+                let wave = |i: usize| {
+                    let t = i as f64 / n as f64;
+                    at(t, 0.8 * m::sin(t * 8.0 * std::f64::consts::PI))
+                };
+                for i in 0..n {
+                    self.line(wave(i), wave(i + 1), w, colour::INK);
+                }
+            }
         }
     }
 

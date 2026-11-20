@@ -5,6 +5,7 @@
 pub mod build;
 pub mod doc;
 pub mod editor;
+mod editor_edit;
 mod editor_tools;
 pub mod io;
 pub mod layout;
@@ -16,7 +17,7 @@ pub mod svg;
 
 pub use doc::{Atom, Bond, Document, FORMAT};
 pub use editor::Editor;
-pub use ops::{Op, OpError, Session};
+pub use ops::{Axis, Op, OpError, Session};
 
 /// The product name, kept here only (the page shows the i18n key `draw2.name`).
 pub const NAME: &str = "mzDraw";

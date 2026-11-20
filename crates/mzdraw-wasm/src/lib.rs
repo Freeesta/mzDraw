@@ -4,6 +4,7 @@
 //! (`mzlab_feat::chem::check`, the bytes of `mzlab-cli mol check`). Errors are JSON `{"error_key", "params"}` strings.
 use mzdraw::editor::{Editor, CHANGED};
 use mzdraw::scene::Scene;
+use mzdraw::Axis;
 use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 
@@ -104,7 +105,9 @@ pub fn key(key: &str, mods: u32) -> u32 {
     act(|e| e.key(key, mods))
 }
 
-/// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), or a tool name (`select`, `atom:N`, `bond:2`, ...).
+/// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
+/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, or a tool name (`select`, `atom:N`, `bond:2`,
+/// `bond:up`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
     act(|e| match what {
@@ -113,8 +116,29 @@ pub fn command(what: &str) -> u32 {
         "clear" => e.clear(),
         "all" => e.select_all(),
         "delete" => e.delete_selection(),
+        "copy" => e.copy() as u32,
+        "cut" => e.cut(),
+        "paste" => e.paste(None),
+        "duplicate" => e.duplicate(),
+        "rotate-l" => e.rotate(15.0),
+        "rotate-r" => e.rotate(-15.0),
+        "flip-h" => e.flip(Axis::H),
+        "flip-v" => e.flip(Axis::V),
         tool => e.set_tool(tool),
     })
+}
+
+/// The editor's clipboard as `mzdraw` (its document) or `molfile` (for other programs), for the system clipboard; empty when
+/// nothing was copied.
+#[wasm_bindgen]
+pub fn clipboard(kind: &str) -> String {
+    with(|p| p.editor.clipboard(kind))
+}
+
+/// Pastes a structure text that came from the system clipboard; a refusal is in `state().error`.
+#[wasm_bindgen]
+pub fn paste(text: &str) -> u32 {
+    act(|e| e.paste(Some(text)))
 }
 
 #[wasm_bindgen]
@@ -174,7 +198,7 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, atoms, bonds, undo, redo, selected, say: {key, what}, error, check}` (`check` is
+/// What the page shows around the canvas: `{tool, atoms, bonds, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
 /// the `check/1` document or null).
 #[wasm_bindgen]
 pub fn state() -> String {
@@ -188,6 +212,7 @@ pub fn state() -> String {
             "undo": e.session.can_undo(),
             "redo": e.session.can_redo(),
             "selected": e.over.sel_atoms.len() + e.over.sel_bonds.len(),
+            "clip": !e.clipboard("mzdraw").is_empty(),
             "say": { "key": e.said.0, "what": e.said.1 },
             "error": e.error,
             "check": check,

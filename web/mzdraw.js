@@ -5,8 +5,8 @@ const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
 const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8;
 // toolbar: [command or tool name, key of the short label, key of the tooltip]; "|" is a separator
-const TOOLS = ["select", "erase", "|", "bond:1", "bond:2", "bond:3", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
-  "ring:6a", "ring:6", "ring:5", "|", "charge:+", "charge:-", "|", "undo", "redo", "|", "zoom-in", "zoom-out", "fit", "|", "clear"];
+const TOOLS = ["select", "erase", "|", "bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
+  "ring:6a", "ring:6", "ring:5", "|", "charge:+", "charge:-", "|", "undo", "redo", "|", "copy", "cut", "paste", "duplicate", "|", "rotate-l", "rotate-r", "flip-h", "flip-v", "|", "zoom-in", "zoom-out", "fit", "|", "clear"];
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p"];
 
 /** @type {any} */ let ed = null;
@@ -30,6 +30,7 @@ function paint() {
     if (op === 1) { g.strokeStyle = col[d[i + 6]]; g.lineWidth = d[i + 5]; g.beginPath(); g.moveTo(d[i + 1], d[i + 2]); g.lineTo(d[i + 3], d[i + 4]); g.stroke(); i += 7; }
     else if (op === 2) { g.fillStyle = col[d[i + 4]]; g.font = d[i + 3] + "px Arial, Helvetica, sans-serif"; g.textAlign = d[i + 6] ? "left" : "center"; g.fillText(s[d[i + 5]], d[i + 1], d[i + 2]); i += 7; }
     else if (op === 3) { g.strokeStyle = col[d[i + 5]]; g.lineWidth = 1; g.setLineDash([4, 3]); g.strokeRect(d[i + 1], d[i + 2], d[i + 3], d[i + 4]); g.setLineDash([]); i += 6; }
+    else if (op === 6) { g.fillStyle = col[d[i + 7]]; g.beginPath(); g.moveTo(d[i + 1], d[i + 2]); g.lineTo(d[i + 3], d[i + 4]); g.lineTo(d[i + 5], d[i + 6]); g.closePath(); g.fill(); i += 8; }
     else { g.beginPath(); g.arc(d[i + 1], d[i + 2], d[i + 3], 0, 2 * Math.PI); if (op === 4) { g.fillStyle = col[d[i + 4]]; g.fill(); } else { g.strokeStyle = col[d[i + 4]]; g.lineWidth = 2; g.stroke(); } i += 5; }
   }
 }
@@ -53,6 +54,8 @@ function refresh() {
     if (c.includes(":") || c === "select" || c === "erase") b.setAttribute("aria-pressed", String(c === st.tool));
     if (c === "undo") /** @type {HTMLButtonElement} */ (b).disabled = !st.undo;
     if (c === "redo") /** @type {HTMLButtonElement} */ (b).disabled = !st.redo;
+    if (c === "copy" || c === "cut" || c === "duplicate") /** @type {HTMLButtonElement} */ (b).disabled = !st.selected;
+    if (c === "paste") /** @type {HTMLButtonElement} */ (b).disabled = !st.clip;
   }
   $("d2-status").textContent = t("draw2.count", { atoms: st.atoms, bonds: st.bonds });
   const list = $("d2-warnings"), ws = (st.check && st.check.warnings) || [];
@@ -63,7 +66,7 @@ function refresh() {
     return li;
   }));
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
-  if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} });
+  if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
   else if (st.say.key) $("d2-live").textContent = t(`draw2.say.${st.say.key.slice(10)}`, { what: st.say.what });
   document.documentElement.dataset.d2 = JSON.stringify({ atoms: st.atoms, bonds: st.bonds, tool: st.tool, warnings: ws.length, selected: st.selected });
 }
@@ -82,6 +85,27 @@ function run(c) {
   else if (c === "zoom-out") after(ed.zoom(w / 2, h / 2, 0.8));
   else if (c === "fit") after(ed.fit(w, h));
   else after(ed.command(c) | CHANGED);
+  if (c === "copy" || c === "cut") navigator.clipboard?.writeText(ed.clipboard("molfile")).catch(() => { });       // best effort: the editor keeps its own copy
+}
+
+// The system clipboard: plain text is a molfile (for other programs), our own type is the document (nothing lost between two mzDraw pages).
+const CLIP = "application/x-mzdraw+json";
+function clipboardEvents() {
+  const here = () => document.activeElement === cv;
+  const put = (/** @type {ClipboardEvent} */ e, /** @type {string} */ c) => {
+    if (!here() || !e.clipboardData) return;
+    const f = ed.command(c);
+    if (!ed.clipboard("mzdraw")) return;
+    e.clipboardData.setData("text/plain", ed.clipboard("molfile")); e.clipboardData.setData(CLIP, ed.clipboard("mzdraw"));
+    e.preventDefault(); after(f | CHANGED);
+  };
+  document.addEventListener("copy", e => put(e, "copy"));
+  document.addEventListener("cut", e => put(e, "cut"));
+  document.addEventListener("paste", e => {
+    if (!here() || !e.clipboardData) return;
+    const text = e.clipboardData.getData(CLIP) || e.clipboardData.getData("text/plain");
+    if (text) { e.preventDefault(); after(ed.paste(text) | CHANGED); }
+  });
 }
 
 function toolbar() {
@@ -92,7 +116,8 @@ function toolbar() {
     b.type = "button"; b.dataset.cmd = c; b.dataset.testid = "d2-" + c;
     b.textContent = c.startsWith("atom:") ? c.slice(5) : t(`draw2.tool.${k}`);
     b.title = t(`draw2.tool.${k}.title`); b.setAttribute("aria-label", b.title);
-    b.addEventListener("click", () => { run(c); });
+    // a pointer click gives the keyboard back to the canvas (shortcuts keep working); a keyboard activation stays on the button
+    b.addEventListener("click", e => { run(c); if (e.detail) cv.focus({ preventScroll: true }); });
     bar.append(b);
   }
 }
@@ -131,7 +156,7 @@ function add(text) {
     const info = JSON.parse(ed.add(text));
     note.textContent = info.placeholder ? t("draw2.import.placeholder") : "";
     after(ed.fit(cv.clientWidth, cv.clientHeight) | CHANGED);
-  } catch (e) { note.textContent = I.err(JSON.parse(String(e))); }
+  } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
 /** downloads a text as a file @param {string} what @param {string} name @param {string} type */
@@ -155,7 +180,7 @@ document.title = t("draw2.name");
 try {
   ed = await load();
   /** @type {any} */ (window).MZDRAW = ed;
-  toolbar(); events(); panels(); size(); refresh();
+  toolbar(); events(); clipboardEvents(); panels(); size(); refresh();
   document.documentElement.dataset.d2Ready = "1";
 } catch (e) {
   $("d2-status").textContent = t("draw2.unavailable");

@@ -3,10 +3,23 @@
 
 use crate::build;
 use crate::doc::{round4, Atom, Bond, Document};
+use crate::m;
 use serde::{Deserialize, Serialize};
 
 fn one() -> u8 {
     1
+}
+
+fn is_zero(v: &u8) -> bool {
+    *v == 0
+}
+
+/// The direction of a flip.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Axis {
+    H,
+    V,
 }
 
 /// One operation. Ids left out are taken from the document counter; `ring` is shorthand that expands to atoms and bonds.
@@ -29,6 +42,9 @@ pub enum Op {
         b: u32,
         #[serde(default = "one")]
         o: u8,
+        /// Wedge mark of a single bond (1 solid, 2 hashed, 3 wavy), narrow end at `a`.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        s: u8,
     },
     #[serde(rename = "atom.set")]
     AtomSet {
@@ -44,8 +60,34 @@ pub enum Op {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         h: Option<u8>,
     },
+    /// Sets the order and/or the wedge mark of a bond; a new order other than 1 drops the mark. `rev` swaps the two ends (the narrow
+    /// end of a wedge moves to the other atom).
     #[serde(rename = "bond.set")]
-    BondSet { id: u32, o: u8 },
+    BondSet {
+        id: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        o: Option<u8>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        s: Option<u8>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        rev: bool,
+    },
+    /// Turns the atoms by `deg` degrees counter-clockwise around (`x`, `y`).
+    #[serde(rename = "rotate")]
+    Rotate {
+        atoms: Vec<u32>,
+        deg: f64,
+        x: f64,
+        y: f64,
+    },
+    /// Mirrors the atoms: axis `h` left to right across the vertical line x = `at`, axis `v` top to bottom across y = `at`. The wedge
+    /// marks stay as drawn, so the mirror image is the other enantiomer.
+    #[serde(rename = "flip")]
+    Flip {
+        atoms: Vec<u32>,
+        axis: Axis,
+        at: f64,
+    },
     #[serde(rename = "move")]
     Move { atoms: Vec<u32>, dx: f64, dy: f64 },
     #[serde(rename = "remove")]
@@ -82,6 +124,11 @@ pub struct OpError {
 
 fn err<T>(key: &'static str, id: u32) -> Result<T, OpError> {
     Err(OpError { key, id })
+}
+
+/// A wedge mark (1-3) sits on a single bond only.
+fn wedge_fits(o: u8, s: u8) -> bool {
+    s == 0 || (s <= 3 && o == 1)
 }
 
 /// What undoes one change; applied in reverse order of recording.
@@ -172,7 +219,7 @@ impl Document {
         id: Option<u32>,
         a: u32,
         b: u32,
-        o: u8,
+        (o, s): (u8, u8),
         done: &mut Vec<Op>,
         inv: &mut Vec<Inv>,
     ) -> Result<(), OpError> {
@@ -182,17 +229,18 @@ impl Document {
         if self.atom(b).is_none() {
             return err("error.draw2.noAtom", b);
         }
-        if !(1..=3).contains(&o) || self.bond_between(a, b).is_some() {
+        if !(1..=3).contains(&o) || !wedge_fits(o, s) || self.bond_between(a, b).is_some() {
             return err("error.draw2.bond", a);
         }
         let id = self.take_id(id, inv)?;
-        self.bonds.push(Bond { id, a, b, o });
+        self.bonds.push(Bond { id, a, b, o, s });
         inv.push(Inv::DropBond(id));
         done.push(Op::BondAdd {
             id: Some(id),
             a,
             b,
             o,
+            s,
         });
         Ok(())
     }
@@ -238,21 +286,69 @@ impl Document {
     ) -> Result<(), OpError> {
         match op {
             Op::AtomAdd { id, el, x, y } => self.add_atom(*id, el, *x, *y, done, inv)?,
-            Op::BondAdd { id, a, b, o } => self.add_bond(*id, *a, *b, *o, done, inv)?,
+            Op::BondAdd { id, a, b, o, s } => self.add_bond(*id, *a, *b, (*o, *s), done, inv)?,
             Op::AtomSet { .. } => {
                 self.set_atom(op, inv)?;
                 done.push(op.clone());
             }
-            Op::BondSet { id, o } => {
+            Op::BondSet { id, o, s, rev } => {
                 let Some(i) = self.bond_index(*id) else {
                     return err("error.draw2.noBond", *id);
                 };
-                if !(1..=3).contains(o) {
+                let now = &self.bonds[i];
+                let order = o.unwrap_or(now.o);
+                // a new order other than single drops the wedge mark
+                let mark = s.unwrap_or(if order == 1 { now.s } else { 0 });
+                if !(1..=3).contains(&order) || !wedge_fits(order, mark) {
                     return err("error.draw2.bond", *id);
                 }
-                inv.push(Inv::SetBond(self.bonds[i].clone()));
-                self.bonds[i].o = *o;
+                inv.push(Inv::SetBond(now.clone()));
+                let b = &mut self.bonds[i];
+                (b.o, b.s) = (order, mark);
+                if *rev {
+                    (b.a, b.b) = (b.b, b.a);
+                }
                 done.push(op.clone());
+            }
+            Op::Rotate { atoms, deg, x, y } => {
+                let (deg, x, y) = (round4(*deg), round4(*x), round4(*y));
+                let t = deg * std::f64::consts::PI / 180.0;
+                let (c, s) = (m::cos(t), m::sin(t));
+                for id in atoms {
+                    let Some(i) = self.atom_index(*id) else {
+                        return err("error.draw2.noAtom", *id);
+                    };
+                    inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                    let a = &mut self.atoms[i];
+                    let (dx, dy) = (a.x - x, a.y - y);
+                    a.x = round4(x + dx * c - dy * s);
+                    a.y = round4(y + dx * s + dy * c);
+                }
+                done.push(Op::Rotate {
+                    atoms: atoms.clone(),
+                    deg,
+                    x,
+                    y,
+                });
+            }
+            Op::Flip { atoms, axis, at } => {
+                let at = round4(*at);
+                for id in atoms {
+                    let Some(i) = self.atom_index(*id) else {
+                        return err("error.draw2.noAtom", *id);
+                    };
+                    inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                    let a = &mut self.atoms[i];
+                    match axis {
+                        Axis::H => a.x = round4(2.0 * at - a.x),
+                        Axis::V => a.y = round4(2.0 * at - a.y),
+                    }
+                }
+                done.push(Op::Flip {
+                    atoms: atoms.clone(),
+                    axis: *axis,
+                    at,
+                });
             }
             Op::Move { atoms, dx, dy } => {
                 let (dx, dy) = (round4(*dx), round4(*dy));
