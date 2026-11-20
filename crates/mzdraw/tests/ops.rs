@@ -590,3 +590,52 @@ fn the_log_reader_takes_what_the_writer_writes_and_refuses_the_rest() {
         assert!(serde_json::from_str::<Op>(bad).is_err(), "{bad}");
     }
 }
+
+#[test]
+fn the_document_reader_takes_what_the_writer_writes_and_refuses_the_rest() {
+    // every state of a random session survives its own JSON
+    let mut r = Rng(0x2545_F491_4F6C_DD1D);
+    let mut s = Session::default();
+    for _ in 0..400 {
+        let _ = s.run(&random_step(&s, &mut r));
+        let text = s.doc.to_json();
+        assert_eq!(Document::from_json(&text).unwrap(), s.doc, "{text}");
+    }
+    assert!(!s.doc.atoms.is_empty() && !s.doc.bonds.is_empty());
+    // optional fields left out take their defaults, unknown fields are ignored
+    let d = Document::from_json(
+        r#"{"format":"mzdraw/1","next":4,"later":{"x":1},"atoms":[{"id":1,"el":"N","x":0,"y":0,"note":"n"},{"id":2,"el":"C","x":1,"y":0}],"bonds":[{"id":3,"a":1,"b":2,"o":1}]}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        (d.atoms[0].chg, d.atoms[0].h, d.bonds[0].s, d.objects.len()),
+        (0, None, 0, 0)
+    );
+    let good = r#"{"format":"mzdraw/1","next":4,"atoms":[{"id":1,"el":"N","x":0.0,"y":0.0},{"id":2,"el":"C","x":1.0,"y":0.0}],"bonds":[{"id":3,"a":1,"b":2,"o":1}]}"#;
+    assert_eq!(Document::from_json(good).unwrap().to_json(), good);
+    for (from, to) in [
+        (r#""next":4"#, r#""next":"4""#),
+        (r#""next":4,"#, ""),
+        (r#""format":"mzdraw/1","#, ""),
+        (r#""id":1,"el":"N""#, r#""id":1.5,"el":"N""#),
+        (r#""el":"N""#, r#""el":7"#),
+        (r#""x":1.0"#, r#""x":"1.0""#),
+        (r#""x":1.0,"#, ""),
+        (r#""o":1"#, r#""o":1,"s":"up""#),
+        (r#""o":1"#, r#""o":999"#),
+        (r#","bonds":[{"id":3,"a":1,"b":2,"o":1}]"#, ""),
+        (r#""bonds":["#, r#""objects":{},"bonds":["#),
+        (
+            r#""bonds":["#,
+            r#""objects":[{"id":9,"t":"cloud","x":0,"y":0}],"bonds":["#,
+        ),
+        (r#""atoms":["#, r#""atoms":[7,"#),
+    ] {
+        assert!(good.contains(from), "{from}");
+        let bad = good.replace(from, to);
+        assert!(Document::from_json(&bad).is_err(), "{bad}");
+    }
+    for bad in ["", "[]", "7", "null", "{"] {
+        assert!(Document::from_json(bad).is_err(), "{bad:?}");
+    }
+}
