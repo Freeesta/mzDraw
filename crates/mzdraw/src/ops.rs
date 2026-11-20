@@ -6,10 +6,6 @@ use crate::doc::{round4, Atom, Bond, Document};
 use crate::m;
 use serde::{Deserialize, Serialize};
 
-fn one() -> u8 {
-    1
-}
-
 fn is_zero(v: &u8) -> bool {
     *v == 0
 }
@@ -23,7 +19,7 @@ pub enum Axis {
 }
 
 /// One operation. Ids left out are taken from the document counter; `ring` is shorthand that expands to atoms and bonds.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "op")]
 pub enum Op {
     #[serde(rename = "atom.add")]
@@ -40,7 +36,6 @@ pub enum Op {
         id: Option<u32>,
         a: u32,
         b: u32,
-        #[serde(default = "one")]
         o: u8,
         /// Wedge mark of a single bond (1 solid, 2 hashed, 3 wavy), narrow end at `a`.
         #[serde(default, skip_serializing_if = "is_zero")]
@@ -59,6 +54,9 @@ pub enum Op {
         rad: Option<u8>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         h: Option<u8>,
+        /// A label (an abbreviation or an R group); the empty text takes the label away.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        lab: Option<String>,
     },
     /// Sets the order and/or the wedge mark of a bond; a new order other than 1 drops the mark. `rev` swaps the two ends (the narrow
     /// end of a wedge moves to the other atom).
@@ -113,6 +111,131 @@ pub enum Op {
         #[serde(default)]
         y: f64,
     },
+}
+
+/// Read by hand from a JSON value (`Op::from_value`): the derived reader of a tagged enum costs about 2 kB of `.wasm` per variant.
+impl<'de> Deserialize<'de> for Op {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let v = serde_json::Value::deserialize(d)?;
+        Op::from_value(&v).ok_or_else(|| serde::de::Error::custom("not an operation"))
+    }
+}
+
+/// Field readers of `Op::from_value`: `None` when a field is absent, `Some(None)`-free by design: a field of the wrong type makes
+/// the whole operation unreadable.
+struct Fields<'a>(&'a serde_json::Value);
+
+impl Fields<'_> {
+    /// An optional field read by `f`: `Ok(None)` when absent or null, `Err` when present with another type.
+    fn opt<T>(
+        &self,
+        k: &str,
+        f: impl Fn(&serde_json::Value) -> Option<T>,
+    ) -> Result<Option<T>, ()> {
+        match self.0.get(k) {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(v) => f(v).map(Some).ok_or(()),
+        }
+    }
+    fn f(&self, k: &str) -> Result<Option<f64>, ()> {
+        self.opt(k, serde_json::Value::as_f64)
+    }
+    fn u<T: TryFrom<u64>>(&self, k: &str) -> Result<Option<T>, ()> {
+        self.opt(k, |v| v.as_u64().and_then(|n| T::try_from(n).ok()))
+    }
+    fn i8(&self, k: &str) -> Result<Option<i8>, ()> {
+        self.opt(k, |v| v.as_i64().and_then(|n| i8::try_from(n).ok()))
+    }
+    fn s(&self, k: &str) -> Result<Option<String>, ()> {
+        self.opt(k, |v| v.as_str().map(str::to_string))
+    }
+    fn b(&self, k: &str) -> Result<bool, ()> {
+        Ok(self.opt(k, serde_json::Value::as_bool)?.unwrap_or(false))
+    }
+    fn ids(&self, k: &str) -> Result<Vec<u32>, ()> {
+        let list = self.opt(k, |v| {
+            v.as_array()?
+                .iter()
+                .map(|x| x.as_u64().and_then(|n| u32::try_from(n).ok()))
+                .collect::<Option<Vec<u32>>>()
+        })?;
+        Ok(list.unwrap_or_default())
+    }
+}
+
+impl Op {
+    /// An operation from its JSON object; `None` for an unknown `op`, a missing required field or a field of the wrong type.
+    /// Unknown fields are ignored.
+    pub fn from_value(v: &serde_json::Value) -> Option<Op> {
+        Self::read(&Fields(v), v.get("op")?.as_str()?).ok()
+    }
+
+    fn read(g: &Fields, name: &str) -> Result<Op, ()> {
+        let need = |v: Option<f64>| v.ok_or(());
+        Ok(match name {
+            "atom.add" => Op::AtomAdd {
+                id: g.u("id")?,
+                el: g.s("el")?.ok_or(())?,
+                x: need(g.f("x")?)?,
+                y: need(g.f("y")?)?,
+            },
+            "bond.add" => Op::BondAdd {
+                id: g.u("id")?,
+                a: g.u("a")?.ok_or(())?,
+                b: g.u("b")?.ok_or(())?,
+                o: g.u("o")?.unwrap_or(1),
+                s: g.u("s")?.unwrap_or(0),
+            },
+            "atom.set" => Op::AtomSet {
+                id: g.u("id")?.ok_or(())?,
+                el: g.s("el")?,
+                chg: g.i8("chg")?,
+                iso: g.u("iso")?,
+                rad: g.u("rad")?,
+                h: g.u("h")?,
+                lab: g.s("lab")?,
+            },
+            "bond.set" => Op::BondSet {
+                id: g.u("id")?.ok_or(())?,
+                o: g.u("o")?,
+                s: g.u("s")?,
+                rev: g.b("rev")?,
+            },
+            "rotate" => Op::Rotate {
+                atoms: g.ids("atoms")?,
+                deg: need(g.f("deg")?)?,
+                x: need(g.f("x")?)?,
+                y: need(g.f("y")?)?,
+            },
+            "flip" => Op::Flip {
+                atoms: g.ids("atoms")?,
+                axis: match g.s("axis")?.as_deref() {
+                    Some("h") => Axis::H,
+                    Some("v") => Axis::V,
+                    _ => return Err(()),
+                },
+                at: need(g.f("at")?)?,
+            },
+            "move" => Op::Move {
+                atoms: g.ids("atoms")?,
+                dx: need(g.f("dx")?)?,
+                dy: need(g.f("dy")?)?,
+            },
+            "remove" => Op::Remove {
+                atoms: g.ids("atoms")?,
+                bonds: g.ids("bonds")?,
+            },
+            "ring" => Op::Ring {
+                n: g.u("n")?.ok_or(())?,
+                arom: g.b("arom")?,
+                atom: g.u("atom")?,
+                bond: g.u("bond")?,
+                x: g.f("x")?.unwrap_or(0.0),
+                y: g.f("y")?.unwrap_or(0.0),
+            },
+            _ => return Err(()),
+        })
+    }
 }
 
 /// Why an operation was refused: an i18n key and the id it is about.
@@ -203,6 +326,7 @@ impl Document {
             iso: 0,
             rad: 0,
             h: None,
+            lab: String::new(),
         });
         inv.push(Inv::DropAtom(id));
         done.push(Op::AtomAdd {
@@ -245,7 +369,7 @@ impl Document {
         Ok(())
     }
 
-    /// Sets the given properties of an atom; a new element forgets the explicit hydrogen count.
+    /// Sets the given properties of an atom; a new element forgets the explicit hydrogen count and the label.
     fn set_atom(&mut self, op: &Op, inv: &mut Vec<Inv>) -> Result<(), OpError> {
         let Op::AtomSet {
             id,
@@ -254,6 +378,7 @@ impl Document {
             iso,
             rad,
             h,
+            lab,
         } = op
         else {
             return Ok(());
@@ -264,11 +389,21 @@ impl Document {
         if el.as_ref().is_some_and(|e| !mzlab_mol::is_element(e)) {
             return err("error.draw2.element", *id);
         }
+        if lab
+            .as_ref()
+            .is_some_and(|l| !l.is_empty() && crate::label::kind(l).is_none())
+        {
+            return err("error.draw2.label", *id);
+        }
         inv.push(Inv::SetAtom(self.atoms[i].clone()));
         let a = &mut self.atoms[i];
         if let Some(e) = el {
             a.el = e.clone();
             a.h = None;
+            a.lab.clear();
+        }
+        if let Some(l) = lab {
+            a.lab = l.clone();
         }
         a.chg = chg.unwrap_or(a.chg).clamp(-4, 4);
         a.iso = iso.unwrap_or(a.iso);

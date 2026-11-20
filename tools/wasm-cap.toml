@@ -1,4 +1,5 @@
 # Size cap of the optimised editor module (site/pkg/mzdraw_wasm_bg.wasm), in bytes. tools/wasm_cap.sh fails the build above `cap`.
-# `measured` is the size at the last change of this file: update it in the PR that moves the size, raise `cap` only with a reason in the PR.
+# `measured` is the size at the last change of this file: update it in the PR that moves the size. Raising `cap` is the owner's
+# decision: send the measured numbers and a proposal first, never raise it in a PR on your own.
 cap = 512000
-measured = 507114
+measured = 474490

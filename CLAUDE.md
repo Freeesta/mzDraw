@@ -1,6 +1,6 @@
 # mzDraw: rules for agents
 
-mzDraw is a 2D molecule editor in Rust compiled to wasm, published at https://freeesta.github.io/mzdraw/. Plan and built state: `docs/mzdraw.md` (keep its "Built state" section true in every PR).
+mzDraw is a 2D molecule editor in Rust compiled to wasm, published at https://freeesta.github.io/mzDraw/ (capital D: the path is the repository name and is case-sensitive; the lowercase address answers 404). Plan and built state: `docs/mzdraw.md` (keep its "Built state" section true in every PR).
 
 ## Layout
 - `crates/mzdraw`: the editor core (document `mzdraw/1`, operations with exact undo, tools, hit-test, display list, SVG, import/export). Depends only on `mzlab-mol`, `libm`, `serde`, `serde_json`.

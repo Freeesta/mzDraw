@@ -11,6 +11,7 @@ fn is_zero<T: Default + PartialEq>(v: &T) -> bool {
 }
 
 /// One atom. `h` is set only when the hydrogens were given explicitly (a file said so); otherwise they follow the valence rules.
+/// A labelled atom (`lab`) shows its label alone: no hydrogens, charge or isotope of its own.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Atom {
     pub id: u32,
@@ -25,6 +26,10 @@ pub struct Atom {
     pub rad: u8,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub h: Option<u8>,
+    /// A label drawn instead of the element: an abbreviation of `label::ABBREVIATIONS` (expanded to its atoms at export) or an
+    /// R-group placeholder. Empty for a plain atom.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub lab: String,
 }
 
 /// Wedge marks of a single bond, as drawn: the narrow end is the atom `a` of the bond.
@@ -106,7 +111,10 @@ impl Document {
         unique
             && ids.iter().all(|&i| i < self.next)
             && pairs.windows(2).all(|w| w[0] != w[1])
-            && self.atoms.iter().all(|a| mzlab_mol::is_element(&a.el))
+            && self.atoms.iter().all(|a| {
+                mzlab_mol::is_element(&a.el)
+                    && (a.lab.is_empty() || crate::label::kind(&a.lab).is_some())
+            })
             && self.bonds.iter().all(|b| {
                 b.a != b.b
                     && (1..=3).contains(&b.o)
@@ -160,8 +168,12 @@ impl Document {
             .sum()
     }
 
-    /// Hydrogens the atom carries: the explicit count, or what the lowest allowed valence leaves free.
+    /// Hydrogens the atom carries: the explicit count, or what the lowest allowed valence leaves free; none on a labelled atom
+    /// (the label says what is there).
     pub fn hydrogens(&self, a: &Atom) -> u32 {
+        if !a.lab.is_empty() {
+            return 0;
+        }
         if let Some(h) = a.h {
             return h as u32;
         }

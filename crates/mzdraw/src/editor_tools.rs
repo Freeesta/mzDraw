@@ -1,7 +1,9 @@
 //! What the tools do with a press, a drag and a release, and the keyboard. Each completed gesture is one undo step.
 
 use crate::build;
-use crate::editor::{Editor, Hit, Press, Tool, CHANGED, CTRL, HANDLED, REPAINT, SHIFT, TOOL};
+use crate::editor::{
+    Editor, Hit, Press, Tool, ASK_LABEL, CHANGED, CTRL, HANDLED, REPAINT, SHIFT, TOOL,
+};
 use crate::m;
 use crate::ops::Op;
 use std::f64::consts::PI;
@@ -151,6 +153,7 @@ impl Editor {
                     &n.to_string(),
                 )
             }
+            Tool::Label(l) => self.label_release(&p, &l, px, py),
             Tool::Charge(c) => match p.hit {
                 Hit::Atom(a) => {
                     let now = self.session.doc.atom(a).map_or(0, |x| x.chg);
@@ -161,6 +164,7 @@ impl Editor {
                         iso: None,
                         rad: None,
                         h: None,
+                        lab: None,
                     };
                     self.run(&[set], "draw2.say.charge", &(now + c).to_string())
                 }
@@ -235,6 +239,7 @@ impl Editor {
                     iso: None,
                     rad: None,
                     h: None,
+                    lab: None,
                 };
                 self.run(&[set], "draw2.say.element", el)
             }
@@ -251,6 +256,34 @@ impl Editor {
                     "draw2.say.atom",
                     el,
                 )
+            }
+        }
+    }
+
+    /// The label tool: on an atom it sets the label, on an empty spot it adds a labelled atom.
+    fn label_release(&mut self, p: &Press, label: &str, px: f64, py: f64) -> u32 {
+        let set = |id| Op::AtomSet {
+            id,
+            el: None,
+            chg: None,
+            iso: None,
+            rad: None,
+            h: None,
+            lab: Some(label.to_string()),
+        };
+        match p.hit {
+            Hit::Atom(a) => self.run(&[set(a)], "draw2.say.label", label),
+            Hit::Bond(_) => 0,
+            Hit::None => {
+                let (x, y) = self.view.to_doc(px, py);
+                let id = self.session.doc.next;
+                let add = Op::AtomAdd {
+                    id: Some(id),
+                    el: "C".into(),
+                    x,
+                    y,
+                };
+                self.run(&[add, set(id)], "draw2.say.label", label)
             }
         }
     }
@@ -449,6 +482,7 @@ impl Editor {
             (false, "+" | "-") => self.set_tool(&format!("charge:{lower}")),
             (false, "v") => self.set_tool("select"),
             (false, "e") => self.set_tool("erase"),
+            (false, "l") => ASK_LABEL,
             (false, k) => return self.element_key(k, shift),
         };
         f | HANDLED
@@ -480,6 +514,7 @@ impl Editor {
                     iso: None,
                     rad: None,
                     h: None,
+                    lab: None,
                 };
                 self.run(&[set], "draw2.say.element", el)
             }

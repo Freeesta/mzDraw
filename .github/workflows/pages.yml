@@ -1,4 +1,4 @@
-# Publishes the page at the root of https://freeesta.github.io/mzdraw/ on every push to main. Nothing untested goes out: the build
+# Publishes the page at the root of https://freeesta.github.io/mzDraw/ on every push to main. Nothing untested goes out: the build
 # job runs the same checks as ci.yml (Rust tests, site build with the size cap, golden parity, e2e of the built page) before it
 # uploads the site; after the deploy the e2e test runs again against the published URL.
 name: pages
