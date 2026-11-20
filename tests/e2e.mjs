@@ -1,7 +1,8 @@
 // End-to-end test of the page in Chromium (Playwright): the page loads its module, a benzene template lands with one click, undo and redo
 // walk back and forth, atoms and bonds are drawn with the pointer, a five-bonded carbon raises the live valence mistake of check/1,
 // charge, erase, select all + Delete and the keyboard shortcuts work, SMILES and molfile are added, molfile / SVG / document are saved by
-// the Rust module, and the same loop works on a tablet viewport with touch. No page error, console error or failed request at any point.
+// the Rust module, wedge bonds are drawn and turned around, the selection is copied, cut, pasted (system clipboard), duplicated, rotated
+// and mirrored, and the same loop works on a tablet viewport with touch. No page error, console error or failed request at any point.
 // usage: node tests/e2e.mjs            serves site/ (tools/build_site.sh) on a local port
 //        node tests/e2e.mjs <URL>      tests a published site (the live check of pages.yml)
 //        MZDRAW_SHOTS=<dir>            also writes screenshots at deviceScaleFactor 2
@@ -130,7 +131,8 @@ try {
     eq(await pg.innerText("#d2-note"), "");                 // a molfile brings its own coordinates
     await pg.fill("#d2-text", "C1CC"); await pg.click("#d2-add");
     await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
-    assert(!(await pg.innerText("#d2-note")).includes("error.") && (await state(pg)).atoms === 4, "a refused text says why in words and changes nothing");
+    eq(await pg.innerText("#d2-note"), await pg.evaluate("I18N.t('error.draw2.smiles')"));       // the sentence alone, no "Error:" in front
+    eq((await state(pg)).atoms, 4);                         // a refused text changes nothing
     await tool(pg, "undo"); await want(pg, { atoms: 0 });  // one import is one undo step
     await tool(pg, "redo"); await want(pg, { atoms: 4 });
   });
@@ -159,12 +161,67 @@ try {
     assert(ink > 200, "ink " + ink);
     await shot(pg, "acetic-acid");
   });
+
+  await step("wedge tools, rotate and flip, copy, cut, paste and duplicate by keyboard and by buttons", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    /** per bond: the position of its narrow-end atom in the atom list, and its mark (ids go on after a cleared canvas) */
+    const marks = async () => { const d = await doc(); return d.bonds.map(b => [d.atoms.findIndex(a => a.id === b.a), b.s || 0]); };
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:up"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1, tool: "bond:up" });
+    eq(await marks(), [[0, 1]]);
+    assert((await pg.evaluate("window.MZDRAW.save('molfile')")).includes("  1  2  1  1"), "the molfile carries the wedge");
+    assert((await pg.evaluate("window.MZDRAW.save('svg')")).includes("<polygon"), "the SVG paints the wedge");
+    await pg.mouse.click(cx + 17, cy - 10);                 // the middle of the bond: the same wedge again turns it around
+    await until(pg, "(() => { const d = JSON.parse(window.MZDRAW.save('mzdraw')); return d.bonds[0].a === d.atoms[1].id; })()");
+    assert((await pg.evaluate("window.MZDRAW.save('molfile')")).includes("  2  1  1  1"), "the narrow end is written first");
+    await pg.focus("#d2-canvas");
+    await pg.keyboard.press("Shift+W"); await want(pg, { tool: "bond:down" });
+    await pg.mouse.click(cx, cy); await want(pg, { atoms: 3, bonds: 2 });      // a hashed bond sprouts from the atom, narrow end there
+    eq(await marks(), [[1, 1], [0, 2]]);
+    await pg.keyboard.press("y"); await want(pg, { tool: "bond:wavy" });
+    assert(await pg.isDisabled('[data-testid="d2-copy"]') && await pg.isDisabled('[data-testid="d2-paste"]'), "nothing selected, nothing copied yet");
+    // keyboard: the system clipboard carries the document and a molfile
+    await pg.keyboard.press("Control+a"); await want(pg, { selected: 5 });
+    await pg.keyboard.press("Control+c");
+    await until(pg, "!document.querySelector('[data-testid=\"d2-paste\"]').disabled");
+    await pg.keyboard.press("Control+v"); await want(pg, { atoms: 6, bonds: 4, tool: "select", selected: 5 });
+    eq((await doc()).bonds.map(b => b.s || 0), [1, 2, 1, 2]);
+    await pg.keyboard.press("Control+x"); await want(pg, { atoms: 3, bonds: 2, selected: 0 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 6 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3 });
+    // buttons: duplicate, rotate, flip; each is one undo step
+    await pg.keyboard.press("Control+a");
+    await tool(pg, "duplicate"); await want(pg, { atoms: 6, bonds: 4, selected: 5 });
+    const before = await doc();
+    await tool(pg, "rotate-l");
+    const turned = await doc();
+    assert(turned.atoms[3].x !== before.atoms[3].x && turned.atoms[0].x === before.atoms[0].x, "only the selected copy turns");
+    await tool(pg, "flip-h"); await tool(pg, "flip-v");
+    await tool(pg, "undo"); await tool(pg, "undo"); await tool(pg, "undo");
+    eq(await doc(), before);
+    await pg.keyboard.press("Control+d"); await want(pg, { atoms: 9, bonds: 6 });
+    await tool(pg, "copy"); await tool(pg, "paste"); await want(pg, { atoms: 12, bonds: 8 });
+    await shot(pg, "wedges");
+    // a text from another program is pasted as a structure; a text that is none says why
+    await pg.evaluate("(() => { const d = new DataTransfer(); d.setData('text/plain', 'C[C@H](N)O'); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()");
+    await want(pg, { atoms: 16, bonds: 11, selected: 7 });
+    assert((await doc()).bonds.slice(8).some(b => b.s), "the stereo of the SMILES arrives as a wedge");
+    await pg.evaluate("(() => { const d = new DataTransfer(); d.setData('text/plain', 'not a structure ((('); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()");
+    await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('error.draw2.smiles')");
+    eq((await state(pg)).atoms, 16);
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
   await step("tablet 768x1024 with touch: the same loop by tapping, no sideways scroll", async () => {
     assert(await pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), "the page scrolls sideways at 768 px");
     await loop(pg, cx, cy, (x, y) => pg.touchscreen.tap(x, y), "tablet");
+    // the clipboard and the transforms by tapping the buttons
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:down"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "select"); await pg.touchscreen.tap(cx, cy); await want(pg, { selected: 1 });
+    await tool(pg, "copy"); await tool(pg, "paste"); await want(pg, { atoms: 3, bonds: 1, selected: 1 });
+    await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
   });
   await ctx.close();
 } finally {
@@ -174,4 +231,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 8 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 9 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);

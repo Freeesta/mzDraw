@@ -27,13 +27,22 @@ pub struct Atom {
     pub h: Option<u8>,
 }
 
-/// One bond between the atoms with ids `a` and `b`, Kekulé order 1-3.
+/// Wedge marks of a single bond, as drawn: the narrow end is the atom `a` of the bond.
+pub const WEDGE_UP: u8 = 1;
+pub const WEDGE_DOWN: u8 = 2;
+pub const WEDGE_WAVY: u8 = 3;
+
+/// One bond between the atoms with ids `a` and `b`, Kekulé order 1-3. `s` is the wedge mark of a single bond (0 none, 1 solid wedge,
+/// 2 hashed wedge, 3 wavy), drawn from `a` (narrow end) to `b`: the marks are the drawing, the stereo of the record is derived from
+/// them by the molfile rules of `mzlab-mol` at export.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bond {
     pub id: u32,
     pub a: u32,
     pub b: u32,
     pub o: u8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub s: u8,
 }
 
 /// The document. `next` is the next free id (atoms and bonds share one counter), so replaying a log gives the same ids.
@@ -81,7 +90,8 @@ impl Document {
         Ok(d)
     }
 
-    /// Ids unique and below `next`, bonds between two different existing atoms, orders 1-3, one bond per pair.
+    /// Ids unique and below `next`, bonds between two different existing atoms, orders 1-3, one bond per pair, wedge marks on single
+    /// bonds only.
     fn consistent(&self) -> bool {
         let mut ids: Vec<u32> = self.atoms.iter().map(|a| a.id).collect();
         ids.extend(self.bonds.iter().map(|b| b.id));
@@ -100,6 +110,7 @@ impl Document {
             && self.bonds.iter().all(|b| {
                 b.a != b.b
                     && (1..=3).contains(&b.o)
+                    && (b.s == 0 || (b.s <= 3 && b.o == 1))
                     && self.atom(b.a).is_some()
                     && self.atom(b.b).is_some()
             })

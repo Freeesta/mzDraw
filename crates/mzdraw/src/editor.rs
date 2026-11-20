@@ -1,7 +1,7 @@
 //! The interactive editor: a session, a view, a tool and the pointer state machine. The page forwards pointer, wheel and key events
 //! as numbers and paints the display list; every decision (what is under the pointer, what a click does) is taken here.
 
-use crate::doc::Document;
+use crate::doc::{Document, WEDGE_DOWN, WEDGE_UP, WEDGE_WAVY};
 use crate::io;
 use crate::m;
 use crate::ops::{Op, Session};
@@ -26,21 +26,28 @@ pub const TOUCH: u32 = 2;
 pub enum Tool {
     Select,
     Atom(String),
-    Bond(u8),
+    /// Order 1-3 and wedge mark 0-3 (a mark only on order 1).
+    Bond(u8, u8),
     Erase,
     Ring(u8, bool),
     Charge(i8),
 }
 
 impl Tool {
-    /// `select`, `atom:N`, `bond:2`, `erase`, `ring:6`, `ring:6a` (alternating double bonds), `charge:+`, `charge:-`.
+    /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `erase`, `ring:6`, `ring:6a` (alternating
+    /// double bonds), `charge:+`, `charge:-`.
     pub fn parse(s: &str) -> Option<Tool> {
         let (name, arg) = s.split_once(':').unwrap_or((s, ""));
         Some(match name {
             "select" => Tool::Select,
             "erase" => Tool::Erase,
             "atom" if mzlab_mol::is_element(arg) => Tool::Atom(arg.into()),
-            "bond" => Tool::Bond(arg.parse().ok().filter(|o| (1..=3).contains(o))?),
+            "bond" => match arg {
+                "up" => Tool::Bond(1, WEDGE_UP),
+                "down" => Tool::Bond(1, WEDGE_DOWN),
+                "wavy" => Tool::Bond(1, WEDGE_WAVY),
+                _ => Tool::Bond(arg.parse().ok().filter(|o| (1..=3).contains(o))?, 0),
+            },
             "ring" => {
                 let n = arg
                     .trim_end_matches('a')
@@ -59,7 +66,10 @@ impl Tool {
             Tool::Select => "select".into(),
             Tool::Erase => "erase".into(),
             Tool::Atom(e) => format!("atom:{e}"),
-            Tool::Bond(o) => format!("bond:{o}"),
+            Tool::Bond(_, WEDGE_UP) => "bond:up".into(),
+            Tool::Bond(_, WEDGE_DOWN) => "bond:down".into(),
+            Tool::Bond(_, WEDGE_WAVY) => "bond:wavy".into(),
+            Tool::Bond(o, _) => format!("bond:{o}"),
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),
             Tool::Charge(c) => format!("charge:{}", if *c < 0 { "-" } else { "+" }),
         }
@@ -93,6 +103,9 @@ pub struct Editor {
     pub said: (&'static str, String),
     /// The last refused operation, an i18n key.
     pub error: &'static str,
+    /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
+    pub(crate) clip: String,
+    pub(crate) pasted: u32,
 }
 
 impl Default for Editor {
@@ -104,11 +117,13 @@ impl Default for Editor {
                 ox: 200.0,
                 oy: 200.0,
             },
-            tool: Tool::Bond(1),
+            tool: Tool::Bond(1, 0),
             over: Overlay::default(),
             press: None,
             said: ("", String::new()),
             error: "",
+            clip: String::new(),
+            pasted: 0,
         }
     }
 }
@@ -268,14 +283,26 @@ impl Editor {
         } else {
             right + 2.0 - left
         };
-        let base = d.next - 1;
+        self.place(&new, dx, 0.0)?;
+        self.said = ("draw2.say.imported", new.atoms.len().to_string());
+        Ok(info)
+    }
+
+    /// Adds every atom and bond of `new`, moved by (`dx`, `dy`), with fresh ids, as one undo step; returns the new atom and bond ids.
+    pub(crate) fn place(
+        &mut self,
+        new: &Document,
+        dx: f64,
+        dy: f64,
+    ) -> Result<(Vec<u32>, Vec<u32>), &'static str> {
+        let base = self.doc().next - 1;
         let mut ops = Vec::new();
         for a in &new.atoms {
             ops.push(Op::AtomAdd {
                 id: Some(base + a.id),
                 el: a.el.clone(),
                 x: a.x + dx,
-                y: a.y,
+                y: a.y + dy,
             });
             if a.chg != 0 || a.iso != 0 || a.rad != 0 || a.h.is_some() {
                 let some = |v: bool| v.then_some(());
@@ -295,11 +322,14 @@ impl Editor {
                 a: base + b.a,
                 b: base + b.b,
                 o: b.o,
+                s: b.s,
             });
         }
         self.session.run(&ops).map_err(|e| e.key)?;
-        self.said = ("draw2.say.imported", new.atoms.len().to_string());
-        Ok(info)
+        Ok((
+            new.atoms.iter().map(|a| base + a.id).collect(),
+            new.bonds.iter().map(|b| base + b.id).collect(),
+        ))
     }
 
     /// Empties the canvas as one undo step.

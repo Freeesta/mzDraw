@@ -185,6 +185,7 @@ pub(crate) fn ring(doc: &Document, op: &Op) -> Result<Vec<Op>, OpError> {
             a,
             b,
             o: if double { 2 } else { 1 },
+            s: 0,
         });
         next += 1;
     }

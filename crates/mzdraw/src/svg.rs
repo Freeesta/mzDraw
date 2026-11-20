@@ -71,6 +71,18 @@ pub fn to_svg(doc: &Document) -> String {
                 num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), PALETTE[d[i + 4] as usize % 10], escape(&sc.strings[d[i + 5] as usize])
             ));
             i += 7;
+        } else if op == scene::TRI {
+            s.push_str(&format!(
+                "<polygon points=\"{},{} {},{} {},{}\" fill=\"{}\"/>\n",
+                num(d[i + 1]),
+                num(d[i + 2]),
+                num(d[i + 3]),
+                num(d[i + 4]),
+                num(d[i + 5]),
+                num(d[i + 6]),
+                PALETTE[d[i + 7] as usize % 10]
+            ));
+            i += 8;
         } else if op == scene::RECT {
             i += 6;
         } else {

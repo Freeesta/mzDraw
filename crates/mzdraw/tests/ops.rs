@@ -1,7 +1,7 @@
 //! Every operation, its refusals, and the undo property: any sequence of steps undone gives back the identical document bytes, and
 //! redone gives the identical final bytes; a replayed log rebuilds the same document.
 
-use mzdraw::{Document, Op, Session};
+use mzdraw::{Axis, Document, Op, Session};
 
 fn add(el: &str, x: f64, y: f64) -> Op {
     Op::AtomAdd {
@@ -13,7 +13,22 @@ fn add(el: &str, x: f64, y: f64) -> Op {
 }
 
 fn bond(a: u32, b: u32, o: u8) -> Op {
-    Op::BondAdd { id: None, a, b, o }
+    Op::BondAdd {
+        id: None,
+        a,
+        b,
+        o,
+        s: 0,
+    }
+}
+
+fn set_order(id: u32, o: u8) -> Op {
+    Op::BondSet {
+        id,
+        o: Some(o),
+        s: None,
+        rev: false,
+    }
 }
 
 fn ethanol() -> Session {
@@ -44,7 +59,7 @@ fn refused_operations_change_nothing() {
         (vec![bond(1, 1, 1)], "error.draw2.noAtom"),
         (vec![bond(1, 2, 1)], "error.draw2.bond"),
         (vec![bond(1, 3, 4)], "error.draw2.bond"),
-        (vec![Op::BondSet { id: 77, o: 2 }], "error.draw2.noBond"),
+        (vec![set_order(77, 2)], "error.draw2.noBond"),
         (
             vec![Op::Remove {
                 atoms: vec![42],
@@ -111,7 +126,7 @@ fn set_move_and_remove() {
         ),
         ("N", 1)
     );
-    s.run(&[Op::BondSet { id: 4, o: 2 }]).unwrap();
+    s.run(&[set_order(4, 2)]).unwrap();
     assert_eq!(s.doc.bond(4).unwrap().o, 2);
     s.run(&[Op::Move {
         atoms: vec![1],
@@ -140,7 +155,7 @@ fn hydrogens_follow_the_valence_rules() {
     let mut s = ethanol();
     let h = |s: &Session, id| s.doc.hydrogens(s.doc.atom(id).unwrap());
     assert_eq!((h(&s, 1), h(&s, 2), h(&s, 3)), (3, 2, 1));
-    s.run(&[Op::BondSet { id: 5, o: 2 }]).unwrap();
+    s.run(&[set_order(5, 2)]).unwrap();
     assert_eq!((h(&s, 2), h(&s, 3)), (1, 0));
     s.run(&[
         Op::AtomSet {
@@ -151,7 +166,7 @@ fn hydrogens_follow_the_valence_rules() {
             rad: None,
             h: None,
         },
-        Op::BondSet { id: 5, o: 1 },
+        set_order(5, 1),
     ])
     .unwrap();
     assert_eq!(h(&s, 3), 0);
@@ -224,7 +239,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
         )
     };
     let els = ["C", "N", "O", "S", "Cl", "Fe"];
-    match r.next(9) {
+    match r.next(13) {
         0 | 1 => {
             let (x, y) = xy(r);
             vec![add(els[r.next(els.len())], x, y)]
@@ -238,10 +253,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             rad: None,
             h: None,
         }],
-        4 => vec![Op::BondSet {
-            id: bond_id(r),
-            o: 1 + r.next(3) as u8,
-        }],
+        4 => vec![set_order(bond_id(r), 1 + r.next(3) as u8)],
         5 => {
             let (dx, dy) = xy(r);
             vec![Op::Move {
@@ -253,6 +265,33 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
         6 => vec![Op::Remove {
             atoms: vec![atom(r)],
             bonds: vec![bond_id(r)],
+        }],
+        9 => vec![Op::BondSet {
+            id: bond_id(r),
+            o: (r.next(2) == 1).then(|| 1 + r.next(3) as u8),
+            s: (r.next(3) > 0).then(|| r.next(4) as u8),
+            rev: r.next(2) == 1,
+        }],
+        10 => {
+            let (x, y) = xy(r);
+            vec![Op::Rotate {
+                atoms: vec![atom(r), atom(r), atom(r)],
+                deg: r.next(72) as f64 * 5.0 - 180.0,
+                x,
+                y,
+            }]
+        }
+        11 => vec![Op::Flip {
+            atoms: vec![atom(r), atom(r)],
+            axis: if r.next(2) == 1 { Axis::H } else { Axis::V },
+            at: xy(r).0,
+        }],
+        12 => vec![Op::BondAdd {
+            id: None,
+            a: atom(r),
+            b: atom(r),
+            o: 1,
+            s: 1 + r.next(3) as u8,
         }],
         7 => {
             let (x, y) = xy(r);
@@ -350,4 +389,108 @@ fn the_log_is_json_with_stable_operation_names() {
         s.replay("[{\"op\":\"nope\"}]").unwrap_err().key,
         "error.draw2.log"
     );
+}
+
+#[test]
+fn wedge_marks_sit_on_single_bonds_and_turn_around() {
+    let mut s = ethanol();
+    let wedge = |id, o, mark, rev| Op::BondSet {
+        id,
+        o,
+        s: mark,
+        rev,
+    };
+    s.run(&[wedge(4, None, Some(1), false)]).unwrap();
+    assert_eq!(
+        (s.doc.bonds[0].a, s.doc.bonds[0].b, s.doc.bonds[0].s),
+        (1, 2, 1)
+    );
+    assert!(s
+        .doc
+        .to_json()
+        .contains(r#"{"id":4,"a":1,"b":2,"o":1,"s":1}"#));
+    // turned around: the narrow end is now atom 2
+    s.run(&[wedge(4, None, None, true)]).unwrap();
+    assert_eq!(
+        (s.doc.bonds[0].a, s.doc.bonds[0].b, s.doc.bonds[0].s),
+        (2, 1, 1)
+    );
+    // a double bond drops the mark; a mark on a double bond is refused
+    s.run(&[wedge(4, Some(2), None, false)]).unwrap();
+    assert_eq!((s.doc.bonds[0].o, s.doc.bonds[0].s), (2, 0));
+    let before = s.doc.to_json();
+    for bad in [
+        wedge(4, None, Some(2), false),
+        wedge(5, Some(3), Some(1), false),
+        wedge(5, None, Some(4), false),
+    ] {
+        assert_eq!(s.run(&[bad]).unwrap_err().key, "error.draw2.bond");
+    }
+    let marked_double = Op::BondAdd {
+        id: None,
+        a: 1,
+        b: 3,
+        o: 2,
+        s: 1,
+    };
+    assert_eq!(s.run(&[marked_double]).unwrap_err().key, "error.draw2.bond");
+    assert_eq!(s.doc.to_json(), before);
+    // a document with a mark on a double bond is not a document
+    assert!(Document::from_json(&before.replace(r#""o":2}"#, r#""o":2,"s":1}"#)).is_err());
+    for _ in 0..3 {
+        assert!(s.undo());
+    }
+    assert_eq!(s.doc.to_json(), ethanol().doc.to_json());
+    // the log keeps the old spelling of an order change and adds the new fields only when used
+    assert_eq!(
+        serde_json::to_string(&[set_order(4, 2), wedge(4, None, Some(3), true)]).unwrap(),
+        r#"[{"op":"bond.set","id":4,"o":2},{"op":"bond.set","id":4,"s":3,"rev":true}]"#
+    );
+}
+
+#[test]
+fn rotate_and_flip_move_the_atoms_exactly_and_undo() {
+    let mut s = ethanol();
+    let start = s.doc.to_json();
+    s.run(&[Op::Rotate {
+        atoms: vec![1, 2, 3],
+        deg: 90.0,
+        x: 1.0,
+        y: 0.0,
+    }])
+    .unwrap();
+    let xy: Vec<(f64, f64)> = s.doc.atoms.iter().map(|a| (a.x, a.y)).collect();
+    assert_eq!(xy, [(1.0, -1.0), (1.0, 0.0), (1.0, 1.0)]);
+    s.run(&[Op::Flip {
+        atoms: vec![1, 3],
+        axis: Axis::V,
+        at: 0.5,
+    }])
+    .unwrap();
+    let xy: Vec<(f64, f64)> = s.doc.atoms.iter().map(|a| (a.x, a.y)).collect();
+    assert_eq!(xy, [(1.0, 2.0), (1.0, 0.0), (1.0, 0.0)]);
+    s.run(&[Op::Flip {
+        atoms: vec![1],
+        axis: Axis::H,
+        at: 0.0,
+    }])
+    .unwrap();
+    assert_eq!(s.doc.atoms[0].x, -1.0);
+    assert_eq!(
+        s.log_json().split("{\"op\":\"rotate\"").nth(1).unwrap(),
+        r#","atoms":[1,2,3],"deg":90.0,"x":1.0,"y":0.0},{"op":"flip","atoms":[1,3],"axis":"v","at":0.5},{"op":"flip","atoms":[1],"axis":"h","at":0.0}]"#
+    );
+    let refused = Op::Rotate {
+        atoms: vec![1, 42],
+        deg: 10.0,
+        x: 0.0,
+        y: 0.0,
+    };
+    let before = s.doc.to_json();
+    assert_eq!(s.run(&[refused]).unwrap_err().key, "error.draw2.noAtom");
+    assert_eq!(s.doc.to_json(), before);
+    for _ in 0..3 {
+        assert!(s.undo());
+    }
+    assert_eq!(s.doc.to_json(), start);
 }

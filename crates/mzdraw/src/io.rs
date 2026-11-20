@@ -1,7 +1,9 @@
 //! Bridges between the document and the `mol/1` record of `mzlab-mol`, whose readers and writers do all the format work: SMILES and
-//! molfile in, molfile out. Nothing is parsed here.
+//! molfile in, molfile out. No source file is parsed here. The wedge marks cross the bridge through the molfile `mzlab-mol` writes:
+//! on the way out the marks as drawn are set on its bond lines (the record's reader then derives the stereo by its own rules), on the
+//! way in the marks are read from the molfile the record writes for its own stereo on our coordinates (`wedges_from_record`).
 
-use crate::doc::{round4, Atom, Bond, Document};
+use crate::doc::{round4, Atom, Bond, Document, WEDGE_DOWN, WEDGE_UP, WEDGE_WAVY};
 use crate::layout;
 use crate::m;
 use mzlab_mol::{Coords, Mol};
@@ -80,6 +82,7 @@ impl Document {
                 a: b.a + 1,
                 b: b.b + 1,
                 o: b.o,
+                s: 0,
             });
         }
         // keep a hydrogen count only where the valence rules would show another one
@@ -94,7 +97,81 @@ impl Document {
         } else {
             d.normalise();
         }
+        d.wedges_from_record(m);
         (d, placeholder)
+    }
+
+    /// The stereo of a record as wedge marks on this drawing: the record, with the coordinates of the drawing, is written as a
+    /// molfile by `mzlab-mol` (one wedge per defined centre, a wavy mark per unknown one, chosen by its own parity rule) and the
+    /// marks of its bond lines are taken. A record without stereo, or too large for V2000, leaves the drawing unmarked.
+    fn wedges_from_record(&mut self, m: &Mol) {
+        if m.stereo.is_empty() {
+            return;
+        }
+        let mut rec = m.clone();
+        rec.coords = Some(Coords {
+            dim: 2,
+            xy: self.atoms.iter().map(|a| vec![a.x, a.y]).collect(),
+            from: crate::NAME.into(),
+        });
+        let text = rec.to_molfile(crate::NAME);
+        for (i, j, _, mark) in bond_lines(&text, self.atoms.len(), self.bonds.len()) {
+            let (Some(a), Some(b)) = (self.atoms.get(i), self.atoms.get(j)) else {
+                continue;
+            };
+            let (a, b) = (a.id, b.id);
+            let s = match mark {
+                1 => WEDGE_UP,
+                6 => WEDGE_DOWN,
+                4 => WEDGE_WAVY,
+                _ => continue,
+            };
+            if let Some(bond) = self
+                .bonds
+                .iter_mut()
+                .find(|x| x.o == 1 && ((x.a == a && x.b == b) || (x.a == b && x.b == a)))
+            {
+                (bond.a, bond.b, bond.s) = (a, b, s);
+            }
+        }
+    }
+
+    /// Sets the wedge marks as drawn on the bond lines of a V2000 molfile of this document (bond lines in pool order): the first
+    /// atom of a marked line is the narrow end. A V3000 file (more than 999 atoms or bonds) is left without marks.
+    fn mark_wedges(&self, molfile: String) -> String {
+        if self.bonds.iter().all(|b| b.s == 0) || !molfile.contains("V2000") {
+            return molfile;
+        }
+        let first = 4 + self.atoms.len();
+        let mut lines: Vec<String> = molfile.split('\n').map(str::to_string).collect();
+        for (k, b) in self.bonds.iter().enumerate().filter(|(_, b)| b.s != 0) {
+            let (Some(i), Some(j)) = (self.atom_index(b.a), self.atom_index(b.b)) else {
+                continue;
+            };
+            let Some(line) = lines.get_mut(first + k).filter(|l| l.len() >= 12) else {
+                continue;
+            };
+            let mark = match b.s {
+                WEDGE_UP => 1,
+                WEDGE_DOWN => 6,
+                _ => 4,
+            };
+            *line = format!(
+                "{:>3}{:>3}{:>3}{:>3}{}",
+                i + 1,
+                j + 1,
+                b.o,
+                mark,
+                &line[12..]
+            );
+        }
+        lines.join("\n")
+    }
+
+    /// The document as a record with its stereo: the molfile as drawn, read back by `mzlab-mol` (its rules decide what the wedges
+    /// mean). A drawing its reader refuses gives the record without stereo.
+    pub fn to_mol_stereo(&self) -> Mol {
+        Mol::from_molfile(&self.to_molfile()).unwrap_or_else(|_| self.to_mol())
     }
 
     /// Scales the coordinates so that the median bond length is 1 (a drawing without bonds is left alone).
@@ -117,10 +194,31 @@ impl Document {
         }
     }
 
-    /// The whole canvas as one molfile (V2000, or V3000 when it has to be), written by `mzlab-mol`.
+    /// The whole canvas as one molfile (V2000, or V3000 when it has to be), written by `mzlab-mol`, with the wedge marks as drawn.
     pub fn to_molfile(&self) -> String {
-        self.to_mol().to_molfile(crate::NAME)
+        self.mark_wedges(self.to_mol().to_molfile(crate::NAME))
     }
+}
+
+/// The bond lines of a V2000 molfile written by `mzlab-mol`, as (first atom, second atom, order, stereo mark), atoms from 0.
+fn bond_lines(molfile: &str, atoms: usize, bonds: usize) -> Vec<(usize, usize, u8, u8)> {
+    if !molfile.contains("V2000") {
+        return Vec::new();
+    }
+    let field = |l: &str, k: usize| l.get(k..k + 3).and_then(|f| f.trim().parse::<usize>().ok());
+    molfile
+        .split('\n')
+        .skip(4 + atoms)
+        .take(bonds)
+        .filter_map(|l| {
+            Some((
+                field(l, 0)?.checked_sub(1)?,
+                field(l, 3)?.checked_sub(1)?,
+                field(l, 6)? as u8,
+                field(l, 9)? as u8,
+            ))
+        })
+        .collect()
 }
 
 /// Reads a structure text: an `mzdraw/1` document, a molfile (V2000/V3000) or a SMILES. The error is an i18n key.

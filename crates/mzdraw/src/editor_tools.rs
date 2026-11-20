@@ -89,7 +89,7 @@ impl Editor {
                     (start.1 - py) / self.view.scale,
                 );
             }
-            (Tool::Bond(_) | Tool::Atom(_), Hit::Atom(a)) => {
+            (Tool::Bond(..) | Tool::Atom(_), Hit::Atom(a)) => {
                 let (to, _) = self.sprout_target(a, px, py, kind);
                 if let Some(from) = self.session.doc.atom(a) {
                     self.over.preview = Some((from.x, from.y, to.0, to.1));
@@ -129,7 +129,7 @@ impl Editor {
         let flags = match self.tool.clone() {
             Tool::Select => self.select_release(&p, drag, band),
             Tool::Atom(el) => self.atom_release(&p, &el, px, py),
-            Tool::Bond(o) => self.bond_release(&p, o, px, py),
+            Tool::Bond(o, s) => self.bond_release(&p, (o, s), px, py),
             Tool::Erase => self.erase(p.hit),
             Tool::Ring(n, arom) => {
                 let (x, y) = self.view.to_doc(px, py);
@@ -226,7 +226,7 @@ impl Editor {
 
     fn atom_release(&mut self, p: &Press, el: &str, px: f64, py: f64) -> u32 {
         match p.hit {
-            Hit::Atom(a) if p.moved => self.sprout(a, el, 1, px, py, p.kind),
+            Hit::Atom(a) if p.moved => self.sprout(a, el, (1, 0), px, py, p.kind),
             Hit::Atom(a) => {
                 let set = Op::AtomSet {
                     id: a,
@@ -256,18 +256,37 @@ impl Editor {
     }
 
     /// A bond from atom `a` to the atom under the pointer or to a new atom `el`.
-    fn sprout(&mut self, a: u32, el: &str, o: u8, px: f64, py: f64, kind: u32) -> u32 {
+    fn sprout(&mut self, a: u32, el: &str, os: (u8, u8), px: f64, py: f64, kind: u32) -> u32 {
         let (to, onto) = self.sprout_target(a, px, py, kind);
-        self.join(a, onto, to, el, o)
+        self.join(a, onto, to, el, os)
     }
 
-    /// Bonds `a` to the existing atom `onto` (raising the order of a bond already there) or to a new atom at `to`.
-    fn join(&mut self, a: u32, onto: Option<u32>, to: (f64, f64), el: &str, o: u8) -> u32 {
+    /// Bonds `a` to the existing atom `onto` (setting the order and mark of a bond already there) or to a new atom at `to`. A wedge
+    /// mark has its narrow end at `a`.
+    fn join(
+        &mut self,
+        a: u32,
+        onto: Option<u32>,
+        to: (f64, f64),
+        el: &str,
+        (o, s): (u8, u8),
+    ) -> u32 {
         let d = &self.session.doc;
         let ops = match onto {
             Some(b) => match d.bond_between(a, b) {
-                Some(x) => vec![Op::BondSet { id: x.id, o }],
-                None => vec![Op::BondAdd { id: None, a, b, o }],
+                Some(x) => vec![Op::BondSet {
+                    id: x.id,
+                    o: Some(o),
+                    s: (s != 0).then_some(s),
+                    rev: s != 0 && x.a != a,
+                }],
+                None => vec![Op::BondAdd {
+                    id: None,
+                    a,
+                    b,
+                    o,
+                    s,
+                }],
             },
             None => {
                 let id = d.next;
@@ -283,6 +302,7 @@ impl Editor {
                         a,
                         b: id,
                         o,
+                        s,
                     },
                 ]
             }
@@ -290,9 +310,9 @@ impl Editor {
         self.run(&ops, "draw2.say.bond", &o.to_string())
     }
 
-    fn bond_release(&mut self, p: &Press, o: u8, px: f64, py: f64) -> u32 {
+    fn bond_release(&mut self, p: &Press, (o, s): (u8, u8), px: f64, py: f64) -> u32 {
         match p.hit {
-            Hit::Atom(a) if p.moved => self.sprout(a, "C", o, px, py, p.kind),
+            Hit::Atom(a) if p.moved => self.sprout(a, "C", (o, s), px, py, p.kind),
             Hit::Atom(a) => {
                 let ang = build::sprout_angle(&self.session.doc, a);
                 let to = self
@@ -300,22 +320,38 @@ impl Editor {
                     .doc
                     .atom(a)
                     .map_or((0.0, 0.0), |f| (f.x + m::cos(ang), f.y + m::sin(ang)));
-                self.join(a, None, to, "C", o)
+                self.join(a, None, to, "C", (o, s))
+            }
+            Hit::Bond(b) if s != 0 => {
+                // a wedge tool on a bond sets its mark; on a bond that has it already it turns the wedge around
+                let same = self.session.doc.bond(b).is_some_and(|x| x.s == s);
+                let set = Op::BondSet {
+                    id: b,
+                    o: Some(1),
+                    s: Some(s),
+                    rev: same,
+                };
+                self.run(&[set], "draw2.say.wedge", "")
             }
             Hit::Bond(b) => {
-                // the single-bond tool on a bond walks 1 -> 2 -> 3 -> 1; the others set their order
-                let now = self.session.doc.bond(b).map_or(1, |x| x.o);
-                let next = if o == 1 { now % 3 + 1 } else { o };
-                self.run(
-                    &[Op::BondSet { id: b, o: next }],
-                    "draw2.say.order",
-                    &next.to_string(),
-                )
+                // the single-bond tool on a bond walks 1 -> 2 -> 3 -> 1 (a marked bond first loses its mark); the others set their order
+                let (now, mark) = self.session.doc.bond(b).map_or((1, 0), |x| (x.o, x.s));
+                let next = match (o, mark) {
+                    (1, 0) => now % 3 + 1,
+                    _ => o,
+                };
+                let set = Op::BondSet {
+                    id: b,
+                    o: Some(next),
+                    s: Some(0),
+                    rev: false,
+                };
+                self.run(&[set], "draw2.say.order", &next.to_string())
             }
             Hit::None => {
                 let (x, y) = self.view.to_doc(px, py);
                 let id = self.session.doc.next;
-                let (c, s) = (m::cos(PI / 6.0), m::sin(PI / 6.0));
+                let (cx, sy) = (m::cos(PI / 6.0), m::sin(PI / 6.0));
                 let ops = [
                     Op::AtomAdd {
                         id: Some(id),
@@ -326,14 +362,15 @@ impl Editor {
                     Op::AtomAdd {
                         id: Some(id + 1),
                         el: "C".into(),
-                        x: x + c,
-                        y: y + s,
+                        x: x + cx,
+                        y: y + sy,
                     },
                     Op::BondAdd {
                         id: None,
                         a: id,
                         b: id + 1,
                         o,
+                        s,
                     },
                 ];
                 self.run(&ops, "draw2.say.bond", &o.to_string())
@@ -396,6 +433,8 @@ impl Editor {
             (true, "z") => self.undo(),
             (true, "y") => self.redo(),
             (true, "a") => self.select_all(),
+            (true, "d") => self.duplicate(),
+            // copy, cut and paste arrive from the page as clipboard events
             (true, _) => return 0,
             (false, "delete" | "backspace") => self.delete_selection(),
             (false, "escape") => {
@@ -404,6 +443,9 @@ impl Editor {
                 self.set_tool("select")
             }
             (false, "1" | "2" | "3") => self.set_tool(&format!("bond:{lower}")),
+            (false, "w") if shift => self.set_tool("bond:down"),
+            (false, "w") => self.set_tool("bond:up"),
+            (false, "y") => self.set_tool("bond:wavy"),
             (false, "+" | "-") => self.set_tool(&format!("charge:{lower}")),
             (false, "v") => self.set_tool("select"),
             (false, "e") => self.set_tool("erase"),
