@@ -16,7 +16,7 @@ const site = request => { try { return { status: 0, stdout: wasm.replay(request)
 
 let n = 0, bad = 0;
 const check = (ok, what) => { n++; if (!ok) { bad++; console.error("FAIL " + what); } };
-for (const c of fx.cases) for (const out of ["mzdraw", "molfile", "molfile-v3000", "smiles", "ket", "svg", "log"]) {
+for (const c of fx.cases) for (const out of ["mzdraw", "molfile", "molfile-v3000", "smiles", "ket", "cdxml", "svg", "log"]) {
   const request = JSON.stringify({ ...c.request, out }), a = site(request), b = native(request);
   check(a.status === 0 && b.status === 0, `${c.name} as ${out}: runs on both sides (${a.stderr} ${b.stderr} ${b.error || ""})`);
   check(a.stdout === b.stdout, `${c.name} as ${out}: wasm == native`);
