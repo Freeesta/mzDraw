@@ -590,3 +590,192 @@ fn the_log_reader_takes_what_the_writer_writes_and_refuses_the_rest() {
         assert!(serde_json::from_str::<Op>(bad).is_err(), "{bad}");
     }
 }
+
+#[test]
+fn the_document_reader_takes_what_the_writer_writes_and_refuses_the_rest() {
+    // every state of a random session survives its own JSON
+    let mut r = Rng(0x2545_F491_4F6C_DD1D);
+    let mut s = Session::default();
+    for _ in 0..400 {
+        let _ = s.run(&random_step(&s, &mut r));
+        let text = s.doc.to_json();
+        assert_eq!(Document::from_json(&text).unwrap(), s.doc, "{text}");
+    }
+    assert!(!s.doc.atoms.is_empty() && !s.doc.bonds.is_empty());
+    // optional fields left out take their defaults, unknown fields are ignored
+    let d = Document::from_json(
+        r#"{"format":"mzdraw/1","next":4,"later":{"x":1},"atoms":[{"id":1,"el":"N","x":0,"y":0,"note":"n"},{"id":2,"el":"C","x":1,"y":0}],"bonds":[{"id":3,"a":1,"b":2,"o":1}]}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        (d.atoms[0].chg, d.atoms[0].h, d.bonds[0].s, d.objects.len()),
+        (0, None, 0, 0)
+    );
+    let good = r#"{"format":"mzdraw/1","next":4,"atoms":[{"id":1,"el":"N","x":0.0,"y":0.0},{"id":2,"el":"C","x":1.0,"y":0.0}],"bonds":[{"id":3,"a":1,"b":2,"o":1}]}"#;
+    assert_eq!(Document::from_json(good).unwrap().to_json(), good);
+    for (from, to) in [
+        (r#""next":4"#, r#""next":"4""#),
+        (r#""next":4,"#, ""),
+        (r#""format":"mzdraw/1","#, ""),
+        (r#""id":1,"el":"N""#, r#""id":1.5,"el":"N""#),
+        (r#""el":"N""#, r#""el":7"#),
+        (r#""x":1.0"#, r#""x":"1.0""#),
+        (r#""x":1.0,"#, ""),
+        (r#""o":1"#, r#""o":1,"s":"up""#),
+        (r#""o":1"#, r#""o":999"#),
+        (r#","bonds":[{"id":3,"a":1,"b":2,"o":1}]"#, ""),
+        (r#""bonds":["#, r#""objects":{},"bonds":["#),
+        (
+            r#""bonds":["#,
+            r#""objects":[{"id":9,"t":"cloud","x":0,"y":0}],"bonds":["#,
+        ),
+        (r#""atoms":["#, r#""atoms":[7,"#),
+    ] {
+        assert!(good.contains(from), "{from}");
+        let bad = good.replace(from, to);
+        assert!(Document::from_json(&bad).is_err(), "{bad}");
+    }
+    for bad in ["", "[]", "7", "null", "{"] {
+        assert!(Document::from_json(bad).is_err(), "{bad:?}");
+    }
+}
+
+#[test]
+fn hostile_input_is_refused_without_a_panic() {
+    let doc = |next: &str, id: &str, x: &str| {
+        format!(
+            r#"{{"format":"mzdraw/1","next":{next},"atoms":[{{"id":{id},"el":"C","x":{x},"y":0.0}}],"bonds":[]}}"#
+        )
+    };
+    assert!(Document::from_json(&doc("2", "1", "0.0")).is_ok());
+    // ids and counters at the edge of the integer range, coordinates no JSON can carry back
+    for (next, id, x) in [
+        ("4294967295", "4294967294", "0.0"),
+        ("4294967296", "1", "0.0"),
+        ("2147483649", "2147483648", "0.0"),
+        ("-1", "1", "0.0"),
+        ("2", "18446744073709551615", "0.0"),
+        ("2", "1", "1e300"),
+        ("2", "1", "1e7"),
+        ("2", "1", "-1e7"),
+        ("2", "1", "1e999"),
+        ("2", "1", "NaN"),
+    ] {
+        assert!(
+            Document::from_json(&doc(next, id, x)).is_err(),
+            "{next} {id} {x}"
+        );
+    }
+    // the largest document that is allowed still takes edits, and the id that would pass the limit is refused
+    let mut s = Session::new(Document::from_json(&doc("2147483648", "2147483647", "1e6")).unwrap());
+    let before = s.doc.to_json();
+    assert_eq!(
+        s.run(&[add("C", 0.0, 0.0)]).unwrap_err().key,
+        "error.draw2.idTaken"
+    );
+    assert_eq!(
+        s.run(&[bond(2147483647, 2147483647, 1)]).unwrap_err().key,
+        "error.draw2.noAtom"
+    );
+    let ring = Op::Ring {
+        n: 6,
+        arom: true,
+        atom: Some(2147483647),
+        bond: None,
+        x: 0.0,
+        y: 0.0,
+    };
+    assert!(s.run(&[ring]).is_err());
+    // nothing leaves the range of coordinates: a move, a rotation, a flip or a far atom is refused whole
+    for op in [
+        Op::Move {
+            atoms: vec![2147483647],
+            objects: vec![],
+            dx: 1.0,
+            dy: 0.0,
+        },
+        Op::Move {
+            atoms: vec![2147483647],
+            objects: vec![],
+            dx: f64::INFINITY,
+            dy: 0.0,
+        },
+        Op::Rotate {
+            atoms: vec![2147483647],
+            deg: 45.0,
+            x: -1e6,
+            y: 1e6,
+        },
+        Op::Flip {
+            atoms: vec![2147483647],
+            axis: Axis::H,
+            at: -1e6,
+        },
+        Op::Rotate {
+            atoms: vec![2147483647],
+            deg: f64::NAN,
+            x: 0.0,
+            y: 0.0,
+        },
+    ] {
+        assert_eq!(s.run(&[op]).unwrap_err().key, "error.draw2.coordinate");
+        assert_eq!(s.doc.to_json(), before);
+    }
+    let mut far = Session::default();
+    for op in [
+        add("C", 1e300, 0.0),
+        add("C", f64::NAN, 0.0),
+        Op::ObjAdd {
+            id: None,
+            t: ObjKind::Arrow,
+            x: 0.0,
+            y: 0.0,
+            x2: f64::INFINITY,
+            y2: 0.0,
+            text: String::new(),
+        },
+        Op::AtomAdd {
+            id: Some(u32::MAX),
+            el: "C".into(),
+            x: 0.0,
+            y: 0.0,
+        },
+    ] {
+        assert!(far.run(&[op]).is_err());
+        assert_eq!(far.doc.to_json(), Session::default().doc.to_json());
+    }
+    // JSON nested far deeper than any document, a huge array, a long string, stray bytes: read errors, never a panic
+    let deep = format!("{}{}", "[".repeat(100_000), "]".repeat(100_000));
+    let deep_obj = format!("{}1{}", r#"{"a":"#.repeat(50_000), "}".repeat(50_000));
+    let many = format!(
+        r#"{{"format":"mzdraw/1","next":2,"atoms":[{}1],"bonds":[]}}"#,
+        "1,".repeat(200_000)
+    );
+    let long = format!(
+        r#"{{"format":"mzdraw/1","next":2,"atoms":[{{"id":1,"el":"{}","x":0,"y":0}}],"bonds":[]}}"#,
+        "C".repeat(1_000_000)
+    );
+    for text in [
+        deep.as_str(),
+        deep_obj.as_str(),
+        many.as_str(),
+        long.as_str(),
+        "\u{0}\u{1}{",
+        "{\"format\":",
+    ] {
+        assert!(Document::from_json(text).is_err());
+        assert!(serde_json::from_str::<Op>(text).is_err());
+        // as a request the text may be an object whose unknown fields are ignored: it only must not panic
+        let _ = mzdraw::replay::replay(text);
+        let request = serde_json::json!({ "import": text }).to_string();
+        assert!(mzdraw::replay::replay(&request).is_err());
+    }
+    let log = format!(
+        r#"{{"log":[{}{{"op":"nope"}}]}}"#,
+        r#"{"op":"atom.add","el":"C","x":0,"y":0},"#.repeat(20_000)
+    );
+    assert_eq!(
+        mzdraw::replay::replay(&log).unwrap_err().key,
+        "error.draw2.request"
+    );
+}

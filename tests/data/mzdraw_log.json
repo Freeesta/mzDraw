@@ -408,6 +408,29 @@
           }
         ]
       }
+    },
+    {
+      "error_key": "error.draw2.request",
+      "request": {
+        "log": "not a list"
+      }
+    },
+    {
+      "error_key": "error.draw2.request",
+      "request": {
+        "import": 7
+      }
+    },
+    {
+      "error_key": "error.draw2.request",
+      "request": {
+        "log": [
+          {
+            "op": "atom.add",
+            "el": "C"
+          }
+        ]
+      }
     }
   ]
 }

@@ -4,24 +4,44 @@
 use crate::editor::Editor;
 use crate::ops::{Op, OpError};
 use crate::svg;
-use serde::Deserialize;
 
-#[derive(Deserialize)]
+/// The request, read by hand from its JSON value (as the operations and the document are).
 struct Request {
     /// A structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES.
-    #[serde(default)]
     import: Option<String>,
-    #[serde(default)]
     log: Vec<Op>,
     /// `mzdraw` (default), `molfile`, `svg` or `log`.
-    #[serde(default)]
     out: Option<String>,
+}
+
+impl Request {
+    fn read(text: &str) -> Option<Request> {
+        let v: serde_json::Value = serde_json::from_str(text).ok()?;
+        let text_of = |k: &str| match v.get(k) {
+            None | Some(serde_json::Value::Null) => Some(None),
+            Some(x) => x.as_str().map(|s| Some(s.to_string())),
+        };
+        let log = match v.get("log") {
+            None => Vec::new(),
+            Some(l) => l
+                .as_array()?
+                .iter()
+                .map(Op::from_value)
+                .collect::<Option<Vec<Op>>>()?,
+        };
+        v.is_object().then_some(())?;
+        Some(Request {
+            import: text_of("import")?,
+            log,
+            out: text_of("out")?,
+        })
+    }
 }
 
 /// Runs a request `{"import", "log", "out"}`; the error is an i18n key and the id it is about.
 pub fn replay(request: &str) -> Result<String, OpError> {
     let fail = |key| OpError { key, id: 0 };
-    let r: Request = serde_json::from_str(request).map_err(|_| fail("error.draw2.request"))?;
+    let r = Request::read(request).ok_or_else(|| fail("error.draw2.request"))?;
     let mut e = Editor::default();
     if let Some(text) = &r.import {
         e.import(text).map_err(fail)?;

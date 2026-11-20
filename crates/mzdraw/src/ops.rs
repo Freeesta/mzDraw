@@ -2,7 +2,7 @@
 //! records an exact inverse, so undo restores the document byte for byte; a `Session` is a document with its undo and redo stacks.
 
 use crate::build;
-use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind};
+use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind, MAX_ID};
 use crate::m;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ fn is_zero_f(v: &f64) -> bool {
 }
 
 /// The direction of a flip.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Axis {
     H,
@@ -163,11 +163,11 @@ impl<'de> Deserialize<'de> for Op {
 
 /// Field readers of `Op::from_value`: `None` when a field is absent, `Some(None)`-free by design: a field of the wrong type makes
 /// the whole operation unreadable.
-struct Fields<'a>(&'a serde_json::Value);
+pub(crate) struct Fields<'a>(pub(crate) &'a serde_json::Value);
 
 impl Fields<'_> {
     /// An optional field read by `f`: `Ok(None)` when absent or null, `Err` when present with another type.
-    fn opt<T>(
+    pub(crate) fn opt<T>(
         &self,
         k: &str,
         f: impl Fn(&serde_json::Value) -> Option<T>,
@@ -177,22 +177,22 @@ impl Fields<'_> {
             Some(v) => f(v).map(Some).ok_or(()),
         }
     }
-    fn f(&self, k: &str) -> Result<Option<f64>, ()> {
+    pub(crate) fn f(&self, k: &str) -> Result<Option<f64>, ()> {
         self.opt(k, serde_json::Value::as_f64)
     }
-    fn u<T: TryFrom<u64>>(&self, k: &str) -> Result<Option<T>, ()> {
+    pub(crate) fn u<T: TryFrom<u64>>(&self, k: &str) -> Result<Option<T>, ()> {
         self.opt(k, |v| v.as_u64().and_then(|n| T::try_from(n).ok()))
     }
-    fn i8(&self, k: &str) -> Result<Option<i8>, ()> {
+    pub(crate) fn i8(&self, k: &str) -> Result<Option<i8>, ()> {
         self.opt(k, |v| v.as_i64().and_then(|n| i8::try_from(n).ok()))
     }
-    fn s(&self, k: &str) -> Result<Option<String>, ()> {
+    pub(crate) fn s(&self, k: &str) -> Result<Option<String>, ()> {
         self.opt(k, |v| v.as_str().map(str::to_string))
     }
-    fn b(&self, k: &str) -> Result<bool, ()> {
+    pub(crate) fn b(&self, k: &str) -> Result<bool, ()> {
         Ok(self.opt(k, serde_json::Value::as_bool)?.unwrap_or(false))
     }
-    fn ids(&self, k: &str) -> Result<Vec<u32>, ()> {
+    pub(crate) fn ids(&self, k: &str) -> Result<Vec<u32>, ()> {
         let list = self.opt(k, |v| {
             v.as_array()?
                 .iter()
@@ -269,12 +269,7 @@ impl Op {
             },
             "obj.add" => Op::ObjAdd {
                 id: g.u("id")?,
-                t: match g.s("t")?.as_deref() {
-                    Some("arrow") => ObjKind::Arrow,
-                    Some("plus") => ObjKind::Plus,
-                    Some("text") => ObjKind::Text,
-                    _ => return Err(()),
-                },
+                t: ObjKind::read(g)?,
                 x: need(g.f("x")?)?,
                 y: need(g.f("y")?)?,
                 x2: g.f("x2")?.unwrap_or(0.0),
@@ -335,6 +330,7 @@ impl Document {
     fn take_id(&mut self, id: Option<u32>, inv: &mut Vec<Inv>) -> Result<u32, OpError> {
         let id = id.unwrap_or(self.next);
         if id == 0
+            || id >= MAX_ID
             || self.atom(id).is_some()
             || self.bond(id).is_some()
             || self.object(id).is_some()
@@ -729,6 +725,11 @@ impl Document {
                 self.revert(inv);
                 return Err(e);
             }
+        }
+        // a step that would put anything out of the range of coordinates is refused whole
+        if !self.coords_ok() {
+            self.revert(inv);
+            return err("error.draw2.coordinate", 0);
         }
         Ok((done, inv))
     }
