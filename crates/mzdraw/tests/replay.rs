@@ -1,11 +1,11 @@
-//! Golden replay: every case of `tests/data/mzdraw_log.json` (a start text, a command log) gives the recorded document, molfile, SVG and
-//! log byte for byte, and every refused request its key. The `.wasm` is held to the same file by `tests/parity.mjs`.
+//! Golden replay: every case of `tests/data/mzdraw_log.json` (a start text, a command log) gives the recorded document, molfile (V2000 and
+//! V3000), SMILES, SVG and log byte for byte, and every refused request its key. The `.wasm` is held to the same file by `tests/parity.mjs`.
 //! `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` rewrites the recorded outputs after a wanted change.
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-const OUTS: [&str; 4] = ["mzdraw", "molfile", "svg", "log"];
+const OUTS: [&str; 6] = ["mzdraw", "molfile", "molfile-v3000", "smiles", "svg", "log"];
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/data/mzdraw_log.json")

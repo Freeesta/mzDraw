@@ -344,7 +344,21 @@ impl Editor {
         REPAINT
     }
 
-    /// Adds the structure of a text (SMILES, molfile, `mzdraw/1`) to the right of the drawing, as one undo step.
+    /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`,
+    /// `svg` (in the style of the editor) or `log` (the command log). The error is an i18n key.
+    pub fn save(&self, kind: &str) -> Result<String, &'static str> {
+        Ok(match kind {
+            "mzdraw" => self.doc().to_json(),
+            "molfile" => self.doc().to_molfile(),
+            "molfile-v3000" => self.doc().to_molfile_v3000(),
+            "smiles" => self.doc().to_smiles()?,
+            "svg" => self.svg(),
+            "log" => self.session.log_json(),
+            _ => return Err("error.draw2.request"),
+        })
+    }
+
+    /// Adds the structure of a text (SMILES, molfile or SDF, `mzdraw/1`) to the right of the drawing, as one undo step.
     pub fn import(&mut self, text: &str) -> Result<io::Imported, &'static str> {
         self.import_placed(text).map(|r| r.0)
     }

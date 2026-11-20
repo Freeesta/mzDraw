@@ -361,7 +361,7 @@ impl Document {
 
     /// Ids unique and below `next`, bonds between two different existing atoms, orders 1-3, one bond per pair, wedge marks on single
     /// bonds only.
-    fn consistent(&self) -> bool {
+    pub(crate) fn consistent(&self) -> bool {
         let mut ids: Vec<u32> = self.atoms.iter().map(|a| a.id).collect();
         ids.extend(self.bonds.iter().map(|b| b.id));
         ids.extend(self.objects.iter().map(|o| o.id));

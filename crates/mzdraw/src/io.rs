@@ -4,6 +4,7 @@
 //! way in the marks are read from the molfile the record writes for its own stereo on our coordinates (`wedges_from_record`).
 
 use crate::doc::{round4, Atom, Bond, Document, WEDGE_DOWN, WEDGE_UP, WEDGE_WAVY};
+use crate::formats;
 use crate::label;
 use crate::layout;
 use crate::m;
@@ -11,14 +12,52 @@ use mzlab_mol::{Coords, Mol};
 
 /// The element that stands in for an R group in the record, which has no place for one; the molfile writer of this module
 /// replaces it on the atom line.
-const R_STAND_IN: &str = "He";
+pub(crate) const R_STAND_IN: &str = "He";
 
-/// How an import went: the format read and whether the positions are placeholders (the source had no coordinates).
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// What an import read, and what it could not keep (the page says so: nothing is dropped in silence).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Imported {
+    /// `mzdraw`, `molfile` or `smiles`.
     pub format: &'static str,
+    /// The positions are placeholders (the text had no coordinates).
     pub placeholder: bool,
+    /// Records of a molfile or SDF that were read.
+    pub records: usize,
+    /// Records of an SDF beyond `MAX_RECORDS`, not read.
+    pub skipped: usize,
+    /// Query atoms (`A`, `Q`, `*`, atom lists ...), read as unnumbered R groups.
+    pub query_atoms: usize,
+    /// Query bonds (types 5 to 8), read as single bonds.
+    pub query_bonds: usize,
+    /// S-groups, not read.
+    pub sgroups: usize,
+    /// Enhanced-stereo groups "and" / "or": the centres are drawn with their wedges, the grouping is not kept.
+    pub stereo_groups: usize,
 }
+
+impl Imported {
+    /// What the page says after the import, as (i18n key, count): only what is worth saying.
+    pub fn notes(&self) -> Vec<(&'static str, usize)> {
+        [
+            ("draw2.import.placeholder", usize::from(self.placeholder)),
+            (
+                "draw2.import.records",
+                if self.records > 1 { self.records } else { 0 },
+            ),
+            ("draw2.import.skipped", self.skipped),
+            ("draw2.import.queryAtoms", self.query_atoms),
+            ("draw2.import.queryBonds", self.query_bonds),
+            ("draw2.import.sgroups", self.sgroups),
+            ("draw2.import.stereoGroups", self.stereo_groups),
+        ]
+        .into_iter()
+        .filter(|n| n.1 > 0)
+        .collect()
+    }
+}
+
+/// Records of one SDF that are read into a drawing.
+pub const MAX_RECORDS: usize = 64;
 
 impl Document {
     /// The document as a `mol/1` record: atoms in pool order, hydrogens as the labels show them, the drawn coordinates as a layer.
@@ -161,6 +200,8 @@ impl Document {
             return;
         }
         let mut rec = m.clone();
+        // the stereo groups would make the writer choose V3000; the marks are the same without them
+        rec.groups.clear();
         rec.coords = Some(Coords {
             dim: 2,
             xy: self.atoms.iter().map(|a| vec![a.x, a.y]).collect(),
@@ -189,8 +230,8 @@ impl Document {
     }
 
     /// Sets the wedge marks as drawn on the bond lines of a V2000 molfile of this document (bond lines in pool order): the first
-    /// atom of a marked line is the narrow end. A V3000 file (more than 999 atoms or bonds) is left without marks.
-    fn mark_wedges(&self, molfile: String, record_atoms: usize) -> String {
+    /// atom of a marked line is the narrow end.
+    pub(crate) fn mark_wedges(&self, molfile: String, record_atoms: usize) -> String {
         if self.bonds.iter().all(|b| b.s == 0) || !molfile.contains("V2000") {
             return molfile;
         }
@@ -223,7 +264,10 @@ impl Document {
     /// The document as a record with its stereo: the molfile as drawn, read back by `mzlab-mol` (its rules decide what the wedges
     /// mean). A drawing its reader refuses gives the record without stereo.
     pub fn to_mol_stereo(&self) -> Mol {
-        Mol::from_molfile(&self.to_molfile()).unwrap_or_else(|_| self.to_mol())
+        let m = self.to_mol();
+        // without the R-group marks: the reader of the record refuses `R#`, the stand-in element carries the stereo through
+        let text = self.mark_wedges(m.to_molfile(crate::NAME), m.atoms.len());
+        Mol::from_molfile(&text).unwrap_or(m)
     }
 
     /// Scales the coordinates so that the median bond length is 1 (a drawing without bonds is left alone).
@@ -246,8 +290,8 @@ impl Document {
         }
     }
 
-    /// The whole canvas as one molfile (V2000, or V3000 when it has to be), written by `mzlab-mol`, with the wedge marks as drawn,
-    /// abbreviations expanded and R groups as `R#` atoms with their `M  RGP` numbers.
+    /// The whole canvas as one molfile (V2000, or V3000 above 999 atoms or bonds: see `to_molfile_v3000`), written by `mzlab-mol`,
+    /// with the wedge marks as drawn, abbreviations expanded and R groups as `R#` atoms with their `M  RGP` numbers.
     pub fn to_molfile(&self) -> String {
         self.molfile(false)
     }
@@ -259,12 +303,15 @@ impl Document {
 
     fn molfile(&self, r_as_query: bool) -> String {
         let m = self.to_mol();
+        if m.atoms.len() > 999 || m.bonds.len() > 999 {
+            return self.v3000(m, r_as_query);
+        }
         let text = self.mark_wedges(m.to_molfile(crate::NAME), m.atoms.len());
         self.mark_r_groups(text, r_as_query)
     }
 
     /// Writes the R groups on the atom lines of a V2000 molfile of this document (the stand-in element becomes `R#`, or `A` for
-    /// the check) and their numbers as `M  RGP` lines. A V3000 file keeps the stand-in.
+    /// the check) and their numbers as `M  RGP` lines.
     fn mark_r_groups(&self, molfile: String, r_as_query: bool) -> String {
         let groups: Vec<(usize, u8)> = self
             .atoms
@@ -329,40 +376,70 @@ pub fn saved_summary(text: &str) -> Option<(usize, usize, usize)> {
     (!d.is_empty()).then_some((d.atoms.len(), d.bonds.len(), d.objects.len()))
 }
 
-/// Reads a structure text: an `mzdraw/1` document, a molfile (V2000/V3000) or a SMILES. The error is an i18n key.
+/// Reads a structure text: an `mzdraw/1` document, a molfile or an SDF (V2000/V3000; every record, side by side) or SMILES (one
+/// per line). The error is an i18n key.
 pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     let t = text.trim();
+    let mut info = Imported::default();
     if t.starts_with('{') {
-        let d = Document::from_json(t)?;
-        return Ok((
-            d,
-            Imported {
-                format: "mzdraw",
-                placeholder: false,
-            },
-        ));
+        info.format = "mzdraw";
+        return Ok((Document::from_json(t)?, info));
     }
     if text.contains("M  END") {
-        let m = Mol::from_molfile(text).map_err(|_| "error.draw2.molfile")?;
-        let (d, placeholder) = Document::from_mol(&m);
-        return Ok((
-            d,
-            Imported {
-                format: "molfile",
-                placeholder,
-            },
-        ));
+        info.format = "molfile";
+        let mut all = Document::default();
+        for record in text.split("$$$$").filter(|r| r.contains("M  END")) {
+            if info.records == MAX_RECORDS {
+                info.skipped += 1;
+                continue;
+            }
+            let (clean, labels) = formats::prepare(record, &mut info);
+            let m = Mol::from_molfile(&clean).map_err(|_| "error.draw2.molfile")?;
+            let (d, placeholder) = labelled(&m, labels, &mut info);
+            info.placeholder |= placeholder;
+            info.records += 1;
+            all.append(d);
+        }
+        // a file may hold what a document does not (a coordinate far outside the bound): it is refused, not half kept
+        return if all.consistent() {
+            Ok((all, info))
+        } else {
+            Err("error.draw2.molfile")
+        };
     }
-    if t.is_empty() || t.lines().count() > 1 {
+    if t.is_empty() {
         return Err("error.draw2.import");
     }
-    let m = Mol::from_smiles(t).map_err(|_| "error.draw2.smiles")?;
-    let (d, placeholder) = Document::from_mol(&m);
-    Ok((
-        d,
-        Imported {
-            format: "smiles",
-            placeholder,
-        },
-    ))
+    info.format = "smiles";
+    // one SMILES as it is (it may carry a CXSMILES tail or a name), or one per line: the pieces of one record
+    let mut all = String::new();
+    if t.lines().nth(1).is_none() {
+        all.push_str(t);
+    } else {
+        for first in t.lines().filter_map(|l| l.split_whitespace().next()) {
+            if !all.is_empty() {
+                all.push('.');
+            }
+            all.push_str(first);
+        }
+    }
+    let (clean, labels) = formats::r_atoms(&all);
+    let m = Mol::from_smiles(&clean).map_err(|_| "error.draw2.smiles")?;
+    let (d, placeholder) = labelled(&m, labels, &mut info);
+    info.placeholder = placeholder;
+    Ok((d, info))
+}
+
+/// The drawing of a record whose atoms `labels` (index, label) are stand-ins of R groups: they get their label back. What the
+/// drawing does not keep of the record is counted in `info`.
+fn labelled(m: &Mol, labels: Vec<(usize, String)>, info: &mut Imported) -> (Document, bool) {
+    let grouped = |g: &&mzlab_mol::StereoGroup| g.kind != mzlab_mol::GroupKind::Abs;
+    info.stereo_groups += m.groups.iter().filter(grouped).count();
+    let (mut d, placeholder) = Document::from_mol(m);
+    for (i, lab) in labels {
+        if let Some(a) = d.atoms.get_mut(i) {
+            (a.el, a.h, a.lab) = ("C".into(), None, lab);
+        }
+    }
+    (d, placeholder)
 }

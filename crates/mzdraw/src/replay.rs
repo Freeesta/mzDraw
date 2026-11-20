@@ -9,7 +9,7 @@ struct Request {
     /// A structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES.
     import: Option<String>,
     log: Vec<Op>,
-    /// `mzdraw` (default), `molfile`, `svg` or `log`.
+    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `svg` or `log`.
     out: Option<String>,
     /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
     style: Option<String>,
@@ -58,11 +58,5 @@ pub fn replay(request: &str) -> Result<String, OpError> {
     for op in &r.log {
         e.session.run(std::slice::from_ref(op))?;
     }
-    Ok(match r.out.as_deref().unwrap_or("mzdraw") {
-        "mzdraw" => e.doc().to_json(),
-        "molfile" => e.doc().to_molfile(),
-        "svg" => e.svg(),
-        "log" => e.session.log_json(),
-        _ => return Err(fail("error.draw2.request")),
-    })
+    e.save(r.out.as_deref().unwrap_or("mzdraw")).map_err(fail)
 }

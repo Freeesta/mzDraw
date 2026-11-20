@@ -137,18 +137,60 @@ try {
     await tool(pg, "redo"); await want(pg, { atoms: 4 });
   });
 
-  await step("molfile, SVG and the mzdraw/1 document are saved as the module writes them", async () => {
+  await step("molfile (V2000 and V3000), SMILES, SVG and the mzdraw/1 document are saved as the module writes them", async () => {
     const got = {};
-    for (const [kind, name] of [["molfile", "drawing.mol"], ["svg", "drawing.svg"], ["mzdraw", "drawing.mzdraw.json"]]) {
-      const [d] = await Promise.all([pg.waitForEvent("download"), pg.click(`#d2-ex-${kind}`)]);
+    for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"],
+      ["svg", "svg", "drawing.svg"], ["mzdraw", "mzdraw", "drawing.mzdraw.json"]]) {
+      const [d] = await Promise.all([pg.waitForEvent("download"), pg.click(`#d2-ex-${button}`)]);
       eq(d.suggestedFilename(), name);
       got[kind] = readFileSync(await d.path(), "utf8");
       eq(got[kind], await pg.evaluate(`window.MZDRAW.save('${kind}')`));
     }
     assert(got.molfile.includes("V2000") && got.molfile.trimEnd().endsWith("M  END"), "a V2000 molfile");
+    assert(got["molfile-v3000"].includes("V3000") && got["molfile-v3000"].includes("M  V30 COUNTS 4 3"), "a V3000 molfile");
+    eq(got.smiles, "CC(=O)O");
     assert(got.svg.startsWith("<svg") && got.svg.includes("<line") && got.svg.replaceAll("OH", "O").includes(">O<"), "an SVG with lines and labels");
     const doc = JSON.parse(got.mzdraw);
     assert(doc.format === "mzdraw/1" && doc.atoms.length === 4 && doc.bonds.length === 3, "an mzdraw/1 document");
+  });
+
+  await step("formats: an SDF adds every record, R groups come back, what is out of scope is listed in words, the files are read back", async () => {
+    const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    // three synthetic records: ethanol, a ring with a numbered R group, a chain with a query atom, a query bond and an S-group
+    await pg.fill("#d2-text", "CCO"); await pg.click("#d2-add"); await want(pg, { atoms: 3 });
+    const ethanol = await pg.evaluate("window.MZDRAW.save('molfile')");
+    const ring = ethanol.replace("M  END", "M  RGP  1   3   5\nM  END").split("\n").map((l, i) => i === 6 ? l.slice(0, 31) + "R# " + l.slice(34) : l).join("\n");
+    const query = ethanol.replace("M  END", "M  STY  1   1 SUP\nM  END").split("\n")
+      .map((l, i) => i === 4 ? l.slice(0, 31) + "A  " + l.slice(34) : i === 8 ? l.slice(0, 6) + "  6" + l.slice(9) : l).join("\n");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", [ethanol, ring, query].join("\n$$$$\n") + "\n$$$$\n"); await pg.click("#d2-add");
+    await want(pg, { atoms: 9, bonds: 6 });
+    const say = k => pg.evaluate(([key, n]) => globalThis.I18N.t(key, { n }), k);
+    eq(await pg.innerText("#d2-note"), [await say(["draw2.import.records", 3]), await say(["draw2.import.queryAtoms", 1]), await say(["draw2.import.queryBonds", 1]),
+      await say(["draw2.import.sgroups", 1])].join(" "));
+    assert((await pg.innerText("#d2-note")).includes("3 records"), "the count is in the sentence");
+    const doc = JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    eq(doc.atoms.map(a => a.lab || "").join(","), ",,,,,R5,R,,");
+    await shot(pg, "formats");
+    // each form written is read back to the same SMILES: by the Add field for the molfiles, as a file for the SMILES
+    const smiles = await pg.evaluate("window.MZDRAW.save('smiles')");
+    eq(smiles, "CCO.CC[*:5].[*]CO");
+    for (const kind of ["molfile", "molfile-v3000"]) {
+      const text = await pg.evaluate(`window.MZDRAW.save('${kind}')`);
+      await tool(pg, "clear"); await want(pg, { atoms: 0 });
+      await pg.fill("#d2-text", text); await pg.click("#d2-add"); await want(pg, { atoms: 9, bonds: 6 });
+      eq(await pg.evaluate("window.MZDRAW.save('smiles')"), smiles);
+      eq(await pg.innerText("#d2-note"), "");
+    }
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.setInputFiles("#d2-file", { name: "three.smi", mimeType: "text/plain", buffer: Buffer.from("CCO ethanol\nCC[*:5] ring\n[*]CO query\n") });
+    await want(pg, { atoms: 9, bonds: 6 });
+    eq(await pg.evaluate("window.MZDRAW.save('smiles')"), smiles);
+    eq(await pg.innerText("#d2-note"), await say(["draw2.import.placeholder", 1]));
+    // back to what the next steps expect
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", before); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3 });
   });
 
   await step("zoom, fit and the wheel change the view, not the document; the canvas has ink", async () => {
