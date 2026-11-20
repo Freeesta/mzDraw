@@ -70,7 +70,7 @@ function refresh() {
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
   if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
   else if (st.say.key) $("d2-live").textContent = t(`draw2.say.${st.say.key.slice(10)}`, { what: st.say.what });
-  document.documentElement.dataset.d2 = JSON.stringify({ atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, warnings: ws.length, selected: st.selected });
+  document.documentElement.dataset.d2 = JSON.stringify({ atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, selected: st.selected });
 }
 
 /** acts on the flags an editor call returned @param {number} f */
@@ -245,6 +245,17 @@ function save(what, name, type) {
   URL.revokeObjectURL(url);
 }
 
+/** the style choice: the presets Rust names; the choice changes the screen and the saved SVG, not the document */
+function styles() {
+  const sel = /** @type {HTMLSelectElement} */ ($("d2-style"));
+  for (const name of ed.styles()) { const o = document.createElement("option"); o.value = name; o.textContent = t(`draw2.style.${name}`); sel.append(o); }
+  sel.addEventListener("change", () => {
+    try { after(ed.set_style(sel.value) | CHANGED); $("d2-style-note").textContent = t(`draw2.style.${sel.value}.note`); $("d2-live").textContent = t("draw2.say.style", { what: sel.selectedOptions[0].textContent || "" }); }
+    catch (e) { $("d2-style-note").textContent = I.err(JSON.parse(String(e))).message; }
+  });
+  $("d2-style-note").textContent = t(`draw2.style.${sel.value}.note`);
+}
+
 function panels() {
   $("d2-add").addEventListener("click", () => add(/** @type {HTMLTextAreaElement} */ ($("d2-text")).value));
   $("d2-open").addEventListener("click", () => $("d2-file").click());
@@ -259,7 +270,7 @@ document.title = t("draw2.name");
 try {
   ed = await load();
   /** @type {any} */ (window).MZDRAW = ed;
-  toolbar(); events(); clipboardEvents(); panels(); size(); refresh();
+  toolbar(); events(); clipboardEvents(); panels(); styles(); size(); refresh();
   document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });
   await autosave.offer();
   document.documentElement.dataset.d2Ready = "1";

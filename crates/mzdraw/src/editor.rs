@@ -6,6 +6,7 @@ use crate::io;
 use crate::m;
 use crate::ops::{Op, Session};
 use crate::scene::{self, Overlay, Scene, View};
+use crate::settings::Style;
 
 /// Flags an event returns.
 pub const REPAINT: u32 = 1;
@@ -137,6 +138,8 @@ pub struct Editor {
     pub said: (&'static str, String),
     /// The last refused operation, an i18n key.
     pub error: &'static str,
+    /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
+    pub style: Style,
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
     pub(crate) clip: String,
     pub(crate) pasted: u32,
@@ -156,6 +159,7 @@ impl Default for Editor {
             press: None,
             said: ("", String::new()),
             error: "",
+            style: Style::default(),
             clip: String::new(),
             pasted: 0,
         }
@@ -272,7 +276,7 @@ impl Editor {
 
     /// The object under the pointer: near the shaft of an arrow, on a plus sign, or on the line of a text.
     fn hit_object(&self, px: f64, py: f64, r: f64) -> Hit {
-        let font = (self.view.scale * 0.4).clamp(9.0, 40.0);
+        let font = self.style.metrics(self.view.scale, true).font;
         for o in self.doc().objects.iter().rev() {
             let (x, y) = self.view.to_px(o.x, o.y);
             let on = match o.t {
@@ -443,6 +447,18 @@ impl Editor {
         )
     }
 
+    /// Sets the drawing style from a preset name or the text of a settings file; a refusal is an i18n key and changes nothing.
+    pub fn set_style(&mut self, text: &str) -> Result<u32, &'static str> {
+        self.style = Style::from_text(text)?;
+        self.said = ("draw2.say.style", self.style.name.clone());
+        Ok(REPAINT)
+    }
+
+    /// The drawing as an SVG in the editor's style.
+    pub fn svg(&self) -> String {
+        crate::svg::to_svg_styled(self.doc(), &self.style)
+    }
+
     /// Marks the atoms a check flagged (ids), replacing the previous marks.
     pub fn set_warnings(&mut self, ids: Vec<u32>) {
         self.over.warn_atoms = ids;
@@ -453,7 +469,7 @@ impl Editor {
             self.doc(),
             self.view,
             &self.over,
-            (self.view.scale * 0.4).clamp(9.0, 40.0),
+            self.style.metrics(self.view.scale, true),
         )
     }
 }

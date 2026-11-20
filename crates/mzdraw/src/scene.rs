@@ -7,6 +7,7 @@
 
 use crate::doc::{Atom, Document, Obj, ObjKind, WEDGE_DOWN, WEDGE_UP};
 use crate::m;
+use crate::settings::Metrics;
 
 pub const LINE: f32 = 1.0;
 pub const TEXT: f32 = 2.0;
@@ -113,6 +114,7 @@ struct Painter<'a> {
     doc: &'a Document,
     view: View,
     over: &'a Overlay,
+    m: Metrics,
     font: f64,
     out: Scene,
 }
@@ -150,7 +152,7 @@ impl Painter<'_> {
         }
         let (ux, uy) = (dx / len, dy / len);
         // a bond stops short of a label
-        let gap = (self.font * 0.62).min(len * 0.4);
+        let gap = self.m.gap.min(len * 0.4);
         let (lp, lq) = (has_label(self.doc, p), has_label(self.doc, q));
         if lp {
             s = (s.0 + ux * gap, s.1 + uy * gap);
@@ -158,7 +160,7 @@ impl Painter<'_> {
         if lq {
             e = (e.0 - ux * gap, e.1 - uy * gap);
         }
-        let w = (self.view.scale * 0.045).max(1.0);
+        let w = self.m.line;
         if self.over.sel_bonds.contains(&b.id) || self.over.hover_bond == Some(b.id) {
             let c = if self.over.sel_bonds.contains(&b.id) {
                 colour::SELECT
@@ -167,7 +169,7 @@ impl Painter<'_> {
             };
             self.line(s, e, w * 5.0, c);
         }
-        let off = self.view.scale * 0.13;
+        let off = self.m.spacing;
         let (nx, ny) = (-uy * off, ux * off);
         let shift = |p: (f64, f64), k: f64| (p.0 + nx * k, p.1 + ny * k);
         if b.s != 0 {
@@ -209,7 +211,7 @@ impl Painter<'_> {
     fn wedge(&mut self, mark: u8, s: (f64, f64), e: (f64, f64), w: f64) {
         let (dx, dy) = (e.0 - s.0, e.1 - s.1);
         let len = m::hypot(dx, dy).max(1e-6);
-        let half = self.view.scale * 0.1;
+        let half = self.m.wedge;
         let (nx, ny) = (-dy / len * half, dx / len * half);
         let at = |t: f64, k: f64| (s.0 + dx * t + nx * k, s.1 + dy * t + ny * k);
         match mark {
@@ -218,7 +220,7 @@ impl Painter<'_> {
                 self.push(&[TRI as f64, s.0, s.1, p.0, p.1, q.0, q.1, colour::INK as f64]);
             }
             WEDGE_DOWN => {
-                let n = ((len / (self.view.scale * 0.12)).round() as usize).clamp(3, 12);
+                let n = ((len / self.m.hash).round() as usize).clamp(3, 12);
                 for i in 1..=n {
                     let t = i as f64 / n as f64;
                     self.line(at(t, t), at(t, -t), w, colour::INK);
@@ -284,7 +286,7 @@ impl Painter<'_> {
     /// bonds leave to the right.
     fn group_label(&mut self, a: &Atom) {
         let (x, y) = self.pos(a);
-        let (f, small) = (self.font, self.font * 0.7);
+        let (f, small) = (self.font, self.m.small);
         let mut runs: Vec<(String, bool)> = Vec::new();
         for c in a.lab.chars() {
             let digit = c.is_ascii_digit();
@@ -315,8 +317,12 @@ impl Painter<'_> {
         }
         let (x, y) = self.pos(a);
         let f = self.font;
-        let c = element_colour(&a.el);
-        let small = f * 0.7;
+        let c = if self.m.mono {
+            colour::INK
+        } else {
+            element_colour(&a.el)
+        };
+        let small = self.m.small;
         self.text(x, y, f, c, &a.el, 0.0);
         let half = width(&a.el, f) / 2.0;
         if a.iso != 0 {
@@ -373,7 +379,7 @@ impl Painter<'_> {
         } else {
             None
         };
-        let w = (self.view.scale * 0.045).max(1.0);
+        let w = self.m.line;
         match o.t {
             ObjKind::Arrow => {
                 let e = self.view.to_px(o.x2 + dx, o.y2 + dy);
@@ -448,13 +454,14 @@ impl Painter<'_> {
     }
 }
 
-/// Builds the display list of a document under a view. `font` is the label size in output pixels.
-pub fn build(doc: &Document, view: View, over: &Overlay, font: f64) -> Scene {
+/// Builds the display list of a document under a view, with the metrics of a style at that scale.
+pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
     let mut p = Painter {
         doc,
         view,
         over,
-        font,
+        m,
+        font: m.font,
         out: Scene::default(),
     };
     for b in &doc.bonds {
@@ -465,8 +472,12 @@ pub fn build(doc: &Document, view: View, over: &Overlay, font: f64) -> Scene {
         p.object(o);
     }
     if let Some((x1, y1, x2, y2)) = over.preview {
-        let w = (view.scale * 0.045).max(1.0);
-        p.line(view.to_px(x1, y1), view.to_px(x2, y2), w, colour::PREVIEW);
+        p.line(
+            view.to_px(x1, y1),
+            view.to_px(x2, y2),
+            m.line,
+            colour::PREVIEW,
+        );
     }
     if let Some((x, y, w, h)) = over.band {
         p.push(&[RECT as f64, x, y, w, h, colour::SELECT as f64]);

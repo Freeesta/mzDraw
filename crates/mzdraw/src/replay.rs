@@ -3,7 +3,6 @@
 
 use crate::editor::Editor;
 use crate::ops::{Op, OpError};
-use crate::svg;
 
 /// The request, read by hand from its JSON value (as the operations and the document are).
 struct Request {
@@ -12,6 +11,8 @@ struct Request {
     log: Vec<Op>,
     /// `mzdraw` (default), `molfile`, `svg` or `log`.
     out: Option<String>,
+    /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
+    style: Option<String>,
 }
 
 impl Request {
@@ -34,6 +35,11 @@ impl Request {
             import: text_of("import")?,
             log,
             out: text_of("out")?,
+            style: match v.get("style") {
+                // a settings object may be given in place: it is read as its own text
+                Some(s) if s.is_object() => Some(s.to_string()),
+                _ => text_of("style")?,
+            },
         })
     }
 }
@@ -46,13 +52,16 @@ pub fn replay(request: &str) -> Result<String, OpError> {
     if let Some(text) = &r.import {
         e.import(text).map_err(fail)?;
     }
+    if let Some(style) = &r.style {
+        e.set_style(style).map_err(fail)?;
+    }
     for op in &r.log {
         e.session.run(std::slice::from_ref(op))?;
     }
     Ok(match r.out.as_deref().unwrap_or("mzdraw") {
         "mzdraw" => e.doc().to_json(),
         "molfile" => e.doc().to_molfile(),
-        "svg" => svg::to_svg(e.doc()),
+        "svg" => e.svg(),
         "log" => e.session.log_json(),
         _ => return Err(fail("error.draw2.request")),
     })

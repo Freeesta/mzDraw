@@ -1,14 +1,10 @@
 //! The display list as an SVG file: the same primitives the page paints, with the palette of the file. Deterministic text (numbers
-//! to 2 decimals), no editor overlay.
+//! to 2 decimals), no editor overlay. The size of everything comes from a `Style`.
 
 use crate::doc::{Document, ObjKind};
 use crate::scene::{self, Overlay, View};
+use crate::settings::Style;
 use mzlab_mol::fixed;
-
-/// Pixels per bond length, label size and margin of an exported drawing.
-const SCALE: f64 = 30.0;
-const FONT: f64 = 14.0;
-const MARGIN: f64 = 16.0;
 
 /// File colours by colour index (ink, then the overlay colours that a file never uses, then N, O, S, halogens, P).
 const PALETTE: [&str; 10] = [
@@ -32,27 +28,35 @@ fn escape(s: &str) -> String {
         .replace('>', "&gt;")
 }
 
-/// The whole document as an SVG of its own size (an empty document gives an empty 1x1 drawing).
+/// The whole document as an SVG of its own size in the default style (an empty document gives an empty 1x1 drawing).
 pub fn to_svg(doc: &Document) -> String {
+    to_svg_styled(doc, &Style::default())
+}
+
+/// The whole document as an SVG in a style. One unit of the drawing is one point and the size is written in points, so the file
+/// prints at the true size of the style (a bond of `acs-1996` is 14.4 pt long on paper).
+pub fn to_svg_styled(doc: &Document, style: &Style) -> String {
     let Some((x0, y0, mut x1, y1)) = doc.bounds() else {
         return "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"></svg>\n".into();
     };
+    let scale = style.bond_length;
+    let m = style.metrics(scale, false);
     // a text runs to the right of its anchor
     for o in doc.objects.iter().filter(|o| o.t == ObjKind::Text) {
-        x1 = x1.max(o.x + scene::width(&o.text, FONT) / SCALE);
+        x1 = x1.max(o.x + scene::width(&o.text, m.font) / scale);
     }
     // labels can stick out by about two characters on each side
-    let pad = MARGIN + FONT * 1.6;
+    let pad = scale * 0.5 + m.font * 1.6;
     let view = View {
-        scale: SCALE,
-        ox: pad - x0 * SCALE,
-        oy: pad + y1 * SCALE,
+        scale,
+        ox: pad - x0 * scale,
+        oy: pad + y1 * scale,
     };
-    let (w, h) = ((x1 - x0) * SCALE + 2.0 * pad, (y1 - y0) * SCALE + 2.0 * pad);
-    let sc = scene::build(doc, view, &Overlay::default(), FONT);
+    let (w, h) = ((x1 - x0) * scale + 2.0 * pad, (y1 - y0) * scale + 2.0 * pad);
+    let sc = scene::build(doc, view, &Overlay::default(), m);
     let (w, h) = (num(w as f32), num(h as f32));
     let mut s = format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" viewBox=\"0 0 {w} {h}\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\">\n"
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}pt\" height=\"{h}pt\" viewBox=\"0 0 {w} {h}\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\">\n"
     );
     let d = &sc.data;
     let mut i = 0;
