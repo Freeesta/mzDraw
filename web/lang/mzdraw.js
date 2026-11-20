@@ -156,6 +156,7 @@ I18N.add("en", {
   "draw2.say.bond": "Bond of order {what} added.",
   "draw2.say.order": "Bond order set to {what}.",
   "draw2.say.erased": "Erased.",
+  "draw2.say.selected": "Selected.",
   "draw2.say.wedge": "Wedge set.",
   "draw2.say.rotated": "Turned by {what} degrees.",
   "draw2.say.flipped": "Mirrored.",

@@ -212,26 +212,31 @@ function toolbar() {
   }
 }
 
-const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0);
+// bit 4: the eraser end or eraser button of a pen (button 5, buttons bit 32)
+const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
 const kind = (/** @type {PointerEvent} */ e) => (e.pointerType === "pen" ? 1 : e.pointerType === "touch" ? 2 : 0);
 
 function events() {
   /** @type {{x: number, y: number} | null} */ let panning = null;
   const at = (/** @type {PointerEvent | WheelEvent} */ e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  // every pointer goes to Rust with its id and its time stamp: which finger is a palm, what two fingers do and what a long press
+  // means is decided there
+  const send = (/** @type {number} */ phase, /** @type {PointerEvent} */ e) => { const [x, y] = at(e); return ed.pointer(phase, x, y, kind(e), mods(e), e.pointerId, e.timeStamp); };
   cv.addEventListener("pointerdown", e => {
-    cv.focus(); cv.setPointerCapture(e.pointerId);
-    if (e.button === 1 || e.button === 2) { panning = { x: e.clientX, y: e.clientY }; e.preventDefault(); return; }
-    const [x, y] = at(e); after(ed.pointer(0, x, y, kind(e), mods(e)));
+    cv.focus();
+    try { cv.setPointerCapture(e.pointerId); } catch { /* a pointer that is already gone cannot be captured: the event still counts */ }
+    if (e.pointerType === "mouse" && (e.button === 1 || e.button === 2)) { panning = { x: e.clientX, y: e.clientY }; e.preventDefault(); return; }
+    after(send(0, e));
   });
   cv.addEventListener("pointermove", e => {
     if (panning) { after(ed.pan(e.clientX - panning.x, e.clientY - panning.y)); panning = { x: e.clientX, y: e.clientY }; return; }
-    const [x, y] = at(e); after(ed.pointer(1, x, y, kind(e), mods(e)));
+    after(send(1, e));
   });
-  const up = (/** @type {PointerEvent} */ e) => {
+  cv.addEventListener("pointerup", e => {
     if (panning) { panning = null; return; }
-    const [x, y] = at(e); after(ed.pointer(2, x, y, kind(e), mods(e)) | CHANGED);          // a release may have changed the selection alone
-  };
-  cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+    after(send(2, e) | CHANGED);                              // a release may have changed the selection alone
+  });
+  cv.addEventListener("pointercancel", e => { panning = null; after(send(3, e)); });       // taken away by the system: nothing is committed
   cv.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = at(e); after(ed.zoom(x, y, e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
   cv.addEventListener("keydown", e => {

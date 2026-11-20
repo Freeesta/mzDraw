@@ -90,15 +90,12 @@ pub fn name() -> String {
     mzdraw::NAME.to_string()
 }
 
-/// A pointer event: `phase` 0 down, 1 move, 2 up; `kind` 0 mouse, 1 pen, 2 finger; `mods` bit 1 Shift, bit 2 Ctrl/Cmd. Returns flags
-/// (1 repaint, 2 changed, 4 tool changed, 8 handled).
+/// A pointer event: `phase` 0 down, 1 move, 2 up, 3 cancel; `kind` 0 mouse, 1 pen, 2 finger; `mods` bit 1 Shift, bit 2 Ctrl/Cmd,
+/// bit 4 the eraser end of a pen; `id` the pointer id and `t` its time stamp in milliseconds (several fingers, a resting palm and a
+/// long press are told apart in Rust). Returns flags (1 repaint, 2 changed, 4 tool changed, 8 handled).
 #[wasm_bindgen]
-pub fn pointer(phase: u32, x: f64, y: f64, kind: u32, mods: u32) -> u32 {
-    act(|e| match phase {
-        0 => e.pointer_down(x, y, kind, mods),
-        1 => e.pointer_move(x, y, kind),
-        _ => e.pointer_up(x, y),
-    })
+pub fn pointer(phase: u32, x: f64, y: f64, kind: u32, mods: u32, id: u32, t: f64) -> u32 {
+    act(|e| e.pointer_event(phase, id, x, y, kind, mods, t))
 }
 
 #[wasm_bindgen]

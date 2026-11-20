@@ -473,6 +473,57 @@ try {
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
   });
+
+  await step("two fingers pan and zoom without drawing; a long press selects; a cancelled touch commits nothing; a pen draws and its eraser end erases", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) });
+    const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+    // the width of the first line of the display list grows with the zoom: it tells that the view changed
+    const firstX = () => pg.evaluate("window.MZDRAW.scene()[1]");
+    await tool(pg, "clear"); await tool(pg, "fit"); await tool(pg, "ring:6a"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 6, bonds: 6 });
+    await tool(pg, "bond:1");
+    const before = await doc(), x0 = await firstX();
+    // spread two fingers, then move them together, then lift: the view changed, the drawing did not
+    await touch("touchStart", [[1, cx - 60, cy + 150]]);
+    await touch("touchStart", [[1, cx - 60, cy + 150], [2, cx + 60, cy + 150]]);
+    await touch("touchMove", [[1, cx - 120, cy + 150], [2, cx + 120, cy + 150]]);
+    await touch("touchMove", [[1, cx - 100, cy + 190], [2, cx + 140, cy + 190]]);
+    await touch("touchEnd", [[1, cx - 100, cy + 190]]);
+    await touch("touchMove", [[1, cx - 20, cy + 100]]);
+    await touch("touchEnd", []);
+    eq(await doc(), before);
+    assert((await firstX()) !== x0, "the view moved");
+    eq((await state(pg)).atoms, 6);
+    // a finger held still for 700 ms on an atom selects it instead of sprouting a bond
+    await tool(pg, "fit");
+    const atom = await pg.evaluate("(() => { const d = window.MZDRAW.scene(); return [d[1], d[2]]; })()");       // the first line starts at an atom
+    const box = await pg.locator("#d2-canvas").boundingBox();
+    const [ax, ay] = [box.x + atom[0], box.y + atom[1]];
+    await touch("touchStart", [[1, ax, ay]]);
+    await pg.waitForTimeout(700);
+    await touch("touchEnd", []);
+    await want(pg, { selected: 1, atoms: 6, bonds: 6 });
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.selected')"));
+    // a drag taken away by the system commits nothing
+    await touch("touchStart", [[1, ax, ay]]);
+    await touch("touchMove", [[1, ax + 40, ay - 60]]);
+    await touch("touchCancel", []);
+    eq(await doc(), before);
+    // a quick tap still draws
+    await touch("touchStart", [[1, ax, ay]]); await touch("touchEnd", []);
+    await want(pg, { atoms: 7, bonds: 7 });
+    // the pen: its tip draws with the tool, its eraser end (button 5, buttons 32) erases, and the tool comes back
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    await pen("mouseMoved", ax, ay); await pen("mousePressed", ax, ay); await pen("mouseReleased", ax, ay);
+    await want(pg, { atoms: 8, bonds: 8 });
+    // (the browser's test protocol cannot press button 5, so the eraser end is sent as pointer events built in the page)
+    await pg.evaluate(`(() => { const c = document.querySelector("#d2-canvas"), r = c.getBoundingClientRect();
+      for (const [type, buttons] of [["pointerdown", 32], ["pointerup", 0]])
+        c.dispatchEvent(new PointerEvent(type, { pointerType: "pen", pointerId: 77, button: 5, buttons, clientX: ${ax}, clientY: ${ay}, bubbles: true, cancelable: true })); })()`);
+    // the erased atom had its two ring bonds and the two bonds sprouted above: 8 atoms and 8 bonds become 7 and 4
+    await want(pg, { atoms: 7, bonds: 4, tool: "bond:1" });
+    await shot(pg, "touch");
+  });
   await ctx.close();
 } finally {
   await browser.close();
@@ -481,4 +532,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 15 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 16 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
