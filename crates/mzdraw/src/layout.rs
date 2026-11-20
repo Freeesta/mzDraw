@@ -38,10 +38,31 @@ pub fn pieces(doc: &Document) -> Vec<Vec<u32>> {
     out
 }
 
-/// Placeholder positions for a document without coordinates: every piece on a regular polygon of side 1, pieces left to right.
+/// The atoms of the piece of `start` in the order of a walk along the bonds (depth first, neighbours in bond order): consecutive
+/// atoms are bonded wherever the piece allows it, so a ring or a chain goes round the polygon without crossing itself.
+fn walk(doc: &Document, start: u32) -> Vec<u32> {
+    let mut order = vec![start];
+    let mut stack = vec![start];
+    while let Some(&top) = stack.last() {
+        match doc.neighbours(top).into_iter().find(|n| !order.contains(n)) {
+            Some(n) => {
+                order.push(n);
+                stack.push(n);
+            }
+            None => {
+                stack.pop();
+            }
+        }
+    }
+    order
+}
+
+/// Placeholder positions for a document without coordinates: every piece on a regular polygon of side 1, its atoms in the order of
+/// a walk along the bonds, pieces left to right.
 pub fn placeholder(doc: &mut Document) {
     let mut left = 0.0;
     for piece in pieces(doc) {
+        let piece = walk(doc, piece[0]);
         let n = piece.len();
         let r = if n > 1 {
             1.0 / (2.0 * m::sin(PI / n as f64))
