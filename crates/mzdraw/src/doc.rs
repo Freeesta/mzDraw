@@ -94,7 +94,8 @@ pub type Data = Vec<(String, String)>;
 /// Fields one atom can carry, and the longest name and value, in characters.
 pub const MAX_DATA: (usize, usize, usize) = (100, 80, 10_000);
 
-/// Whether a list is data a document and an SDF can hold: a name is one line without `<` and `>`; a value has no empty line
+/// Whether a list is data a document and an SDF can hold: a name is one line without `<` and `>` and none of the fields an
+/// annotation is written as (`ann::FIELDS`); a value has no empty line
 /// (it would end the field in an SDF) and no line that starts as a header (`>`) or as the end of a record (`$$$$`).
 pub fn data_valid(data: &[(String, String)]) -> bool {
     let plain = |s: &str| !s.chars().any(|c| c.is_control() && c != '\n');
@@ -104,6 +105,7 @@ pub fn data_valid(data: &[(String, String)]) -> bool {
             let lines = || value.split('\n');
             (1..=MAX_DATA.1).contains(&n)
                 && name.trim() == name
+                && !crate::ann::FIELDS.contains(&name.as_str())
                 && !name.contains(['<', '>', '\n'])
                 && plain(name)
                 && value.chars().count() <= MAX_DATA.2
@@ -150,6 +152,33 @@ impl Atom {
                 .collect();
             self.more
                 .push(("data".into(), format!("[{}]", rows.join(","))));
+            crate::m::sort(&mut self.more);
+        }
+    }
+
+    /// The annotation kept on this atom as its text (`ann::canon`), empty for none; a field `ann` of another shape is not an
+    /// annotation and is left alone.
+    pub fn ann(&self) -> String {
+        (self.more.iter().find(|m| m.0 == "ann"))
+            .and_then(|m| crate::ann::canon(&m.1))
+            .filter(|t| t != "[]")
+            .unwrap_or_default()
+    }
+
+    /// The annotation of some atoms as one text (`ann::join` of theirs in pool order): the annotation of a structure.
+    pub(crate) fn ann_of(atoms: &[Atom], ids: &[u32]) -> String {
+        let texts: Vec<String> = (atoms.iter())
+            .filter(|a| ids.contains(&a.id))
+            .map(Atom::ann)
+            .collect();
+        crate::ann::join(texts.iter().map(String::as_str))
+    }
+
+    /// Replaces the annotation kept on this atom (`text` is `ann::canon` text); the empty list takes the field away.
+    pub(crate) fn set_ann(&mut self, text: &str) {
+        self.more.retain(|m| m.0 != "ann");
+        if text != "[]" {
+            self.more.push(("ann".into(), text.to_string()));
             crate::m::sort(&mut self.more);
         }
     }

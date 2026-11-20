@@ -256,6 +256,45 @@ try {
     await pg.setInputFiles("#d2-file", { name: "drawing.sdf", mimeType: "chemical/x-mdl-sdfile", buffer: Buffer.from(sdfOut) }); await want(pg, { atoms: 6, bonds: 4 });
     eq((await rows())[0], [["name", "ethanol, absolute"], ["note", "line one\nline two"], ["purity", "99.8 %"]]);
     await pg.click("#d2-data-more summary");
+    // the annotation of a structure: a confidence level of the scale, an identifier, evidence; drawn, saved, read back, undone
+    await pg.click("#d2-ann-more summary");
+    const af = "#d2-ann fieldset:nth-of-type(1)";
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) select option')].map(o => o.value)"), ["", "1", "2a", "2b", "3", "4", "5"]);
+    eq(await pg.innerText("#d2-ann-kinds"), await pg.evaluate("I18N.t('draw2.ann.kinds', { list: JSON.parse(window.MZDRAW.ann_schema()).kinds.join(', ') })"));
+    await pg.selectOption(`${af} select`, "2b");
+    await pg.fill(`${af} input`, "ethanol (synthetic)");
+    await pg.focus(`${af} .d2-annf:nth-of-type(3) textarea`); await pg.keyboard.type("diagnostic-fragment: m/z 31.0178"); await pg.keyboard.press("Enter"); await pg.keyboard.type("rt-standard");   // by keyboard
+    await pg.click(`${af} button`);
+    await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.done', { level: '2b' })");
+    const levels = () => pg.evaluate("JSON.parse(window.MZDRAW.state()).outline.map(s => s.ann && [s.ann.level, s.ann.identifier, s.ann.evidence, s.ann.entries])");
+    eq(await levels(), [["2b", "ethanol (synthetic)", "diagnostic-fragment: m/z 31.0178\nrt-standard", 1], null]);
+    assert((await pg.innerText("#d2-outline li:nth-of-type(1)")).endsWith(await pg.evaluate("I18N.t('draw2.outline.level', { level: '2b' })")), "the level is said in the list of what is drawn");
+    assert((await pg.evaluate("window.MZDRAW.strings()")).includes("L2b"), "the level is painted under its structure");
+    await shot(pg, "annotation");
+    const annSdf = await pg.evaluate("window.MZDRAW.save('sdf')");
+    assert(annSdf.includes(">  <MZLAB_LEVEL>\n2b\n\n>  <MZLAB_IDENTIFIER>\nethanol (synthetic)\n\n>  <MZLAB_EVIDENCE>\ndiagnostic-fragment: m/z 31.0178\nrt-standard\n\n>  <MZLAB_ANN>\n[{"), "the annotation is in the SDF");
+    assert((await pg.evaluate("window.MZDRAW.save('svg')")).includes(">L2b</text>"), "and in the picture");
+    // a level that is not one word is refused in words and nothing changes; a second entry is a history; undo goes back one entry
+    await pg.fill(`${af} .d2-annf:nth-of-type(3) textarea`, "a b: c"); await pg.click(`${af} button`);
+    await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('error.draw2.ann')");
+    eq(await pg.evaluate("window.MZDRAW.save('sdf')"), annSdf);
+    await pg.fill(`${af} .d2-annf:nth-of-type(3) textarea`, "rt-standard: synthetic standard"); await pg.selectOption(`${af} select`, "1"); await pg.click(`${af} button`);
+    await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.done', { level: '1' })");
+    eq((await levels())[0], ["1", "ethanol (synthetic)", "rt-standard: synthetic standard", 2]);
+    eq(await pg.innerText(`${af} p.hint`), await pg.evaluate("I18N.t('draw2.ann.history', { n: 2 })"));
+    await tool(pg, "undo");
+    await until(pg, "JSON.parse(window.MZDRAW.state()).outline[0].ann.level === '2b'");
+    eq(await pg.evaluate("window.MZDRAW.save('sdf')"), annSdf);
+    // the SDF opens again with the annotation; a level of another scale in a file is kept and offered as it is written
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", annSdf.replace("<MZLAB_LEVEL>\n2b", "<MZLAB_LEVEL>\n3a").replace(/>  <MZLAB_ANN>\n.*\n\n/, "")); await pg.click("#d2-add"); await want(pg, { atoms: 6, bonds: 4 });
+    eq((await levels())[0], ["3a", "ethanol (synthetic)", "diagnostic-fragment: m/z 31.0178\nrt-standard", 1]);
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) select option')].map(o => o.value)"), ["", "1", "2a", "2b", "3", "4", "5", "3a"]);
+    eq(await pg.inputValue(`${af} select`), "3a");
+    await pg.selectOption(`${af} select`, ""); await pg.click(`${af} button`);
+    await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.gone', { level: '' })");
+    eq(await levels(), [null, null]);
+    await pg.click("#d2-ann-more summary");
     // a reaction file: read with its roles (reactant, arrow, product), saved again; a drawing without an arrow is refused in words
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", `$RXN\n\n  synthetic\n\n  1  1\n$MOL\n${ethanol}\n$MOL\n${ethanol}\n`); await pg.click("#d2-add");

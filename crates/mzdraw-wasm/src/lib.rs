@@ -274,6 +274,26 @@ pub fn set_data(anchor: u32, json: &str) -> u32 {
     })
 }
 
+/// Annotates the structure of the atom `anchor` with a new entry: a confidence level (`ann_schema` lists those of the scale;
+/// an empty one takes the annotation away), an identifier, the evidence as lines `kind: reference`, a note. An entry that is not
+/// of its shape changes nothing (`error` in `state`).
+#[wasm_bindgen]
+pub fn annotate(anchor: u32, level: &str, identifier: &str, evidence: &str, note: &str) -> u32 {
+    with(|p| p.editor.annotate(anchor, level, identifier, evidence, note))
+}
+
+/// What an annotation can say, for a surface that builds its fields: `{"scale", "levels": [...], "kinds": [...]}`.
+#[wasm_bindgen]
+pub fn ann_schema() -> String {
+    let list = |l: &[&str]| format!(r#"["{}"]"#, l.join(r#"",""#));
+    format!(
+        r#"{{"scale":"{}","levels":{},"kinds":{}}}"#,
+        mzdraw::ann::SCALE,
+        list(&mzdraw::ann::LEVELS),
+        list(&mzdraw::ann::KINDS)
+    )
+}
+
 /// Sets one setting, `<section>.<key>=<value>` (for the style: `style.line_width=2`, `style.colour=mono`).
 #[wasm_bindgen]
 pub fn set(setting: &str) -> Result<u32, JsValue> {
@@ -314,7 +334,7 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
+/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
 /// the `check/1` document or null).
 #[wasm_bindgen]
 pub fn state() -> String {
@@ -328,8 +348,19 @@ pub fn state() -> String {
                 let data: Vec<String> = (s.data.iter())
                     .map(|(k, v)| format!("[{},{}]", q(k), q(v)))
                     .collect();
+                let ann = s.ann.map_or("null".to_string(), |a| {
+                    format!(
+                        r#"{{"level":{},"known":{},"identifier":{},"evidence":{},"note":{},"entries":{}}}"#,
+                        q(&a.level),
+                        a.known,
+                        q(&a.identifier),
+                        q(&a.evidence),
+                        q(&a.note),
+                        a.entries
+                    )
+                });
                 format!(
-                    r#"{{"formula":{},"atoms":{},"bonds":{},"anchor":{},"data":[{}]}}"#,
+                    r#"{{"formula":{},"atoms":{},"bonds":{},"anchor":{},"data":[{}],"ann":{ann}}}"#,
                     q(&s.formula),
                     s.atoms,
                     s.bonds,

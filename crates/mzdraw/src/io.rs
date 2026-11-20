@@ -444,10 +444,13 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
             let (mut d, placeholder) = record_of(record, &mut info)?;
             info.placeholder |= placeholder;
             // the data fields of the record are kept on its first atom
-            let (data, left) = formats::sdf_data(record);
+            let (data, ann, left) = formats::sdf_data(record);
             info.data_left += left;
             if let Some(a) = d.atoms.first_mut() {
                 a.set_data(&data);
+                if !ann.is_empty() {
+                    a.set_ann(&ann);
+                }
             }
             info.records += 1;
             all.append(d);

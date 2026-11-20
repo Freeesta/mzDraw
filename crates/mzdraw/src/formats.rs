@@ -382,10 +382,13 @@ pub(crate) fn assemble(
 
 /// The data fields of one SDF record (what follows `M  END`): each `> <name>` header with the lines after it up to the empty
 /// line that ends the field. Returns the fields a document can hold and how many it cannot (too many, too long, a name or a
-/// value of a shape `doc::data_valid` refuses).
-pub(crate) fn sdf_data(record: &str) -> (crate::doc::Data, usize) {
+/// value of a shape `doc::data_valid` refuses). The fields an annotation is written as (`ann::FIELDS`) are read back into the
+/// annotation, the second value (`ann::canon` text, empty for none): the whole one of `MZLAB_ANN` when it is one, else an
+/// entry of `MZLAB_LEVEL` with `MZLAB_IDENTIFIER` and `MZLAB_EVIDENCE`; those that give no annotation are counted as not held.
+pub(crate) fn sdf_data(record: &str) -> (crate::doc::Data, String, usize) {
     let after = record.find("M  END").map_or("", |at| &record[at..]);
     let (mut data, mut left) = (crate::doc::Data::new(), 0);
+    let mut held: [Option<String>; 4] = [None, None, None, None];
     let mut lines = after.lines().skip(1).map(|l| l.trim_end_matches('\r'));
     while let Some(line) = lines.next() {
         let Some(header) = line.strip_prefix('>') else {
@@ -403,6 +406,11 @@ pub(crate) fn sdf_data(record: &str) -> (crate::doc::Data, usize) {
             }
             value.push(l);
         }
+        if let Some(k) = crate::ann::FIELDS.iter().position(|f| *f == name) {
+            left += usize::from(held[k].is_some());
+            held[k] = Some(value.join("\n"));
+            continue;
+        }
         let field = [(name.to_string(), value.join("\n"))];
         if data.len() < crate::doc::MAX_DATA.0 && crate::doc::data_valid(&field) {
             data.extend(field);
@@ -410,13 +418,32 @@ pub(crate) fn sdf_data(record: &str) -> (crate::doc::Data, usize) {
             left += 1;
         }
     }
-    (data, left)
+    let [level, identifier, evidence, whole] = held;
+    let part = |p: &Option<String>| p.clone().unwrap_or_default();
+    let ann = (whole.as_deref().and_then(crate::ann::canon)).or_else(|| {
+        crate::ann::entry(
+            &level.clone()?,
+            &part(&identifier),
+            &part(&evidence),
+            "",
+            "",
+        )
+    });
+    if ann.is_none() {
+        left += [&level, &identifier, &evidence, &whole]
+            .iter()
+            .filter(|p| p.is_some())
+            .count();
+    }
+    (data, ann.filter(|t| t != "[]").unwrap_or_default(), left)
 }
 
 impl Document {
     /// The structures of the canvas as an SDF: one record per structure, in the order of their first atoms; each is the molfile
     /// of the structure (V2000; V3000 above 999 atoms), then its data (the data of its atoms in pool order) as `>  <name>`
-    /// fields, then `$$$$`. Arrows, plus signs and texts have no place in an SDF. The same drawing gives the same bytes.
+    /// fields, then its annotation if it has one (`ann::FIELDS`: the level, the identifier and the evidence of the current
+    /// entry, and the whole annotation as one line of JSON), then `$$$$`. Arrows, plus signs and texts have no place in an SDF.
+    /// The same drawing gives the same bytes.
     pub fn to_sdf(&self) -> String {
         let mut out = String::new();
         for ids in crate::layout::pieces(self) {
@@ -425,6 +452,15 @@ impl Document {
             out.push('\n');
             for (name, value) in piece.atoms.iter().flat_map(|a| a.data()) {
                 out += &format!(">  <{name}>\n{value}\n\n");
+            }
+            let whole = crate::doc::Atom::ann_of(&piece.atoms, &ids);
+            if let Some(now) = crate::ann::current(&whole) {
+                let fields = [now.level, now.identifier, now.evidence, whole];
+                for (name, value) in crate::ann::FIELDS.iter().zip(fields) {
+                    if !value.is_empty() {
+                        out += &format!(">  <{name}>\n{value}\n\n");
+                    }
+                }
             }
             out += "$$$$\n";
         }

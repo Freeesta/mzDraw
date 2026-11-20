@@ -2,6 +2,7 @@
 //! inverses (`ops`), the interactive editor (`editor`: tools, hit-testing, view), the display list every surface paints (`scene`) and
 //! its SVG form (`svg`). It depends on `mzlab-mol` and serde only, so it can leave this workspace; the mzLab glue lives in `mzdraw-wasm`.
 
+pub mod ann;
 pub mod build;
 pub mod cdxml;
 pub mod cml;
