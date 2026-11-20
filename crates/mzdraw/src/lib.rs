@@ -20,6 +20,7 @@ pub mod ops;
 pub mod outline;
 pub mod png;
 pub mod replay;
+pub mod rxn;
 pub mod scene;
 pub mod settings;
 pub mod svg;

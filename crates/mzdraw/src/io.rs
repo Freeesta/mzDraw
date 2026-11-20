@@ -17,7 +17,7 @@ pub(crate) const R_STAND_IN: &str = "He";
 /// What an import read, and what it could not keep (the page says so: nothing is dropped in silence).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Imported {
-    /// `mzdraw`, `svg` or `png` (a picture carrying its document), `ket`, `cdxml`, `molfile` or `smiles`.
+    /// `mzdraw`, `svg` or `png` (a picture carrying its document), `ket`, `cdxml`, `rxn` (a reaction file or an RD file), `molfile` or `smiles`.
     pub format: &'static str,
     /// The positions are placeholders (the text had no coordinates).
     pub placeholder: bool,
@@ -192,7 +192,8 @@ impl Document {
             d.normalise();
         }
         d.wedges_from_record(m);
-        (d, placeholder)
+        // one atom alone has no layout to speak of: its position is not a placeholder worth a word
+        (d, placeholder && m.atoms.len() > 1)
     }
 
     /// The stereo of a record as wedge marks on this drawing: the record, with the coordinates of the drawing, is written as a
@@ -419,6 +420,11 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
         let d = crate::svg::carried(t).ok_or("error.draw2.svgPlain")??;
         return Ok((d, info));
     }
+    if t.starts_with("$RXN") || t.starts_with("$RDFILE") {
+        info.format = "rxn";
+        let d = crate::rxn::from_rxn(t, &mut info)?;
+        return checked(d, info, "error.draw2.rxn");
+    }
     if text.contains("M  END") {
         info.format = "molfile";
         let mut all = Document::default();
@@ -427,9 +433,7 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
                 info.skipped += 1;
                 continue;
             }
-            let (clean, labels) = formats::prepare(record, &mut info);
-            let m = Mol::from_molfile(&clean).map_err(|_| "error.draw2.molfile")?;
-            let (d, placeholder) = labelled(&m, labels, &mut info);
+            let (d, placeholder) = record_of(record, &mut info)?;
             info.placeholder |= placeholder;
             info.records += 1;
             all.append(d);
@@ -457,6 +461,17 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     let (d, placeholder) = labelled(&m, labels, &mut info);
     info.placeholder = placeholder;
     Ok((d, info))
+}
+
+/// The drawing of one molfile record (V2000 or V3000), and whether its positions are placeholders; what the drawing does not
+/// keep is counted in `info`.
+pub(crate) fn record_of(
+    record: &str,
+    info: &mut Imported,
+) -> Result<(Document, bool), &'static str> {
+    let (clean, labels) = formats::prepare(record, info);
+    let m = Mol::from_molfile(&clean).map_err(|_| "error.draw2.molfile")?;
+    Ok(labelled(&m, labels, info))
 }
 
 /// A file may hold what a document does not (a coordinate far outside the bound): it is refused with `key`, not half kept.

@@ -217,6 +217,23 @@ try {
     await want(pg, { atoms: 9, bonds: 6 });
     eq(await pg.evaluate("window.MZDRAW.save('smiles')"), smiles);
     eq(await pg.innerText("#d2-note"), await say(["draw2.import.placeholder", 1]));
+    // a reaction file: read with its roles (reactant, arrow, product), saved again; a drawing without an arrow is refused in words
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", `$RXN\n\n  synthetic\n\n  1  1\n$MOL\n${ethanol}\n$MOL\n${ethanol}\n`); await pg.click("#d2-add");
+    await want(pg, { atoms: 6, bonds: 4, objects: 1 });
+    eq(await pg.innerText("#d2-note"), "");
+    const [r] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-rxn")]);
+    eq(r.suggestedFilename(), "drawing.rxn");
+    const rxn = readFileSync(await r.path(), "utf8");
+    eq(rxn, await pg.evaluate("window.MZDRAW.save('rxn')"));
+    assert(rxn.startsWith("$RXN\n") && rxn.includes("\n  1  1\n$MOL\n") && rxn.split("$MOL\n").length === 3, "a reaction file with one reactant and one product");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.setInputFiles("#d2-file", { name: "drawing.rxn", mimeType: "chemical/x-mdl-rxnfile", buffer: Buffer.from(rxn) }); await want(pg, { atoms: 6, bonds: 4, objects: 1 });
+    await tool(pg, "clear"); await pg.fill("#d2-text", "CCO"); await pg.click("#d2-add"); await want(pg, { atoms: 3 });
+    await pg.click("#d2-ex-rxn");
+    await until(pg, "document.querySelector('#d2-ex-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-ex-note"), await pg.evaluate("I18N.t('error.draw2.rxnArrow')"));
+    await pg.click("#d2-ex-smiles"); await until(pg, "document.querySelector('#d2-ex-note').textContent === ''");       // the next save clears the note
     // back to what the next steps expect
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", before); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3 });

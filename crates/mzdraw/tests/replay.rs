@@ -38,6 +38,19 @@ fn every_case_replays_to_the_recorded_bytes() {
             }
             assert_eq!(case["out"][out], json!(got), "{} as {out}", case["name"]);
         }
+        // a reaction file is written by the drawings that are a reaction (one arrow): recorded where it is, refused elsewhere
+        match mzdraw::replay::replay(&request(case, "rxn")) {
+            Ok(got) => {
+                if bless {
+                    case["out"]["rxn"] = json!(got);
+                }
+                assert_eq!(case["out"]["rxn"], json!(got), "{} as rxn", case["name"]);
+            }
+            Err(e) => {
+                assert_eq!(e.key, "error.draw2.rxnArrow", "{}", case["name"]);
+                assert!(case["out"].get("rxn").is_none(), "{}", case["name"]);
+            }
+        }
     }
     if bless {
         std::fs::write(fixture(), serde_json::to_string_pretty(&fx).unwrap() + "\n").unwrap();
