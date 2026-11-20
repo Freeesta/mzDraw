@@ -1,0 +1,21 @@
+[workspace]
+resolver = "3"
+members = ["crates/mzdraw", "crates/mzdraw-wasm"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+license = "MIT"
+repository = "https://github.com/Freeesta/mzdraw"
+
+# The molecule record and the structure check come from mzLab, pinned to ONE commit of its main: change the two `rev` together.
+[workspace.dependencies]
+mzlab-mol = { git = "https://github.com/Freeesta/mzlab", rev = "b71e38c4c09c2bdf4a88544a56b4fbc6addda8b1" }
+mzlab-feat = { git = "https://github.com/Freeesta/mzlab", rev = "b71e38c4c09c2bdf4a88544a56b4fbc6addda8b1", default-features = false }
+
+[profile.release]
+panic = "abort"
+opt-level = "z"
+lto = true
+codegen-units = 1
