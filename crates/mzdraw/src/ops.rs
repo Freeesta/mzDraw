@@ -2,7 +2,7 @@
 //! records an exact inverse, so undo restores the document byte for byte; a `Session` is a document with its undo and redo stacks.
 
 use crate::build;
-use crate::doc::{round4, Atom, Bond, Document};
+use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind};
 use crate::m;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +12,10 @@ fn one() -> u8 {
 
 fn is_zero(v: &u8) -> bool {
     *v == 0
+}
+
+fn is_zero_f(v: &f64) -> bool {
+    *v == 0.0
 }
 
 /// The direction of a flip.
@@ -92,13 +96,49 @@ pub enum Op {
         at: f64,
     },
     #[serde(rename = "move")]
-    Move { atoms: Vec<u32>, dx: f64, dy: f64 },
+    Move {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        atoms: Vec<u32>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        objects: Vec<u32>,
+        dx: f64,
+        dy: f64,
+    },
     #[serde(rename = "remove")]
     Remove {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         atoms: Vec<u32>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         bonds: Vec<u32>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        objects: Vec<u32>,
+    },
+    /// A reaction arrow (`t` "arrow", from `x`,`y` to `x2`,`y2`, optional `text` above), a plus sign (`t` "plus") or a text
+    /// (`t` "text").
+    #[serde(rename = "obj.add")]
+    ObjAdd {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<u32>,
+        t: ObjKind,
+        x: f64,
+        y: f64,
+        #[serde(default, skip_serializing_if = "is_zero_f")]
+        x2: f64,
+        #[serde(default, skip_serializing_if = "is_zero_f")]
+        y2: f64,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        text: String,
+    },
+    /// Sets the text and/or the end point of an object.
+    #[serde(rename = "obj.set")]
+    ObjSet {
+        id: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        x2: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        y2: Option<f64>,
     },
     /// A ring of `n` atoms (3-8), `arom` = alternating double bonds: fused on the bond `bond`, or with the atom `atom` as a corner, or
     /// centred on (`x`, `y`).
@@ -143,13 +183,20 @@ pub(crate) enum Inv {
     PutBond(usize, Bond),
     SetAtom(Atom),
     SetBond(Bond),
+    DropObj(u32),
+    PutObj(usize, Obj),
+    SetObj(Obj),
     Next(u32),
 }
 
 impl Document {
     fn take_id(&mut self, id: Option<u32>, inv: &mut Vec<Inv>) -> Result<u32, OpError> {
         let id = id.unwrap_or(self.next);
-        if id == 0 || self.atom(id).is_some() || self.bond(id).is_some() {
+        if id == 0
+            || self.atom(id).is_some()
+            || self.bond(id).is_some()
+            || self.object(id).is_some()
+        {
             return err("error.draw2.idTaken", id);
         }
         inv.push(Inv::Next(self.next));
@@ -171,6 +218,13 @@ impl Document {
             Inv::SetBond(b) => {
                 if let Some(i) = self.bond_index(b.id) {
                     self.bonds[i] = b;
+                }
+            }
+            Inv::DropObj(id) => self.objects.retain(|o| o.id != id),
+            Inv::PutObj(i, o) => self.objects.insert(i, o),
+            Inv::SetObj(o) => {
+                if let Some(i) = self.objects.iter().position(|x| x.id == o.id) {
+                    self.objects[i] = o;
                 }
             }
             Inv::Next(n) => self.next = n,
@@ -365,8 +419,25 @@ impl Document {
                     at,
                 });
             }
-            Op::Move { atoms, dx, dy } => {
+            Op::ObjAdd { .. } | Op::ObjSet { .. } => self.object_op(op, done, inv)?,
+            Op::Move {
+                atoms,
+                objects,
+                dx,
+                dy,
+            } => {
                 let (dx, dy) = (round4(*dx), round4(*dy));
+                for id in objects {
+                    let Some(i) = self.objects.iter().position(|o| o.id == *id) else {
+                        return err("error.draw2.noObject", *id);
+                    };
+                    inv.push(Inv::SetObj(self.objects[i].clone()));
+                    let o = &mut self.objects[i];
+                    (o.x, o.y) = (round4(o.x + dx), round4(o.y + dy));
+                    if o.t == ObjKind::Arrow {
+                        (o.x2, o.y2) = (round4(o.x2 + dx), round4(o.y2 + dy));
+                    }
+                }
                 for id in atoms {
                     let Some(i) = self.atom_index(*id) else {
                         return err("error.draw2.noAtom", *id);
@@ -377,16 +448,100 @@ impl Document {
                 }
                 done.push(Op::Move {
                     atoms: atoms.clone(),
+                    objects: objects.clone(),
                     dx,
                     dy,
                 });
             }
-            Op::Remove { atoms, bonds } => self.remove(atoms, bonds, done, inv)?,
+            Op::Remove {
+                atoms,
+                bonds,
+                objects,
+            } => {
+                if let Some(&id) = objects.iter().find(|&&id| self.object(id).is_none()) {
+                    return err("error.draw2.noObject", id);
+                }
+                self.remove(atoms, bonds, done, inv)?;
+                for i in (0..self.objects.len()).rev() {
+                    if objects.contains(&self.objects[i].id) {
+                        inv.push(Inv::PutObj(i, self.objects.remove(i)));
+                    }
+                }
+                if let Some(Op::Remove { objects: o, .. }) = done.last_mut() {
+                    *o = objects.clone();
+                }
+            }
             Op::Ring { .. } => {
                 for p in build::ring(self, op)? {
                     self.apply_one(&p, done, inv)?;
                 }
             }
+        }
+        Ok(())
+    }
+
+    /// Adds an object or sets its text or end point; an object that would not be valid (`Obj::valid`) is refused.
+    fn object_op(
+        &mut self,
+        op: &Op,
+        done: &mut Vec<Op>,
+        inv: &mut Vec<Inv>,
+    ) -> Result<(), OpError> {
+        match op {
+            Op::ObjAdd {
+                id,
+                t,
+                x,
+                y,
+                x2,
+                y2,
+                text,
+            } => {
+                let mut o = Obj {
+                    id: id.unwrap_or(self.next),
+                    t: *t,
+                    x: round4(*x),
+                    y: round4(*y),
+                    x2: round4(*x2),
+                    y2: round4(*y2),
+                    text: text.clone(),
+                };
+                if !o.valid() {
+                    return err("error.draw2.object", o.id);
+                }
+                o.id = self.take_id(*id, inv)?;
+                inv.push(Inv::DropObj(o.id));
+                done.push(Op::ObjAdd {
+                    id: Some(o.id),
+                    t: o.t,
+                    x: o.x,
+                    y: o.y,
+                    x2: o.x2,
+                    y2: o.y2,
+                    text: o.text.clone(),
+                });
+                self.objects.push(o);
+            }
+            Op::ObjSet { id, text, x2, y2 } => {
+                let Some(i) = self.objects.iter().position(|o| o.id == *id) else {
+                    return err("error.draw2.noObject", *id);
+                };
+                let mut o = self.objects[i].clone();
+                o.text = text.clone().unwrap_or(o.text);
+                o.x2 = x2.map_or(o.x2, round4);
+                o.y2 = y2.map_or(o.y2, round4);
+                if !o.valid() {
+                    return err("error.draw2.object", *id);
+                }
+                inv.push(Inv::SetObj(std::mem::replace(&mut self.objects[i], o)));
+                done.push(Op::ObjSet {
+                    id: *id,
+                    text: text.clone(),
+                    x2: x2.map(round4),
+                    y2: y2.map(round4),
+                });
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -419,6 +574,7 @@ impl Document {
         done.push(Op::Remove {
             atoms: atoms.to_vec(),
             bonds: bonds.to_vec(),
+            objects: Vec::new(),
         });
         Ok(())
     }

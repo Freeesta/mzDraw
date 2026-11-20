@@ -3,4 +3,4 @@
 # The cap is the target of the study (docs/mzdraw.md, "One wasm module": < 600,000 B raw, < 250,000 B gzip). It was 512,000 B, the
 # cap the module had inside mzLab, until the labels of slice 2 (519,578 B): wasm-opt -Oz instead of -O3 would only give back 9 kB.
 cap = 600000
-measured = 519578
+measured = 545556

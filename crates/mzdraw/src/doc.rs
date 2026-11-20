@@ -50,13 +50,57 @@ pub struct Bond {
     pub s: u8,
 }
 
-/// The document. `next` is the next free id (atoms and bonds share one counter), so replaying a log gives the same ids.
+/// What a drawing object other than a molecule is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ObjKind {
+    /// A reaction arrow from (`x`, `y`) to (`x2`, `y2`), with an optional text above it.
+    Arrow,
+    /// A plus sign centred on (`x`, `y`).
+    Plus,
+    /// A line of text starting at (`x`, `y`).
+    Text,
+}
+
+/// An object next to the molecules: a reaction arrow, a plus sign or a text. Coordinates in bond lengths, as the atoms.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Obj {
+    pub id: u32,
+    pub t: ObjKind,
+    pub x: f64,
+    pub y: f64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub x2: f64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub y2: f64,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub text: String,
+}
+
+impl Obj {
+    /// An arrow has a length, a text has a text of one line, a plus has neither a second point nor a text.
+    pub fn valid(&self) -> bool {
+        let one_line = !self.text.contains(['\n', '\r']) && self.text.chars().count() <= 200;
+        let no_end = self.x2 == 0.0 && self.y2 == 0.0;
+        one_line
+            && match self.t {
+                ObjKind::Arrow => (self.x2 - self.x).abs() + (self.y2 - self.y).abs() > 1e-3,
+                ObjKind::Plus => no_end && self.text.is_empty(),
+                ObjKind::Text => no_end && !self.text.trim().is_empty(),
+            }
+    }
+}
+
+/// The document. `next` is the next free id (atoms, bonds and objects share one counter), so replaying a log gives the same ids.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Document {
     pub format: String,
     pub next: u32,
     pub atoms: Vec<Atom>,
     pub bonds: Vec<Bond>,
+    /// Reaction arrows, plus signs and texts.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub objects: Vec<Obj>,
 }
 
 impl Default for Document {
@@ -66,6 +110,7 @@ impl Default for Document {
             next: 1,
             atoms: Vec::new(),
             bonds: Vec::new(),
+            objects: Vec::new(),
         }
     }
 }
@@ -100,6 +145,7 @@ impl Document {
     fn consistent(&self) -> bool {
         let mut ids: Vec<u32> = self.atoms.iter().map(|a| a.id).collect();
         ids.extend(self.bonds.iter().map(|b| b.id));
+        ids.extend(self.objects.iter().map(|o| o.id));
         ids.sort_unstable();
         let unique = ids.windows(2).all(|w| w[0] != w[1]);
         let mut pairs: Vec<(u32, u32)> = self
@@ -109,6 +155,7 @@ impl Document {
             .collect();
         pairs.sort_unstable();
         unique
+            && self.objects.iter().all(Obj::valid)
             && ids.iter().all(|&i| i < self.next)
             && pairs.windows(2).all(|w| w[0] != w[1])
             && self.atoms.iter().all(|a| {
@@ -130,6 +177,33 @@ impl Document {
 
     pub fn atom(&self, id: u32) -> Option<&Atom> {
         self.atoms.iter().find(|a| a.id == id)
+    }
+
+    pub fn object(&self, id: u32) -> Option<&Obj> {
+        self.objects.iter().find(|o| o.id == id)
+    }
+
+    /// Whether nothing is drawn.
+    pub fn is_empty(&self) -> bool {
+        self.atoms.is_empty() && self.objects.is_empty()
+    }
+
+    /// The box around everything drawn (the anchor points of the objects), as (x0, y0, x1, y1); `None` for an empty document.
+    pub fn bounds(&self) -> Option<(f64, f64, f64, f64)> {
+        let mut pts: Vec<(f64, f64)> = self.atoms.iter().map(|a| (a.x, a.y)).collect();
+        for o in &self.objects {
+            pts.push((o.x, o.y));
+            if o.t == ObjKind::Arrow {
+                pts.push((o.x2, o.y2));
+            }
+        }
+        let first = *pts.first()?;
+        Some(
+            pts.iter()
+                .fold((first.0, first.1, first.0, first.1), |b, p| {
+                    (b.0.min(p.0), b.1.min(p.1), b.2.max(p.0), b.3.max(p.1))
+                }),
+        )
     }
 
     pub fn bond_index(&self, id: u32) -> Option<usize> {

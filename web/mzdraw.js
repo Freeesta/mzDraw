@@ -3,10 +3,10 @@
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
-const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16;
+const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32;
 // toolbar: [command or tool name, key of the short label, key of the tooltip]; "|" is a separator
 const TOOLS = ["select", "erase", "|", "bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
-  "ring:6a", "ring:6", "ring:5", "|", "label", "|", "charge:+", "charge:-", "|", "undo", "redo", "|", "copy", "cut", "paste", "duplicate", "|", "rotate-l", "rotate-r", "flip-h", "flip-v", "|", "zoom-in", "zoom-out", "fit", "|", "clear"];
+  "ring:6a", "ring:6", "ring:5", "|", "label", "|", "arrow", "plus", "text", "|", "charge:+", "charge:-", "|", "undo", "redo", "|", "copy", "cut", "paste", "duplicate", "|", "rotate-l", "rotate-r", "flip-h", "flip-v", "|", "zoom-in", "zoom-out", "fit", "|", "clear"];
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p"];
 
 /** @type {any} */ let ed = null;
@@ -51,14 +51,15 @@ function refresh() {
   const st = JSON.parse(ed.state());
   for (const b of $("d2-tools").querySelectorAll("button")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
-    if (c.includes(":") || c === "select" || c === "erase") b.setAttribute("aria-pressed", String(c === st.tool));
+    if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
     if (c === "undo") /** @type {HTMLButtonElement} */ (b).disabled = !st.undo;
     if (c === "redo") /** @type {HTMLButtonElement} */ (b).disabled = !st.redo;
     if (c === "copy" || c === "cut" || c === "duplicate") /** @type {HTMLButtonElement} */ (b).disabled = !st.selected;
     if (c === "paste") /** @type {HTMLButtonElement} */ (b).disabled = !st.clip;
   }
   $("d2-label").classList.toggle("on", st.tool.startsWith("label:"));
-  $("d2-status").textContent = t("draw2.count", { atoms: st.atoms, bonds: st.bonds });
+  $("d2-text-tool").classList.toggle("on", st.tool.startsWith("text:"));
+  $("d2-status").textContent = t(st.objects ? "draw2.count.objects" : "draw2.count", { atoms: st.atoms, bonds: st.bonds, objects: st.objects });
   const list = $("d2-warnings"), ws = (st.check && st.check.warnings) || [];
   list.replaceChildren(...ws.map((/** @type {any} */ w) => {
     const li = document.createElement("li"), b = document.createElement("span");
@@ -69,7 +70,7 @@ function refresh() {
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
   if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
   else if (st.say.key) $("d2-live").textContent = t(`draw2.say.${st.say.key.slice(10)}`, { what: st.say.what });
-  document.documentElement.dataset.d2 = JSON.stringify({ atoms: st.atoms, bonds: st.bonds, tool: st.tool, warnings: ws.length, selected: st.selected });
+  document.documentElement.dataset.d2 = JSON.stringify({ atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, warnings: ws.length, selected: st.selected });
 }
 
 /** acts on the flags an editor call returned @param {number} f */
@@ -109,30 +110,35 @@ function clipboardEvents() {
   });
 }
 
-/** the label field: an abbreviation or an R group picked from the list or typed; Enter or a choice picks the label tool */
-function labelField() {
-  const box = document.createElement("label"), input = document.createElement("input"), list = document.createElement("datalist");
-  box.className = "field"; box.append(t("draw2.tool.label") + " ", input);
-  input.id = "d2-label"; input.type = "text"; input.size = 7; input.autocomplete = "off"; input.spellcheck = false; input.setAttribute("list", "d2-labels");
-  input.title = t("draw2.tool.label.title"); input.placeholder = "Ph, R1";
-  list.id = "d2-labels";
-  for (const name of ed.labels()) { const o = document.createElement("option"); o.value = name; list.append(o); }
+/** a toolbar field that picks a tool with an argument: the label field (an abbreviation or an R group, with its list) and the text field
+ * (a line of text to place, or to set on an arrow); Enter or a choice picks the tool @param {"label" | "text"} kind */
+function field(kind) {
+  const box = document.createElement("label"), input = document.createElement("input"), out = [box];
+  box.className = "field"; box.append(t(`draw2.tool.${kind}`) + " ", input);
+  input.id = kind === "label" ? "d2-label" : "d2-text-tool"; input.type = "text"; input.size = kind === "label" ? 7 : 12; input.autocomplete = "off"; input.spellcheck = false; input.maxLength = 200;
+  input.title = t(`draw2.tool.${kind}.title`); input.placeholder = t(`draw2.tool.${kind}.hint`);
+  if (kind === "label") {
+    const list = document.createElement("datalist");
+    list.id = "d2-labels"; input.setAttribute("list", list.id);
+    for (const name of ed.labels()) { const o = document.createElement("option"); o.value = name; list.append(o); }
+    out.push(list);
+  }
   const pick = () => {
-    const v = input.value.trim();
-    if (!v) return;
-    if (after(ed.command("label:" + v))) { $("d2-live").textContent = t("draw2.say.labelTool", { what: v }); cv.focus({ preventScroll: true }); }
-    else $("d2-live").textContent = t("error.draw2.label");
+    const v = kind === "label" ? input.value.trim() : input.value;
+    if (!v.trim()) return;
+    if (after(ed.command(kind + ":" + v))) { $("d2-live").textContent = t(`draw2.say.${kind}Tool`, { what: v }); cv.focus({ preventScroll: true }); }
+    else $("d2-live").textContent = t(`error.draw2.${kind}`);
   };
   input.addEventListener("change", pick);
   input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); pick(); } else if (e.key === "Escape") cv.focus({ preventScroll: true }); });
-  return [box, list];
+  return out;
 }
 
 function toolbar() {
   const bar = $("d2-tools");
   for (const c of TOOLS) {
     if (c === "|") { const s = document.createElement("span"); s.className = "sep"; s.setAttribute("role", "separator"); bar.append(s); continue; }
-    if (c === "label") { bar.append(...labelField()); continue; }
+    if (c === "label" || c === "text") { bar.append(...field(c)); continue; }
     const b = document.createElement("button"), k = c.replace(":", ".").replace("+", "plus").replace("charge.-", "charge.minus").replace("zoom-in", "zoomIn").replace("zoom-out", "zoomOut");
     b.type = "button"; b.dataset.cmd = c; b.dataset.testid = "d2-" + c;
     b.textContent = c.startsWith("atom:") ? c.slice(5) : t(`draw2.tool.${k}`);
@@ -168,7 +174,7 @@ function events() {
   cv.addEventListener("keydown", e => {
     const f = ed.key(e.key, mods(e));
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
-    if (f & ASK_LABEL) { const l = /** @type {HTMLInputElement} */ ($("d2-label")); l.focus(); l.select(); }
+    if (f & (ASK_LABEL | ASK_TEXT)) { const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
   });
   addEventListener("resize", size);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
