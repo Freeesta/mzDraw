@@ -274,6 +274,49 @@ try {
   });
   await ctx.close();
 
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
+  await step("autosave: the drawing is saved in the browser, offered on the next visit, restored with the same bytes, or discarded", async () => {
+    const ready = () => until(pg, "document.documentElement.dataset.d2Ready === '1'");
+    const saves = () => pg.evaluate("Number(document.documentElement.dataset.d2Saved || 0)");
+    eq(await pg.evaluate("document.documentElement.dataset.d2Autosave"), "on");
+    assert(await pg.isHidden("#d2-restore"), "nothing saved yet, nothing offered");
+    await pg.fill("#d2-text", "C[C@H](N)C(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 6, bonds: 5 });
+    await tool(pg, "arrow"); await pg.mouse.click(cx + 200, cy + 150); await want(pg, { objects: 1 });
+    await until(pg, "Number(document.documentElement.dataset.d2Saved || 0) >= 1");       // one second after the last change
+    const doc = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await pg.reload(); await ready();
+    eq(await state(pg), { atoms: 0, bonds: 0, objects: 0, tool: "bond:1", warnings: 0, selected: 0 });
+    assert(await pg.isVisible("#d2-restore"), "the saved drawing is offered");
+    eq(await pg.innerText("#d2-restore-text"), await pg.evaluate("I18N.t('draw2.restore.found.objects', { atoms: 6, bonds: 5, objects: 1 })"));
+    // while the offer waits nothing is written: a stray drawing does not replace the saved one
+    await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await pg.waitForTimeout(1500);
+    eq(await saves(), 0);
+    await shot(pg, "restore");
+    await pg.click("#d2-restore-yes"); await want(pg, { atoms: 6, bonds: 5, objects: 1 });
+    assert(await pg.isHidden("#d2-restore"), "the offer is gone");
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), doc);       // the same bytes, ids included
+    assert(await pg.isDisabled('[data-testid="d2-undo"]'), "an opened drawing has no history");
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.restore.done')"));
+    // work goes on and is saved again; on the next visit Discard deletes it for good
+    await tool(pg, "atom:O"); await pg.mouse.click(cx - 250, cy - 150); await want(pg, { atoms: 7 });
+    await until(pg, "Number(document.documentElement.dataset.d2Saved || 0) >= 1");
+    await pg.reload(); await ready();
+    eq(await pg.innerText("#d2-restore-text"), await pg.evaluate("I18N.t('draw2.restore.found.objects', { atoms: 7, bonds: 5, objects: 1 })"));
+    await pg.click("#d2-restore-no");
+    await until(pg, "document.querySelector('#d2-restore').hidden");       // the file is deleted first, then the offer goes
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.restore.dropped')"));
+    eq((await state(pg)).atoms, 0);
+    await pg.reload(); await ready();
+    assert(await pg.isHidden("#d2-restore"), "a discarded drawing is not offered again");
+    // an emptied canvas is saved as empty and is not offered
+    await tool(pg, "ring:6a"); await pg.mouse.click(cx, cy); await until(pg, "Number(document.documentElement.dataset.d2Saved || 0) >= 1");
+    await tool(pg, "clear"); await until(pg, "Number(document.documentElement.dataset.d2Saved || 0) >= 2");
+    await pg.reload(); await ready();
+    assert(await pg.isHidden("#d2-restore"), "an empty drawing is not offered");
+  });
+  await ctx.close();
+
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
   await step("tablet 768x1024 with touch: the same loop by tapping, no sideways scroll", async () => {
     assert(await pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), "the page scrolls sideways at 768 px");
@@ -295,4 +338,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 11 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 12 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);

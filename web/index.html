@@ -11,6 +11,11 @@
 <body>
 <header><h1 data-i18n="draw2.name">mzDraw</h1><span id="d2-status" role="status"></span></header>
 <div id="d2-tools" role="toolbar" aria-orientation="horizontal" aria-label="Drawing tools" data-i18n-aria-label="draw2.tools"></div>
+<div id="d2-restore" role="region" aria-label="Saved drawing" data-i18n-aria-label="draw2.restore.region" hidden>
+  <span id="d2-restore-text"></span>
+  <button id="d2-restore-yes" type="button" data-i18n="draw2.restore.yes" title="Open the saved drawing on the canvas" data-i18n-title="draw2.restore.yes.title">Restore</button>
+  <button id="d2-restore-no" type="button" data-i18n="draw2.restore.no" title="Delete the saved drawing" data-i18n-title="draw2.restore.no.title">Discard</button>
+</div>
 <main>
   <canvas id="d2-canvas" tabindex="0" role="application" aria-label="Structure canvas" data-i18n-aria-label="draw2.canvas"></canvas>
   <aside>

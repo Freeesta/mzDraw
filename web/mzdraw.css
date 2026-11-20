@@ -15,6 +15,8 @@ button[aria-pressed="true"] { background: var(--accent); color: var(--bg); borde
 .field input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
 button:disabled { opacity: .45; cursor: default; }
 button:focus-visible, canvas:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+#d2-restore[hidden] { display: none; }
+#d2-restore { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 10px; background: var(--panel); border-bottom: 2px solid var(--accent); }
 main { flex: 1; display: flex; min-height: 0; }
 #d2-canvas { flex: 1; min-width: 0; touch-action: none; background: var(--bg); cursor: crosshair; }
 aside { width: 280px; padding: 8px 10px; background: var(--panel); border-left: 1px solid var(--line); overflow: auto; }

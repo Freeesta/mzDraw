@@ -265,3 +265,50 @@ fn replay_gives_every_output_and_refuses_with_a_key() {
     let e = mzdraw::replay::replay(r#"{"log":[{"op":"bond.set","id":5,"o":2}]}"#).unwrap_err();
     assert_eq!((e.key, e.id), ("error.draw2.noBond", 5));
 }
+
+#[test]
+fn a_saved_document_opens_with_the_same_bytes_and_an_empty_history() {
+    let mut e = Editor::default();
+    e.import("C[C@H](N)C(=O)O").unwrap();
+    e.set_tool("label:Boc");
+    click(&mut e, 600.0, 400.0);
+    e.set_tool("arrow");
+    click(&mut e, 300.0, 500.0);
+    let saved = e.doc().to_json();
+    assert_eq!(
+        mzdraw::io::saved_summary(&saved),
+        Some((7, 5, 1)),
+        "atoms, bonds, objects"
+    );
+    // opened in another editor: the same bytes, ids and all, nothing to undo, and work goes on from the same counter
+    let mut again = Editor::default();
+    again.import("CCO").unwrap();
+    again.open(&saved).unwrap();
+    assert_eq!(again.doc().to_json(), saved);
+    assert!(!again.session.can_undo() && !again.session.can_redo());
+    assert_eq!(again.undo(), 0);
+    let next = again.doc().next;
+    again.set_tool("atom:N");
+    click(&mut again, 50.0, 50.0);
+    assert_eq!(again.doc().atoms.last().unwrap().id, next);
+    again.undo();
+    assert_eq!(again.doc().to_json(), saved);
+    // what is not a document, or an empty one, is not offered; a bad text opens nothing
+    for bad in [
+        "",
+        "CCO",
+        "{}",
+        r#"{"format":"mzdraw/2","next":1,"atoms":[],"bonds":[]}"#,
+    ] {
+        assert_eq!(mzdraw::io::saved_summary(bad), None, "{bad}");
+        assert_eq!(again.open(bad).unwrap_err(), "error.draw2.document");
+        assert_eq!(again.doc().to_json(), saved);
+    }
+    assert_eq!(
+        mzdraw::io::saved_summary(&Editor::default().doc().to_json()),
+        None
+    );
+    assert!(Editor::default()
+        .open(&Editor::default().doc().to_json())
+        .is_ok());
+}
