@@ -2,7 +2,6 @@
 //! A structure is a connected piece; nothing chemical is derived here except the implicit hydrogens a label shows.
 
 use crate::ops::Fields;
-use serde::Serialize;
 use serde_json::Value;
 
 /// The value of the `format` field.
@@ -33,35 +32,35 @@ fn more_of(v: &Value, known: &[&str]) -> More {
             .collect(),
         None => More::new(),
     };
-    out.sort();
+    crate::m::sort(&mut out);
     out
 }
 
 /// Writes `"key":value` pairs after what is already in `out` (which ends inside an open object).
-struct Writer(String);
+pub(crate) struct Writer(pub(crate) String);
 
 impl Writer {
-    fn key(&mut self, k: &str) {
+    pub(crate) fn key(&mut self, k: &str) {
         if !self.0.ends_with('{') {
             self.0.push(',');
         }
         self.0.push_str(&Value::from(k).to_string());
         self.0.push(':');
     }
-    fn raw(&mut self, k: &str, json: &str) {
+    pub(crate) fn raw(&mut self, k: &str, json: &str) {
         self.key(k);
         self.0.push_str(json);
     }
-    fn num(&mut self, k: &str, v: f64) {
+    pub(crate) fn num(&mut self, k: &str, v: f64) {
         self.raw(k, &Value::from(v).to_string());
     }
-    fn int(&mut self, k: &str, v: i64) {
+    pub(crate) fn int(&mut self, k: &str, v: i64) {
         self.raw(k, &v.to_string());
     }
-    fn text(&mut self, k: &str, v: &str) {
+    pub(crate) fn text(&mut self, k: &str, v: &str) {
         self.raw(k, &Value::from(v).to_string());
     }
-    fn more(&mut self, more: &More) {
+    pub(crate) fn more(&mut self, more: &More) {
         for (k, v) in more {
             self.raw(k, v);
         }
@@ -106,8 +105,7 @@ pub struct Bond {
 }
 
 /// What a drawing object other than a molecule is.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjKind {
     /// A reaction arrow from (`x`, `y`) to (`x2`, `y2`), with an optional text above it.
     Arrow,
@@ -131,6 +129,15 @@ pub struct Obj {
 }
 
 impl ObjKind {
+    /// The field `t` as written.
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            ObjKind::Arrow => "arrow",
+            ObjKind::Plus => "plus",
+            ObjKind::Text => "text",
+        }
+    }
+
     /// The field `t` of an object, read by hand.
     pub(crate) fn read(g: &Fields) -> Result<ObjKind, ()> {
         match g.s("t")?.as_deref() {
@@ -247,14 +254,7 @@ impl Document {
                 .map(|o| {
                     let mut w = Writer("{".into());
                     w.int("id", o.id as i64);
-                    w.text(
-                        "t",
-                        match o.t {
-                            ObjKind::Arrow => "arrow",
-                            ObjKind::Plus => "plus",
-                            ObjKind::Text => "text",
-                        },
-                    );
+                    w.text("t", o.t.name());
                     w.num("x", o.x);
                     w.num("y", o.y);
                     if o.x2 != 0.0 {
@@ -365,14 +365,14 @@ impl Document {
         let mut ids: Vec<u32> = self.atoms.iter().map(|a| a.id).collect();
         ids.extend(self.bonds.iter().map(|b| b.id));
         ids.extend(self.objects.iter().map(|o| o.id));
-        ids.sort_unstable();
+        crate::m::sort(&mut ids);
         let unique = ids.windows(2).all(|w| w[0] != w[1]);
         let mut pairs: Vec<(u32, u32)> = self
             .bonds
             .iter()
             .map(|b| (b.a.min(b.b), b.a.max(b.b)))
             .collect();
-        pairs.sort_unstable();
+        crate::m::sort(&mut pairs);
         unique
             && self.next <= MAX_ID
             && self.coords_ok()

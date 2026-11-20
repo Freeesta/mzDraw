@@ -34,7 +34,7 @@ fn hill(counts: &mut [(String, u32)], charge: i32) -> String {
         "H" => 1,
         _ => 2,
     };
-    counts.sort_by(|a, b| (rank(&a.0), &a.0).cmp(&(rank(&b.0), &b.0)));
+    crate::m::sort_by(counts, |a, b| (rank(&a.0), &a.0) < (rank(&b.0), &b.0));
     let mut out = String::new();
     for (el, n) in counts.iter().filter(|c| c.1 > 0) {
         out.push_str(el);

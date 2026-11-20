@@ -21,7 +21,7 @@ pub fn sprout_angle(doc: &Document, id: u32) -> f64 {
         .filter_map(|&n| doc.atom(n))
         .map(|n| m::atan2(n.y - a.y, n.x - a.x).rem_euclid(TAU))
         .collect();
-    ang.sort_by(f64::total_cmp);
+    m::sort_by(&mut ang, |a, b| a.total_cmp(b).is_lt());
     match ang.len() {
         0 => PI / 6.0,
         1 => (ang[0] + TAU / 3.0).rem_euclid(TAU),

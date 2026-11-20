@@ -43,7 +43,7 @@ pub struct Unknown {
 
 /// A JSON object from (key, value as JSON text) pairs, keys in alphabetical order.
 fn object(mut pairs: Vec<(String, String)>) -> String {
-    pairs.sort();
+    crate::m::sort(&mut pairs);
     let body: Vec<String> = pairs
         .iter()
         .map(|(k, v)| format!("{}:{v}", Value::from(k.as_str())))
