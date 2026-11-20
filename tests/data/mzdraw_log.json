@@ -243,6 +243,81 @@
           }
         ]
       }
+    },
+    {
+      "name": "a reaction: arrow with text, plus, text",
+      "out": {
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.5774,\"y\":0.5774},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":1.0774,\"y\":-0.2887},{\"op\":\"atom.add\",\"id\":3,\"el\":\"O\",\"x\":0.0774,\"y\":-0.2887},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":2},{\"op\":\"obj.add\",\"id\":6,\"t\":\"arrow\",\"x\":3.0,\"y\":0.5,\"x2\":5.5,\"y2\":0.5},{\"op\":\"obj.set\",\"id\":6,\"text\":\"NaBH4, MeOH\"},{\"op\":\"obj.add\",\"id\":7,\"t\":\"plus\",\"x\":-1.0,\"y\":0.5},{\"op\":\"obj.add\",\"id\":8,\"t\":\"text\",\"x\":3.0,\"y\":-0.4,\"text\":\"0 °C, 1 h\"},{\"op\":\"atom.add\",\"id\":9,\"el\":\"O\",\"x\":6.5,\"y\":0.5},{\"op\":\"move\",\"atoms\":[9],\"objects\":[7,8],\"dx\":0.25,\"dy\":-0.125},{\"op\":\"obj.add\",\"id\":10,\"t\":\"plus\",\"x\":9.0,\"y\":9.0},{\"op\":\"remove\",\"objects\":[10]},{\"op\":\"obj.set\",\"id\":6,\"x2\":5.75}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  4  2  0  0  0  0  0  0  0  0999 V2000\n    0.5774    0.5774    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.0774   -0.2887    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.0774   -0.2887    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    6.7500    0.3750    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  2  0  0  0  0\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":11,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.5774,\"y\":0.5774},{\"id\":2,\"el\":\"C\",\"x\":1.0774,\"y\":-0.2887},{\"id\":3,\"el\":\"O\",\"x\":0.0774,\"y\":-0.2887},{\"id\":9,\"el\":\"O\",\"x\":6.75,\"y\":0.375}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":2}],\"objects\":[{\"id\":6,\"t\":\"arrow\",\"x\":3.0,\"y\":0.5,\"x2\":5.75,\"y2\":0.5,\"text\":\"NaBH4, MeOH\"},{\"id\":7,\"t\":\"plus\",\"x\":-0.75,\"y\":0.375},{\"id\":8,\"t\":\"text\",\"x\":3.25,\"y\":-0.525,\"text\":\"0 °C, 1 h\"}]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"301.8\" height=\"109.87\" viewBox=\"0 0 301.8 109.87\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\">\n<line x1=\"78.22\" y1=\"38.4\" x2=\"93.22\" y2=\"64.38\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"93.22\" y1=\"62.43\" x2=\"71.9\" y2=\"62.43\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"93.22\" y1=\"66.33\" x2=\"71.9\" y2=\"66.33\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"63.22\" y=\"64.38\" font-size=\"14\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"263.4\" y=\"44.47\" font-size=\"14\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"268.3\" y=\"44.47\" font-size=\"14\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"278.1\" y=\"48.67\" font-size=\"9.8\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">2</text>\n<line x1=\"150.9\" y1=\"40.72\" x2=\"224.4\" y2=\"40.72\" stroke=\"#000000\" stroke-width=\"1.75\"/>\n<polygon points=\"233.4,40.72 224.4,44.32 224.4,37.12\" fill=\"#000000\"/>\n<text x=\"192.15\" y=\"29.52\" font-size=\"11.9\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">NaBH4, MeOH</text>\n<text x=\"38.4\" y=\"44.47\" font-size=\"18.2\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">+</text>\n<text x=\"158.4\" y=\"71.47\" font-size=\"14\" fill=\"#000000\" text-anchor=\"start\" dominant-baseline=\"central\">0 °C, 1 h</text>\n</svg>\n"
+      },
+      "request": {
+        "import": "CC=O",
+        "log": [
+          {
+            "op": "obj.add",
+            "t": "arrow",
+            "x": 3,
+            "x2": 5.5,
+            "y": 0.5,
+            "y2": 0.5
+          },
+          {
+            "id": 6,
+            "op": "obj.set",
+            "text": "NaBH4, MeOH"
+          },
+          {
+            "op": "obj.add",
+            "t": "plus",
+            "x": -1,
+            "y": 0.5
+          },
+          {
+            "op": "obj.add",
+            "t": "text",
+            "text": "0 °C, 1 h",
+            "x": 3,
+            "y": -0.4
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": 6.5,
+            "y": 0.5
+          },
+          {
+            "atoms": [
+              9
+            ],
+            "dx": 0.25,
+            "dy": -0.125,
+            "objects": [
+              7,
+              8
+            ],
+            "op": "move"
+          },
+          {
+            "op": "obj.add",
+            "t": "plus",
+            "x": 9,
+            "y": 9
+          },
+          {
+            "objects": [
+              10
+            ],
+            "op": "remove"
+          },
+          {
+            "id": 6,
+            "op": "obj.set",
+            "x2": 5.75
+          }
+        ]
+      }
     }
   ],
   "refused": [
@@ -305,6 +380,31 @@
             "id": 1,
             "lab": "Nope",
             "op": "atom.set"
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.object",
+      "request": {
+        "log": [
+          {
+            "op": "obj.add",
+            "t": "text",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.noObject",
+      "request": {
+        "log": [
+          {
+            "id": 3,
+            "op": "obj.set",
+            "text": "x"
           }
         ]
       }

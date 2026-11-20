@@ -1,7 +1,7 @@
 //! The display list as an SVG file: the same primitives the page paints, with the palette of the file. Deterministic text (numbers
 //! to 2 decimals), no editor overlay.
 
-use crate::doc::Document;
+use crate::doc::{Document, ObjKind};
 use crate::scene::{self, Overlay, View};
 use mzlab_mol::fixed;
 
@@ -34,12 +34,12 @@ fn escape(s: &str) -> String {
 
 /// The whole document as an SVG of its own size (an empty document gives an empty 1x1 drawing).
 pub fn to_svg(doc: &Document) -> String {
-    let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
-    for a in &doc.atoms {
-        (x0, y0, x1, y1) = (x0.min(a.x), y0.min(a.y), x1.max(a.x), y1.max(a.y));
-    }
-    if doc.atoms.is_empty() {
+    let Some((x0, y0, mut x1, y1)) = doc.bounds() else {
         return "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"></svg>\n".into();
+    };
+    // a text runs to the right of its anchor
+    for o in doc.objects.iter().filter(|o| o.t == ObjKind::Text) {
+        x1 = x1.max(o.x + scene::width(&o.text, FONT) / SCALE);
     }
     // labels can stick out by about two characters on each side
     let pad = MARGIN + FONT * 1.6;

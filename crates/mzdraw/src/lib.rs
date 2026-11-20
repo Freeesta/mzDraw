@@ -16,7 +16,7 @@ pub mod replay;
 pub mod scene;
 pub mod svg;
 
-pub use doc::{Atom, Bond, Document, FORMAT};
+pub use doc::{Atom, Bond, Document, Obj, ObjKind, FORMAT};
 pub use editor::Editor;
 pub use ops::{Axis, Op, OpError, Session};
 

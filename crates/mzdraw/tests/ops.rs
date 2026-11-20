@@ -1,7 +1,7 @@
 //! Every operation, its refusals, and the undo property: any sequence of steps undone gives back the identical document bytes, and
 //! redone gives the identical final bytes; a replayed log rebuilds the same document.
 
-use mzdraw::{Axis, Document, Op, Session};
+use mzdraw::{Axis, Document, ObjKind, Op, Session};
 
 fn add(el: &str, x: f64, y: f64) -> Op {
     Op::AtomAdd {
@@ -64,12 +64,14 @@ fn refused_operations_change_nothing() {
             vec![Op::Remove {
                 atoms: vec![42],
                 bonds: vec![],
+                objects: vec![],
             }],
             "error.draw2.noAtom",
         ),
         (
             vec![Op::Move {
                 atoms: vec![1, 42],
+                objects: vec![],
                 dx: 1.0,
                 dy: 0.0,
             }],
@@ -131,6 +133,7 @@ fn set_move_and_remove() {
     assert_eq!(s.doc.bond(4).unwrap().o, 2);
     s.run(&[Op::Move {
         atoms: vec![1],
+        objects: vec![],
         dx: 0.123456,
         dy: -1.0,
     }])
@@ -143,6 +146,7 @@ fn set_move_and_remove() {
     s.run(&[Op::Remove {
         atoms: vec![2],
         bonds: vec![],
+        objects: vec![],
     }])
     .unwrap();
     assert_eq!((s.doc.atoms.len(), s.doc.bonds.len()), (2, 0));
@@ -234,6 +238,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
     let d = &s.doc;
     let atom = |r: &mut Rng| d.atoms.get(r.next(d.atoms.len())).map_or(0, |a| a.id);
     let bond_id = |r: &mut Rng| d.bonds.get(r.next(d.bonds.len())).map_or(0, |b| b.id);
+    let obj_id = |r: &mut Rng| d.objects.get(r.next(d.objects.len())).map_or(0, |o| o.id);
     let xy = |r: &mut Rng| {
         (
             r.next(2000) as f64 / 100.0 - 10.0,
@@ -241,7 +246,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
         )
     };
     let els = ["C", "N", "O", "S", "Cl", "Fe"];
-    match r.next(14) {
+    match r.next(16) {
         0 | 1 => {
             let (x, y) = xy(r);
             vec![add(els[r.next(els.len())], x, y)]
@@ -261,6 +266,11 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             let (dx, dy) = xy(r);
             vec![Op::Move {
                 atoms: vec![atom(r)],
+                objects: if r.next(2) == 1 {
+                    vec![obj_id(r)]
+                } else {
+                    vec![]
+                },
                 dx,
                 dy,
             }]
@@ -268,6 +278,37 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
         6 => vec![Op::Remove {
             atoms: vec![atom(r)],
             bonds: vec![bond_id(r)],
+            objects: if r.next(3) == 1 {
+                vec![obj_id(r)]
+            } else {
+                vec![]
+            },
+        }],
+        14 => {
+            let ((x, y), (x2, y2)) = (xy(r), xy(r));
+            let t = [ObjKind::Arrow, ObjKind::Plus, ObjKind::Text][r.next(3)];
+            // some of these are not valid objects (a plus with a text, a text without one) and must be refused whole
+            let wild = r.next(4) == 0;
+            let arrow = (t == ObjKind::Arrow) != wild;
+            vec![Op::ObjAdd {
+                id: None,
+                t,
+                x,
+                y,
+                x2: if arrow { x2 } else { 0.0 },
+                y2: if arrow { y2 } else { 0.0 },
+                text: if (t == ObjKind::Text) != wild {
+                    "hν, 2 h".into()
+                } else {
+                    String::new()
+                },
+            }]
+        }
+        15 => vec![Op::ObjSet {
+            id: obj_id(r),
+            text: (r.next(2) == 1).then(|| ["Pd/C", "", "Δ"][r.next(3)].to_string()),
+            x2: (r.next(3) == 1).then(|| xy(r).0),
+            y2: None,
         }],
         9 => vec![Op::BondSet {
             id: bond_id(r),
@@ -325,6 +366,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 add("C", x, y),
                 Op::Move {
                     atoms: vec![atom(r)],
+                    objects: vec![],
                     dx: 0.5,
                     dy: 0.5,
                 },
@@ -539,6 +581,10 @@ fn the_log_reader_takes_what_the_writer_writes_and_refuses_the_rest() {
         r#"{"op":"move","atoms":[1],"dx":0}"#,
         r#"{"op":"flip","atoms":[1],"axis":"x","at":0}"#,
         r#"{"op":"bond.set","id":1,"rev":1}"#,
+        r#"{"op":"obj.add","t":"cloud","x":0,"y":0}"#,
+        r#"{"op":"obj.add","t":"text","x":0,"y":0,"text":5}"#,
+        r#"{"op":"obj.set","text":"x"}"#,
+        r#"{"op":"remove","objects":[1.5]}"#,
         r#"[1,2]"#,
     ] {
         assert!(serde_json::from_str::<Op>(bad).is_err(), "{bad}");

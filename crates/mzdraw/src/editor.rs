@@ -1,7 +1,7 @@
 //! The interactive editor: a session, a view, a tool and the pointer state machine. The page forwards pointer, wheel and key events
 //! as numbers and paints the display list; every decision (what is under the pointer, what a click does) is taken here.
 
-use crate::doc::{Document, WEDGE_DOWN, WEDGE_UP, WEDGE_WAVY};
+use crate::doc::{Document, ObjKind, WEDGE_DOWN, WEDGE_UP, WEDGE_WAVY};
 use crate::io;
 use crate::m;
 use crate::ops::{Op, Session};
@@ -14,6 +14,8 @@ pub const TOOL: u32 = 4;
 pub const HANDLED: u32 = 8;
 /// The page should move the keyboard to its label field.
 pub const ASK_LABEL: u32 = 16;
+/// The page should move the keyboard to its text field.
+pub const ASK_TEXT: u32 = 32;
 
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
@@ -35,11 +37,17 @@ pub enum Tool {
     Charge(i8),
     /// An abbreviation or an R group of `label`.
     Label(String),
+    /// A reaction arrow, dragged or of a standard length.
+    Arrow,
+    Plus,
+    /// A line of text to place, or to set on a text or an arrow.
+    Text(String),
 }
 
 impl Tool {
     /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `erase`, `ring:6`, `ring:6a` (alternating
-    /// double bonds), `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`).
+    /// double bonds), `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
+    /// `text:<one line>`.
     pub fn parse(s: &str) -> Option<Tool> {
         let (name, arg) = s.split_once(':').unwrap_or((s, ""));
         Some(match name {
@@ -62,6 +70,13 @@ impl Tool {
             }
             "charge" => Tool::Charge(if arg == "-" { -1 } else { 1 }),
             "label" if crate::label::kind(arg).is_some() => Tool::Label(arg.into()),
+            "arrow" => Tool::Arrow,
+            "plus" => Tool::Plus,
+            "text"
+                if !arg.trim().is_empty() && arg.chars().count() <= 200 && !arg.contains('\n') =>
+            {
+                Tool::Text(arg.into())
+            }
             _ => return None,
         })
     }
@@ -78,6 +93,9 @@ impl Tool {
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),
             Tool::Charge(c) => format!("charge:{}", if *c < 0 { "-" } else { "+" }),
             Tool::Label(l) => format!("label:{l}"),
+            Tool::Arrow => "arrow".into(),
+            Tool::Plus => "plus".into(),
+            Tool::Text(t) => format!("text:{t}"),
         }
     }
 }
@@ -88,6 +106,16 @@ pub enum Hit {
     None,
     Atom(u32),
     Bond(u32),
+    /// An arrow, a plus sign or a text.
+    Obj(u32),
+}
+
+/// The ids of what an import or a paste added.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Placed {
+    pub atoms: Vec<u32>,
+    pub bonds: Vec<u32>,
+    pub objects: Vec<u32>,
 }
 
 /// A press in progress: where it started (pixels), what it hit, whether it became a drag.
@@ -160,6 +188,8 @@ impl Editor {
         let d = &self.session.doc;
         self.over.sel_atoms.retain(|&i| d.atom(i).is_some());
         self.over.sel_bonds.retain(|&i| d.bond(i).is_some());
+        self.over.sel_objs.retain(|&i| d.object(i).is_some());
+        self.over.hover_obj = self.over.hover_obj.filter(|&i| d.object(i).is_some());
         self.over.warn_atoms.retain(|&i| d.atom(i).is_some());
         self.over.hover_atom = self.over.hover_atom.filter(|&i| d.atom(i).is_some());
         self.over.hover_bond = self.over.hover_bond.filter(|&i| d.bond(i).is_some());
@@ -234,7 +264,37 @@ impl Editor {
                 best = (dist, Hit::Bond(b.id));
             }
         }
-        best.1
+        if best.1 != Hit::None {
+            return best.1;
+        }
+        self.hit_object(px, py, r)
+    }
+
+    /// The object under the pointer: near the shaft of an arrow, on a plus sign, or on the line of a text.
+    fn hit_object(&self, px: f64, py: f64, r: f64) -> Hit {
+        let font = (self.view.scale * 0.4).clamp(9.0, 40.0);
+        for o in self.doc().objects.iter().rev() {
+            let (x, y) = self.view.to_px(o.x, o.y);
+            let on = match o.t {
+                ObjKind::Arrow => {
+                    let e = self.view.to_px(o.x2, o.y2);
+                    let (dx, dy) = (e.0 - x, e.1 - y);
+                    let t = (((px - x) * dx + (py - y) * dy) / (dx * dx + dy * dy).max(1e-9))
+                        .clamp(0.0, 1.0);
+                    m::hypot(x + t * dx - px, y + t * dy - py) < r
+                }
+                ObjKind::Plus => m::hypot(x - px, y - py) < r + font * 0.4,
+                ObjKind::Text => {
+                    px >= x - r
+                        && px <= x + scene::width(&o.text, font) + r
+                        && (py - y).abs() <= font * 0.6 + r * 0.5
+                }
+            };
+            if on {
+                return Hit::Obj(o.id);
+            }
+        }
+        Hit::None
     }
 
     /// Zooms by `factor` keeping the point under the pointer still (scale 8-240 px per bond).
@@ -254,19 +314,14 @@ impl Editor {
 
     /// Centres the drawing in a `w` x `h` canvas, at most 40 px per bond.
     pub fn fit(&mut self, w: f64, h: f64) -> u32 {
-        let d = self.doc();
-        if d.atoms.is_empty() {
+        let Some((x0, y0, x1, y1)) = self.doc().bounds() else {
             self.view = View {
                 scale: 40.0,
                 ox: w / 2.0,
                 oy: h / 2.0,
             };
             return REPAINT;
-        }
-        let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
-        for a in &d.atoms {
-            (x0, y0, x1, y1) = (x0.min(a.x), y0.min(a.y), x1.max(a.x), y1.max(a.y));
-        }
+        };
         let scale = ((w - 80.0) / (x1 - x0).max(0.1))
             .min((h - 80.0) / (y1 - y0).max(0.1))
             .clamp(8.0, 40.0);
@@ -280,27 +335,33 @@ impl Editor {
 
     /// Adds the structure of a text (SMILES, molfile, `mzdraw/1`) to the right of the drawing, as one undo step.
     pub fn import(&mut self, text: &str) -> Result<io::Imported, &'static str> {
-        let (new, info) = io::import(text)?;
-        let d = self.doc();
-        let right = d.atoms.iter().map(|a| a.x).fold(f64::MIN, f64::max);
-        let left = new.atoms.iter().map(|a| a.x).fold(f64::MAX, f64::min);
-        let dx = if d.atoms.is_empty() || new.atoms.is_empty() {
-            0.0
-        } else {
-            right + 2.0 - left
-        };
-        self.place(&new, dx, 0.0)?;
-        self.said = ("draw2.say.imported", new.atoms.len().to_string());
-        Ok(info)
+        self.import_placed(text).map(|r| r.0)
     }
 
-    /// Adds every atom and bond of `new`, moved by (`dx`, `dy`), with fresh ids, as one undo step; returns the new atom and bond ids.
+    /// `import`, also giving the ids of what was added.
+    pub(crate) fn import_placed(
+        &mut self,
+        text: &str,
+    ) -> Result<(io::Imported, Placed), &'static str> {
+        let (new, info) = io::import(text)?;
+        let right = self.doc().bounds().map(|b| b.2);
+        let left = new.bounds().map(|b| b.0);
+        let dx = match (right, left) {
+            (Some(r), Some(l)) => r + 2.0 - l,
+            _ => 0.0,
+        };
+        let placed = self.place(&new, dx, 0.0)?;
+        self.said = ("draw2.say.imported", new.atoms.len().to_string());
+        Ok((info, placed))
+    }
+
+    /// Adds every atom, bond and object of `new`, moved by (`dx`, `dy`), with fresh ids, as one undo step; returns the new ids.
     pub(crate) fn place(
         &mut self,
         new: &Document,
         dx: f64,
         dy: f64,
-    ) -> Result<(Vec<u32>, Vec<u32>), &'static str> {
+    ) -> Result<Placed, &'static str> {
         let base = self.doc().next - 1;
         let mut ops = Vec::new();
         for a in &new.atoms {
@@ -332,23 +393,38 @@ impl Editor {
                 s: b.s,
             });
         }
+        for o in &new.objects {
+            let arrow = o.t == ObjKind::Arrow;
+            ops.push(Op::ObjAdd {
+                id: Some(base + o.id),
+                t: o.t,
+                x: o.x + dx,
+                y: o.y + dy,
+                x2: if arrow { o.x2 + dx } else { 0.0 },
+                y2: if arrow { o.y2 + dy } else { 0.0 },
+                text: o.text.clone(),
+            });
+        }
         self.session.run(&ops).map_err(|e| e.key)?;
-        Ok((
-            new.atoms.iter().map(|a| base + a.id).collect(),
-            new.bonds.iter().map(|b| base + b.id).collect(),
-        ))
+        Ok(Placed {
+            atoms: new.atoms.iter().map(|a| base + a.id).collect(),
+            bonds: new.bonds.iter().map(|b| base + b.id).collect(),
+            objects: new.objects.iter().map(|o| base + o.id).collect(),
+        })
     }
 
     /// Empties the canvas as one undo step.
     pub fn clear(&mut self) -> u32 {
         let atoms: Vec<u32> = self.doc().atoms.iter().map(|a| a.id).collect();
-        if atoms.is_empty() {
+        let objects: Vec<u32> = self.doc().objects.iter().map(|o| o.id).collect();
+        if atoms.is_empty() && objects.is_empty() {
             return 0;
         }
         self.run(
             &[Op::Remove {
                 atoms,
                 bonds: Vec::new(),
+                objects,
             }],
             "draw2.say.cleared",
             "",

@@ -85,7 +85,7 @@ try {
   let { ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
 
   await step("the page loads the module and starts empty on the single-bond tool", async () => {
-    eq(await state(pg), { atoms: 0, bonds: 0, tool: "bond:1", warnings: 0, selected: 0 });
+    eq(await state(pg), { atoms: 0, bonds: 0, objects: 0, tool: "bond:1", warnings: 0, selected: 0 });
     eq(await pg.evaluate("window.MZDRAW.version()"), "mzdraw/1");
     eq(await pg.innerText("#d2-summary"), await pg.evaluate("I18N.t('draw.check.empty')"));
     assert(await pg.locator("#d2-tools button").count() >= 26, "the toolbar");
@@ -236,6 +236,42 @@ try {
     await tool(pg, "undo"); eq(await labs(), ["Ph", "R1"]);
     await shot(pg, "labels");
   });
+
+  await step("a reaction: arrow by click and by drag, plus, text typed and set on the arrow, selected, moved, copied, erased", async () => {
+    const objs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).objects || [];
+    await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0 });
+    await tool(pg, "fit");                                    // an empty canvas: 40 px per bond length again
+    await tool(pg, "arrow"); await want(pg, { tool: "arrow" });
+    eq(await pg.getAttribute('[data-testid="d2-arrow"]', "aria-pressed"), "true");
+    await pg.mouse.click(cx, cy); await want(pg, { objects: 1 });
+    await pg.mouse.move(cx, cy + 80); await pg.mouse.down(); await pg.mouse.move(cx + 60, cy + 84, { steps: 4 }); await pg.mouse.move(cx + 120, cy + 86, { steps: 4 }); await pg.mouse.up();
+    await want(pg, { objects: 2 });
+    let o = await objs();
+    eq([o[0].t, o[0].x2 - o[0].x, o[1].y2], ["arrow", 2, o[1].y]);       // a click: two bond lengths; a nearly level drag: levelled
+    assert(o[1].x2 - o[1].x > 2.2, "the dragged arrow has the length of the drag");
+    await tool(pg, "plus"); await pg.mouse.click(cx - 120, cy); await want(pg, { objects: 3 });
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("t");
+    assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-text-tool')"), "T focuses the text field");
+    await pg.keyboard.type("H2, Pd/C"); await pg.keyboard.press("Enter"); await want(pg, { tool: "text:H2, Pd/C" });
+    await pg.mouse.click(cx + 40, cy);                         // on the arrow: its text
+    await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).objects[0].text === 'H2, Pd/C'");
+    await pg.mouse.click(cx, cy - 120); await want(pg, { objects: 4 });       // on an empty spot: a text of its own
+    eq(await pg.innerText("#d2-status"), await pg.evaluate("I18N.t('draw2.count.objects', { atoms: 0, bonds: 0, objects: 4 })"));
+    const svg = await pg.evaluate("window.MZDRAW.save('svg')");
+    assert(svg.split(">H2, Pd/C<").length === 3 && svg.includes(">+<") && svg.split("<polygon").length === 3, "arrows, plus and texts are in the SVG");
+    await shot(pg, "reaction");
+    // select the plus, move it, copy and paste it, erase the copy
+    await tool(pg, "select"); await pg.mouse.click(cx - 120, cy); await want(pg, { selected: 1 });
+    await pg.mouse.move(cx - 120, cy); await pg.mouse.down(); await pg.mouse.move(cx - 100, cy, { steps: 3 }); await pg.mouse.move(cx - 80, cy, { steps: 3 }); await pg.mouse.up();
+    const plus = (await objs())[2];
+    assert(plus.x - o[0].x > -120 / 40 + 0.5 && plus.y === o[0].y, "the plus moved to the right with the drag");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+c"); await pg.keyboard.press("Control+v"); await want(pg, { objects: 5, selected: 1 });
+    await pg.keyboard.press("Delete"); await want(pg, { objects: 4 });
+    await tool(pg, "erase"); await pg.mouse.click(cx + 60, cy + 80); await want(pg, { objects: 3 });
+    await pg.fill("#d2-text-tool", "   "); await pg.press("#d2-text-tool", "Enter");
+    eq((await state(pg)).tool, "erase");                    // an empty text picks nothing
+    await tool(pg, "undo"); await want(pg, { objects: 4 });
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
@@ -248,6 +284,8 @@ try {
     await tool(pg, "select"); await pg.touchscreen.tap(cx, cy); await want(pg, { selected: 1 });
     await tool(pg, "copy"); await tool(pg, "paste"); await want(pg, { atoms: 3, bonds: 1, selected: 1 });
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
+    // a reaction arrow and a plus by tapping
+    await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
   });
   await ctx.close();
 } finally {
@@ -257,4 +295,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 10 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 11 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);

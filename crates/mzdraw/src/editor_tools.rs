@@ -1,8 +1,9 @@
 //! What the tools do with a press, a drag and a release, and the keyboard. Each completed gesture is one undo step.
 
 use crate::build;
+use crate::doc::ObjKind;
 use crate::editor::{
-    Editor, Hit, Press, Tool, ASK_LABEL, CHANGED, CTRL, HANDLED, REPAINT, SHIFT, TOOL,
+    Editor, Hit, Press, Tool, ASK_LABEL, ASK_TEXT, CHANGED, CTRL, HANDLED, REPAINT, SHIFT, TOOL,
 };
 use crate::m;
 use crate::ops::Op;
@@ -34,13 +35,16 @@ impl Editor {
         let inside = match hit {
             Hit::Atom(a) => o.sel_atoms.contains(&a),
             Hit::Bond(b) => o.sel_bonds.contains(&b),
+            Hit::Obj(i) => o.sel_objs.contains(&i),
             Hit::None => false,
         };
         if !inside && !shift {
             o.sel_atoms.clear();
             o.sel_bonds.clear();
+            o.sel_objs.clear();
         }
         match hit {
+            Hit::Obj(i) if !inside => o.sel_objs.push(i),
             Hit::Atom(a) if !inside => o.sel_atoms.push(a),
             Hit::Bond(b) if !inside => {
                 o.sel_bonds.push(b);
@@ -59,13 +63,15 @@ impl Editor {
     pub fn pointer_move(&mut self, px: f64, py: f64, kind: u32) -> u32 {
         let Some(p) = self.press.as_mut() else {
             let hit = self.hit(px, py, kind);
-            let (a, b) = match hit {
-                Hit::Atom(a) => (Some(a), None),
-                Hit::Bond(b) => (None, Some(b)),
-                Hit::None => (None, None),
+            let (a, b, o) = match hit {
+                Hit::Atom(a) => (Some(a), None, None),
+                Hit::Bond(b) => (None, Some(b), None),
+                Hit::Obj(o) => (None, None, Some(o)),
+                Hit::None => (None, None, None),
             };
-            let same = self.over.hover_atom == a && self.over.hover_bond == b;
-            (self.over.hover_atom, self.over.hover_bond) = (a, b);
+            let over = &mut self.over;
+            let same = over.hover_atom == a && over.hover_bond == b && over.hover_obj == o;
+            (over.hover_atom, over.hover_bond, over.hover_obj) = (a, b, o);
             return if same { 0 } else { REPAINT };
         };
         p.now = (px, py);
@@ -91,6 +97,13 @@ impl Editor {
                     (start.1 - py) / self.view.scale,
                 );
             }
+            (Tool::Arrow, _) => {
+                let (from, to) = (
+                    self.view.to_doc(start.0, start.1),
+                    self.arrow_end(start, px, py),
+                );
+                self.over.preview = Some((from.0, from.1, to.0, to.1));
+            }
             (Tool::Bond(..) | Tool::Atom(_), Hit::Atom(a)) => {
                 let (to, _) = self.sprout_target(a, px, py, kind);
                 if let Some(from) = self.session.doc.atom(a) {
@@ -100,6 +113,13 @@ impl Editor {
             _ => {}
         }
         REPAINT
+    }
+
+    /// Where an arrow dragged from `start` (pixels) to the pointer ends, in document units: level when it is within 10 degrees
+    /// of the horizontal.
+    fn arrow_end(&self, start: (f64, f64), px: f64, py: f64) -> (f64, f64) {
+        let level = (py - start.1).abs() < (px - start.0).abs() * 0.176;
+        self.view.to_doc(px, if level { start.1 } else { py })
     }
 
     /// Where a bond dragged from atom `a` ends: on the atom under the pointer, else one bond length away at a multiple of 30°.
@@ -138,7 +158,7 @@ impl Editor {
                 let (atom, bond) = match p.hit {
                     Hit::Atom(a) => (Some(a), None),
                     Hit::Bond(b) => (None, Some(b)),
-                    Hit::None => (None, None),
+                    Hit::None | Hit::Obj(_) => (None, None),
                 };
                 self.run(
                     &[Op::Ring {
@@ -154,6 +174,64 @@ impl Editor {
                 )
             }
             Tool::Label(l) => self.label_release(&p, &l, px, py),
+            Tool::Arrow => {
+                let (x, y) = self.view.to_doc(p.start.0, p.start.1);
+                // a click gives an arrow of two bond lengths to the right; a drag gives its own
+                let (x2, y2) = if p.moved {
+                    self.arrow_end(p.start, px, py)
+                } else {
+                    (x + 2.0, y)
+                };
+                let add = Op::ObjAdd {
+                    id: None,
+                    t: ObjKind::Arrow,
+                    x,
+                    y,
+                    x2,
+                    y2,
+                    text: String::new(),
+                };
+                self.run(&[add], "draw2.say.arrow", "")
+            }
+            Tool::Plus => {
+                let (x, y) = self.view.to_doc(px, py);
+                let add = Op::ObjAdd {
+                    id: None,
+                    t: ObjKind::Plus,
+                    x,
+                    y,
+                    x2: 0.0,
+                    y2: 0.0,
+                    text: String::new(),
+                };
+                self.run(&[add], "draw2.say.plus", "")
+            }
+            Tool::Text(text) => {
+                let op = match p.hit {
+                    // on a text or an arrow the tool sets its text
+                    Hit::Obj(id) if self.doc().object(id).is_some_and(|o| o.t != ObjKind::Plus) => {
+                        Op::ObjSet {
+                            id,
+                            text: Some(text.clone()),
+                            x2: None,
+                            y2: None,
+                        }
+                    }
+                    _ => {
+                        let (x, y) = self.view.to_doc(px, py);
+                        Op::ObjAdd {
+                            id: None,
+                            t: ObjKind::Text,
+                            x,
+                            y,
+                            x2: 0.0,
+                            y2: 0.0,
+                            text: text.clone(),
+                        }
+                    }
+                };
+                self.run(&[op], "draw2.say.text", &text)
+            }
             Tool::Charge(c) => match p.hit {
                 Hit::Atom(a) => {
                     let now = self.session.doc.atom(a).map_or(0, |x| x.chg);
@@ -210,14 +288,27 @@ impl Editor {
                     self.over.sel_bonds.push(b);
                 }
             }
+            let objects: Vec<u32> = (self.session.doc.objects.iter())
+                .filter(|o| {
+                    let (ox, oy) = self.view.to_px(o.x, o.y);
+                    ox >= x && ox <= x + w && oy >= y && oy <= y + h
+                })
+                .map(|o| o.id)
+                .collect();
+            for o in objects {
+                if !self.over.sel_objs.contains(&o) {
+                    self.over.sel_objs.push(o);
+                }
+            }
             return REPAINT;
         }
         if p.moved && p.hit != Hit::None && drag != (0.0, 0.0) {
-            let atoms = self.over.sel_atoms.clone();
-            let n = atoms.len().to_string();
+            let (atoms, objects) = (self.over.sel_atoms.clone(), self.over.sel_objs.clone());
+            let n = (atoms.len() + objects.len()).to_string();
             return self.run(
                 &[Op::Move {
                     atoms,
+                    objects,
                     dx: drag.0,
                     dy: drag.1,
                 }],
@@ -244,7 +335,7 @@ impl Editor {
                 self.run(&[set], "draw2.say.element", el)
             }
             Hit::Bond(_) => 0,
-            Hit::None => {
+            Hit::None | Hit::Obj(_) => {
                 let (x, y) = self.view.to_doc(px, py);
                 self.run(
                     &[Op::AtomAdd {
@@ -274,7 +365,7 @@ impl Editor {
         match p.hit {
             Hit::Atom(a) => self.run(&[set(a)], "draw2.say.label", label),
             Hit::Bond(_) => 0,
-            Hit::None => {
+            Hit::None | Hit::Obj(_) => {
                 let (x, y) = self.view.to_doc(px, py);
                 let id = self.session.doc.next;
                 let add = Op::AtomAdd {
@@ -381,7 +472,7 @@ impl Editor {
                 };
                 self.run(&[set], "draw2.say.order", &next.to_string())
             }
-            Hit::None => {
+            Hit::None | Hit::Obj(_) => {
                 let (x, y) = self.view.to_doc(px, py);
                 let id = self.session.doc.next;
                 let (cx, sy) = (m::cos(PI / 6.0), m::sin(PI / 6.0));
@@ -414,27 +505,31 @@ impl Editor {
     /// Erases the thing hit, or the whole selection when the thing is part of it.
     fn erase(&mut self, hit: Hit) -> u32 {
         let o = &self.over;
-        let op = match hit {
-            Hit::Atom(a) if o.sel_atoms.contains(&a) => Op::Remove {
-                atoms: o.sel_atoms.clone(),
-                bonds: Vec::new(),
-            },
-            Hit::Atom(a) => Op::Remove {
-                atoms: vec![a],
-                bonds: Vec::new(),
-            },
-            Hit::Bond(b) => Op::Remove {
-                atoms: Vec::new(),
-                bonds: vec![b],
-            },
+        let selected = match hit {
+            Hit::Atom(a) => o.sel_atoms.contains(&a),
+            Hit::Obj(i) => o.sel_objs.contains(&i),
+            _ => false,
+        };
+        let (mut atoms, mut bonds, mut objects) = (Vec::new(), Vec::new(), Vec::new());
+        match hit {
+            _ if selected => (atoms, objects) = (o.sel_atoms.clone(), o.sel_objs.clone()),
+            Hit::Atom(a) => atoms.push(a),
+            Hit::Bond(b) => bonds.push(b),
+            Hit::Obj(i) => objects.push(i),
             Hit::None => return 0,
+        }
+        let op = Op::Remove {
+            atoms,
+            bonds,
+            objects,
         };
         self.run(&[op], "draw2.say.erased", "")
     }
 
     pub fn delete_selection(&mut self) -> u32 {
         let (atoms, bonds) = (self.over.sel_atoms.clone(), self.over.sel_bonds.clone());
-        if atoms.is_empty() && bonds.is_empty() {
+        let objects = self.over.sel_objs.clone();
+        if atoms.is_empty() && bonds.is_empty() && objects.is_empty() {
             return 0;
         }
         // a selected bond goes with its atoms only when they are selected too
@@ -447,12 +542,18 @@ impl Editor {
                     .is_some_and(|x| !atoms.contains(&x.a) && !atoms.contains(&x.b))
             })
             .collect();
-        self.run(&[Op::Remove { atoms, bonds }], "draw2.say.erased", "")
+        let op = Op::Remove {
+            atoms,
+            bonds,
+            objects,
+        };
+        self.run(&[op], "draw2.say.erased", "")
     }
 
     pub fn select_all(&mut self) -> u32 {
         self.over.sel_atoms = self.session.doc.atoms.iter().map(|a| a.id).collect();
         self.over.sel_bonds = self.session.doc.bonds.iter().map(|b| b.id).collect();
+        self.over.sel_objs = self.session.doc.objects.iter().map(|o| o.id).collect();
         REPAINT
     }
 
@@ -473,6 +574,7 @@ impl Editor {
             (false, "escape") => {
                 self.over.sel_atoms.clear();
                 self.over.sel_bonds.clear();
+                self.over.sel_objs.clear();
                 self.set_tool("select")
             }
             (false, "1" | "2" | "3") => self.set_tool(&format!("bond:{lower}")),
@@ -483,6 +585,8 @@ impl Editor {
             (false, "v") => self.set_tool("select"),
             (false, "e") => self.set_tool("erase"),
             (false, "l") => ASK_LABEL,
+            (false, "t") => ASK_TEXT,
+            (false, "a") if shift => self.set_tool("arrow"),
             (false, k) => return self.element_key(k, shift),
         };
         f | HANDLED

@@ -107,7 +107,7 @@ pub fn key(key: &str, mods: u32) -> u32 {
 
 /// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
 /// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, or a tool name (`select`, `atom:N`, `bond:2`,
-/// `bond:up`, ...).
+/// `bond:up`, `label:Ph`, `arrow`, `plus`, `text:<one line>`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
     act(|e| match what {
@@ -206,7 +206,7 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, atoms, bonds, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
+/// What the page shows around the canvas: `{tool, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
 /// the `check/1` document or null).
 #[wasm_bindgen]
 pub fn state() -> String {
@@ -219,7 +219,8 @@ pub fn state() -> String {
             "bonds": e.doc().bonds.len(),
             "undo": e.session.can_undo(),
             "redo": e.session.can_redo(),
-            "selected": e.over.sel_atoms.len() + e.over.sel_bonds.len(),
+            "objects": e.doc().objects.len(),
+            "selected": e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len(),
             "clip": !e.clipboard("mzdraw").is_empty(),
             "say": { "key": e.said.0, "what": e.said.1 },
             "error": e.error,

@@ -5,7 +5,7 @@
 //! `RECT x y w h colour` · `DISC x y r colour` · `RING x y r colour` · `TRI x1 y1 x2 y2 x3 y3 colour` (a filled triangle).
 //! Coordinates are in output pixels, y down.
 
-use crate::doc::{Atom, Document, WEDGE_DOWN, WEDGE_UP};
+use crate::doc::{Atom, Document, Obj, ObjKind, WEDGE_DOWN, WEDGE_UP};
 use crate::m;
 
 pub const LINE: f32 = 1.0;
@@ -47,11 +47,13 @@ impl View {
     }
 }
 
-/// What the editor adds on top of the document: selection, hover, flagged atoms, a moving selection, a preview bond, a rubber band.
+/// What the editor adds on top of the document: selection and hover (atoms, bonds, objects), flagged atoms, a moving selection, a preview bond, a rubber band.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Overlay {
     pub sel_atoms: Vec<u32>,
     pub sel_bonds: Vec<u32>,
+    pub sel_objs: Vec<u32>,
+    pub hover_obj: Option<u32>,
     pub hover_atom: Option<u32>,
     pub hover_bond: Option<u32>,
     pub warn_atoms: Vec<u32>,
@@ -81,7 +83,7 @@ fn advance(c: char) -> f64 {
     }
 }
 
-fn width(s: &str, size: f64) -> f64 {
+pub(crate) fn width(s: &str, size: f64) -> f64 {
     s.chars().map(advance).sum::<f64>() * size
 }
 
@@ -358,6 +360,73 @@ impl Painter<'_> {
         }
     }
 
+    /// A reaction arrow (shaft, head, text above), a plus sign or a text; selected or hovered ones get a mark at their anchor.
+    fn object(&mut self, o: &Obj) {
+        let moving = self.over.drag != (0.0, 0.0) && self.over.sel_objs.contains(&o.id);
+        let (dx, dy) = if moving { self.over.drag } else { (0.0, 0.0) };
+        let (x, y) = self.view.to_px(o.x + dx, o.y + dy);
+        let f = self.font;
+        let mark = if self.over.sel_objs.contains(&o.id) {
+            Some(colour::SELECT)
+        } else if self.over.hover_obj == Some(o.id) {
+            Some(colour::HOVER)
+        } else {
+            None
+        };
+        let w = (self.view.scale * 0.045).max(1.0);
+        match o.t {
+            ObjKind::Arrow => {
+                let e = self.view.to_px(o.x2 + dx, o.y2 + dy);
+                let len = m::hypot(e.0 - x, e.1 - y).max(1e-6);
+                let (ux, uy) = ((e.0 - x) / len, (e.1 - y) / len);
+                if let Some(c) = mark {
+                    self.line((x, y), e, w * 6.0, c);
+                }
+                let head = (self.view.scale * 0.3).min(len * 0.5);
+                let neck = (e.0 - ux * head, e.1 - uy * head);
+                let (nx, ny) = (-uy * head * 0.4, ux * head * 0.4);
+                self.line((x, y), neck, w * 1.3, colour::INK);
+                self.push(&[
+                    TRI as f64,
+                    e.0,
+                    e.1,
+                    neck.0 + nx,
+                    neck.1 + ny,
+                    neck.0 - nx,
+                    neck.1 - ny,
+                    colour::INK as f64,
+                ]);
+                if !o.text.is_empty() {
+                    // above the middle of the shaft, on the side that is up on the screen
+                    let up = if ux >= 0.0 { 1.0 } else { -1.0 };
+                    let (mx, my) = ((x + e.0) / 2.0, (y + e.1) / 2.0);
+                    let off = f * 0.8 * up;
+                    self.text(
+                        mx + uy * off,
+                        my - ux * off,
+                        f * 0.85,
+                        colour::INK,
+                        &o.text,
+                        0.0,
+                    );
+                }
+            }
+            ObjKind::Plus => {
+                if let Some(c) = mark {
+                    self.push(&[DISC as f64, x, y, f * 0.8, c as f64]);
+                }
+                self.text(x, y, f * 1.3, colour::INK, "+", 0.0);
+            }
+            ObjKind::Text => {
+                if let Some(c) = mark {
+                    let tw = width(&o.text, f);
+                    self.line((x, y + f * 0.75), (x + tw, y + f * 0.75), w * 3.0, c);
+                }
+                self.text(x, y, f, colour::INK, &o.text, 1.0);
+            }
+        }
+    }
+
     fn atoms(&mut self) {
         let r = self.font * 0.7;
         for a in &self.doc.atoms {
@@ -392,6 +461,9 @@ pub fn build(doc: &Document, view: View, over: &Overlay, font: f64) -> Scene {
         p.bond(b);
     }
     p.atoms();
+    for o in &doc.objects {
+        p.object(o);
+    }
     if let Some((x1, y1, x2, y2)) = over.preview {
         let w = (view.scale * 0.045).max(1.0);
         p.line(view.to_px(x1, y1), view.to_px(x2, y2), w, colour::PREVIEW);

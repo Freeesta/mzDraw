@@ -53,7 +53,8 @@ impl Editor {
         self.run(&[Op::Flip { atoms, axis, at }], "draw2.say.flipped", "")
     }
 
-    /// The selected atoms and the bonds between them as a document of their own, ids renumbered from 1 (atoms, then bonds).
+    /// The selected atoms, the bonds between them and the selected objects as a document of their own, ids renumbered from 1
+    /// (atoms, then bonds, then objects).
     fn selection_doc(&self) -> Document {
         let d = self.doc();
         let sel = &self.over.sel_atoms;
@@ -78,13 +79,18 @@ impl Editor {
                 });
             }
         }
+        for o in (d.objects.iter()).filter(|o| self.over.sel_objs.contains(&o.id)) {
+            let id = out.next;
+            out.next += 1;
+            out.objects.push(crate::doc::Obj { id, ..o.clone() });
+        }
         out
     }
 
     /// Copies the selection to the editor's clipboard; false when nothing is selected.
     pub fn copy(&mut self) -> bool {
         let d = self.selection_doc();
-        if d.atoms.is_empty() {
+        if d.is_empty() {
             return false;
         }
         self.clip = d.to_json();
@@ -122,32 +128,20 @@ impl Editor {
             let step = PASTE_STEP * (self.pasted + 1) as f64;
             io::import(&text).and_then(|(new, _)| self.place(&new, step, -step))
         } else {
-            let before: Vec<u32> = self.doc().atoms.iter().map(|a| a.id).collect();
-            self.import(&text).map(|_| {
-                let d = self.doc();
-                let atoms: Vec<u32> = d
-                    .atoms
-                    .iter()
-                    .map(|a| a.id)
-                    .filter(|i| !before.contains(i))
-                    .collect();
-                let bonds = d
-                    .bonds
-                    .iter()
-                    .filter(|b| atoms.contains(&b.a))
-                    .map(|b| b.id)
-                    .collect();
-                (atoms, bonds)
-            })
+            self.import_placed(&text).map(|r| r.1)
         };
         match placed {
-            Ok((atoms, bonds)) => {
+            Ok(p) => {
                 if own {
                     self.pasted += 1;
                 }
-                self.said = ("draw2.say.pasted", atoms.len().to_string());
+                self.said = (
+                    "draw2.say.pasted",
+                    (p.atoms.len() + p.objects.len()).to_string(),
+                );
                 self.error = "";
-                (self.over.sel_atoms, self.over.sel_bonds) = (atoms, bonds);
+                let o = &mut self.over;
+                (o.sel_atoms, o.sel_bonds, o.sel_objs) = (p.atoms, p.bonds, p.objects);
                 self.set_tool("select") | REPAINT | CHANGED | TOOL
             }
             Err(key) => {
