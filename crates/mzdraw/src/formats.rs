@@ -116,16 +116,30 @@ impl Document {
     }
 
     /// Adds every atom and bond of `other` to the right of this document, with ids after the ones in use.
-    pub(crate) fn append(&mut self, mut other: Document) {
-        let shift = self.next.max(1) - 1;
+    pub(crate) fn append(&mut self, other: Document) {
         let dx = match (self.bounds(), other.bounds()) {
             (Some(mine), Some(new)) => mine.2 + 2.0 - new.0,
             _ => 0.0,
         };
+        self.join(other, dx, 0.0);
+    }
+
+    /// Adds every atom, bond and object of `other`, moved by (`dx`, `dy`), with ids after the ones in use.
+    pub(crate) fn join(&mut self, mut other: Document, dx: f64, dy: f64) {
+        let shift = self.next.max(1) - 1;
+        let moved = |x: f64, d: f64| crate::doc::round4(x + d);
         for a in &mut other.atoms {
             a.id += shift;
-            a.x = crate::doc::round4(a.x + dx);
+            (a.x, a.y) = (moved(a.x, dx), moved(a.y, dy));
         }
+        for o in &mut other.objects {
+            o.id += shift;
+            (o.x, o.y) = (moved(o.x, dx), moved(o.y, dy));
+            if o.t == ObjKind::Arrow {
+                (o.x2, o.y2) = (moved(o.x2, dx), moved(o.y2, dy));
+            }
+        }
+        self.objects.append(&mut other.objects);
         for b in &mut other.bonds {
             (b.id, b.a, b.b) = (b.id + shift, b.a + shift, b.b + shift);
         }
