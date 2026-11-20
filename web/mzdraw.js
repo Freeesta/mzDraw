@@ -293,12 +293,14 @@ async function savePng() {
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
-/** the style choice: the presets Rust names; the choice changes the screen and the saved SVG, not the document. The settings file the
- * module writes for the chosen style is kept in the browser (OPFS) and given back to the module on the next visit; a file the module
- * refuses is ignored. */
+/** the style: the presets and the fields the module's schema names; a choice changes the screen and the saved pictures, not the
+ * document. The settings file the module writes for the style is kept in the browser (OPFS) and given back to the module on the
+ * next visit; it can be saved as a file and a settings file can be opened. The module judges every value and every file. */
 async function styles() {
-  const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), NAME = "mzdraw-settings.json";
-  for (const name of ed.styles()) { const o = document.createElement("option"); o.value = name; o.textContent = t(`draw2.style.${name}`); sel.append(o); }
+  const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), note = $("d2-style-note"), NAME = "mzdraw-settings.json";
+  const schema = JSON.parse(ed.settings_schema()), box = $("d2-style-fields");
+  /** @type {Record<string, HTMLInputElement | HTMLSelectElement>} */ const inputs = {};
+  for (const name of schema.presets) { const o = document.createElement("option"); o.value = name; o.textContent = t(`draw2.style.${name}`); sel.append(o); }
   const keep = async () => {
     try {
       const w = await (await (await navigator.storage.getDirectory()).getFileHandle(NAME, { create: true })).createWritable();
@@ -306,16 +308,43 @@ async function styles() {
       document.documentElement.dataset.d2Style = String(Number(document.documentElement.dataset.d2Style || 0) + 1);
     } catch { /* no storage: the style lasts for this visit */ }
   };
-  sel.addEventListener("change", () => {
-    try { after(ed.set_style(sel.value) | CHANGED); $("d2-style-note").textContent = t(`draw2.style.${sel.value}.note`); $("d2-live").textContent = t("draw2.say.style", { what: sel.selectedOptions[0].textContent || "" }); keep(); }
-    catch (e) { $("d2-style-note").textContent = I.err(JSON.parse(String(e))).message; }
+  /** shows the style the module holds: the preset it was made from and every value */
+  const show = () => {
+    const style = JSON.parse(ed.style()).style;
+    sel.value = style.preset; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+    for (const [key, input] of Object.entries(inputs)) { input.value = String(style[key]); input.removeAttribute("aria-invalid"); }
+  };
+  /** one change asked of the module; a refusal is said in words, the field is marked and nothing changes */
+  const ask = (/** @type {() => number} */ change, /** @type {string} */ said, /** @type {Element | null} */ field) => {
+    try { after(change() | CHANGED); show(); note.textContent = said; $("d2-live").textContent = t("draw2.say.style", { what: sel.selectedOptions[0].textContent || "" }); keep(); }
+    catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; field?.setAttribute("aria-invalid", "true"); }
+  };
+  const row = (/** @type {string} */ key, /** @type {HTMLInputElement | HTMLSelectElement} */ input, /** @type {string} */ unit) => {
+    const label = document.createElement("label"), name = document.createElement("span");
+    label.className = "field"; name.textContent = t(`draw2.style.field.${key}`);
+    input.id = `d2-style-${key}`; inputs[key] = input;
+    input.addEventListener("change", () => ask(() => ed.set(`style.${key}=${input.value}`), t("draw2.style.custom.note"), input));
+    label.append(name, input, unit); box.append(label);
+  };
+  for (const f of schema.fields) {
+    const input = document.createElement("input");
+    input.type = "number"; input.min = String(f.min); input.max = String(f.max); input.step = "any"; input.inputMode = "decimal";
+    row(f.key, input, t(`draw2.style.unit.${f.unit}`));
+  }
+  const colour = document.createElement("select");
+  for (const c of schema.colours) { const o = document.createElement("option"); o.value = c; o.textContent = t(`draw2.style.colour.${c}`); colour.append(o); }
+  row("colour", colour, "");
+  sel.addEventListener("change", () => ask(() => ed.set_style(sel.value), t(`draw2.style.${sel.value}.note`), null));
+  $("d2-style-save").addEventListener("click", () => download(ed.style(), "mzdraw-settings.json", "application/json"));
+  $("d2-style-open").addEventListener("click", () => $("d2-style-file").click());
+  $("d2-style-file").addEventListener("change", async e => {
+    const f = /** @type {HTMLInputElement} */ (e.target).files?.[0];
+    if (f) { const text = await f.text(); ask(() => ed.set_style(text), t("draw2.style.opened.note"), null); }
+    /** @type {HTMLInputElement} */ (e.target).value = "";
   });
-  try {
-    ed.set_style(await (await (await (await navigator.storage.getDirectory()).getFileHandle(NAME)).getFile()).text());
-    sel.value = JSON.parse(ed.state()).style;
-    if (sel.selectedIndex < 0) sel.selectedIndex = 0;
-  } catch { /* nothing kept, or a file the module refuses */ }
-  $("d2-style-note").textContent = t(`draw2.style.${sel.value}.note`);
+  try { ed.set_style(await (await (await (await navigator.storage.getDirectory()).getFileHandle(NAME)).getFile()).text()); } catch { /* nothing kept, or a file the module refuses */ }
+  show();
+  note.textContent = t(`draw2.style.${sel.value}.note`);
 }
 
 function panels() {

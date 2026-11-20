@@ -234,3 +234,139 @@ fn unknown_keys_survive_a_round_and_newer_versions_are_said_to_be_newer() {
         );
     }
 }
+
+#[test]
+fn the_schema_is_one_table_and_every_key_is_set_from_text() {
+    use mzdraw::settings::{schema_json, FIELDS, PRESETS};
+    let schema: serde_json::Value = serde_json::from_str(&schema_json()).unwrap();
+    assert_eq!(schema["format"], "mzdraw-settings/1");
+    assert_eq!(schema["presets"].as_array().unwrap().len(), PRESETS.len());
+    assert_eq!(schema["colours"], serde_json::json!(["element", "mono"]));
+    let fields = schema["fields"].as_array().unwrap();
+    assert_eq!(fields.len(), FIELDS.len());
+    // the settings file of the default style holds exactly the keys of the schema, with the defaults of the schema
+    let file: serde_json::Value = serde_json::from_str(&Style::default().to_json()).unwrap();
+    let style = file["style"].as_object().unwrap();
+    assert_eq!(
+        style.len(),
+        fields.len() + 2,
+        "the fields, the preset and the colour"
+    );
+    for f in fields {
+        let key = f["key"].as_str().unwrap();
+        assert_eq!(style[key], f["default"], "{key}");
+        assert!(["pt", "of_bond", "of_font"].contains(&f["unit"].as_str().unwrap()));
+        let (min, max, d) = (
+            f["min"].as_f64().unwrap(),
+            f["max"].as_f64().unwrap(),
+            f["default"].as_f64().unwrap(),
+        );
+        assert!(min <= d && d <= max, "{key}");
+        // set from text: the bounds are values, a hair outside them is refused and changes nothing
+        let mut s = Style::default();
+        for v in [min, max] {
+            s.set(key, &v.to_string()).unwrap();
+            let again: serde_json::Value = serde_json::from_str(&s.to_json()).unwrap();
+            assert_eq!(again["style"][key].as_f64(), Some(v), "{key}");
+        }
+        let before = s.clone();
+        for bad in [
+            (min - 0.001).to_string(),
+            (max + 0.001).to_string(),
+            "NaN".into(),
+            "inf".into(),
+            "".into(),
+            "1,5".into(),
+            "12pt".into(),
+        ] {
+            assert_eq!(
+                s.set(key, &bad).unwrap_err(),
+                "error.draw2.styleValue",
+                "{key}={bad}"
+            );
+            assert_eq!(s, before);
+        }
+    }
+    // the two keys that are not numbers, and a key that is none
+    let mut s = Style::from_text(
+        r#"{"format":"mzdraw-settings/1","later":[1],"style":{"line_width":2,"glow":true}}"#,
+    )
+    .unwrap();
+    s.set("colour", "mono").unwrap();
+    assert!(s.mono);
+    assert_eq!(
+        s.set("colour", "pink").unwrap_err(),
+        "error.draw2.styleValue"
+    );
+    assert_eq!(s.set("glow", "1").unwrap_err(), "error.draw2.styleKey");
+    // a preset replaces the numbers and keeps what the file held that this version does not know
+    s.set("preset", "acs-1996").unwrap();
+    assert_eq!(
+        (s.name.as_str(), s.line_width, s.bond_length),
+        ("acs-1996", 0.6, 14.4)
+    );
+    assert!(s.to_json().contains("\"glow\":true") && s.to_json().contains("\"later\":[1]"));
+    assert_eq!(s.set("preset", "nope").unwrap_err(), "error.draw2.style");
+    // a file written after a set reads back to the same style
+    s.set("font_size", "11.5").unwrap();
+    assert_eq!(Style::from_text(&s.to_json()).unwrap(), s);
+}
+
+#[test]
+fn settings_are_set_through_the_editor_and_the_replay_request() {
+    let mut e = Editor::default();
+    e.import("CCO").unwrap();
+    let plain = e.svg();
+    let doc = e.doc().to_json();
+    assert_ne!(e.set("style.line_width=3").unwrap(), 0);
+    assert!((attr(&e.svg(), "line", "stroke-width") - 3.0).abs() < 1e-9);
+    assert_eq!(e.doc().to_json(), doc, "a setting is not in the document");
+    for (bad, key) in [
+        ("line_width=3", "error.draw2.set"),
+        ("style.line_width", "error.draw2.set"),
+        ("editor.zoom=2", "error.draw2.set"),
+        ("style.line_width=999", "error.draw2.styleValue"),
+        ("style.nope=1", "error.draw2.styleKey"),
+    ] {
+        assert_eq!(e.set(bad).unwrap_err(), key, "{bad}");
+    }
+    assert!(
+        (attr(&e.svg(), "line", "stroke-width") - 3.0).abs() < 1e-9,
+        "a refused setting changes nothing"
+    );
+    // the same from the headless door, after the style, in order; the bytes are the editor's
+    let request = |set: serde_json::Value| {
+        serde_json::json!({ "import": "CCO", "style": "acs-1996", "set": set, "out": "svg" })
+            .to_string()
+    };
+    let out = mzdraw::replay::replay(&request(serde_json::json!([
+        "style.line_width=3",
+        " style.colour = element"
+    ])))
+    .unwrap();
+    let mut same = Editor::default();
+    same.import("CCO").unwrap();
+    same.set_style("acs-1996").unwrap();
+    same.set("style.line_width=3").unwrap();
+    same.set("style.colour=element").unwrap();
+    assert_eq!(out, same.svg());
+    assert_ne!(out, plain);
+    assert_eq!(
+        mzdraw::replay::replay(&request(serde_json::json!(["style.margin=-1"])))
+            .unwrap_err()
+            .key,
+        "error.draw2.styleValue"
+    );
+    assert_eq!(
+        mzdraw::replay::replay(&request(serde_json::json!("style.margin=1")))
+            .unwrap_err()
+            .key,
+        "error.draw2.request"
+    );
+    assert_eq!(
+        mzdraw::replay::replay(&request(serde_json::json!([3])))
+            .unwrap_err()
+            .key,
+        "error.draw2.request"
+    );
+}

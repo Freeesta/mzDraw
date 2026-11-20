@@ -248,6 +248,18 @@ pub fn set_style(text: &str) -> Result<u32, JsValue> {
     with(|p| p.editor.set_style(text).map_err(js_err))
 }
 
+/// Sets one setting, `<section>.<key>=<value>` (for the style: `style.line_width=2`, `style.colour=mono`).
+#[wasm_bindgen]
+pub fn set(setting: &str) -> Result<u32, JsValue> {
+    with(|p| p.editor.set(setting).map_err(js_err))
+}
+
+/// The schema of the settings file: presets, colours and the numeric fields with unit, bounds and default.
+#[wasm_bindgen]
+pub fn settings_schema() -> String {
+    mzdraw::settings::schema_json()
+}
+
 /// The current style as a settings file.
 #[wasm_bindgen]
 pub fn style() -> String {

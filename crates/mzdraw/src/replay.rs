@@ -13,6 +13,8 @@ struct Request {
     out: Option<String>,
     /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
     style: Option<String>,
+    /// Settings applied after `style`, each `<section>.<key>=<value>` (`Editor::set`): the `--set` of the CLI.
+    set: Vec<String>,
 }
 
 impl Request {
@@ -30,11 +32,18 @@ impl Request {
                 .map(Op::from_value)
                 .collect::<Option<Vec<Op>>>()?,
         };
+        let set = match v.get("set") {
+            None => Vec::new(),
+            Some(l) => (l.as_array()?.iter())
+                .map(|s| s.as_str().map(str::to_string))
+                .collect::<Option<Vec<String>>>()?,
+        };
         v.is_object().then_some(())?;
         Some(Request {
             import: text_of("import")?,
             log,
             out: text_of("out")?,
+            set,
             style: match v.get("style") {
                 // a settings object may be given in place: it is read as its own text
                 Some(s) if s.is_object() => Some(s.to_string()),
@@ -44,7 +53,7 @@ impl Request {
     }
 }
 
-/// Runs a request `{"import", "log", "out"}`; the error is an i18n key and the id it is about.
+/// Runs a request `{"import", "style", "set", "log", "out"}`; the error is an i18n key and the id it is about.
 pub fn replay(request: &str) -> Result<String, OpError> {
     let fail = |key| OpError { key, id: 0 };
     let r = Request::read(request).ok_or_else(|| fail("error.draw2.request"))?;
@@ -54,6 +63,9 @@ pub fn replay(request: &str) -> Result<String, OpError> {
     }
     if let Some(style) = &r.style {
         e.set_style(style).map_err(fail)?;
+    }
+    for setting in &r.set {
+        e.set(setting).map_err(fail)?;
     }
     for op in &r.log {
         e.session.run(std::slice::from_ref(op))?;
