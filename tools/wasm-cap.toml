@@ -1,7 +1,9 @@
 # Size cap of the optimised editor module (site/pkg/mzdraw_wasm_bg.wasm), in bytes. tools/wasm_cap.sh fails the build above `cap`.
 # `measured` is the size at the last change of this file: update it in the PR that moves the size. Raising `cap` is the owner's
 # decision: send the measured numbers and a proposal first, never raise it in a PR on your own.
+# 2026-11-20: the owner lifted the size limit for now. `cap` is a generous guard (4000000) that only catches a runaway; revisit
+# before the first release.
 # 2026-11-20: raised from 512000 to 540000 by the owner's decision, for the 2D layout of mzlab-mol (the module measured 536722 B
 # with it linked, 500659 B without).
-cap = 540000
+cap = 4000000
 measured = 536722
