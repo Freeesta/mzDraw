@@ -3,7 +3,8 @@
 use crate::build;
 use crate::doc::ObjKind;
 use crate::editor::{
-    Editor, Hit, Press, Tool, ASK_LABEL, ASK_TEXT, CHANGED, CTRL, HANDLED, REPAINT, SHIFT, TOOL,
+    Editor, Hit, Press, Tool, ASK_LABEL, ASK_TEXT, CHANGED, CTRL, FOCUS, HANDLED, REPAINT, SHIFT,
+    TOOL,
 };
 use crate::m;
 use crate::ops::Op;
@@ -562,6 +563,9 @@ impl Editor {
         let ctrl = mods & CTRL != 0;
         let shift = mods & SHIFT != 0;
         let lower = key.to_ascii_lowercase();
+        if !ctrl && let Some(f) = self.focus_key(&lower, shift) {
+            return f | HANDLED;
+        }
         let f = match (ctrl, lower.as_str()) {
             (true, "z") if shift => self.redo(),
             (true, "z") => self.undo(),
@@ -575,7 +579,12 @@ impl Editor {
                 self.over.sel_atoms.clear();
                 self.over.sel_bonds.clear();
                 self.over.sel_objs.clear();
-                self.set_tool("select")
+                // leaving the focus is said only when there was one
+                let left = match self.over.focus {
+                    Some(_) => self.focus_on(None, None),
+                    None => 0,
+                };
+                left | self.set_tool("select")
             }
             (false, "1" | "2" | "3") => self.set_tool(&format!("bond:{lower}")),
             (false, "w") if shift => self.set_tool("bond:down"),
@@ -592,7 +601,7 @@ impl Editor {
         f | HANDLED
     }
 
-    /// A letter sets the element of the atom under the pointer, or picks the atom tool.
+    /// A letter sets the element of the focused atom, else of the atom under the pointer, or picks the atom tool.
     fn element_key(&mut self, k: &str, shift: bool) -> u32 {
         let el = match (k, shift) {
             ("c", true) => "Cl",
@@ -609,7 +618,9 @@ impl Editor {
             ("i", _) => "I",
             _ => return 0,
         };
-        let f = match self.over.hover_atom {
+        // the atom with the keyboard focus first, else the one under the pointer
+        let said = if self.over.focus.is_some() { FOCUS } else { 0 };
+        let f = match self.over.focus.or(self.over.hover_atom) {
             Some(a) => {
                 let set = Op::AtomSet {
                     id: a,
@@ -620,7 +631,7 @@ impl Editor {
                     h: None,
                     lab: None,
                 };
-                self.run(&[set], "draw2.say.element", el)
+                self.run(&[set], "draw2.say.element", el) | said
             }
             None => self.set_tool(&format!("atom:{el}")),
         };

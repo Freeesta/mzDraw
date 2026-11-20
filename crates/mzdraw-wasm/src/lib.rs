@@ -249,15 +249,27 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
+/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
 /// the `check/1` document or null).
 #[wasm_bindgen]
 pub fn state() -> String {
     with(|p| {
         let e = &p.editor;
         let check: serde_json::Value = serde_json::from_str(&p.check).unwrap_or_default();
+        let outline: Vec<serde_json::Value> = mzdraw::outline::pieces(e.doc())
+            .into_iter()
+            .map(
+                |s| serde_json::json!({ "formula": s.formula, "atoms": s.atoms, "bonds": s.bonds }),
+            )
+            .collect();
+        let focus = e.over.focus.and_then(|a| mzdraw::outline::focus(e.doc(), a)).map(|f| {
+            serde_json::json!({ "id": f.id, "name": f.name, "index": f.index, "of": f.of, "bonds": f.bonds,
+                "hydrogens": f.hydrogens, "charge": f.charge })
+        });
         serde_json::json!({
             "tool": e.tool.name(),
+            "outline": outline,
+            "focus": focus,
             "style": e.style.name,
             "atoms": e.doc().atoms.len(),
             "bonds": e.doc().bonds.len(),

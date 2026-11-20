@@ -17,6 +17,8 @@ pub const HANDLED: u32 = 8;
 pub const ASK_LABEL: u32 = 16;
 /// The page should move the keyboard to its text field.
 pub const ASK_TEXT: u32 = 32;
+/// The keyboard focus moved or what it is on changed: the page should say where it is.
+pub const FOCUS: u32 = 64;
 
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
@@ -138,6 +140,8 @@ pub struct Editor {
     pub said: (&'static str, String),
     /// The last refused operation, an i18n key.
     pub error: &'static str,
+    /// The atom the keyboard focus came from (the bond walked last).
+    pub(crate) focus_from: Option<u32>,
     /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
     pub style: Style,
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
@@ -159,6 +163,7 @@ impl Default for Editor {
             press: None,
             said: ("", String::new()),
             error: "",
+            focus_from: None,
             style: Style::default(),
             clip: String::new(),
             pasted: 0,
@@ -193,6 +198,8 @@ impl Editor {
         self.over.sel_atoms.retain(|&i| d.atom(i).is_some());
         self.over.sel_bonds.retain(|&i| d.bond(i).is_some());
         self.over.sel_objs.retain(|&i| d.object(i).is_some());
+        self.over.focus = self.over.focus.filter(|&i| d.atom(i).is_some());
+        self.focus_from = self.focus_from.filter(|&i| d.atom(i).is_some());
         self.over.hover_obj = self.over.hover_obj.filter(|&i| d.object(i).is_some());
         self.over.warn_atoms.retain(|&i| d.atom(i).is_some());
         self.over.hover_atom = self.over.hover_atom.filter(|&i| d.atom(i).is_some());

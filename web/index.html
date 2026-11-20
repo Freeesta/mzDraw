@@ -17,7 +17,7 @@
   <button id="d2-restore-no" type="button" data-i18n="draw2.restore.no" title="Delete the saved drawing" data-i18n-title="draw2.restore.no.title">Discard</button>
 </div>
 <main>
-  <canvas id="d2-canvas" tabindex="0" role="application" aria-label="Structure canvas" data-i18n-aria-label="draw2.canvas"></canvas>
+  <canvas id="d2-canvas" tabindex="0" role="application" aria-label="Structure canvas" data-i18n-aria-label="draw2.canvas" aria-describedby="d2-outline d2-focus"></canvas>
   <aside>
     <section><h2 data-i18n="draw2.import">Add a structure</h2>
       <textarea id="d2-text" rows="3" spellcheck="false" autocomplete="off" aria-label="SMILES or molfile" data-i18n-aria-label="draw2.import.field" placeholder="SMILES or molfile" data-i18n-placeholder="draw2.import.field"></textarea>
@@ -33,6 +33,14 @@
       <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
         <button id="d2-ex-svg" type="button" data-i18n="draw2.export.svg" title="Save the drawing as an SVG image" data-i18n-title="draw2.export.svg.title">SVG</button>
         <button id="d2-ex-mzdraw" type="button" data-i18n="draw2.export.doc" title="Save the drawing as an editable document" data-i18n-title="draw2.export.doc.title">Document</button></div></section>
+    <section><h2 id="d2-outline-h" data-i18n="draw2.outline">What is drawn</h2>
+      <ul id="d2-outline" aria-labelledby="d2-outline-h"></ul>
+      <p id="d2-focus"></p></section>
+    <section><details id="d2-keys"><summary data-i18n="draw2.keys">Drawing with the keyboard</summary>
+      <ul><li data-i18n="draw2.keys.walk">Arrow keys: move the focus along the bonds; Home: first atom; Page Down / Page Up: next or previous structure.</li>
+        <li data-i18n="draw2.keys.grow">Enter: grow a single bond from the focused atom; Shift+Enter: a double bond. On an empty canvas Enter places a carbon.</li>
+        <li data-i18n="draw2.keys.set">A letter sets the element (C N O S P F H B I, Shift+C chlorine, Shift+B bromine); 1 2 3 set the order of the bond just walked; + and − change the charge.</li>
+        <li data-i18n="draw2.keys.more">Space: select the focused atom; Delete: remove it; Escape: leave the focus. Tab leaves the canvas.</li></ul></details></section>
     <section><h2 data-i18n="draw2.check">Check</h2>
       <p id="d2-summary"></p>
       <ul id="d2-warnings"></ul></section>
