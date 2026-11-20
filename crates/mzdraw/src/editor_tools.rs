@@ -30,6 +30,14 @@ impl Editor {
         REPAINT
     }
 
+    /// Makes the thing hit the selection (a long press with a finger).
+    pub(crate) fn select_hit(&mut self, hit: Hit) {
+        self.over.sel_atoms.clear();
+        self.over.sel_bonds.clear();
+        self.over.sel_objs.clear();
+        self.select_press(hit, false);
+    }
+
     /// Selection on press: a thing not yet selected becomes the selection (added with Shift); an empty spot clears it.
     fn select_press(&mut self, hit: Hit, shift: bool) {
         let o = &mut self.over;

@@ -140,6 +140,8 @@ pub struct Editor {
     pub said: (&'static str, String),
     /// The last refused operation, an i18n key.
     pub error: &'static str,
+    /// The fingers and the pen at work (pinch, palm rejection, long press).
+    pub(crate) gesture: crate::editor_touch::Gesture,
     /// The atom the keyboard focus came from (the bond walked last).
     pub(crate) focus_from: Option<u32>,
     /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
@@ -163,6 +165,7 @@ impl Default for Editor {
             press: None,
             said: ("", String::new()),
             error: "",
+            gesture: Default::default(),
             focus_from: None,
             style: Style::default(),
             clip: String::new(),
@@ -246,37 +249,47 @@ impl Editor {
         }
     }
 
-    /// The nearest atom within reach, else the nearest bond.
+    /// What is under the pointer: the nearest atom within reach, unless the pointer is over the middle of a bond and nearer to
+    /// the bond than to that atom (a finger reaches further than half a bond, and the middle of a bond must still be the
+    /// bond); else the nearest bond; else an object.
     pub fn hit(&self, px: f64, py: f64, kind: u32) -> Hit {
         let r = Self::reach(kind);
         let d = self.doc();
-        let mut best = (r, Hit::None);
+        let mut atom = (r, Hit::None);
         for a in &d.atoms {
             let (x, y) = self.view.to_px(a.x, a.y);
             let dist = m::hypot(x - px, y - py);
-            if dist < best.0 {
-                best = (dist, Hit::Atom(a.id));
+            if dist < atom.0 {
+                atom = (dist, Hit::Atom(a.id));
             }
         }
-        if best.1 != Hit::None {
-            return best.1;
-        }
-        best.0 = r * 0.7;
+        // the nearest bond, and the nearest one whose middle part (30 % to 70 % of its length) the pointer is over
+        let (mut bond, mut middle) = ((r * 0.7, Hit::None), (r * 0.7, Hit::None));
         for b in &d.bonds {
             let (Some(p), Some(q)) = (d.atom(b.a), d.atom(b.b)) else {
                 continue;
             };
             let (s, e) = (self.view.to_px(p.x, p.y), self.view.to_px(q.x, q.y));
             let (dx, dy) = (e.0 - s.0, e.1 - s.1);
-            let t = (((px - s.0) * dx + (py - s.1) * dy) / (dx * dx + dy * dy).max(1e-9))
-                .clamp(0.0, 1.0);
+            let along = ((px - s.0) * dx + (py - s.1) * dy) / (dx * dx + dy * dy).max(1e-9);
+            let t = along.clamp(0.0, 1.0);
             let dist = m::hypot(s.0 + t * dx - px, s.1 + t * dy - py);
-            if dist < best.0 {
-                best = (dist, Hit::Bond(b.id));
+            if dist < bond.0 {
+                bond = (dist, Hit::Bond(b.id));
+            }
+            if (0.3..=0.7).contains(&along) && dist < middle.0 {
+                middle = (dist, Hit::Bond(b.id));
             }
         }
-        if best.1 != Hit::None {
-            return best.1;
+        if atom.1 != Hit::None {
+            return if middle.1 != Hit::None && middle.0 < atom.0 {
+                middle.1
+            } else {
+                atom.1
+            };
+        }
+        if bond.1 != Hit::None {
+            return bond.1;
         }
         self.hit_object(px, py, r)
     }
