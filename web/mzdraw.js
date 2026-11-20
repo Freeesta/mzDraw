@@ -327,6 +327,7 @@ function panels() {
   $("d2-ex-smiles").addEventListener("click", () => save("smiles", "drawing.smi", "chemical/x-daylight-smiles"));
   $("d2-ex-ket").addEventListener("click", () => save("ket", "drawing.ket", "application/json"));
   $("d2-ex-cdxml").addEventListener("click", () => save("cdxml", "drawing.cdxml", "chemical/x-cdxml"));
+  $("d2-ex-cml").addEventListener("click", () => save("cml", "drawing.cml", "chemical/x-cml"));
   $("d2-ex-rxn").addEventListener("click", () => save("rxn", "drawing.rxn", "chemical/x-mdl-rxnfile"));
   $("d2-ex-png").addEventListener("click", savePng);
   $("d2-ex-svg").addEventListener("click", () => save("svg", "drawing.svg", "image/svg+xml"));

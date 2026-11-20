@@ -45,7 +45,9 @@ Built in `crates/mzdraw` unless said; R = read, W = write. "Listed" = said in wo
 | SMARTS | no | no | query features are out of scope of the editor |
 | KET | yes | yes | from the schema. Out: one molecule node, R sites, wedges, arrows, plus, text (the text of an arrow as a text node above it). In: molecules through the molfile door (same lists), arrows, plus, text; shapes, images, multi-tailed arrows and R-group definitions are counted and listed. Not read: `implicitHCount`, aliases, stereo labels; `D`/`T` labels are read as query atoms. Annotations are not written into KET yet |
 | CDXML | yes | yes | from the public CDX SDK pages. In: fragments through the molfile door (same lists), R groups and the abbreviations of our table as labels, wedges, captions, arrows, plus symbols; other objects counted and listed. Out: one fragment, R groups as generic nicknames, wedges, arrows, plus, text. Not read: `NumHydrogens`, colours, fonts, text faces, bold and dashed bonds. No fidelity claim towards ChemDraw |
-| CDX, MRV, CML, XYZ, PDB | no | no | not built (CML / MRV next) |
+| CML | yes | yes | molecular convention. In: element and array forms, with or without namespace prefix; R, dummy and list atoms; wedges and hatches. Out: one molecule, R groups as the element `R` with a label, wedges; no arrows or texts (the format has none). Names, formulas, properties, `atomParity` are not read |
+| MRV (Marvin) | yes | no | read by the CML reader: molecules in documents and reactions, the reaction arrow and signs, text boxes, polyline arrows; S-groups, R-group definitions and other graphics counted and listed |
+| CDX, XYZ, PDB | no | no | not built |
 | SVG | own only | yes | the saved SVG carries the document in a `metadata` element; an SVG of another program is refused in words |
 | PNG | own only | yes | 300 dpi on white, drawn by the page from the module's SVG, finished by the module (`iTXt` document, `pHYs`); a PNG of another program is refused in words |
 | PDF | - | no | not started |

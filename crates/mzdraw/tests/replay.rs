@@ -5,13 +5,14 @@
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-const OUTS: [&str; 8] = [
+const OUTS: [&str; 9] = [
     "mzdraw",
     "molfile",
     "molfile-v3000",
     "smiles",
     "ket",
     "cdxml",
+    "cml",
     "svg",
     "log",
 ];

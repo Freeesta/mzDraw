@@ -17,7 +17,7 @@ pub(crate) const R_STAND_IN: &str = "He";
 /// What an import read, and what it could not keep (the page says so: nothing is dropped in silence).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Imported {
-    /// `mzdraw`, `svg` or `png` (a picture carrying its document), `ket`, `cdxml`, `rxn` (a reaction file or an RD file), `molfile` or `smiles`.
+    /// `mzdraw`, `svg` or `png` (a picture carrying its document), `ket`, `cdxml`, `cml` (CML or a Marvin document), `rxn` (a reaction file or an RD file), `molfile` or `smiles`.
     pub format: &'static str,
     /// The positions are placeholders (the text had no coordinates).
     pub placeholder: bool,
@@ -413,6 +413,11 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
         info.format = "cdxml";
         let d = crate::cdxml::from_cdxml(t, &mut info)?;
         return checked(d, info, "error.draw2.cdxml");
+    }
+    if t.contains("<cml") || t.contains("<molecule") || t.contains(":cml") {
+        info.format = "cml";
+        let d = crate::cml::from_cml(t, &mut info)?;
+        return checked(d, info, "error.draw2.cml");
     }
     if t.starts_with('<') {
         // an SVG written by mzDraw carries its document; a picture of another program has no structure to read
