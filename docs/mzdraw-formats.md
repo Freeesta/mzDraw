@@ -1,6 +1,6 @@
 # mzDraw: formats, own document format, settings file (study)
 
-Report only: no code depends on this file yet. It is the full format conformity matrix of mzDraw and `mol draw` (`mzdraw.md` holds the short version and the build slices), the proposal of the document format `mzdraw/1`, of the settings file `mzdraw-settings/1` and of the per-structure annotation slot. Competitors: `mzdraw-competitors.md`; priorities, decisions and ready prompts: `mzdraw-plan.md`.
+A study: no code depends on this file. What is built is in §1a and in `mzdraw.md` ("Built state"). It is the full format conformity matrix of mzDraw and `mol draw` (`mzdraw.md` holds the short version and the build slices), the proposal of the document format `mzdraw/1`, of the settings file `mzdraw-settings/1` and of the per-structure annotation slot. Competitors: `mzdraw-competitors.md`; priorities, decisions and ready prompts: `mzdraw-plan.md`.
 Sources: the specifications linked in §1, the Ketcher and RDKit repositories (licence files read), the W3C Clipboard API draft. `*` = not confirmed on a primary source. Legal notes are a reading of the published terms, not legal advice.
 
 ## 1. Format conformity matrix
@@ -31,6 +31,22 @@ R/W: P0-P3 = priority in `mzdraw-plan.md` §1; "-" = never. Everything is in `mz
 | EMF / OLE | - | - | Windows desktop only, outside the browser; not planned | - | - | - |
 
 The matrix is generated, not hand-kept, once the formats exist: `mzlab-cli mol formats --json` (catalog `formats/1`: per format `read`, `write`, `lost_on_read`, `lost_on_write`, `detect` rule, `mime`, `ext`), checked against the conformity tests (ready prompt P1 in `mzdraw-plan.md`); this table then points to it.
+
+### 1a. Built status (kept true with the code; the matrix above is the study)
+Built in `crates/mzdraw` unless said; R = read, W = write. "Listed" = said in words under the Add field (`Imported::notes`), never dropped in silence.
+| format | R | W | as built, and what differs from the study |
+|---|---|---|---|
+| `mzdraw/1` | yes | yes | unknown fields of the document, atoms, bonds and objects are kept on read and write; a higher version is refused with its key |
+| MOL V2000 / V3000 | yes | yes | read and written by `mzlab-mol`; the drawing adds wedge marks as drawn (stereo column / `CFG`) and R groups (`R#` + `M  RGP` / `RGROUPS`), both ways. Query atoms are read as unnumbered R groups, query bonds as single bonds, S-groups are left out, enhanced-stereo "and"/"or" groups keep their wedges and lose the grouping: all listed. Abbreviations are written expanded and not recognised on read. Atom aliases and atom lists are not read |
+| SDF | yes (64 records at a time, the rest listed) | no | every record side by side; data fields are not read (the study wants them in `meta.fields`) |
+| RXN, RDF | no | no | waits for room under the size cap |
+| SMILES, CXSMILES | yes | yes | one per line with names; R groups as `[*:n]` both ways; the CXSMILES tail is read by `mzlab-mol` (stereo groups listed as above) and not written by mzDraw; positions are placeholders until the layout of `mzlab-mol` lands |
+| SMARTS | no | no | query features are out of scope of the editor |
+| KET | yes | yes | from the schema. Out: one molecule node, R sites, wedges, arrows, plus, text (the text of an arrow as a text node above it). In: molecules through the molfile door (same lists), arrows, plus, text; shapes, images, multi-tailed arrows and R-group definitions are counted and listed. Not read: `implicitHCount`, aliases, stereo labels; `D`/`T` labels are read as query atoms. Annotations are not written into KET yet |
+| CDXML, CDX, MRV, CML, XYZ, PDB | no | no | wait for room under the size cap (CDXML first) |
+| SVG | own only | yes | the saved SVG carries the document in a `metadata` element; an SVG of another program is refused in words |
+| PNG | own only | yes | 300 dpi on white, drawn by the page from the module's SVG, finished by the module (`iTXt` document, `pHYs`); a PNG of another program is refused in words |
+| PDF | - | no | not started |
 
 ## 2. Images that carry their molecule, clipboard
 - **SVG**: `<metadata>` holds `<mzdraw:doc xmlns:mzdraw="https://freeesta.github.io/mzlab/ns/mzdraw/1">` with the `mzdraw/1` JSON in CDATA, plus `<mzdraw:molfile>` with the V3000 molfile of each molecule for other programs. Opening an SVG reads the document; an SVG without it is refused ("not a structure file"), never traced. Idea from RDKit (`<rdkit:mol>` in metadata) and Open Babel (`-e`, CML in the SVG).
