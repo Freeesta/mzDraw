@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use mzDraw in teaching or in published work, please cite it as below, together with mzLab."
+title: "mzDraw: a 2D molecule editor in Rust and WebAssembly"
+type: software
+authors:
+  - family-names: Cristaudo
+    given-names: Federico
+    affiliation: "Università degli Studi di Torino"
+repository-code: "https://github.com/Freeesta/mzDraw"
+url: "https://freeesta.github.io/mzDraw/"
+license: MIT
+version: "0.1.0"
+# date-released and doi: to add with the first tagged release.
+keywords:
+  - molecule editor
+  - chemical structure drawing
+  - cheminformatics
+  - WebAssembly
+  - Rust
+abstract: "mzDraw is a free 2D molecule editor that runs entirely in the web browser, written in Rust and compiled to WebAssembly. Every edit is a logged operation with an exact inverse, so the command log of a drawing session replays to the same bytes in the browser and natively. It reads and writes molfile (V2000, V3000), SDF, SMILES and KET, saves SVG and PNG pictures that open again as drawings, and has a versioned document format of its own. No installation, no account, no tracking: files never leave the computer."
+references:
+  - type: software
+    title: "mzLab: a browser-based teaching tool for LC-MS data analysis and the search for transformation products"
+    authors:
+      - family-names: Cristaudo
+        given-names: Federico
+    repository-code: "https://github.com/Freeesta/mzlab"
+    url: "https://freeesta.github.io/mzlab/"
