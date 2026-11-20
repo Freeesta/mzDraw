@@ -64,8 +64,13 @@ function refresh() {
   }));
   if (!st.outline.length) { const li = document.createElement("li"); li.textContent = t("draw2.outline.empty"); $("d2-outline").append(li); }
   $("d2-focus").textContent = st.focus ? focusText(st.focus) : "";
-  $("d2-label").classList.toggle("on", st.tool.startsWith("label:"));
-  $("d2-text-tool").classList.toggle("on", st.tool.startsWith("text:"));
+  for (const [id, kind] of [["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
+    const input = /** @type {HTMLInputElement} */ ($(id)), on = st.tool.startsWith(kind);
+    input.classList.toggle("on", on);
+    // the field shows the tool: what it holds when another tool is chosen is taken away (a text still being typed is left, a
+    // refused one is not)
+    if (!on && input.value && (document.activeElement !== input || input.hasAttribute("aria-invalid"))) { input.value = ""; input.removeAttribute("aria-invalid"); }
+  }
   $("d2-status").textContent = t(st.objects ? "draw2.count.objects" : "draw2.count", { atoms: st.atoms, bonds: st.bonds, objects: st.objects });
   const list = $("d2-warnings"), ws = (st.check && st.check.warnings) || [];
   list.replaceChildren(...ws.map((/** @type {any} */ w) => {
@@ -189,9 +194,11 @@ function field(kind) {
   const pick = () => {
     const v = kind === "label" ? input.value.trim() : input.value;
     if (!v.trim()) return;
-    if (after(ed.command(kind + ":" + v))) { $("d2-live").textContent = t(`draw2.say.${kind}Tool`, { what: v }); cv.focus({ preventScroll: true }); }
-    else $("d2-live").textContent = t(`error.draw2.${kind}`);
+    if (after(ed.command(kind + ":" + v))) { input.removeAttribute("aria-invalid"); $("d2-live").textContent = t(`draw2.say.${kind}Tool`, { what: v }); cv.focus({ preventScroll: true }); }
+    // a refused entry stays to be corrected, marked as not valid and selected: it is never shown as if it were the tool
+    else { input.setAttribute("aria-invalid", "true"); input.select(); $("d2-live").textContent = t(`error.draw2.${kind}`); }
   };
+  input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
   input.addEventListener("change", pick);
   input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); pick(); } else if (e.key === "Escape") cv.focus({ preventScroll: true }); });
   return out;
