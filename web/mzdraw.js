@@ -243,11 +243,11 @@ function events() {
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
 }
 
-/** adds a structure text to the drawing and says how it went @param {string} text */
+/** adds a structure text, or the bytes of a file, to the drawing and says how it went @param {string | Uint8Array} text */
 function add(text) {
   const note = $("d2-note");
   try {
-    const info = JSON.parse(ed.add(text));
+    const info = JSON.parse(typeof text === "string" ? ed.add(text) : ed.add_bytes(text));
     note.textContent = info.notes.map((/** @type {[string, number]} */ [key, n]) => t(key, { n })).join(" ");
     after(ed.fit(cv.clientWidth, cv.clientHeight) | CHANGED);
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
@@ -256,11 +256,29 @@ function add(text) {
 /** downloads a text as a file @param {string} what @param {string} name @param {string} type */
 function save(what, name, type) {
   const note = $("d2-ex-note"); note.textContent = "";
-  let text;
-  try { text = ed.save(what); } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; return; }
-  const a = document.createElement("a"), url = URL.createObjectURL(new Blob([text], { type }));
+  try { download(ed.save(what), name, type); } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
+}
+
+/** @param {BlobPart} data @param {string} name @param {string} type */
+function download(data, name, type) {
+  const a = document.createElement("a"), url = URL.createObjectURL(new Blob([data], { type }));
   a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
+}
+
+/** saves a PNG: the SVG the module writes is drawn on a canvas of the size the module asks for; the module finishes the file */
+async function savePng() {
+  const note = $("d2-ex-note"); note.textContent = "";
+  try {
+    const plan = JSON.parse(ed.png_plan()), img = new Image(), url = URL.createObjectURL(new Blob([plan.svg], { type: "image/svg+xml" }));
+    await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = url; });
+    const c = document.createElement("canvas"); c.width = plan.width; c.height = plan.height;
+    const x = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
+    x.fillStyle = plan.paper; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    const blob = /** @type {Blob} */ (await new Promise(ok => c.toBlob(ok, "image/png")));
+    download(ed.png_finish(new Uint8Array(await blob.arrayBuffer())), "drawing.png", "image/png");
+  } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
 /** the style choice: the presets Rust names; the choice changes the screen and the saved SVG, not the document */
@@ -277,10 +295,11 @@ function styles() {
 function panels() {
   $("d2-add").addEventListener("click", () => add(/** @type {HTMLTextAreaElement} */ ($("d2-text")).value));
   $("d2-open").addEventListener("click", () => $("d2-file").click());
-  $("d2-file").addEventListener("change", async e => { const f = /** @type {HTMLInputElement} */ (e.target).files?.[0]; if (f) add(await f.text()); });
+  $("d2-file").addEventListener("change", async e => { const f = /** @type {HTMLInputElement} */ (e.target).files?.[0]; if (f) add(new Uint8Array(await f.arrayBuffer())); });
   $("d2-ex-molfile").addEventListener("click", () => save("molfile", "drawing.mol", "chemical/x-mdl-molfile"));
   $("d2-ex-v3000").addEventListener("click", () => save("molfile-v3000", "drawing-v3000.mol", "chemical/x-mdl-molfile"));
   $("d2-ex-smiles").addEventListener("click", () => save("smiles", "drawing.smi", "chemical/x-daylight-smiles"));
+  $("d2-ex-png").addEventListener("click", savePng);
   $("d2-ex-svg").addEventListener("click", () => save("svg", "drawing.svg", "image/svg+xml"));
   $("d2-ex-mzdraw").addEventListener("click", () => save("mzdraw", "drawing.mzdraw.json", "application/json"));
 }

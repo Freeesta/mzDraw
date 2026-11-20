@@ -137,7 +137,7 @@ try {
     await tool(pg, "redo"); await want(pg, { atoms: 4 });
   });
 
-  await step("molfile (V2000 and V3000), SMILES, SVG and the mzdraw/1 document are saved as the module writes them", async () => {
+  await step("molfile (V2000 and V3000), SMILES, SVG, PNG and the mzdraw/1 document are saved as the module writes them; the pictures open again", async () => {
     const got = {};
     for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"],
       ["svg", "svg", "drawing.svg"], ["mzdraw", "mzdraw", "drawing.mzdraw.json"]]) {
@@ -150,6 +150,30 @@ try {
     assert(got["molfile-v3000"].includes("V3000") && got["molfile-v3000"].includes("M  V30 COUNTS 4 3"), "a V3000 molfile");
     eq(got.smiles, "CC(=O)O");
     assert(got.svg.startsWith("<svg") && got.svg.includes("<line") && got.svg.replaceAll("OH", "O").includes(">O<"), "an SVG with lines and labels");
+    // pictures that open again: the SVG and the PNG carry the document; a PNG is 300 dpi of the SVG, drawn by the browser
+    const [p] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-png")]);
+    eq(p.suggestedFilename(), "drawing.png");
+    const png = readFileSync(await p.path()), plan = JSON.parse(await pg.evaluate("window.MZDRAW.png_plan()"));
+    eq(png.subarray(1, 4).toString("latin1"), "PNG");
+    eq([png.readUInt32BE(16), png.readUInt32BE(20)].join("x"), `${plan.width}x${plan.height}`);
+    assert(png.includes("pHYs") && png.includes("iTXt") && png.includes('"format":"mzdraw/1"'), "resolution and document are in the PNG");
+    const ink = await pg.evaluate(async bytes => {
+      const img = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: "image/png" })), c = new OffscreenCanvas(img.width, img.height), x = c.getContext("2d");
+      x.drawImage(img, 0, 0); const d = x.getImageData(0, 0, img.width, img.height).data; let dark = 0, clear = 0;
+      for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 255) clear++; if (d[i] + d[i + 1] + d[i + 2] < 300) dark++; }
+      return { dark, clear, n: d.length / 4 };
+    }, [...png]);
+    assert(ink.clear === 0 && ink.dark > 200 && ink.dark < ink.n / 4, `white paper with ink on it (${JSON.stringify(ink)})`);
+    for (const [name, mimeType, buffer] of [["drawing.svg", "image/svg+xml", Buffer.from(got.svg)], ["drawing.png", "image/png", png]]) {
+      await tool(pg, "clear"); await want(pg, { atoms: 0 });
+      await pg.setInputFiles("#d2-file", { name, mimeType, buffer }); await want(pg, { atoms: 4, bonds: 3 });
+      eq(await pg.evaluate("window.MZDRAW.save('smiles')"), "CC(=O)O");
+      eq(await pg.innerText("#d2-note"), "");
+    }
+    await pg.setInputFiles("#d2-file", { name: "other.svg", mimeType: "image/svg+xml", buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><circle r="4"/></svg>') });
+    await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-note"), await pg.evaluate("I18N.t('error.draw2.svgPlain')"));
+    eq((await state(pg)).atoms, 4);
     const doc = JSON.parse(got.mzdraw);
     assert(doc.format === "mzdraw/1" && doc.atoms.length === 4 && doc.bonds.length === 3, "an mzdraw/1 document");
   });

@@ -15,6 +15,7 @@ pub mod layout;
 mod m;
 pub mod ops;
 pub mod outline;
+pub mod png;
 pub mod replay;
 pub mod scene;
 pub mod settings;
