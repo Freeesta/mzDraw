@@ -1,6 +1,6 @@
 # mzDraw
 
-A 2D molecule editor written in Rust and compiled to WebAssembly: https://freeesta.github.io/mzdraw/
+A 2D molecule editor written in Rust and compiled to WebAssembly: https://freeesta.github.io/mzDraw/
 
 mzDraw is the structure editor of [mzLab](https://github.com/Freeesta/mzlab), in a repository of its own. All the logic (document, edit operations with exact undo, tools, hit-testing, display list, import and export) is in the Rust crate `mzdraw`; the page only forwards pointer and key events and paints what the module returns.
 
