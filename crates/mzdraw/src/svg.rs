@@ -12,7 +12,9 @@ const PALETTE: [&str; 10] = [
     "#1f7a1f", "#b05a00",
 ];
 
-fn num(v: f32) -> String {
+/// A number with at most two decimals, trailing zeros left out. Written through `mzlab_mol::fixed`: one `f64` given to the
+/// formatter of the standard library (`{}`, `to_string`) costs 22 kB of module.
+pub(crate) fn num(v: f32) -> String {
     let s = fixed(v as f64, 2);
     let s = s.trim_end_matches('0').trim_end_matches('.');
     if s == "-0" {

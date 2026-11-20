@@ -127,6 +127,11 @@ fn rotating_keeps_the_stereo_and_flipping_inverts_it() {
     e.import("C[C@H](N)C(=O)O").unwrap();
     let before = centre(&e.doc().to_mol_stereo());
     assert_eq!(e.rotate(30.0) & CHANGED, CHANGED);
+    // what the page announces: the angle as a person writes it
+    assert_eq!(e.said, ("draw2.say.rotated", "30".to_string()));
+    e.rotate(-22.5);
+    assert_eq!(e.said.1, "-22.5");
+    e.undo();
     assert_eq!(centre(&e.doc().to_mol_stereo()), before);
     assert_eq!(e.flip(Axis::H) & CHANGED, CHANGED);
     assert_ne!(

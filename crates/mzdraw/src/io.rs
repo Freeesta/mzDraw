@@ -234,7 +234,7 @@ impl Document {
             .filter_map(|b| Some((self.atom(b.a)?, self.atom(b.b)?)))
             .map(|(p, q)| m::hypot(p.x - q.x, p.y - q.y))
             .collect();
-        len.sort_by(f64::total_cmp);
+        m::sort_by(&mut len, |a, b| a.total_cmp(b).is_lt());
         let k = len
             .get(len.len() / 2)
             .copied()

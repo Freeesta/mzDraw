@@ -2,80 +2,53 @@
 //! records an exact inverse, so undo restores the document byte for byte; a `Session` is a document with its undo and redo stacks.
 
 use crate::build;
-use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind, MAX_ID};
+use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind, Writer, MAX_ID};
 use crate::m;
-use serde::{Deserialize, Serialize};
-
-fn is_zero(v: &u8) -> bool {
-    *v == 0
-}
-
-fn is_zero_f(v: &f64) -> bool {
-    *v == 0.0
-}
+use serde::Deserialize;
 
 /// The direction of a flip.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Axis {
     H,
     V,
 }
 
 /// One operation. Ids left out are taken from the document counter; `ring` is shorthand that expands to atoms and bonds.
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(tag = "op")]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Op {
-    #[serde(rename = "atom.add")]
     AtomAdd {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<u32>,
         el: String,
         x: f64,
         y: f64,
     },
-    #[serde(rename = "bond.add")]
     BondAdd {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<u32>,
         a: u32,
         b: u32,
         o: u8,
         /// Wedge mark of a single bond (1 solid, 2 hashed, 3 wavy), narrow end at `a`.
-        #[serde(default, skip_serializing_if = "is_zero")]
         s: u8,
     },
-    #[serde(rename = "atom.set")]
     AtomSet {
         id: u32,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         el: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         chg: Option<i8>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         iso: Option<u16>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         rad: Option<u8>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         h: Option<u8>,
         /// A label (an abbreviation or an R group); the empty text takes the label away.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         lab: Option<String>,
     },
     /// Sets the order and/or the wedge mark of a bond; a new order other than 1 drops the mark. `rev` swaps the two ends (the narrow
     /// end of a wedge moves to the other atom).
-    #[serde(rename = "bond.set")]
     BondSet {
         id: u32,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         o: Option<u8>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         s: Option<u8>,
-        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         rev: bool,
     },
     /// Turns the atoms by `deg` degrees counter-clockwise around (`x`, `y`).
-    #[serde(rename = "rotate")]
     Rotate {
         atoms: Vec<u32>,
         deg: f64,
@@ -84,73 +57,235 @@ pub enum Op {
     },
     /// Mirrors the atoms: axis `h` left to right across the vertical line x = `at`, axis `v` top to bottom across y = `at`. The wedge
     /// marks stay as drawn, so the mirror image is the other enantiomer.
-    #[serde(rename = "flip")]
     Flip {
         atoms: Vec<u32>,
         axis: Axis,
         at: f64,
     },
-    #[serde(rename = "move")]
     Move {
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         atoms: Vec<u32>,
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         objects: Vec<u32>,
         dx: f64,
         dy: f64,
     },
-    #[serde(rename = "remove")]
     Remove {
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         atoms: Vec<u32>,
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         bonds: Vec<u32>,
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         objects: Vec<u32>,
     },
     /// A reaction arrow (`t` "arrow", from `x`,`y` to `x2`,`y2`, optional `text` above), a plus sign (`t` "plus") or a text
     /// (`t` "text").
-    #[serde(rename = "obj.add")]
     ObjAdd {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<u32>,
         t: ObjKind,
         x: f64,
         y: f64,
-        #[serde(default, skip_serializing_if = "is_zero_f")]
         x2: f64,
-        #[serde(default, skip_serializing_if = "is_zero_f")]
         y2: f64,
-        #[serde(default, skip_serializing_if = "String::is_empty")]
         text: String,
     },
     /// Sets the text and/or the end point of an object.
-    #[serde(rename = "obj.set")]
     ObjSet {
         id: u32,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         text: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         x2: Option<f64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         y2: Option<f64>,
     },
     /// A ring of `n` atoms (3-8), `arom` = alternating double bonds: fused on the bond `bond`, or with the atom `atom` as a corner, or
     /// centred on (`x`, `y`).
-    #[serde(rename = "ring")]
     Ring {
         n: u8,
-        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         arom: bool,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         atom: Option<u32>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         bond: Option<u32>,
-        #[serde(default)]
         x: f64,
-        #[serde(default)]
         y: f64,
     },
+}
+
+/// The operations as the JSON text of a command log. Written by hand (`Op::write`), as the reader is: the derived writer of the
+/// enum cost about 3 kB of `.wasm`.
+pub fn log_text(ops: &[Op]) -> String {
+    let mut out = String::from("[");
+    for (i, op) in ops.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        op.write(&mut out);
+    }
+    out.push(']');
+    out
+}
+
+impl Op {
+    /// The operation as a JSON object (see `write`).
+    pub fn to_json(&self) -> String {
+        let mut out = String::new();
+        self.write(&mut out);
+        out
+    }
+
+    /// Appends the operation as a JSON object: `op` first, then the fields in the order of the enum, defaults left out.
+    pub fn write(&self, out: &mut String) {
+        out.push('{');
+        let mut w = Writer(std::mem::take(out));
+        let ids = |w: &mut Writer, k: &str, v: &[u32], always: bool| {
+            if always || !v.is_empty() {
+                let list: Vec<String> = v.iter().map(u32::to_string).collect();
+                w.raw(k, &format!("[{}]", list.join(",")));
+            }
+        };
+        let int = |w: &mut Writer, k: &str, v: Option<i64>| {
+            if let Some(v) = v {
+                w.int(k, v);
+            }
+        };
+        let flag = |w: &mut Writer, k: &str, v: bool| {
+            if v {
+                w.raw(k, "true");
+            }
+        };
+        let id = |v: &Option<u32>| v.map(i64::from);
+        match self {
+            Op::AtomAdd { id: i, el, x, y } => {
+                w.text("op", "atom.add");
+                int(&mut w, "id", id(i));
+                w.text("el", el);
+                w.num("x", *x);
+                w.num("y", *y);
+            }
+            Op::BondAdd { id: i, a, b, o, s } => {
+                w.text("op", "bond.add");
+                int(&mut w, "id", id(i));
+                w.int("a", i64::from(*a));
+                w.int("b", i64::from(*b));
+                w.int("o", i64::from(*o));
+                int(&mut w, "s", (*s != 0).then_some(i64::from(*s)));
+            }
+            Op::AtomSet {
+                id: i,
+                el,
+                chg,
+                iso,
+                rad,
+                h,
+                lab,
+            } => {
+                w.text("op", "atom.set");
+                w.int("id", i64::from(*i));
+                if let Some(el) = el {
+                    w.text("el", el);
+                }
+                int(&mut w, "chg", chg.map(i64::from));
+                int(&mut w, "iso", iso.map(i64::from));
+                int(&mut w, "rad", rad.map(i64::from));
+                int(&mut w, "h", h.map(i64::from));
+                if let Some(lab) = lab {
+                    w.text("lab", lab);
+                }
+            }
+            Op::BondSet { id: i, o, s, rev } => {
+                w.text("op", "bond.set");
+                w.int("id", i64::from(*i));
+                int(&mut w, "o", o.map(i64::from));
+                int(&mut w, "s", s.map(i64::from));
+                flag(&mut w, "rev", *rev);
+            }
+            Op::Rotate { atoms, deg, x, y } => {
+                w.text("op", "rotate");
+                ids(&mut w, "atoms", atoms, true);
+                w.num("deg", *deg);
+                w.num("x", *x);
+                w.num("y", *y);
+            }
+            Op::Flip { atoms, axis, at } => {
+                w.text("op", "flip");
+                ids(&mut w, "atoms", atoms, true);
+                w.text("axis", if *axis == Axis::H { "h" } else { "v" });
+                w.num("at", *at);
+            }
+            Op::Move {
+                atoms,
+                objects,
+                dx,
+                dy,
+            } => {
+                w.text("op", "move");
+                ids(&mut w, "atoms", atoms, false);
+                ids(&mut w, "objects", objects, false);
+                w.num("dx", *dx);
+                w.num("dy", *dy);
+            }
+            Op::Remove {
+                atoms,
+                bonds,
+                objects,
+            } => {
+                w.text("op", "remove");
+                ids(&mut w, "atoms", atoms, false);
+                ids(&mut w, "bonds", bonds, false);
+                ids(&mut w, "objects", objects, false);
+            }
+            Op::ObjAdd {
+                id: i,
+                t,
+                x,
+                y,
+                x2,
+                y2,
+                text,
+            } => {
+                w.text("op", "obj.add");
+                int(&mut w, "id", id(i));
+                w.text("t", t.name());
+                w.num("x", *x);
+                w.num("y", *y);
+                for (k, v) in [("x2", *x2), ("y2", *y2)] {
+                    if v != 0.0 {
+                        w.num(k, v);
+                    }
+                }
+                if !text.is_empty() {
+                    w.text("text", text);
+                }
+            }
+            Op::ObjSet {
+                id: i,
+                text,
+                x2,
+                y2,
+            } => {
+                w.text("op", "obj.set");
+                w.int("id", i64::from(*i));
+                if let Some(text) = text {
+                    w.text("text", text);
+                }
+                for (k, v) in [("x2", x2), ("y2", y2)] {
+                    if let Some(v) = v {
+                        w.num(k, *v);
+                    }
+                }
+            }
+            Op::Ring {
+                n,
+                arom,
+                atom,
+                bond,
+                x,
+                y,
+            } => {
+                w.text("op", "ring");
+                w.int("n", i64::from(*n));
+                flag(&mut w, "arom", *arom);
+                int(&mut w, "atom", id(atom));
+                int(&mut w, "bond", id(bond));
+                w.num("x", *x);
+                w.num("y", *y);
+            }
+        }
+        *out = w.0;
+        out.push('}');
+    }
 }
 
 /// Read by hand from a JSON value (`Op::from_value`): the derived reader of a tagged enum costs about 2 kB of `.wasm` per variant.
@@ -818,7 +953,7 @@ impl Session {
     }
 
     pub fn log_json(&self) -> String {
-        serde_json::to_string(&self.log()).unwrap_or_default()
+        log_text(&self.log())
     }
 
     /// Replays a JSON command log, one step per operation; stops at the first refused operation.

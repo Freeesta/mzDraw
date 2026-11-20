@@ -497,7 +497,7 @@ fn wedge_marks_sit_on_single_bonds_and_turn_around() {
     assert_eq!(s.doc.to_json(), ethanol().doc.to_json());
     // the log keeps the old spelling of an order change and adds the new fields only when used
     assert_eq!(
-        serde_json::to_string(&[set_order(4, 2), wedge(4, None, Some(3), true)]).unwrap(),
+        mzdraw::ops::log_text(&[set_order(4, 2), wedge(4, None, Some(3), true)]),
         r#"[{"op":"bond.set","id":4,"o":2},{"op":"bond.set","id":4,"s":3,"rev":true}]"#
     );
 }
@@ -556,7 +556,7 @@ fn the_log_reader_takes_what_the_writer_writes_and_refuses_the_rest() {
     let mut s = Session::default();
     for _ in 0..300 {
         for op in random_step(&s, &mut r) {
-            let text = serde_json::to_string(&op).unwrap();
+            let text = op.to_json();
             assert_eq!(serde_json::from_str::<Op>(&text).unwrap(), op, "{text}");
         }
         let _ = s.run(&random_step(&s, &mut r));
