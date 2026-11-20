@@ -38,7 +38,7 @@ impl Editor {
         self.run(
             &[Op::Rotate { atoms, deg, x, y }],
             "draw2.say.rotated",
-            &deg.to_string(),
+            &crate::svg::num(deg as f32),
         )
     }
 

@@ -2,4 +2,4 @@
 # `measured` is the size at the last change of this file: update it in the PR that moves the size. Raising `cap` is the owner's
 # decision: send the measured numbers and a proposal first, never raise it in a PR on your own.
 cap = 512000
-measured = 477838
+measured = 455792
