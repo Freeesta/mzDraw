@@ -17,4 +17,4 @@ mzlab = ["dep:mzlab-feat"]
 mzdraw = { path = "../mzdraw" }
 mzlab-feat = { workspace = true, features = ["check"], optional = true }
 serde_json = { version = "1", features = ["float_roundtrip"] }
-wasm-bindgen = "0.2"
+wasm-bindgen = "=0.2.129"
