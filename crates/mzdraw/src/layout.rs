@@ -1,10 +1,8 @@
-//! The single door to 2D layout. The real layout is `Mol::layout_2d` of `mzlab-mol` (agent drawing); until it exists `clean_up` leaves
-//! the drawing as it is and says so, and structures that arrive without coordinates get placeholder positions (each piece on a regular
-//! polygon), marked as such.
+//! The single door to 2D layout. The layout is `Mol::layout_2d` of `mzlab-mol`: structures that arrive without coordinates (a
+//! SMILES, a molfile without them) are placed by it (`computed`), and the import says so. `clean_up` of a drawing is not wired
+//! yet: it leaves the drawing as it is and says so.
 
 use crate::doc::{round4, Document};
-use crate::m;
-use std::f64::consts::{PI, TAU};
 
 /// What `clean_up` did: `unavailable` until the layout engine is linked.
 pub const CLEAN_UP_STATUS: &str = "unavailable";
@@ -38,44 +36,17 @@ pub fn pieces(doc: &Document) -> Vec<Vec<u32>> {
     out
 }
 
-/// The atoms of the piece of `start` in the order of a walk along the bonds (depth first, neighbours in bond order): consecutive
-/// atoms are bonded wherever the piece allows it, so a ring or a chain goes round the polygon without crossing itself.
-fn walk(doc: &Document, start: u32) -> Vec<u32> {
-    let mut order = vec![start];
-    let mut stack = vec![start];
-    while let Some(&top) = stack.last() {
-        match doc.neighbours(top).into_iter().find(|n| !order.contains(n)) {
-            Some(n) => {
-                order.push(n);
-                stack.push(n);
-            }
-            None => {
-                stack.pop();
-            }
-        }
-    }
-    order
-}
+/// The bond length of `Mol::layout_2d`, in angstrom (its documentation: "bond length 1.5").
+const LAYOUT_BOND: f64 = 1.5;
 
-/// Placeholder positions for a document without coordinates: every piece on a regular polygon of side 1, its atoms in the order of
-/// a walk along the bonds, pieces left to right.
-pub fn placeholder(doc: &mut Document) {
-    let mut left = 0.0;
-    for piece in pieces(doc) {
-        let piece = walk(doc, piece[0]);
-        let n = piece.len();
-        let r = if n > 1 {
-            1.0 / (2.0 * m::sin(PI / n as f64))
-        } else {
-            0.0
-        };
-        for (i, id) in piece.iter().enumerate() {
-            let t = PI / 2.0 - TAU * i as f64 / n as f64;
-            if let Some(k) = doc.atom_index(*id) {
-                doc.atoms[k].x = round4(left + r + r * m::cos(t));
-                doc.atoms[k].y = round4(r * m::sin(t));
-            }
+/// Positions for a document made from a record without coordinates (atom `i` of the document is atom `i` of the record): the 2D
+/// layout of `mzlab-mol` (rings as regular polygons fused along their shared bonds, chains as a zigzag, pieces left to right), in
+/// bond lengths of the drawing.
+pub fn computed(doc: &mut Document, m: &mzlab_mol::Mol) {
+    let xy = m.layout_2d().xy;
+    for (a, p) in doc.atoms.iter_mut().zip(&xy) {
+        if let [x, y, ..] = p[..] {
+            (a.x, a.y) = (round4(x / LAYOUT_BOND), round4(y / LAYOUT_BOND));
         }
-        left += 2.0 * r + 1.5;
     }
 }

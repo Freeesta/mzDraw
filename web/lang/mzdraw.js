@@ -11,7 +11,7 @@ I18N.add("en", {
   "draw2.import.add.title": "Add this structure to the drawing",
   "draw2.import.open": "Open a file",
   "draw2.import.open.title": "Add the structure of a file to the drawing",
-  "draw2.import.placeholder": "The source has no coordinates: the positions are placeholders.",
+  "draw2.import.placeholder": "The source has no coordinates: the positions were computed.",
   "draw2.import.records": "{n} records of the file were added side by side.",
   "draw2.import.skipped": "A drawing takes 64 records at a time; records of the file not read: {n}.",
   "draw2.import.queryAtoms": "Query atoms are not supported; read as R groups: {n}.",
