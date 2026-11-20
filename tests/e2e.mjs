@@ -372,7 +372,7 @@ try {
     await tool(pg, "undo"); await want(pg, { objects: 4 });
   });
 
-  await step("style: a preset changes the screen and the saved SVG, in points, and not the document", async () => {
+  await step("style: a preset or your own values change the screen and the saved SVG, in points, and not the document; the settings file is saved and opened", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0, style: "mzlab" });
     await pg.fill("#d2-text", "C[C@H](N)C(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 6 });
     eq(await pg.locator("#d2-style option").allInnerTexts(), await pg.evaluate("window.MZDRAW.styles().map(n => I18N.t('draw2.style.' + n))"));
@@ -402,6 +402,42 @@ try {
     eq(await pg.evaluate("window.MZDRAW.save('svg')"), plain);
     assert(await pg.evaluate("(() => { try { window.MZDRAW.set_style('nope'); return false; } catch (e) { return JSON.parse(String(e)).error_key === 'error.draw2.style'; } })()"), "a style that is none is refused with its key");
     eq((await state(pg)).style, "mzlab");
+    // your own values: the fields come from the module's schema; the module judges each value
+    await pg.click("#d2-style-more summary");
+    const fields = await pg.evaluate("[...document.querySelectorAll('#d2-style-fields input, #d2-style-fields select')].map(i => i.id.replace('d2-style-', ''))");
+    eq(fields, JSON.parse(await pg.evaluate("window.MZDRAW.settings_schema()")).fields.map(f => f.key).concat(["colour"]));
+    eq(await pg.inputValue("#d2-style-line_width"), "1.35");
+    await pg.fill("#d2-style-line_width", "3"); await pg.press("#d2-style-line_width", "Enter");
+    await until(pg, "JSON.parse(window.MZDRAW.style()).style.line_width === 3");
+    assert((await pg.evaluate("window.MZDRAW.save('svg')")).includes('stroke-width="3"'), "the saved SVG has the new line width");
+    eq(await pg.innerText("#d2-style-note"), await pg.evaluate("I18N.t('draw2.style.custom.note')"));
+    await pg.fill("#d2-style-line_width", "999"); await pg.press("#d2-style-line_width", "Enter");
+    await until(pg, "document.querySelector('#d2-style-line_width').getAttribute('aria-invalid') === 'true'");
+    eq(await pg.innerText("#d2-style-note"), await pg.evaluate("I18N.t('error.draw2.styleValue')"));
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.style()")).style.line_width, 3);       // a refused value changes nothing
+    await pg.selectOption("#d2-style-colour", "mono");
+    await until(pg, "JSON.parse(window.MZDRAW.style()).style.colour === 'mono'");
+    eq(await pg.inputValue("#d2-style-line_width"), "3");  // the fields show what the module holds: the refused entry is gone
+    eq(await pg.getAttribute("#d2-style-line_width", "aria-invalid"), null);
+    await shot(pg, "style-fields");
+    // the settings file: saved as the module writes it, opened again after a change, a damaged one refused in words
+    const [sf] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-style-save")]);
+    eq(sf.suggestedFilename(), "mzdraw-settings.json");
+    const settings = readFileSync(await sf.path(), "utf8");
+    eq(settings, await pg.evaluate("window.MZDRAW.style()"));
+    await pg.selectOption("#d2-style", "slides"); await want(pg, { style: "slides" });
+    eq(await pg.inputValue("#d2-style-font_size"), "16");
+    await pg.setInputFiles("#d2-style-file", { name: "mine.json", mimeType: "application/json", buffer: Buffer.from(settings) });
+    await until(pg, "JSON.parse(window.MZDRAW.style()).style.line_width === 3");
+    eq(await pg.evaluate("window.MZDRAW.style()"), settings);
+    eq([await pg.inputValue("#d2-style"), await pg.inputValue("#d2-style-colour"), await pg.inputValue("#d2-style-font_size")], ["mzlab", "mono", "12"]);
+    await pg.setInputFiles("#d2-style-file", { name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"format":"mzdraw-settings/1","style":{"font_size":1}}') });
+    await until(pg, "document.querySelector('#d2-style-note').textContent === I18N.t('error.draw2.style')");
+    eq(await pg.evaluate("window.MZDRAW.style()"), settings);
+    // back to the default look for the steps that follow
+    await pg.selectOption("#d2-style", "slides"); await pg.selectOption("#d2-style", "mzlab"); await want(pg, { style: "mzlab" });
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), plain);
+    await pg.click("#d2-style-more summary");
   });
 
   await step("keyboard alone: a molecule is drawn, walked and edited without the pointer; the outline and the focus are said in words", async () => {

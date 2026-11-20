@@ -510,6 +510,19 @@ impl Editor {
         Ok(REPAINT)
     }
 
+    /// Sets one setting from its text, `<section>.<key>=<value>` as the `--set` of the CLI writes it. The one section of this
+    /// version is `style` (`Style::set`). The error is an i18n key and changes nothing.
+    pub fn set(&mut self, setting: &str) -> Result<u32, &'static str> {
+        let (name, value) = setting.split_once('=').ok_or("error.draw2.set")?;
+        let key = name
+            .trim()
+            .strip_prefix("style.")
+            .ok_or("error.draw2.set")?;
+        self.style.set(key, value)?;
+        self.said = ("draw2.say.style", self.style.name.clone());
+        Ok(REPAINT)
+    }
+
     /// The drawing as an SVG in the editor's style, carrying its document (`svg::carrying`).
     pub fn svg(&self) -> String {
         crate::svg::carrying(

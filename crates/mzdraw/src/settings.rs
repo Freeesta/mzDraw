@@ -51,19 +51,125 @@ fn object(mut pairs: Vec<(String, String)>) -> String {
     format!("{{{}}}", body.join(","))
 }
 
-/// The keys of the `style` object this version reads and writes.
-const STYLE_KEYS: [&str; 10] = [
-    "preset",
-    "bond_length",
-    "line_width",
-    "bold_width",
-    "hash_spacing",
-    "bond_spacing",
-    "margin",
-    "font_size",
-    "subscript_scale",
-    "colour",
+/// One number of the style, as the schema says it: the one place that names the field, its unit and its bounds. The reader,
+/// the writer, the validation, `Style::set` (the `--set style.<key>=<value>` of the CLI) and the fields of the page all go
+/// through this table, in this order.
+pub struct Field {
+    pub key: &'static str,
+    /// `pt` (points, 1/72 inch), `of_bond` (a fraction of the bond length) or `of_font` (a fraction of the font size).
+    pub unit: &'static str,
+    pub min: f64,
+    pub max: f64,
+    get: fn(&Style) -> f64,
+    put: fn(&mut Style, f64),
+}
+
+impl Field {
+    /// The value of the field in a style.
+    pub fn of(&self, s: &Style) -> f64 {
+        (self.get)(s)
+    }
+}
+
+/// The numbers of the style. Next to them the `style` object holds `preset` (the built-in preset the other fields start from)
+/// and `colour` (`element` or `mono`).
+pub const FIELDS: [Field; 8] = [
+    Field {
+        key: "bond_length",
+        unit: "pt",
+        min: 4.0,
+        max: 200.0,
+        get: |s| s.bond_length,
+        put: |s, v| s.bond_length = v,
+    },
+    Field {
+        key: "line_width",
+        unit: "pt",
+        min: 0.1,
+        max: 20.0,
+        get: |s| s.line_width,
+        put: |s, v| s.line_width = v,
+    },
+    Field {
+        key: "bold_width",
+        unit: "pt",
+        min: 0.1,
+        max: 40.0,
+        get: |s| s.bold_width,
+        put: |s, v| s.bold_width = v,
+    },
+    Field {
+        key: "hash_spacing",
+        unit: "pt",
+        min: 0.5,
+        max: 40.0,
+        get: |s| s.hash_spacing,
+        put: |s, v| s.hash_spacing = v,
+    },
+    Field {
+        key: "bond_spacing",
+        unit: "of_bond",
+        min: 0.02,
+        max: 0.5,
+        get: |s| s.bond_spacing,
+        put: |s, v| s.bond_spacing = v,
+    },
+    Field {
+        key: "margin",
+        unit: "pt",
+        min: 0.0,
+        max: 20.0,
+        get: |s| s.margin,
+        put: |s, v| s.margin = v,
+    },
+    Field {
+        key: "font_size",
+        unit: "pt",
+        min: 3.0,
+        max: 100.0,
+        get: |s| s.font_size,
+        put: |s, v| s.font_size = v,
+    },
+    Field {
+        key: "subscript_scale",
+        unit: "of_font",
+        min: 0.3,
+        max: 1.0,
+        get: |s| s.subscript_scale,
+        put: |s, v| s.subscript_scale = v,
+    },
 ];
+
+/// Whether `key` is a key of the `style` object this version reads and writes.
+fn known(key: &str) -> bool {
+    key == "preset" || key == "colour" || FIELDS.iter().any(|f| f.key == key)
+}
+
+/// The schema of the settings file as JSON, for the surfaces that show or document it (the fields of the page, the help of the
+/// CLI): `{"format", "presets", "colours", "fields": [{"key", "unit", "min", "max", "default"}]}`, the defaults being the ones of
+/// the preset `mzlab`.
+pub fn schema_json() -> String {
+    let base = Style::default();
+    let num = |v: f64| Value::from(v).to_string();
+    let fields: Vec<String> = FIELDS
+        .iter()
+        .map(|f| {
+            format!(
+                r#"{{"key":"{}","unit":"{}","min":{},"max":{},"default":{}}}"#,
+                f.key,
+                f.unit,
+                num(f.min),
+                num(f.max),
+                num(f.of(&base))
+            )
+        })
+        .collect();
+    format!(
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"fields":[{}]}}"#,
+        PRESETS.join("\",\""),
+        fields.join(",")
+    )
+}
 
 /// The version of a format name `<name>/<n>`: `Ok(n)` when the name is `name`, `Err(())` otherwise.
 pub(crate) fn version(format: &str, name: &str) -> Result<u32, ()> {
@@ -147,17 +253,41 @@ impl Style {
         }
     }
 
-    /// Whether every number is one a drawing can be made with.
+    /// Whether every number is one a drawing can be made with: finite and within the bounds of its field.
     fn valid(&self) -> bool {
-        let within = |v: f64, lo: f64, hi: f64| v.is_finite() && v >= lo && v <= hi;
-        within(self.bond_length, 4.0, 200.0)
-            && within(self.line_width, 0.1, 20.0)
-            && within(self.bold_width, 0.1, 40.0)
-            && within(self.hash_spacing, 0.5, 40.0)
-            && within(self.bond_spacing, 0.02, 0.5)
-            && within(self.margin, 0.0, 20.0)
-            && within(self.font_size, 3.0, 100.0)
-            && within(self.subscript_scale, 0.3, 1.0)
+        FIELDS.iter().all(|f| {
+            let v = f.of(self);
+            v.is_finite() && v >= f.min && v <= f.max
+        })
+    }
+
+    /// Sets one key of the style from its text, as the `--set style.<key>=<value>` of the CLI and the fields of the page give
+    /// it: a number for a field of `FIELDS`, `element` or `mono` for `colour`, a preset name for `preset` (which replaces the
+    /// whole style and keeps the unknown keys). A value outside the bounds, or a key that is none, changes nothing; the error is
+    /// an i18n key.
+    pub fn set(&mut self, key: &str, value: &str) -> Result<(), &'static str> {
+        let mut next = self.clone();
+        match (key, value.trim()) {
+            ("preset", name) => {
+                next = Style::preset(name).ok_or("error.draw2.style")?;
+                next.unknown = self.unknown.clone();
+            }
+            ("colour", "mono") => next.mono = true,
+            ("colour", "element") => next.mono = false,
+            ("colour", _) => return Err("error.draw2.styleValue"),
+            (key, v) => {
+                let field = FIELDS
+                    .iter()
+                    .find(|f| f.key == key)
+                    .ok_or("error.draw2.styleKey")?;
+                (field.put)(&mut next, v.parse().map_err(|_| "error.draw2.styleValue")?);
+            }
+        }
+        if !next.valid() {
+            return Err("error.draw2.styleValue");
+        }
+        *self = next;
+        Ok(())
     }
 
     /// A style from a preset name or from the text of a settings file (`{"format": "mzdraw-settings/1", "style": {...}}`; the
@@ -191,7 +321,7 @@ impl Style {
                 .map(|(k, x)| (k.clone(), x.to_string()))
                 .collect(),
             style: (style.as_object()?.iter())
-                .filter(|(k, _)| !STYLE_KEYS.contains(&k.as_str()))
+                .filter(|(k, _)| !known(k))
                 .map(|(k, x)| (k.clone(), x.to_string()))
                 .collect(),
         };
@@ -200,26 +330,22 @@ impl Style {
             Some(name) => Style::preset(&name)?,
             None => Style::default(),
         };
-        let num = |k: &str, d: f64| g.f(k).ok().map(|x| x.unwrap_or(d));
         let colour = match g.s("colour").ok()?.as_deref() {
             None => base.mono,
             Some("mono") => true,
             Some("element") => false,
             Some(_) => return None,
         };
-        let s = Style {
-            bond_length: num("bond_length", base.bond_length)?,
-            line_width: num("line_width", base.line_width)?,
-            bold_width: num("bold_width", base.bold_width)?,
-            hash_spacing: num("hash_spacing", base.hash_spacing)?,
-            bond_spacing: num("bond_spacing", base.bond_spacing)?,
-            margin: num("margin", base.margin)?,
-            font_size: num("font_size", base.font_size)?,
-            subscript_scale: num("subscript_scale", base.subscript_scale)?,
+        let mut s = Style {
             mono: colour,
-            name: base.name,
             unknown,
+            ..base
         };
+        for f in &FIELDS {
+            if let Some(v) = g.f(f.key).ok()? {
+                (f.put)(&mut s, v);
+            }
+        }
         s.valid().then_some(s)
     }
 
@@ -230,19 +356,13 @@ impl Style {
         let text = |v: &str| Value::from(v).to_string();
         let num = |v: f64| Value::from(v).to_string();
         let mut style = self.unknown.style.clone();
-        for (k, v) in [
-            ("preset", text(&self.name)),
-            ("bond_length", num(self.bond_length)),
-            ("line_width", num(self.line_width)),
-            ("bold_width", num(self.bold_width)),
-            ("hash_spacing", num(self.hash_spacing)),
-            ("bond_spacing", num(self.bond_spacing)),
-            ("margin", num(self.margin)),
-            ("font_size", num(self.font_size)),
-            ("subscript_scale", num(self.subscript_scale)),
-            ("colour", text(if self.mono { "mono" } else { "element" })),
-        ] {
-            style.push((k.to_string(), v));
+        style.push(("preset".to_string(), text(&self.name)));
+        style.push((
+            "colour".to_string(),
+            text(if self.mono { "mono" } else { "element" }),
+        ));
+        for f in &FIELDS {
+            style.push((f.key.to_string(), num(f.of(self))));
         }
         let mut file = self.unknown.file.clone();
         file.push(("format".to_string(), text(FORMAT)));
