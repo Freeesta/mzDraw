@@ -4,9 +4,14 @@
 //! way in the marks are read from the molfile the record writes for its own stereo on our coordinates (`wedges_from_record`).
 
 use crate::doc::{round4, Atom, Bond, Document, WEDGE_DOWN, WEDGE_UP, WEDGE_WAVY};
+use crate::label;
 use crate::layout;
 use crate::m;
 use mzlab_mol::{Coords, Mol};
+
+/// The element that stands in for an R group in the record, which has no place for one; the molfile writer of this module
+/// replaces it on the atom line.
+const R_STAND_IN: &str = "He";
 
 /// How an import went: the format read and whether the positions are placeholders (the source had no coordinates).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,20 +22,41 @@ pub struct Imported {
 
 impl Document {
     /// The document as a `mol/1` record: atoms in pool order, hydrogens as the labels show them, the drawn coordinates as a layer.
+    /// An abbreviation is expanded: its attachment atom takes the place of the labelled atom and its other atoms follow the pool,
+    /// with placeholder positions next to it. An R group has no place in the record: a helium stands in (see `to_molfile`).
     pub fn to_mol(&self) -> Mol {
-        let atoms = self
-            .atoms
-            .iter()
-            .map(|a| mzlab_mol::Atom {
-                el: a.el.clone(),
-                iso: a.iso,
-                chg: a.chg,
-                rad: a.rad,
+        let mut atoms: Vec<mzlab_mol::Atom> = Vec::new();
+        let mut xy: Vec<Vec<f64>> = Vec::new();
+        let mut extra: Vec<(usize, Mol, Document)> = Vec::new();
+        for (i, a) in self.atoms.iter().enumerate() {
+            xy.push(vec![a.x, a.y]);
+            let group = match label::kind(&a.lab) {
+                Some(label::Kind::Group(smiles)) => Mol::from_smiles(smiles).ok(),
+                _ => None,
+            };
+            if let Some(g) = group.filter(|g| !g.atoms.is_empty()) {
+                // the bonds drawn on the label use the free valence of the attachment atom: its hydrogens, then the unpaired
+                // electrons a bracket atom of the table stands with on its own
+                let mut first = g.atoms[0].clone();
+                let used = self.order_sum(a.id).min(255) as u8;
+                first.rad = first.rad.saturating_sub(used.saturating_sub(first.h));
+                first.h = first.h.saturating_sub(used);
+                atoms.push(first);
+                let (placed, _) = Document::from_mol(&g);
+                extra.push((i, g, placed));
+                continue;
+            }
+            let r = !a.lab.is_empty();
+            atoms.push(mzlab_mol::Atom {
+                el: if r { R_STAND_IN.into() } else { a.el.clone() },
+                iso: if r { 0 } else { a.iso },
+                chg: if r { 0 } else { a.chg },
+                rad: if r { 0 } else { a.rad },
                 h: self.hydrogens(a) as u8,
-            })
-            .collect();
+            });
+        }
         let at = |id: u32| self.atom_index(id).unwrap_or(0) as u32;
-        let bonds = self
+        let mut bonds: Vec<mzlab_mol::Bond> = self
             .bonds
             .iter()
             .map(|b| {
@@ -42,9 +68,32 @@ impl Document {
                 }
             })
             .collect();
+        for (i, g, placed) in &extra {
+            // atom 0 of the group is the labelled atom; the others are appended
+            let base = atoms.len();
+            let index = |k: u32| if k == 0 { *i } else { base + k as usize - 1 } as u32;
+            let (ox, oy) = (
+                self.atoms[*i].x - placed.atoms[0].x,
+                self.atoms[*i].y - placed.atoms[0].y,
+            );
+            for (k, a) in g.atoms.iter().enumerate().skip(1) {
+                atoms.push(a.clone());
+                xy.push(vec![
+                    round4(placed.atoms[k].x + ox),
+                    round4(placed.atoms[k].y + oy),
+                ]);
+            }
+            for b in &g.bonds {
+                let (p, q) = (index(b.a), index(b.b));
+                bonds.push(mzlab_mol::Bond {
+                    a: p.min(q),
+                    b: p.max(q),
+                    o: b.o,
+                });
+            }
+        }
         let mut m = Mol::new(atoms, bonds, Vec::new(), Vec::new());
         if !self.atoms.is_empty() {
-            let xy = self.atoms.iter().map(|a| vec![a.x, a.y]).collect();
             m.coords = Some(Coords {
                 dim: 2,
                 xy,
@@ -74,6 +123,7 @@ impl Document {
                 iso: a.iso,
                 rad: a.rad,
                 h: None,
+                lab: String::new(),
             });
         }
         for (i, b) in m.bonds.iter().enumerate() {
@@ -138,11 +188,11 @@ impl Document {
 
     /// Sets the wedge marks as drawn on the bond lines of a V2000 molfile of this document (bond lines in pool order): the first
     /// atom of a marked line is the narrow end. A V3000 file (more than 999 atoms or bonds) is left without marks.
-    fn mark_wedges(&self, molfile: String) -> String {
+    fn mark_wedges(&self, molfile: String, record_atoms: usize) -> String {
         if self.bonds.iter().all(|b| b.s == 0) || !molfile.contains("V2000") {
             return molfile;
         }
-        let first = 4 + self.atoms.len();
+        let first = 4 + record_atoms;
         let mut lines: Vec<String> = molfile.split('\n').map(str::to_string).collect();
         for (k, b) in self.bonds.iter().enumerate().filter(|(_, b)| b.s != 0) {
             let (Some(i), Some(j)) = (self.atom_index(b.a), self.atom_index(b.b)) else {
@@ -194,9 +244,58 @@ impl Document {
         }
     }
 
-    /// The whole canvas as one molfile (V2000, or V3000 when it has to be), written by `mzlab-mol`, with the wedge marks as drawn.
+    /// The whole canvas as one molfile (V2000, or V3000 when it has to be), written by `mzlab-mol`, with the wedge marks as drawn,
+    /// abbreviations expanded and R groups as `R#` atoms with their `M  RGP` numbers.
     pub fn to_molfile(&self) -> String {
-        self.mark_wedges(self.to_mol().to_molfile(crate::NAME))
+        self.molfile(false)
+    }
+
+    /// The molfile for the structure check: as `to_molfile`, but an R group is the query atom `A` (any atom), which the check reads.
+    pub fn to_molfile_for_check(&self) -> String {
+        self.molfile(true)
+    }
+
+    fn molfile(&self, r_as_query: bool) -> String {
+        let m = self.to_mol();
+        let text = self.mark_wedges(m.to_molfile(crate::NAME), m.atoms.len());
+        self.mark_r_groups(text, r_as_query)
+    }
+
+    /// Writes the R groups on the atom lines of a V2000 molfile of this document (the stand-in element becomes `R#`, or `A` for
+    /// the check) and their numbers as `M  RGP` lines. A V3000 file keeps the stand-in.
+    fn mark_r_groups(&self, molfile: String, r_as_query: bool) -> String {
+        let groups: Vec<(usize, u8)> = self
+            .atoms
+            .iter()
+            .enumerate()
+            .filter_map(|(i, a)| match label::kind(&a.lab) {
+                Some(label::Kind::R(n)) => Some((i, n)),
+                _ => None,
+            })
+            .collect();
+        if groups.is_empty() || !molfile.contains("V2000") {
+            return molfile;
+        }
+        let mut lines: Vec<String> = molfile.split('\n').map(str::to_string).collect();
+        for &(i, n) in &groups {
+            let symbol = match (r_as_query, n) {
+                (true, _) => "A  ",
+                (false, 0) => "R  ",
+                (false, _) => "R# ",
+            };
+            if let Some(line) = lines.get_mut(4 + i).filter(|l| l.len() >= 34) {
+                line.replace_range(31..34, symbol);
+            }
+        }
+        let numbered: Vec<String> = groups
+            .iter()
+            .filter(|g| g.1 > 0 && !r_as_query)
+            .map(|&(i, n)| format!("M  RGP  1{:>4}{:>4}", i + 1, n))
+            .collect();
+        if let Some(end) = lines.iter().position(|l| l == "M  END") {
+            lines.splice(end..end, numbered);
+        }
+        lines.join("\n")
     }
 }
 

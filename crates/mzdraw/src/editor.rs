@@ -12,6 +12,8 @@ pub const REPAINT: u32 = 1;
 pub const CHANGED: u32 = 2;
 pub const TOOL: u32 = 4;
 pub const HANDLED: u32 = 8;
+/// The page should move the keyboard to its label field.
+pub const ASK_LABEL: u32 = 16;
 
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
@@ -31,11 +33,13 @@ pub enum Tool {
     Erase,
     Ring(u8, bool),
     Charge(i8),
+    /// An abbreviation or an R group of `label`.
+    Label(String),
 }
 
 impl Tool {
     /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `erase`, `ring:6`, `ring:6a` (alternating
-    /// double bonds), `charge:+`, `charge:-`.
+    /// double bonds), `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`).
     pub fn parse(s: &str) -> Option<Tool> {
         let (name, arg) = s.split_once(':').unwrap_or((s, ""));
         Some(match name {
@@ -57,6 +61,7 @@ impl Tool {
                 Tool::Ring(n, arg.ends_with('a'))
             }
             "charge" => Tool::Charge(if arg == "-" { -1 } else { 1 }),
+            "label" if crate::label::kind(arg).is_some() => Tool::Label(arg.into()),
             _ => return None,
         })
     }
@@ -72,6 +77,7 @@ impl Tool {
             Tool::Bond(o, _) => format!("bond:{o}"),
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),
             Tool::Charge(c) => format!("charge:{}", if *c < 0 { "-" } else { "+" }),
+            Tool::Label(l) => format!("label:{l}"),
         }
     }
 }
@@ -304,7 +310,7 @@ impl Editor {
                 x: a.x + dx,
                 y: a.y + dy,
             });
-            if a.chg != 0 || a.iso != 0 || a.rad != 0 || a.h.is_some() {
+            if a.chg != 0 || a.iso != 0 || a.rad != 0 || a.h.is_some() || !a.lab.is_empty() {
                 let some = |v: bool| v.then_some(());
                 ops.push(Op::AtomSet {
                     id: base + a.id,
@@ -313,6 +319,7 @@ impl Editor {
                     iso: some(a.iso != 0).map(|_| a.iso),
                     rad: some(a.rad != 0).map(|_| a.rad),
                     h: a.h,
+                    lab: (!a.lab.is_empty()).then(|| a.lab.clone()),
                 });
             }
         }

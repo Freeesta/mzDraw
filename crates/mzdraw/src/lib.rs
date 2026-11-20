@@ -8,6 +8,7 @@ pub mod editor;
 mod editor_edit;
 mod editor_tools;
 pub mod io;
+pub mod label;
 pub mod layout;
 mod m;
 pub mod ops;

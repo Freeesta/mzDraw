@@ -117,6 +117,7 @@ fn set_move_and_remove() {
         iso: None,
         rad: None,
         h: None,
+        lab: None,
     }])
     .unwrap();
     assert_eq!(
@@ -165,6 +166,7 @@ fn hydrogens_follow_the_valence_rules() {
             iso: None,
             rad: None,
             h: None,
+            lab: None,
         },
         set_order(5, 1),
     ])
@@ -239,7 +241,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
         )
     };
     let els = ["C", "N", "O", "S", "Cl", "Fe"];
-    match r.next(13) {
+    match r.next(14) {
         0 | 1 => {
             let (x, y) = xy(r);
             vec![add(els[r.next(els.len())], x, y)]
@@ -252,6 +254,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             iso: None,
             rad: None,
             h: None,
+            lab: None,
         }],
         4 => vec![set_order(bond_id(r), 1 + r.next(3) as u8)],
         5 => {
@@ -285,6 +288,15 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             atoms: vec![atom(r), atom(r)],
             axis: if r.next(2) == 1 { Axis::H } else { Axis::V },
             at: xy(r).0,
+        }],
+        13 => vec![Op::AtomSet {
+            id: atom(r),
+            el: None,
+            chg: None,
+            iso: None,
+            rad: None,
+            h: None,
+            lab: Some(["Ph", "R1", "", "Nope", "CO2Me"][r.next(5)].into()),
         }],
         12 => vec![Op::BondAdd {
             id: None,

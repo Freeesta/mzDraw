@@ -99,6 +99,7 @@ fn element_colour(el: &str) -> f32 {
 /// Whether the atom is drawn as text (a carbon inside a chain is a bare vertex).
 pub fn has_label(doc: &Document, a: &Atom) -> bool {
     a.el != "C"
+        || !a.lab.is_empty()
         || a.chg != 0
         || a.iso != 0
         || a.rad != 0
@@ -265,8 +266,51 @@ impl Painter<'_> {
         }
     }
 
+    /// Whether the bonds of an atom leave to the right, so that its text grows to the left.
+    fn grows_left(&self, a: &Atom) -> bool {
+        let lean: f64 = self
+            .doc
+            .neighbours(a.id)
+            .iter()
+            .filter_map(|&n| self.doc.atom(n))
+            .map(|n| n.x - a.x)
+            .sum();
+        lean > 0.01
+    }
+
+    /// An abbreviation or an R group: the text with its digits lowered, its first character on the atom, or its last one when the
+    /// bonds leave to the right.
+    fn group_label(&mut self, a: &Atom) {
+        let (x, y) = self.pos(a);
+        let (f, small) = (self.font, self.font * 0.7);
+        let mut runs: Vec<(String, bool)> = Vec::new();
+        for c in a.lab.chars() {
+            let digit = c.is_ascii_digit();
+            match runs.last_mut() {
+                Some((s, d)) if *d == digit => s.push(c),
+                _ => runs.push((c.to_string(), digit)),
+            }
+        }
+        let size = |digit: bool| if digit { small } else { f };
+        let total: f64 = runs.iter().map(|(s, d)| width(s, size(*d))).sum();
+        let edge = |c: Option<char>| c.map_or(0.0, |c| width(&c.to_string(), f) / 2.0);
+        let mut tx = if self.grows_left(a) {
+            x - total + edge(a.lab.chars().last())
+        } else {
+            x - edge(a.lab.chars().next())
+        };
+        for (s, digit) in runs {
+            let dy = if digit { f * 0.3 } else { 0.0 };
+            self.text(tx, y + dy, size(digit), colour::INK, &s, 1.0);
+            tx += width(&s, size(digit));
+        }
+    }
+
     /// The label of an atom: symbol centred on the atom, hydrogens on the free side, isotope and charge raised.
     fn label(&mut self, a: &Atom) {
+        if !a.lab.is_empty() {
+            return self.group_label(a);
+        }
         let (x, y) = self.pos(a);
         let f = self.font;
         let c = element_colour(&a.el);

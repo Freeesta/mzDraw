@@ -210,6 +210,32 @@ try {
     await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('error.draw2.smiles')");
     eq((await state(pg)).atoms, 16);
   });
+
+  await step("labels: an abbreviation and an R group are chosen, typed, refused in words, drawn and expanded in the molfile", async () => {
+    const labs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms.map(a => a.lab || "");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    assert(await pg.locator("#d2-labels option").count() >= 30, "the list of labels");
+    await pg.fill("#d2-label", "Ph"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:Ph" });
+    assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-canvas')"), "the keyboard is back on the canvas");
+    await pg.mouse.click(cx, cy); await want(pg, { atoms: 1, bonds: 0 });
+    await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1, warnings: 0 });
+    await pg.keyboard.press("l");                             // L moves the keyboard to the label field
+    assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-label')"), "L focuses the label field");
+    await pg.keyboard.type("R1"); await pg.keyboard.press("Enter"); await want(pg, { tool: "label:R1" });
+    await pg.mouse.click(cx + 35, cy - 20); await want(pg, { atoms: 2, bonds: 1 });
+    eq(await labs(), ["Ph", "R1"]);
+    const mol = await pg.evaluate("window.MZDRAW.save('molfile')");
+    assert(mol.includes("  7  7  0") && mol.includes(" R# ") && mol.includes("M  RGP  1   2   1"), "phenyl expanded to six atoms and six ring bonds, R1 as an R# atom");
+    const svg = await pg.evaluate("window.MZDRAW.save('svg')");
+    assert(svg.includes(">Ph<") && svg.includes(">R<") && svg.includes(">1<"), "the labels are drawn as text");
+    await pg.fill("#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.label')"));
+    eq((await state(pg)).tool, "label:R1");                 // a refused label changes nothing
+    await tool(pg, "atom:N"); await pg.mouse.click(cx + 35, cy - 20);       // an element takes the label away
+    eq(await labs(), ["Ph", ""]);
+    await tool(pg, "undo"); eq(await labs(), ["Ph", "R1"]);
+    await shot(pg, "labels");
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
@@ -231,4 +257,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 9 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 10 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);

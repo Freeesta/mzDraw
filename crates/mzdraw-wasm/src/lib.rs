@@ -48,7 +48,7 @@ fn recheck(p: &mut Page) {
     p.check.clear();
     let mut flagged = Vec::new();
     if !doc.atoms.is_empty() {
-        let request = serde_json::json!({ "molfile": doc.to_molfile() }).to_string();
+        let request = serde_json::json!({ "molfile": doc.to_molfile_for_check() }).to_string();
         if let Ok(j) = mzlab_feat::chem::check::check_json(&request) {
             let v: serde_json::Value = serde_json::from_str(&j).unwrap_or_default();
             for w in v["warnings"]
@@ -182,6 +182,14 @@ pub fn save(kind: &str) -> Result<String, JsValue> {
             _ => return Err(js_err("error.draw2.request")),
         })
     })
+}
+
+/// The labels the label tool takes: the abbreviations of the table, then `R` and `R1` ... `R9` (up to `R32` can be typed).
+#[wasm_bindgen]
+pub fn labels() -> Vec<String> {
+    let groups = mzdraw::label::ABBREVIATIONS.iter().map(|g| g.0.to_string());
+    let r = std::iter::once("R".to_string()).chain((1..=9).map(|n| format!("R{n}")));
+    groups.chain(r).collect()
 }
 
 /// The display list numbers (layout in `mzdraw::scene`); call `strings` after it for the texts.

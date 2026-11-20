@@ -59,6 +59,9 @@ pub enum Op {
         rad: Option<u8>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         h: Option<u8>,
+        /// A label (an abbreviation or an R group); the empty text takes the label away.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        lab: Option<String>,
     },
     /// Sets the order and/or the wedge mark of a bond; a new order other than 1 drops the mark. `rev` swaps the two ends (the narrow
     /// end of a wedge moves to the other atom).
@@ -203,6 +206,7 @@ impl Document {
             iso: 0,
             rad: 0,
             h: None,
+            lab: String::new(),
         });
         inv.push(Inv::DropAtom(id));
         done.push(Op::AtomAdd {
@@ -245,7 +249,7 @@ impl Document {
         Ok(())
     }
 
-    /// Sets the given properties of an atom; a new element forgets the explicit hydrogen count.
+    /// Sets the given properties of an atom; a new element forgets the explicit hydrogen count and the label.
     fn set_atom(&mut self, op: &Op, inv: &mut Vec<Inv>) -> Result<(), OpError> {
         let Op::AtomSet {
             id,
@@ -254,6 +258,7 @@ impl Document {
             iso,
             rad,
             h,
+            lab,
         } = op
         else {
             return Ok(());
@@ -264,11 +269,21 @@ impl Document {
         if el.as_ref().is_some_and(|e| !mzlab_mol::is_element(e)) {
             return err("error.draw2.element", *id);
         }
+        if lab
+            .as_ref()
+            .is_some_and(|l| !l.is_empty() && crate::label::kind(l).is_none())
+        {
+            return err("error.draw2.label", *id);
+        }
         inv.push(Inv::SetAtom(self.atoms[i].clone()));
         let a = &mut self.atoms[i];
         if let Some(e) = el {
             a.el = e.clone();
             a.h = None;
+            a.lab.clear();
+        }
+        if let Some(l) = lab {
+            a.lab = l.clone();
         }
         a.chg = chg.unwrap_or(a.chg).clamp(-4, 4);
         a.iso = iso.unwrap_or(a.iso);
