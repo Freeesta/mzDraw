@@ -124,6 +124,7 @@ impl Document {
                 rad: a.rad,
                 h: None,
                 lab: String::new(),
+                more: Vec::new(),
             });
         }
         for (i, b) in m.bonds.iter().enumerate() {
@@ -133,6 +134,7 @@ impl Document {
                 b: b.b + 1,
                 o: b.o,
                 s: 0,
+                more: Vec::new(),
             });
         }
         // keep a hydrogen count only where the valence rules would show another one

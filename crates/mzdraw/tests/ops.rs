@@ -779,3 +779,78 @@ fn hostile_input_is_refused_without_a_panic() {
         "error.draw2.request"
     );
 }
+
+#[test]
+fn unknown_fields_of_a_document_survive_reading_editing_and_writing() {
+    // a drawing as a later mzDraw of the same format version might save it: fields this one does not know, at every level
+    let newer = r##"{"format":"mzdraw/1","next":8,"atoms":[{"id":1,"el":"C","x":0.0,"y":0.0,"colour":"#c00","ann":{"level":"2b"}},{"id":2,"el":"O","x":1.0,"y":0.0,"chg":-1}],"bonds":[{"id":3,"a":1,"b":2,"o":1,"display":"bold"}],"objects":[{"id":4,"t":"arrow","x":3.0,"y":0.0,"x2":5.0,"kind":"equilibrium"}],"meta":{"title":"sample","tags":["a","b"]},"style":"acs-1996"}"##;
+    let d = Document::from_json(newer).unwrap();
+    assert_eq!(d.more.len(), 2);
+    assert_eq!(d.atoms[0].more.len(), 2);
+    assert_eq!((d.bonds[0].more.len(), d.objects[0].more.len()), (1, 1));
+    // written back: the known fields in their order, then the unknown ones by key; the same bytes on every later round
+    let out = d.to_json();
+    assert_eq!(
+        out,
+        r##"{"format":"mzdraw/1","next":8,"atoms":[{"id":1,"el":"C","x":0.0,"y":0.0,"ann":{"level":"2b"},"colour":"#c00"},{"id":2,"el":"O","x":1.0,"y":0.0,"chg":-1}],"bonds":[{"id":3,"a":1,"b":2,"o":1,"display":"bold"}],"objects":[{"id":4,"t":"arrow","x":3.0,"y":0.0,"x2":5.0,"kind":"equilibrium"}],"meta":{"tags":["a","b"],"title":"sample"},"style":"acs-1996"}"##
+    );
+    assert_eq!(Document::from_json(&out).unwrap(), d);
+    assert_eq!(Document::from_json(&out).unwrap().to_json(), out);
+    // they stay on the things they belong to through edits and come back with undo
+    let mut s = Session::new(d);
+    s.run(&[
+        Op::Move {
+            atoms: vec![1],
+            objects: vec![4],
+            dx: 0.5,
+            dy: 0.5,
+        },
+        set_order(3, 2),
+        Op::AtomSet {
+            id: 1,
+            el: Some("N".into()),
+            chg: None,
+            iso: None,
+            rad: None,
+            h: None,
+            lab: None,
+        },
+        add("C", 9.0, 9.0),
+    ])
+    .unwrap();
+    let edited = s.doc.to_json();
+    for kept in [
+        r##""ann":{"level":"2b"},"colour":"#c00""##,
+        r#""display":"bold""#,
+        r#""kind":"equilibrium""#,
+        r#""meta":{"tags":["a","b"],"title":"sample"},"style":"acs-1996""#,
+    ] {
+        assert!(edited.contains(kept), "{kept} in {edited}");
+    }
+    assert!(
+        edited.contains(r#"{"id":8,"el":"C","x":9.0,"y":9.0}"#),
+        "a new atom has none"
+    );
+    // a removed atom takes its unknown fields with it, and undo brings them back in place
+    s.run(&[Op::Remove {
+        atoms: vec![1],
+        bonds: vec![],
+        objects: vec![4],
+    }])
+    .unwrap();
+    assert!(!s.doc.to_json().contains("colour") && !s.doc.to_json().contains("equilibrium"));
+    assert!(
+        s.doc.to_json().contains(r#""style":"acs-1996""#),
+        "the document keeps its own"
+    );
+    s.undo();
+    assert_eq!(s.doc.to_json(), edited);
+    s.undo();
+    assert_eq!(s.doc.to_json(), out);
+    // a known field never comes back from an unknown one: a document that repeats a key is read by the known reader alone
+    let plain = Document::from_json(
+        r#"{"format":"mzdraw/1","next":2,"atoms":[{"id":1,"el":"C","x":0,"y":0}],"bonds":[]}"#,
+    )
+    .unwrap();
+    assert!(plain.more.is_empty() && plain.atoms[0].more.is_empty());
+}
