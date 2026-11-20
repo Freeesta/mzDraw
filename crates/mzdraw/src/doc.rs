@@ -19,30 +19,72 @@ fn in_range(v: f64) -> bool {
     v.is_finite() && v.abs() <= MAX_COORD
 }
 
-fn is_zero<T: Default + PartialEq>(v: &T) -> bool {
-    *v == T::default()
+/// The fields of a document, an atom, a bond or an object that this version does not know: (key, value as JSON text) in the
+/// order of the keys. They are kept on read and written back unchanged after the known fields, so a drawing saved by a later
+/// mzDraw of the same format version survives a round through this one. Kept as text because they are only written back.
+pub type More = Vec<(String, String)>;
+
+/// The unknown fields of a JSON object: every key not in `known`.
+fn more_of(v: &Value, known: &[&str]) -> More {
+    let mut out: More = match v.as_object() {
+        Some(o) => (o.iter())
+            .filter(|(k, _)| !known.contains(&k.as_str()))
+            .map(|(k, x)| (k.clone(), x.to_string()))
+            .collect(),
+        None => More::new(),
+    };
+    out.sort();
+    out
+}
+
+/// Writes `"key":value` pairs after what is already in `out` (which ends inside an open object).
+struct Writer(String);
+
+impl Writer {
+    fn key(&mut self, k: &str) {
+        if !self.0.ends_with('{') {
+            self.0.push(',');
+        }
+        self.0.push_str(&Value::from(k).to_string());
+        self.0.push(':');
+    }
+    fn raw(&mut self, k: &str, json: &str) {
+        self.key(k);
+        self.0.push_str(json);
+    }
+    fn num(&mut self, k: &str, v: f64) {
+        self.raw(k, &Value::from(v).to_string());
+    }
+    fn int(&mut self, k: &str, v: i64) {
+        self.raw(k, &v.to_string());
+    }
+    fn text(&mut self, k: &str, v: &str) {
+        self.raw(k, &Value::from(v).to_string());
+    }
+    fn more(&mut self, more: &More) {
+        for (k, v) in more {
+            self.raw(k, v);
+        }
+    }
 }
 
 /// One atom. `h` is set only when the hydrogens were given explicitly (a file said so); otherwise they follow the valence rules.
 /// A labelled atom (`lab`) shows its label alone: no hydrogens, charge or isotope of its own.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Atom {
     pub id: u32,
     pub el: String,
     pub x: f64,
     pub y: f64,
-    #[serde(skip_serializing_if = "is_zero")]
     pub chg: i8,
-    #[serde(skip_serializing_if = "is_zero")]
     pub iso: u16,
-    #[serde(skip_serializing_if = "is_zero")]
     pub rad: u8,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub h: Option<u8>,
     /// A label drawn instead of the element: an abbreviation of `label::ABBREVIATIONS` (expanded to its atoms at export) or an
     /// R-group placeholder. Empty for a plain atom.
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub lab: String,
+    /// Fields of the atom this version does not know, kept to be written back (see `More`).
+    pub more: More,
 }
 
 /// Wedge marks of a single bond, as drawn: the narrow end is the atom `a` of the bond.
@@ -53,14 +95,14 @@ pub const WEDGE_WAVY: u8 = 3;
 /// One bond between the atoms with ids `a` and `b`, Kekulé order 1-3. `s` is the wedge mark of a single bond (0 none, 1 solid wedge,
 /// 2 hashed wedge, 3 wavy), drawn from `a` (narrow end) to `b`: the marks are the drawing, the stereo of the record is derived from
 /// them by the molfile rules of `mzlab-mol` at export.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Bond {
     pub id: u32,
     pub a: u32,
     pub b: u32,
     pub o: u8,
-    #[serde(skip_serializing_if = "is_zero")]
     pub s: u8,
+    pub more: More,
 }
 
 /// What a drawing object other than a molecule is.
@@ -76,18 +118,16 @@ pub enum ObjKind {
 }
 
 /// An object next to the molecules: a reaction arrow, a plus sign or a text. Coordinates in bond lengths, as the atoms.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Obj {
     pub id: u32,
     pub t: ObjKind,
     pub x: f64,
     pub y: f64,
-    #[serde(skip_serializing_if = "is_zero")]
     pub x2: f64,
-    #[serde(skip_serializing_if = "is_zero")]
     pub y2: f64,
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub text: String,
+    pub more: More,
 }
 
 impl ObjKind {
@@ -117,15 +157,16 @@ impl Obj {
 }
 
 /// The document. `next` is the next free id (atoms, bonds and objects share one counter), so replaying a log gives the same ids.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Document {
     pub format: String,
     pub next: u32,
     pub atoms: Vec<Atom>,
     pub bonds: Vec<Bond>,
     /// Reaction arrows, plus signs and texts.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub objects: Vec<Obj>,
+    /// Fields of the document this version does not know (a `style`, a `meta`, annotations of a later version).
+    pub more: More,
 }
 
 impl Default for Document {
@@ -136,6 +177,7 @@ impl Default for Document {
             atoms: Vec::new(),
             bonds: Vec::new(),
             objects: Vec::new(),
+            more: More::new(),
         }
     }
 }
@@ -151,9 +193,87 @@ pub fn round4(v: f64) -> f64 {
 }
 
 impl Document {
-    /// Compact JSON with a fixed field order: same document, same bytes.
+    /// Compact JSON with a fixed field order: same document, same bytes. Written by hand: the known fields in their order
+    /// (optional ones only when set), then the unknown ones.
     pub fn to_json(&self) -> String {
-        serde_json::to_string(self).unwrap_or_default()
+        let list = |items: Vec<String>| format!("[{}]", items.join(","));
+        let atoms = (self.atoms.iter())
+            .map(|a| {
+                let mut w = Writer("{".into());
+                w.int("id", a.id as i64);
+                w.text("el", &a.el);
+                w.num("x", a.x);
+                w.num("y", a.y);
+                if a.chg != 0 {
+                    w.int("chg", a.chg as i64);
+                }
+                if a.iso != 0 {
+                    w.int("iso", a.iso as i64);
+                }
+                if a.rad != 0 {
+                    w.int("rad", a.rad as i64);
+                }
+                if let Some(h) = a.h {
+                    w.int("h", h as i64);
+                }
+                if !a.lab.is_empty() {
+                    w.text("lab", &a.lab);
+                }
+                w.more(&a.more);
+                w.0 + "}"
+            })
+            .collect();
+        let bonds = (self.bonds.iter())
+            .map(|b| {
+                let mut w = Writer("{".into());
+                w.int("id", b.id as i64);
+                w.int("a", b.a as i64);
+                w.int("b", b.b as i64);
+                w.int("o", b.o as i64);
+                if b.s != 0 {
+                    w.int("s", b.s as i64);
+                }
+                w.more(&b.more);
+                w.0 + "}"
+            })
+            .collect();
+        let mut w = Writer("{".into());
+        w.text("format", &self.format);
+        w.int("next", self.next as i64);
+        w.raw("atoms", &list(atoms));
+        w.raw("bonds", &list(bonds));
+        if !self.objects.is_empty() {
+            let objects = (self.objects.iter())
+                .map(|o| {
+                    let mut w = Writer("{".into());
+                    w.int("id", o.id as i64);
+                    w.text(
+                        "t",
+                        match o.t {
+                            ObjKind::Arrow => "arrow",
+                            ObjKind::Plus => "plus",
+                            ObjKind::Text => "text",
+                        },
+                    );
+                    w.num("x", o.x);
+                    w.num("y", o.y);
+                    if o.x2 != 0.0 {
+                        w.num("x2", o.x2);
+                    }
+                    if o.y2 != 0.0 {
+                        w.num("y2", o.y2);
+                    }
+                    if !o.text.is_empty() {
+                        w.text("text", &o.text);
+                    }
+                    w.more(&o.more);
+                    w.0 + "}"
+                })
+                .collect();
+            w.raw("objects", &list(objects));
+        }
+        w.more(&self.more);
+        w.0 + "}"
     }
 
     /// Reads and checks a document; the error is an i18n key. Read by hand from a JSON value, as the operations are: a derived
@@ -194,6 +314,7 @@ impl Document {
         let g = Fields(v);
         let num = |x: Option<f64>| x.ok_or(());
         Ok(Document {
+            more: more_of(v, &["format", "next", "atoms", "bonds", "objects"]),
             format: g.s("format")?.ok_or(())?,
             next: g.u("next")?.ok_or(())?,
             atoms: list(v, "atoms", true, |a| {
@@ -207,6 +328,10 @@ impl Document {
                     rad: a.u("rad")?.unwrap_or(0),
                     h: a.u("h")?,
                     lab: a.s("lab")?.unwrap_or_default(),
+                    more: more_of(
+                        a.0,
+                        &["id", "el", "x", "y", "chg", "iso", "rad", "h", "lab"],
+                    ),
                 })
             })?,
             bonds: list(v, "bonds", true, |b| {
@@ -216,6 +341,7 @@ impl Document {
                     b: b.u("b")?.ok_or(())?,
                     o: b.u("o")?.ok_or(())?,
                     s: b.u("s")?.unwrap_or(0),
+                    more: more_of(b.0, &["id", "a", "b", "o", "s"]),
                 })
             })?,
             objects: list(v, "objects", false, |o| {
@@ -227,6 +353,7 @@ impl Document {
                     x2: o.f("x2")?.unwrap_or(0.0),
                     y2: o.f("y2")?.unwrap_or(0.0),
                     text: o.s("text")?.unwrap_or_default(),
+                    more: more_of(o.0, &["id", "t", "x", "y", "x2", "y2", "text"]),
                 })
             })?,
         })

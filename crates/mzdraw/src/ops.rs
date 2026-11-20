@@ -399,6 +399,7 @@ impl Document {
             rad: 0,
             h: None,
             lab: String::new(),
+            more: Vec::new(),
         });
         inv.push(Inv::DropAtom(id));
         done.push(Op::AtomAdd {
@@ -429,7 +430,14 @@ impl Document {
             return err("error.draw2.bond", a);
         }
         let id = self.take_id(id, inv)?;
-        self.bonds.push(Bond { id, a, b, o, s });
+        self.bonds.push(Bond {
+            id,
+            a,
+            b,
+            o,
+            s,
+            more: Vec::new(),
+        });
         inv.push(Inv::DropBond(id));
         done.push(Op::BondAdd {
             id: Some(id),
@@ -643,6 +651,7 @@ impl Document {
                     x2: round4(*x2),
                     y2: round4(*y2),
                     text: text.clone(),
+                    more: Vec::new(),
                 };
                 if !o.valid() {
                     return err("error.draw2.object", o.id);
