@@ -139,7 +139,7 @@ try {
 
   await step("molfile (V2000 and V3000), SMILES, SVG, PNG and the mzdraw/1 document are saved as the module writes them; the pictures open again", async () => {
     const got = {};
-    for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"], ["ket", "ket", "drawing.ket"],
+    for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"], ["ket", "ket", "drawing.ket"], ["cdxml", "cdxml", "drawing.cdxml"],
       ["svg", "svg", "drawing.svg"], ["mzdraw", "mzdraw", "drawing.mzdraw.json"]]) {
       const [d] = await Promise.all([pg.waitForEvent("download"), pg.click(`#d2-ex-${button}`)]);
       eq(d.suggestedFilename(), name);
@@ -149,6 +149,7 @@ try {
     assert(got.molfile.includes("V2000") && got.molfile.trimEnd().endsWith("M  END"), "a V2000 molfile");
     assert(got["molfile-v3000"].includes("V3000") && got["molfile-v3000"].includes("M  V30 COUNTS 4 3"), "a V3000 molfile");
     eq(got.smiles, "CC(=O)O");
+    assert(got.cdxml.startsWith('<?xml version="1.0"') && got.cdxml.includes("<CDXML ") && (got.cdxml.match(/<n /g) || []).length === 4 && (got.cdxml.match(/<b /g) || []).length === 3, "a CDXML file");
     const ket = JSON.parse(got.ket);
     assert(ket.root.nodes[0].$ref === "mol0" && ket.mol0.type === "molecule" && ket.mol0.atoms.length === 4 && ket.mol0.bonds.length === 3, "a KET file");
     assert(got.svg.startsWith("<svg") && got.svg.includes("<line") && got.svg.replaceAll("OH", "O").includes(">O<"), "an SVG with lines and labels");
@@ -168,7 +169,7 @@ try {
       return { dark, clear, n: d.length / 4 };
     }, [...png]);
     assert(ink.clear === 0 && ink.dark > 200 && ink.dark < ink.n / 4, `white paper with ink on it (${JSON.stringify(ink)})`);
-    for (const [name, mimeType, buffer] of [["drawing.svg", "image/svg+xml", Buffer.from(got.svg)], ["drawing.png", "image/png", png], ["drawing.ket", "application/json", Buffer.from(got.ket)]]) {
+    for (const [name, mimeType, buffer] of [["drawing.svg", "image/svg+xml", Buffer.from(got.svg)], ["drawing.png", "image/png", png], ["drawing.ket", "application/json", Buffer.from(got.ket)], ["drawing.cdxml", "chemical/x-cdxml", Buffer.from(got.cdxml)]]) {
       await tool(pg, "clear"); await want(pg, { atoms: 0 });
       await pg.setInputFiles("#d2-file", { name, mimeType, buffer }); await want(pg, { atoms: 4, bonds: 3 });
       eq(await pg.evaluate("window.MZDRAW.save('smiles')"), "CC(=O)O");

@@ -17,7 +17,7 @@ keywords:
   - cheminformatics
   - WebAssembly
   - Rust
-abstract: "mzDraw is a free 2D molecule editor that runs entirely in the web browser, written in Rust and compiled to WebAssembly. Every edit is a logged operation with an exact inverse, so the command log of a drawing session replays to the same bytes in the browser and natively. It reads and writes molfile (V2000, V3000), SDF, SMILES and KET, saves SVG and PNG pictures that open again as drawings, and has a versioned document format of its own. No installation, no account, no tracking: files never leave the computer."
+abstract: "mzDraw is a free 2D molecule editor that runs entirely in the web browser, written in Rust and compiled to WebAssembly. Every edit is a logged operation with an exact inverse, so the command log of a drawing session replays to the same bytes in the browser and natively. It reads and writes molfile (V2000, V3000), SDF, SMILES, KET and CDXML, saves SVG and PNG pictures that open again as drawings, and has a versioned document format of its own. No installation, no account, no tracking: files never leave the computer."
 references:
   - type: software
     title: "mzLab: a browser-based teaching tool for LC-MS data analysis and the search for transformation products"

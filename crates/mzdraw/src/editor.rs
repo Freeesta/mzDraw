@@ -357,7 +357,7 @@ impl Editor {
         REPAINT
     }
 
-    /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`,
+    /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`,
     /// `svg` (in the style of the editor) or `log` (the command log). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
@@ -366,6 +366,7 @@ impl Editor {
             "molfile-v3000" => self.doc().to_molfile_v3000(),
             "smiles" => self.doc().to_smiles()?,
             "ket" => self.doc().to_ket(),
+            "cdxml" => self.doc().to_cdxml(),
             "svg" => self.svg(),
             "log" => self.session.log_json(),
             _ => return Err("error.draw2.request"),

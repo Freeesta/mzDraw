@@ -4,10 +4,9 @@
 //! as a molfile (`formats::prepare`), so R groups, query atoms and bonds and S-groups are treated and reported the same way; the
 //! root nodes mzDraw does not draw are counted, never dropped in silence.
 
-use crate::doc::{round4, Document, Obj, ObjKind, Writer, WEDGE_DOWN, WEDGE_UP};
+use crate::doc::{round4, Document, ObjKind, Writer, WEDGE_DOWN, WEDGE_UP};
 use crate::io::Imported;
 use crate::label::{self, Kind};
-use mzlab_mol::Mol;
 use serde_json::Value;
 
 /// `"x":..,"y":..,"z":0`, the inside of a KET point.
@@ -252,60 +251,5 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
             info.other += 1;
         }
     }
-    let mut d = Document::default();
-    let mut k = 1.0;
-    if !atoms.is_empty() {
-        let mut text =
-            String::from("ket\n\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\n");
-        text += &format!(
-            "M  V30 COUNTS {} {} 0 0 0\nM  V30 BEGIN ATOM\n",
-            atoms.len(),
-            bonds.len()
-        );
-        for (i, a) in atoms.iter().enumerate() {
-            text += &format!("M  V30 {} {a}\n", i + 1);
-        }
-        text += "M  V30 END ATOM\nM  V30 BEGIN BOND\n";
-        for (i, b) in bonds.iter().enumerate() {
-            text += &format!("M  V30 {} {b}\n", i + 1);
-        }
-        text += "M  V30 END BOND\nM  V30 END CTAB\nM  END\n";
-        let (clean, labels) = crate::formats::prepare(&text, info);
-        let m = Mol::from_molfile(&clean).map_err(|_| "error.draw2.ket")?;
-        d = crate::io::labelled(&m, labels, info).0;
-        // the drawing was scaled to its own bond length: the objects follow, by the atom that was farthest from the origin
-        if let Some(a) = d.atoms.get(far.1).filter(|_| far.0.abs() > 1e-9) {
-            k = if far.2 { a.y } else { a.x } / far.0;
-        }
-    }
-    for (t, p, text) in objects {
-        let [x, y, x2, y2] = p.map(|c| round4(c * k));
-        // a document text is one line: a text of several lines becomes one text per line, each under the one before
-        let lines: Vec<&str> = if t == ObjKind::Text {
-            text.lines().filter(|l| !l.trim().is_empty()).collect()
-        } else {
-            vec![""]
-        };
-        let mut kept = false;
-        for (i, line) in lines.iter().enumerate() {
-            let o = Obj {
-                id: d.next.max(1),
-                t,
-                x,
-                y: round4(y - 0.6 * i as f64),
-                x2,
-                y2,
-                text: line.chars().take(200).collect(),
-                more: Vec::new(),
-            };
-            // what a document cannot hold (an arrow without length) is counted with the things left out
-            if o.valid() {
-                d.next = o.id + 1;
-                d.objects.push(o);
-                kept = true;
-            }
-        }
-        info.other += usize::from(!kept);
-    }
-    Ok(d)
+    crate::formats::assemble(&atoms, &bonds, objects, far, info, "error.draw2.ket")
 }

@@ -43,7 +43,8 @@ Built in `crates/mzdraw` unless said; R = read, W = write. "Listed" = said in wo
 | SMILES, CXSMILES | yes | yes | one per line with names; R groups as `[*:n]` both ways; the CXSMILES tail is read by `mzlab-mol` (stereo groups listed as above) and not written by mzDraw; positions are placeholders until the layout of `mzlab-mol` lands |
 | SMARTS | no | no | query features are out of scope of the editor |
 | KET | yes | yes | from the schema. Out: one molecule node, R sites, wedges, arrows, plus, text (the text of an arrow as a text node above it). In: molecules through the molfile door (same lists), arrows, plus, text; shapes, images, multi-tailed arrows and R-group definitions are counted and listed. Not read: `implicitHCount`, aliases, stereo labels; `D`/`T` labels are read as query atoms. Annotations are not written into KET yet |
-| CDXML, CDX, MRV, CML, XYZ, PDB | no | no | wait for room under the size cap (CDXML first) |
+| CDXML | yes | yes | from the public CDX SDK pages. In: fragments through the molfile door (same lists), R groups and the abbreviations of our table as labels, wedges, captions, arrows, plus symbols; other objects counted and listed. Out: one fragment, R groups as generic nicknames, wedges, arrows, plus, text. Not read: `NumHydrogens`, colours, fonts, text faces, bold and dashed bonds. No fidelity claim towards ChemDraw |
+| CDX, MRV, CML, XYZ, PDB | no | no | not built (CML / MRV next) |
 | SVG | own only | yes | the saved SVG carries the document in a `metadata` element; an SVG of another program is refused in words |
 | PNG | own only | yes | 300 dpi on white, drawn by the page from the module's SVG, finished by the module (`iTXt` document, `pHYs`); a PNG of another program is refused in words |
 | PDF | - | no | not started |
