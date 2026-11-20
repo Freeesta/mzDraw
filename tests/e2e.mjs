@@ -295,6 +295,16 @@ try {
     await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.gone', { level: '' })");
     eq(await levels(), [null, null]);
     await pg.click("#d2-ann-more summary");
+    // labels that do not crowd: the bond of an O(-) stops after the minus sign, and starts earlier without the charge
+    const bondStart = async (/** @type {string} */ first) => {
+      await tool(pg, "clear"); await want(pg, { atoms: 0 });
+      await pg.fill("#d2-text", `{"format":"mzdraw/1","next":4,"atoms":[{"id":1,${first},"x":0.0,"y":0.0},{"id":2,"el":"C","x":1.0,"y":0.0}],"bonds":[{"id":3,"a":1,"b":2,"o":1}]}`); await pg.click("#d2-add"); await want(pg, { atoms: 2, bonds: 1 });
+      return pg.evaluate("(() => { const d = window.MZDRAW.scene(), s = window.MZDRAW.strings(), out = { line: 0, minus: 0, size: 0 }; for (let i = 0; i < d.length;) { if (d[i] === 1) out.line = Math.min(d[i + 1], d[i + 3]); if (d[i] === 2 && s[d[i + 5]] === '\u2212') { out.minus = d[i + 1]; out.size = d[i + 3]; } i += d[i] === 1 || d[i] === 2 ? 7 : d[i] === 3 ? 6 : d[i] === 6 ? 8 : 5; } return out; })()");
+    };
+    const bare = await bondStart('"el":"O"'), anion = await bondStart('"el":"O","chg":-1');
+    assert(anion.size > 0 && anion.line >= anion.minus + anion.size * 0.5, `the bond starts after the minus sign: ${JSON.stringify(anion)}`);
+    assert(anion.line > bare.line + 1, "and later than without a charge");
+    await shot(pg, "crowding");
     // a reaction file: read with its roles (reactant, arrow, product), saved again; a drawing without an arrow is refused in words
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", `$RXN\n\n  synthetic\n\n  1  1\n$MOL\n${ethanol}\n$MOL\n${ethanol}\n`); await pg.click("#d2-add");
