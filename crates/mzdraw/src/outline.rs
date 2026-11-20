@@ -12,6 +12,10 @@ pub struct Piece {
     pub formula: String,
     pub atoms: usize,
     pub bonds: usize,
+    /// The id of the first atom of the structure: the atom its data is set on.
+    pub anchor: u32,
+    /// The data of the structure (the data fields of an SDF record): the data of its atoms, in pool order.
+    pub data: crate::doc::Data,
 }
 
 /// What the keyboard focus is on.
@@ -110,6 +114,11 @@ pub fn pieces(doc: &Document) -> Vec<Piece> {
             formula: hill(&mut counts, charge),
             atoms,
             bonds,
+            anchor: doc.atoms.get(first).map_or(0, |a| a.id),
+            data: (0..doc.atoms.len().min(n))
+                .filter(|&i| root(&mut piece_of, i) == first)
+                .flat_map(|i| doc.atoms[i].data())
+                .collect(),
         });
     }
     out

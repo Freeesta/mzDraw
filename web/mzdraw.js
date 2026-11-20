@@ -41,6 +41,37 @@ function size() {
   paint();
 }
 
+/** the data of each structure (the data fields of an SDF record) as rows of name and value that can be edited, added and, by
+ * emptying the name, taken away; "Apply" gives the rows of one structure to the module, which judges them. Not rebuilt while a
+ * field of it is being typed in. @param {any[]} outline */
+function dataFields(outline) {
+  const box = $("d2-data"), active = document.activeElement;
+  if (active && box.contains(active) && active.tagName !== "BUTTON") return;
+  const row = (/** @type {string} */ k, /** @type {string} */ v) => {
+    const r = document.createElement("div"), name = document.createElement("input"), value = document.createElement("textarea");
+    r.className = "row d2-datum"; name.type = "text"; name.value = k; name.maxLength = 80; name.setAttribute("aria-label", t("draw2.data.name")); name.placeholder = t("draw2.data.name");
+    value.rows = 1 + v.split("\n").length - 1; value.value = v; value.setAttribute("aria-label", t("draw2.data.value")); value.placeholder = t("draw2.data.value");
+    r.append(name, value);
+    return r;
+  };
+  box.replaceChildren(...outline.map((s, i) => {
+    const set = document.createElement("fieldset"), legend = document.createElement("legend"), rows = document.createElement("div"), buttons = document.createElement("div");
+    const add = document.createElement("button"), apply = document.createElement("button");
+    set.dataset.anchor = String(s.anchor);
+    legend.textContent = t("draw2.data.piece", { n: i + 1, formula: s.formula });
+    rows.append(...s.data.map((/** @type {[string, string]} */ d) => row(d[0], d[1])));
+    add.type = apply.type = "button"; add.textContent = t("draw2.data.add"); apply.textContent = t("draw2.data.apply"); buttons.className = "row";
+    add.addEventListener("click", () => { const r = row("", ""); rows.append(r); /** @type {HTMLInputElement} */ (r.firstChild).focus(); });
+    apply.addEventListener("click", () => {
+      const data = [...rows.children].map(r => [/** @type {HTMLInputElement} */ (r.children[0]).value.trim(), /** @type {HTMLTextAreaElement} */ (r.children[1]).value.replace(/\r/g, "").replace(/\n+$/, "")]).filter(d => d[0]);
+      const f = after(ed.set_data(s.anchor, JSON.stringify(data))), st = JSON.parse(ed.state());
+      $("d2-data-note").textContent = f & CHANGED ? t("draw2.data.done", { n: data.length }) : t(st.error || "error.draw2.data");
+    });
+    buttons.append(add, apply); set.append(legend, rows, buttons);
+    return set;
+  }));
+}
+
 /** the text of one check/1 warning, from the Drawing check catalog @param {any} w */
 function warningText(w) {
   const allowed = (w.allowed || []).join(", ");
@@ -63,6 +94,7 @@ function refresh() {
     return li;
   }));
   if (!st.outline.length) { const li = document.createElement("li"); li.textContent = t("draw2.outline.empty"); $("d2-outline").append(li); }
+  dataFields(st.outline);
   $("d2-focus").textContent = st.focus ? focusText(st.focus) : "";
   for (const [id, kind] of [["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
     const input = /** @type {HTMLInputElement} */ ($(id)), on = st.tool.startsWith(kind);
@@ -353,6 +385,7 @@ function panels() {
   $("d2-file").addEventListener("change", async e => { const f = /** @type {HTMLInputElement} */ (e.target).files?.[0]; if (f) add(new Uint8Array(await f.arrayBuffer())); });
   $("d2-ex-molfile").addEventListener("click", () => save("molfile", "drawing.mol", "chemical/x-mdl-molfile"));
   $("d2-ex-v3000").addEventListener("click", () => save("molfile-v3000", "drawing-v3000.mol", "chemical/x-mdl-molfile"));
+  $("d2-ex-sdf").addEventListener("click", () => save("sdf", "drawing.sdf", "chemical/x-mdl-sdfile"));
   $("d2-ex-smiles").addEventListener("click", () => save("smiles", "drawing.smi", "chemical/x-daylight-smiles"));
   $("d2-ex-ket").addEventListener("click", () => save("ket", "drawing.ket", "application/json"));
   $("d2-ex-cdxml").addEventListener("click", () => save("cdxml", "drawing.cdxml", "chemical/x-cdxml"));

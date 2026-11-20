@@ -86,6 +86,75 @@ pub struct Atom {
     pub more: More,
 }
 
+/// The data of a structure (the data fields of an SDF record): name and value pairs, in order. They are kept on one atom of the
+/// structure, as its field `data` (`[["name", "value"], ...]`), so they follow that atom through every edit and every undo; the
+/// data of a structure is the data of its atoms in pool order.
+pub type Data = Vec<(String, String)>;
+
+/// Fields one atom can carry, and the longest name and value, in characters.
+pub const MAX_DATA: (usize, usize, usize) = (100, 80, 10_000);
+
+/// Whether a list is data a document and an SDF can hold: a name is one line without `<` and `>`; a value has no empty line
+/// (it would end the field in an SDF) and no line that starts as a header (`>`) or as the end of a record (`$$$$`).
+pub fn data_valid(data: &[(String, String)]) -> bool {
+    let plain = |s: &str| !s.chars().any(|c| c.is_control() && c != '\n');
+    data.len() <= MAX_DATA.0
+        && data.iter().all(|(name, value)| {
+            let n = name.chars().count();
+            let lines = || value.split('\n');
+            (1..=MAX_DATA.1).contains(&n)
+                && name.trim() == name
+                && !name.contains(['<', '>', '\n'])
+                && plain(name)
+                && value.chars().count() <= MAX_DATA.2
+                && plain(value)
+                && (value.is_empty()
+                    || lines().all(|l| {
+                        !l.trim().is_empty() && !l.starts_with('>') && !l.starts_with("$$$$")
+                    }))
+        })
+}
+
+impl Atom {
+    /// The data kept on this atom (empty for most atoms; a field `data` of another shape is not data and is left alone).
+    pub fn data(&self) -> Data {
+        let text = self
+            .more
+            .iter()
+            .find(|m| m.0 == "data")
+            .map(|m| m.1.as_str());
+        let v: Option<Value> = text.and_then(|t| serde_json::from_str(t).ok());
+        let pairs = v.as_ref().and_then(Value::as_array).map(|rows| {
+            rows.iter()
+                .map(|r| {
+                    Some((
+                        r.get(0)?.as_str()?.to_string(),
+                        r.get(1)?.as_str()?.to_string(),
+                    ))
+                })
+                .collect::<Option<Data>>()
+        });
+        pairs
+            .flatten()
+            .filter(|d| data_valid(d))
+            .unwrap_or_default()
+    }
+
+    /// Replaces the data kept on this atom (`data` must be `data_valid`); an empty list takes the field away.
+    pub(crate) fn set_data(&mut self, data: &[(String, String)]) {
+        self.more.retain(|m| m.0 != "data");
+        if !data.is_empty() {
+            let rows: Vec<String> = data
+                .iter()
+                .map(|(k, v)| format!("[{},{}]", Value::from(k.as_str()), Value::from(v.as_str())))
+                .collect();
+            self.more
+                .push(("data".into(), format!("[{}]", rows.join(","))));
+            crate::m::sort(&mut self.more);
+        }
+    }
+}
+
 /// Wedge marks of a single bond, as drawn: the narrow end is the atom `a` of the bond.
 pub const WEDGE_UP: u8 = 1;
 pub const WEDGE_DOWN: u8 = 2;

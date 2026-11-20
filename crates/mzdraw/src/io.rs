@@ -31,6 +31,8 @@ pub struct Imported {
     pub query_bonds: usize,
     /// S-groups, not read.
     pub sgroups: usize,
+    /// Data fields of an SDF a document cannot hold (too many, too long, a name with `<` or `>`), left out.
+    pub data_left: usize,
     /// Things of a file mzDraw does not draw (shapes, images, R-group definitions ...), left out.
     pub other: usize,
     /// Enhanced-stereo groups "and" / "or": the centres are drawn with their wedges, the grouping is not kept.
@@ -52,6 +54,7 @@ impl Imported {
             ("draw2.import.sgroups", self.sgroups),
             ("draw2.import.stereoGroups", self.stereo_groups),
             ("draw2.import.other", self.other),
+            ("draw2.import.dataLeft", self.data_left),
         ]
         .into_iter()
         .filter(|n| n.1 > 0)
@@ -438,8 +441,14 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
                 info.skipped += 1;
                 continue;
             }
-            let (d, placeholder) = record_of(record, &mut info)?;
+            let (mut d, placeholder) = record_of(record, &mut info)?;
             info.placeholder |= placeholder;
+            // the data fields of the record are kept on its first atom
+            let (data, left) = formats::sdf_data(record);
+            info.data_left += left;
+            if let Some(a) = d.atoms.first_mut() {
+                a.set_data(&data);
+            }
             info.records += 1;
             all.append(d);
         }

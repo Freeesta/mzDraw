@@ -182,7 +182,7 @@ pub(crate) fn from_rxn(text: &str, info: &mut Imported) -> Result<Document, &'st
 
 impl Document {
     /// The atoms `ids` with the bonds between them, as a document of their own.
-    fn part(&self, ids: &[u32]) -> Document {
+    pub(crate) fn part(&self, ids: &[u32]) -> Document {
         Document {
             atoms: (self.atoms.iter())
                 .filter(|a| ids.contains(&a.id))

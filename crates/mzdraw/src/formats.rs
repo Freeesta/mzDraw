@@ -379,3 +379,55 @@ pub(crate) fn assemble(
     }
     Ok(d)
 }
+
+/// The data fields of one SDF record (what follows `M  END`): each `> <name>` header with the lines after it up to the empty
+/// line that ends the field. Returns the fields a document can hold and how many it cannot (too many, too long, a name or a
+/// value of a shape `doc::data_valid` refuses).
+pub(crate) fn sdf_data(record: &str) -> (crate::doc::Data, usize) {
+    let after = record.find("M  END").map_or("", |at| &record[at..]);
+    let (mut data, mut left) = (crate::doc::Data::new(), 0);
+    let mut lines = after.lines().skip(1).map(|l| l.trim_end_matches('\r'));
+    while let Some(line) = lines.next() {
+        let Some(header) = line.strip_prefix('>') else {
+            continue;
+        };
+        // the name stands between `<` and `>`; the other things a header may carry (a field number, a registry number) are not kept
+        let name = match (header.find('<'), header.rfind('>')) {
+            (Some(a), Some(b)) if a < b => header[a + 1..b].trim(),
+            _ => header.trim(),
+        };
+        let mut value: Vec<&str> = Vec::new();
+        for l in lines.by_ref() {
+            if l.trim().is_empty() {
+                break;
+            }
+            value.push(l);
+        }
+        let field = [(name.to_string(), value.join("\n"))];
+        if data.len() < crate::doc::MAX_DATA.0 && crate::doc::data_valid(&field) {
+            data.extend(field);
+        } else {
+            left += 1;
+        }
+    }
+    (data, left)
+}
+
+impl Document {
+    /// The structures of the canvas as an SDF: one record per structure, in the order of their first atoms; each is the molfile
+    /// of the structure (V2000; V3000 above 999 atoms), then its data (the data of its atoms in pool order) as `>  <name>`
+    /// fields, then `$$$$`. Arrows, plus signs and texts have no place in an SDF. The same drawing gives the same bytes.
+    pub fn to_sdf(&self) -> String {
+        let mut out = String::new();
+        for ids in crate::layout::pieces(self) {
+            let piece = self.part(&ids);
+            out += piece.to_molfile().trim_end_matches('\n');
+            out.push('\n');
+            for (name, value) in piece.atoms.iter().flat_map(|a| a.data()) {
+                out += &format!(">  <{name}>\n{value}\n\n");
+            }
+            out += "$$$$\n";
+        }
+        out
+    }
+}

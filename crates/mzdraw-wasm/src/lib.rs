@@ -201,7 +201,7 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `svg` or `log` (the command log).
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg` or `log` (the command log).
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| p.editor.save(kind).map_err(js_err))
@@ -248,6 +248,32 @@ pub fn set_style(text: &str) -> Result<u32, JsValue> {
     with(|p| p.editor.set_style(text).map_err(js_err))
 }
 
+/// Sets the data of the structure of the atom `anchor` (an `anchor` of the outline in `state`) from a JSON list of
+/// `[name, value]` pairs; a list that is not of that shape, or that an SDF could not hold, changes nothing (`error` in `state`).
+#[wasm_bindgen]
+pub fn set_data(anchor: u32, json: &str) -> u32 {
+    with(|p| {
+        let v: serde_json::Value = serde_json::from_str(json).unwrap_or_default();
+        let rows = v.as_array().map(|rows| {
+            rows.iter()
+                .map(|r| {
+                    Some((
+                        r.get(0)?.as_str()?.to_string(),
+                        r.get(1)?.as_str()?.to_string(),
+                    ))
+                })
+                .collect::<Option<Vec<(String, String)>>>()
+        });
+        match rows.flatten() {
+            Some(data) => p.editor.set_data(anchor, data),
+            None => {
+                p.editor.error = "error.draw2.data";
+                mzdraw::editor::REPAINT
+            }
+        }
+    })
+}
+
 /// Sets one setting, `<section>.<key>=<value>` (for the style: `style.line_width=2`, `style.colour=mono`).
 #[wasm_bindgen]
 pub fn set(setting: &str) -> Result<u32, JsValue> {
@@ -288,7 +314,7 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
+/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
 /// the `check/1` document or null).
 #[wasm_bindgen]
 pub fn state() -> String {
@@ -299,11 +325,16 @@ pub fn state() -> String {
         let outline: Vec<String> = mzdraw::outline::pieces(e.doc())
             .into_iter()
             .map(|s| {
+                let data: Vec<String> = (s.data.iter())
+                    .map(|(k, v)| format!("[{},{}]", q(k), q(v)))
+                    .collect();
                 format!(
-                    r#"{{"formula":{},"atoms":{},"bonds":{}}}"#,
+                    r#"{{"formula":{},"atoms":{},"bonds":{},"anchor":{},"data":[{}]}}"#,
                     q(&s.formula),
                     s.atoms,
-                    s.bonds
+                    s.bonds,
+                    s.anchor,
+                    data.join(",")
                 )
             })
             .collect();

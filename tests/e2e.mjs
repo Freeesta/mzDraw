@@ -218,6 +218,44 @@ try {
     await want(pg, { atoms: 9, bonds: 6 });
     eq(await pg.evaluate("window.MZDRAW.save('smiles')"), smiles);
     eq(await pg.innerText("#d2-note"), await say(["draw2.import.placeholder", 1]));
+    // the data of a structure: the data fields of an SDF record are read, shown, edited, undone and written
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", `${ethanol}\n>  <name>\nethanol (synthetic)\n\n>  <note>\nline one\nline two\n\n$$$$\n${ethanol}\n$$$$\n`); await pg.click("#d2-add");
+    await want(pg, { atoms: 6, bonds: 4 });
+    await pg.click("#d2-data-more summary");
+    const rows = () => pg.evaluate("[...document.querySelectorAll('#d2-data fieldset')].map(f => [...f.querySelectorAll('.d2-datum')].map(r => [r.children[0].value, r.children[1].value]))");
+    eq(await rows(), [[["name", "ethanol (synthetic)"], ["note", "line one\nline two"]], []]);
+    const first = "#d2-data fieldset:nth-of-type(1)", second = "#d2-data fieldset:nth-of-type(2)";
+    await pg.fill(`${first} .d2-datum:nth-of-type(1) textarea`, "ethanol, absolute");
+    await pg.click(`${first} button:nth-of-type(1)`);    // Add a field
+    await pg.keyboard.type("purity"); await pg.keyboard.press("Tab"); await pg.keyboard.type("99.8 %");       // by keyboard
+    await pg.click(`${first} button:nth-of-type(2)`);    // Apply
+    await until(pg, "document.querySelector('#d2-data-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-data-note"), await pg.evaluate("I18N.t('draw2.data.done', { n: 3 })"));
+    eq(await rows(), [[["name", "ethanol, absolute"], ["note", "line one\nline two"], ["purity", "99.8 %"]], []]);
+    await shot(pg, "data");
+    const [sd] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-sdf")]);
+    eq(sd.suggestedFilename(), "drawing.sdf");
+    const sdfOut = readFileSync(await sd.path(), "utf8");
+    eq(sdfOut, await pg.evaluate("window.MZDRAW.save('sdf')"));
+    assert(sdfOut.split("$$$$\n").length === 3 && sdfOut.includes("M  END\n>  <name>\nethanol, absolute\n\n>  <note>\nline one\nline two\n\n>  <purity>\n99.8 %\n\n$$$$\n"), "an SDF of two records, the first with its three fields");
+    // a name an SDF could not hold is refused in words and nothing changes; emptying a name takes the field away; undo brings it back
+    await pg.fill(`${second} .d2-datum:nth-of-type(1) input`, "x").catch(() => { });
+    await pg.click(`${second} button:nth-of-type(1)`); await pg.keyboard.type("a<b"); await pg.keyboard.press("Tab"); await pg.keyboard.type("v");
+    await pg.click(`${second} button:nth-of-type(2)`);
+    await until(pg, "document.querySelector('#d2-data-note').textContent === I18N.t('error.draw2.data')");
+    eq(await pg.evaluate("window.MZDRAW.save('sdf')"), sdfOut);
+    await pg.fill(`${first} .d2-datum:nth-of-type(2) input`, ""); await pg.click(`${first} button:nth-of-type(2)`);
+    await until(pg, "document.querySelector('#d2-data-note').textContent === I18N.t('draw2.data.done', { n: 2 })");
+    eq((await rows())[0], [["name", "ethanol, absolute"], ["purity", "99.8 %"]]);
+    await tool(pg, "undo");
+    await until(pg, "document.querySelectorAll('#d2-data fieldset:nth-of-type(1) .d2-datum').length === 3");
+    eq(await pg.evaluate("window.MZDRAW.save('sdf')"), sdfOut);
+    // the saved file opens again with its data
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.setInputFiles("#d2-file", { name: "drawing.sdf", mimeType: "chemical/x-mdl-sdfile", buffer: Buffer.from(sdfOut) }); await want(pg, { atoms: 6, bonds: 4 });
+    eq((await rows())[0], [["name", "ethanol, absolute"], ["note", "line one\nline two"], ["purity", "99.8 %"]]);
+    await pg.click("#d2-data-more summary");
     // a reaction file: read with its roles (reactant, arrow, product), saved again; a drawing without an arrow is refused in words
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", `$RXN\n\n  synthetic\n\n  1  1\n$MOL\n${ethanol}\n$MOL\n${ethanol}\n`); await pg.click("#d2-add");
