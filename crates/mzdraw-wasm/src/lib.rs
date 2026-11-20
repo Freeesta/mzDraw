@@ -48,7 +48,8 @@ fn recheck(p: &mut Page) {
     p.check.clear();
     let mut flagged = Vec::new();
     if !doc.atoms.is_empty() {
-        let request = serde_json::json!({ "molfile": doc.to_molfile_for_check() }).to_string();
+        let molfile = serde_json::Value::from(doc.to_molfile_for_check());
+        let request = format!(r#"{{"molfile":{molfile}}}"#);
         if let Ok(j) = mzlab_feat::chem::check::check_json(&request) {
             let v: serde_json::Value = serde_json::from_str(&j).unwrap_or_default();
             for w in v["warnings"]
@@ -203,7 +204,7 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `svg` or `log` (the command log).
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `svg` or `log` (the command log).
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| p.editor.save(kind).map_err(js_err))
@@ -215,7 +216,13 @@ pub fn save(kind: &str) -> Result<String, JsValue> {
 pub fn png_plan() -> Result<String, JsValue> {
     with(|p| {
         let plan = p.editor.png_plan();
-        Ok(serde_json::json!({ "svg": plan.svg, "width": plan.width, "height": plan.height, "paper": plan.paper }).to_string())
+        Ok(format!(
+            r#"{{"svg":{},"width":{},"height":{},"paper":"{}"}}"#,
+            serde_json::Value::from(plan.svg),
+            plan.width,
+            plan.height,
+            plan.paper
+        ))
     })
 }
 
@@ -278,34 +285,48 @@ pub fn strings() -> Vec<String> {
 pub fn state() -> String {
     with(|p| {
         let e = &p.editor;
-        let check: serde_json::Value = serde_json::from_str(&p.check).unwrap_or_default();
-        let outline: Vec<serde_json::Value> = mzdraw::outline::pieces(e.doc())
+        // written by hand: building the state as a JSON value cost about 2 kB of module more
+        let q = |s: &str| serde_json::Value::from(s).to_string();
+        let outline: Vec<String> = mzdraw::outline::pieces(e.doc())
             .into_iter()
-            .map(
-                |s| serde_json::json!({ "formula": s.formula, "atoms": s.atoms, "bonds": s.bonds }),
-            )
+            .map(|s| {
+                format!(
+                    r#"{{"formula":{},"atoms":{},"bonds":{}}}"#,
+                    q(&s.formula),
+                    s.atoms,
+                    s.bonds
+                )
+            })
             .collect();
-        let focus = e.over.focus.and_then(|a| mzdraw::outline::focus(e.doc(), a)).map(|f| {
-            serde_json::json!({ "id": f.id, "name": f.name, "index": f.index, "of": f.of, "bonds": f.bonds,
-                "hydrogens": f.hydrogens, "charge": f.charge })
+        let focus = e.over.focus.and_then(|a| mzdraw::outline::focus(e.doc(), a)).map_or("null".into(), |f| {
+            format!(
+                r#"{{"id":{},"name":{},"index":{},"of":{},"bonds":{},"hydrogens":{},"charge":{}}}"#,
+                f.id,
+                q(&f.name),
+                f.index,
+                f.of,
+                f.bonds,
+                f.hydrogens,
+                f.charge
+            )
         });
-        serde_json::json!({
-            "tool": e.tool.name(),
-            "outline": outline,
-            "focus": focus,
-            "style": e.style.name,
-            "atoms": e.doc().atoms.len(),
-            "bonds": e.doc().bonds.len(),
-            "undo": e.session.can_undo(),
-            "redo": e.session.can_redo(),
-            "objects": e.doc().objects.len(),
-            "selected": e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len(),
-            "clip": !e.clipboard("mzdraw").is_empty(),
-            "say": { "key": e.said.0, "what": e.said.1 },
-            "error": e.error,
-            "check": check,
-        })
-        .to_string()
+        let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
+        format!(
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{}}}"#,
+            q(&e.tool.name()),
+            outline.join(","),
+            q(&e.style.name),
+            e.doc().atoms.len(),
+            e.doc().bonds.len(),
+            e.doc().objects.len(),
+            e.session.can_undo(),
+            e.session.can_redo(),
+            !e.clipboard("mzdraw").is_empty(),
+            q(e.said.0),
+            q(&e.said.1),
+            q(e.error),
+            if p.check.is_empty() { "null" } else { &p.check },
+        )
     })
 }
 

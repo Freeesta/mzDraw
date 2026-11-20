@@ -5,7 +5,15 @@
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-const OUTS: [&str; 6] = ["mzdraw", "molfile", "molfile-v3000", "smiles", "svg", "log"];
+const OUTS: [&str; 7] = [
+    "mzdraw",
+    "molfile",
+    "molfile-v3000",
+    "smiles",
+    "ket",
+    "svg",
+    "log",
+];
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/data/mzdraw_log.json")

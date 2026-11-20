@@ -10,6 +10,7 @@ mod editor_keys;
 mod editor_tools;
 pub mod formats;
 pub mod io;
+pub mod ket;
 pub mod label;
 pub mod layout;
 mod m;
