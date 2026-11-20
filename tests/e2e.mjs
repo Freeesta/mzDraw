@@ -301,7 +301,17 @@ try {
     await pg.fill("#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.label')"));
     eq((await state(pg)).tool, "label:R1");                 // a refused label changes nothing
-    await tool(pg, "atom:N"); await pg.mouse.click(cx + 35, cy - 20);       // an element takes the label away
+    // the refused entry stays to be corrected, marked and selected; typing takes the mark away; a good entry is taken
+    eq(await pg.getAttribute("#d2-label", "aria-invalid"), "true");
+    eq(await pg.evaluate("(() => { const i = document.querySelector('#d2-label'); return i.value.slice(i.selectionStart, i.selectionEnd); })()"), "Nope");
+    await shot(pg, "label-refused");
+    await pg.keyboard.type("R2"); eq(await pg.getAttribute("#d2-label", "aria-invalid"), null);
+    await pg.keyboard.press("Enter"); await want(pg, { tool: "label:R2" });
+    await pg.fill("#d2-label", "R1"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:R1" });
+    await pg.fill("#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
+    await tool(pg, "atom:N");                              // another tool: the field does not keep what was refused
+    eq(await pg.inputValue("#d2-label"), ""); eq(await pg.getAttribute("#d2-label", "aria-invalid"), null);
+    await pg.mouse.click(cx + 35, cy - 20);                // an element takes the label away
     eq(await labs(), ["Ph", ""]);
     await tool(pg, "undo"); eq(await labs(), ["Ph", "R1"]);
     await shot(pg, "labels");
