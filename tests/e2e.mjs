@@ -9,7 +9,7 @@
 import { createRequire } from "node:module";
 import http from "node:http";
 import { readFile } from "node:fs/promises";
-import { readFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -155,6 +155,8 @@ try {
     eq(p.suggestedFilename(), "drawing.png");
     const png = readFileSync(await p.path()), plan = JSON.parse(await pg.evaluate("window.MZDRAW.png_plan()"));
     eq(png.subarray(1, 4).toString("latin1"), "PNG");
+    if (shots) writeFileSync(path.join(shots, "drawing.png"), png);       // the saved file itself, next to the screenshots
+    await shot(pg, "pictures");
     eq([png.readUInt32BE(16), png.readUInt32BE(20)].join("x"), `${plan.width}x${plan.height}`);
     assert(png.includes("pHYs") && png.includes("iTXt") && png.includes('"format":"mzdraw/1"'), "resolution and document are in the PNG");
     const ink = await pg.evaluate(async bytes => {
