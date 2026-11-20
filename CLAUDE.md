@@ -15,7 +15,7 @@ mzDraw is a 2D molecule editor in Rust compiled to wasm, published at https://fr
 4. Synthetic data only in tests and examples.
 5. Never skip, disable or loosen a test. A test that fails is fixed, or the code is.
 6. Never push to `main`. Never rebase, never force-push. Merge `main` into a branch only on a real conflict.
-7. PRs are opened ready for review and are never merged by their author: the coordinator (COO-DRAW) merges with the full head SHA.
+7. PRs are opened ready for review and are never merged by their author: the coordinator (COO-MZDRAW) merges with the full head SHA.
 8. The wasm cap (`tools/wasm-cap.toml`) is respected: update `measured` when the size moves; raise `cap` only with a reason in the PR.
 9. `mzlab-mol` (and `mzlab-feat` of the `mzlab` feature) are git dependencies pinned to ONE commit of `main` of `Freeesta/mzlab` in the root `Cargo.toml`; move both `rev` together, in a PR of its own, with the golden files re-checked. `wasm-bindgen` stays at the version whose CLI `tools/install_tools.sh` pins.
 10. Every function of the page must also be producible from the CLI route of mzLab (`mzlab-cli mol draw`): the page only emits commands, the command log format is the JSON patch language `draw_edit/1` of mzLab, and replaying a log natively gives the same bytes as the page (`tests/parity.mjs`). Rule 15 sets the wider principle.
