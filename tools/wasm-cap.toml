@@ -1,6 +1,5 @@
 # Size cap of the optimised editor module (site/pkg/mzdraw_wasm_bg.wasm), in bytes. tools/wasm_cap.sh fails the build above `cap`.
-# `measured` is the size at the last change of this file: update it in the PR that moves the size, raise `cap` only with a reason in the PR.
-# The cap is the target of the study (docs/mzdraw.md, "One wasm module": < 600,000 B raw, < 250,000 B gzip). It was 512,000 B, the
-# cap the module had inside mzLab, until the labels of slice 2 (519,578 B): wasm-opt -Oz instead of -O3 would only give back 9 kB.
-cap = 600000
-measured = 545556
+# `measured` is the size at the last change of this file: update it in the PR that moves the size. Raising `cap` is the owner's
+# decision: send the measured numbers and a proposal first, never raise it in a PR on your own.
+cap = 512000
+measured = 492847
