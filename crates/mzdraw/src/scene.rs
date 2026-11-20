@@ -114,6 +114,21 @@ pub fn has_label(doc: &Document, a: &Atom) -> bool {
         || doc.order_sum(a.id) == 0
 }
 
+/// The parts of an atom drawn as text (`Painter::parts`): widths in pixels.
+struct Parts {
+    /// Half the width of the element symbol.
+    half: f64,
+    /// The width of the mass number (0 without one).
+    iso: f64,
+    h: u32,
+    /// The width of the hydrogens with their count (0 without any).
+    hw: f64,
+    /// Whether the hydrogens stand on the left.
+    left: bool,
+    /// The charge and the radical dots.
+    mark: String,
+}
+
 struct Painter<'a> {
     doc: &'a Document,
     view: View,
@@ -159,10 +174,12 @@ impl Painter<'_> {
         let gap = self.m.gap.min(len * 0.4);
         let (lp, lq) = (has_label(self.doc, p), has_label(self.doc, q));
         if lp {
-            s = (s.0 + ux * gap, s.1 + uy * gap);
+            let g = (gap + self.clear(p, ux, uy)).min(len * 0.45);
+            s = (s.0 + ux * g, s.1 + uy * g);
         }
         if lq {
-            e = (e.0 - ux * gap, e.1 - uy * gap);
+            let g = (gap + self.clear(q, -ux, -uy)).min(len * 0.45);
+            e = (e.0 - ux * g, e.1 - uy * g);
         }
         let w = self.m.line;
         if self.over.sel_bonds.contains(&b.id) || self.over.hover_bond == Some(b.id) {
@@ -328,11 +345,34 @@ impl Painter<'_> {
         };
         let small = self.m.small;
         self.text(x, y, f, c, &a.el, 0.0);
-        let half = width(&a.el, f) / 2.0;
+        let p = self.parts(a);
+        let half = p.half;
         if a.iso != 0 {
             let s = a.iso.to_string();
-            self.text(x - half - width(&s, small), y - f * 0.35, small, c, &s, 1.0);
+            self.text(x - half - p.iso, y - f * 0.35, small, c, &s, 1.0);
         }
+        if p.h > 0 {
+            // on the left the hydrogens stand before the mass number: H3 13C
+            let hx = if p.left {
+                x - half - p.iso - p.hw
+            } else {
+                x + half
+            };
+            self.text(hx, y, f, c, "H", 1.0);
+            if p.h > 1 {
+                let count = p.h.to_string();
+                self.text(hx + width("H", f), y + f * 0.3, small, c, &count, 1.0);
+            }
+        }
+        if !p.mark.is_empty() {
+            let right = x + half + if p.left { 0.0 } else { p.hw };
+            self.text(right, y - f * 0.35, small, c, &p.mark, 1.0);
+        }
+    }
+
+    /// What stands around the element symbol of an atom drawn as text, and how wide each part is.
+    fn parts(&self, a: &Atom) -> Parts {
+        let (f, small) = (self.font, self.m.small);
         let h = self.doc.hydrogens(a);
         // hydrogens go left when the bonds leave to the right
         let lean: f64 = self
@@ -342,20 +382,7 @@ impl Painter<'_> {
             .filter_map(|&n| self.doc.atom(n))
             .map(|n| n.x - a.x)
             .sum();
-        let left = lean > 0.01;
         let count = if h > 1 { h.to_string() } else { String::new() };
-        let hw = if h > 0 {
-            width("H", f) + width(&count, small)
-        } else {
-            0.0
-        };
-        if h > 0 {
-            let hx = if left { x - half - hw } else { x + half };
-            self.text(hx, y, f, c, "H", 1.0);
-            if h > 1 {
-                self.text(hx + width("H", f), y + f * 0.3, small, c, &count, 1.0);
-            }
-        }
         let mut mark = String::new();
         if a.chg != 0 {
             if a.chg.abs() > 1 {
@@ -364,10 +391,44 @@ impl Painter<'_> {
             mark.push(if a.chg > 0 { '+' } else { '\u{2212}' });
         }
         mark.push_str(&"\u{2022}".repeat(a.rad as usize));
-        if !mark.is_empty() {
-            let right = x + half + if left { 0.0 } else { hw };
-            self.text(right, y - f * 0.35, small, c, &mark, 1.0);
+        Parts {
+            half: width(&a.el, f) / 2.0,
+            iso: if a.iso != 0 {
+                width(&a.iso.to_string(), small)
+            } else {
+                0.0
+            },
+            h,
+            hw: if h > 0 {
+                width("H", f) + width(&count, small)
+            } else {
+                0.0
+            },
+            left: lean > 0.01,
+            mark,
         }
+    }
+
+    /// How far a bond leaving the atom along (`ux`, `uy`) (pixels, y down) stops short of it beyond the usual gap, so that it
+    /// does not run into the hydrogens, the mass number or the charge that stand on its side of the symbol.
+    fn clear(&self, a: &Atom, ux: f64, uy: f64) -> f64 {
+        if !a.lab.is_empty() || !has_label(self.doc, a) || ux.abs() < 1e-6 {
+            return 0.0;
+        }
+        let p = self.parts(a);
+        let marks = width(&p.mark, self.m.small);
+        let (reach, raised) = match (ux > 0.0, p.left) {
+            (true, true) => (marks, true),
+            (true, false) => (p.hw + marks, p.h == 0),
+            (false, true) => (p.iso + p.hw, p.h == 0),
+            (false, false) => (p.iso, true),
+        };
+        // a raised part (charge, mass number) is cleared by a bond that goes down; the row of the text by one steep enough
+        if raised && uy > 0.3 {
+            return 0.0;
+        }
+        let row = self.font * 0.6 / uy.abs().max(1e-6) - p.half;
+        (reach / ux.abs()).min(row.max(0.0))
     }
 
     /// A reaction arrow (shaft, head, text above), a plus sign or a text; selected or hovered ones get a mark at their anchor.
