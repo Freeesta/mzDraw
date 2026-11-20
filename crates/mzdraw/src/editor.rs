@@ -413,6 +413,18 @@ impl Editor {
         })
     }
 
+    /// Opens a saved `mzdraw/1` document in place of the drawing: the same bytes, ids included, with an empty history (there is
+    /// nothing to undo back to). The view, the tool and the clipboard stay. The error is an i18n key and changes nothing.
+    pub fn open(&mut self, text: &str) -> Result<(), &'static str> {
+        let doc = Document::from_json(text.trim())?;
+        self.session = Session::new(doc);
+        self.over = Overlay::default();
+        self.press = None;
+        self.said = ("draw2.say.opened", self.doc().atoms.len().to_string());
+        self.error = "";
+        Ok(())
+    }
+
     /// Empties the canvas as one undo step.
     pub fn clear(&mut self) -> u32 {
         let atoms: Vec<u32> = self.doc().atoms.iter().map(|a| a.id).collect();

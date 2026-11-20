@@ -77,8 +77,56 @@ function refresh() {
 function after(f) {
   if (f & REPAINT) paint();
   if (f & (CHANGED | TOOL)) refresh();
+  if (f & CHANGED) autosave.touch();
   return f;
 }
+
+// Autosave: the document is written to the browser's private file system (OPFS) one second after the last change, and offered back
+// on the next visit. What is worth offering and what a saved text holds is decided in Rust (saved_summary, open). While an offer
+// waits for its answer nothing is written, so the saved drawing cannot be lost to a stray click. Without OPFS there is no autosave.
+const autosave = (() => {
+  const NAME = "mzdraw-autosave.json";
+  let timer = 0, last = "", paused = false;
+  const file = async (/** @type {boolean} */ create) => (await (await navigator.storage.getDirectory()).getFileHandle(NAME, { create }));
+  const mark = (/** @type {string} */ k, /** @type {string} */ v) => { document.documentElement.dataset[k] = v; };
+  async function write() {
+    timer = 0;
+    const text = ed.save("mzdraw");
+    if (paused || text === last) return;
+    try {
+      const w = await (await file(true)).createWritable();
+      await w.write(text); await w.close();
+      last = text; mark("d2Saved", String(Number(document.documentElement.dataset.d2Saved || 0) + 1));
+    } catch { mark("d2Autosave", "off"); }
+  }
+  async function read() {
+    try { return await (await (await file(false)).getFile()).text(); } catch { return ""; }
+  }
+  async function drop() {
+    try { await (await navigator.storage.getDirectory()).removeEntry(NAME); } catch { /* nothing saved */ }
+  }
+  /** shows the offer when a drawing worth restoring was saved */
+  async function offer() {
+    const text = await read(), found = text && ed.saved_summary(text);
+    mark("d2Autosave", "on");
+    if (!found) return;
+    paused = true;
+    const n = JSON.parse(found), bar = $("d2-restore");
+    $("d2-restore-text").textContent = t(n.objects ? "draw2.restore.found.objects" : "draw2.restore.found", n);
+    const done = (/** @type {string} */ say) => { bar.hidden = true; paused = false; $("d2-live").textContent = t(say); size(); cv.focus({ preventScroll: true }); };
+    $("d2-restore-yes").addEventListener("click", () => {
+      try { last = text; after(ed.open(text)); after(ed.fit(cv.clientWidth, cv.clientHeight)); done("draw2.restore.done"); }
+      catch (e) { $("d2-restore-text").textContent = I.err(JSON.parse(String(e))).message; }
+    }, { once: true });
+    $("d2-restore-no").addEventListener("click", async () => { await drop(); done("draw2.restore.dropped"); }, { once: true });
+    bar.hidden = false; size();
+  }
+  return {
+    offer,
+    touch() { if (!timer) timer = setTimeout(write, 1000); else { clearTimeout(timer); timer = setTimeout(write, 1000); } },
+    flush() { if (timer) { clearTimeout(timer); write(); } },
+  };
+})();
 
 /** a toolbar command: view commands are handled here, the rest is the editor's @param {string} c */
 function run(c) {
@@ -212,6 +260,8 @@ try {
   ed = await load();
   /** @type {any} */ (window).MZDRAW = ed;
   toolbar(); events(); clipboardEvents(); panels(); size(); refresh();
+  document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });
+  await autosave.offer();
   document.documentElement.dataset.d2Ready = "1";
 } catch (e) {
   $("d2-status").textContent = t("draw2.unavailable");

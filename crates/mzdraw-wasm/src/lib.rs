@@ -169,6 +169,28 @@ pub fn add(text: &str) -> Result<String, JsValue> {
     })
 }
 
+/// What an autosaved document holds, as `{"atoms", "bonds", "objects"}`, or the empty text when it is not worth offering (not a
+/// readable document, or an empty one). The page asks this before it offers to restore the drawing of the last visit.
+#[wasm_bindgen]
+pub fn saved_summary(text: &str) -> String {
+    match mzdraw::io::saved_summary(text) {
+        Some((atoms, bonds, objects)) => {
+            format!("{{\"atoms\":{atoms},\"bonds\":{bonds},\"objects\":{objects}}}")
+        }
+        None => String::new(),
+    }
+}
+
+/// Opens a saved `mzdraw/1` document in place of the drawing (same bytes, empty history).
+#[wasm_bindgen]
+pub fn open(text: &str) -> Result<u32, JsValue> {
+    with(|p| {
+        p.editor.open(text).map_err(js_err)?;
+        recheck(p);
+        Ok(mzdraw::editor::REPAINT | CHANGED)
+    })
+}
+
 /// The drawing as `mzdraw` (the document), `molfile`, `svg` or `log` (the command log).
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {

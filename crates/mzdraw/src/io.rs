@@ -320,6 +320,13 @@ fn bond_lines(molfile: &str, atoms: usize, bonds: usize) -> Vec<(usize, usize, u
         .collect()
 }
 
+/// What a saved `mzdraw/1` document holds, as (atoms, bonds, objects), for the offer to restore it; `None` for a text that is
+/// not a readable document or for an empty one (nothing worth offering).
+pub fn saved_summary(text: &str) -> Option<(usize, usize, usize)> {
+    let d = Document::from_json(text.trim()).ok()?;
+    (!d.is_empty()).then_some((d.atoms.len(), d.bonds.len(), d.objects.len()))
+}
+
 /// Reads a structure text: an `mzdraw/1` document, a molfile (V2000/V3000) or a SMILES. The error is an i18n key.
 pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     let t = text.trim();
