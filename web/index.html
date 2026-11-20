@@ -20,10 +20,10 @@
   <canvas id="d2-canvas" tabindex="0" role="application" aria-label="Structure canvas" data-i18n-aria-label="draw2.canvas" aria-describedby="d2-outline d2-focus"></canvas>
   <aside>
     <section><h2 data-i18n="draw2.import">Add a structure</h2>
-      <textarea id="d2-text" rows="3" spellcheck="false" autocomplete="off" aria-label="SMILES or molfile" data-i18n-aria-label="draw2.import.field" placeholder="SMILES or molfile" data-i18n-placeholder="draw2.import.field"></textarea>
+      <textarea id="d2-text" rows="3" spellcheck="false" autocomplete="off" aria-label="SMILES, molfile or SDF" data-i18n-aria-label="draw2.import.field" placeholder="SMILES, molfile or SDF" data-i18n-placeholder="draw2.import.field"></textarea>
       <div class="row"><button id="d2-add" type="button" data-i18n="draw2.import.add" title="Add this structure to the drawing" data-i18n-title="draw2.import.add.title">Add</button>
         <button id="d2-open" type="button" data-i18n="draw2.import.open" title="Add the structure of a file to the drawing" data-i18n-title="draw2.import.open.title">Open a file</button>
-        <input id="d2-file" type="file" hidden accept=".mol,.sdf,.smi,.txt,.json"></div>
+        <input id="d2-file" type="file" hidden accept=".mol,.sdf,.sd,.smi,.smiles,.txt,.json"></div>
       <p id="d2-note" role="status"></p></section>
     <section><h2 data-i18n="draw2.style">Style</h2>
       <label class="field"><span data-i18n="draw2.style.label">Drawing style</span>
@@ -31,8 +31,11 @@
       <p id="d2-style-note"></p></section>
     <section><h2 data-i18n="draw2.export">Save</h2>
       <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
+        <button id="d2-ex-v3000" type="button" data-i18n="draw2.export.v3000" title="Save the drawing as a V3000 molfile" data-i18n-title="draw2.export.v3000.title">Molfile V3000</button>
+        <button id="d2-ex-smiles" type="button" data-i18n="draw2.export.smiles" title="Save the drawing as SMILES" data-i18n-title="draw2.export.smiles.title">SMILES</button>
         <button id="d2-ex-svg" type="button" data-i18n="draw2.export.svg" title="Save the drawing as an SVG image" data-i18n-title="draw2.export.svg.title">SVG</button>
-        <button id="d2-ex-mzdraw" type="button" data-i18n="draw2.export.doc" title="Save the drawing as an editable document" data-i18n-title="draw2.export.doc.title">Document</button></div></section>
+        <button id="d2-ex-mzdraw" type="button" data-i18n="draw2.export.doc" title="Save the drawing as an editable document" data-i18n-title="draw2.export.doc.title">Document</button></div>
+      <p id="d2-ex-note" role="status"></p></section>
     <section><h2 id="d2-outline-h" data-i18n="draw2.outline">What is drawn</h2>
       <ul id="d2-outline" aria-labelledby="d2-outline-h"></ul>
       <p id="d2-focus"></p></section>

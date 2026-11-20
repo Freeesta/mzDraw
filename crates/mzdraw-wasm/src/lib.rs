@@ -156,15 +156,21 @@ pub fn fit(w: f64, h: f64) -> u32 {
     act(|e| e.fit(w, h))
 }
 
-/// Adds a structure text (SMILES, molfile, `mzdraw/1`) to the drawing; returns `{"format", "placeholder"}`.
+/// Adds a structure text (SMILES, molfile or SDF, `mzdraw/1`) to the drawing; returns `{"format", "placeholder", "notes"}`, the
+/// notes being what the page has to say about the import, as `[i18n key, count]` pairs.
 #[wasm_bindgen]
 pub fn add(text: &str) -> Result<String, JsValue> {
     with(|p| {
         let info = p.editor.import(text).map_err(js_err)?;
         recheck(p);
+        let notes: Vec<String> = (info.notes().iter())
+            .map(|(key, n)| format!("[\"{key}\",{n}]"))
+            .collect();
         Ok(format!(
-            "{{\"format\":\"{}\",\"placeholder\":{}}}",
-            info.format, info.placeholder
+            "{{\"format\":\"{}\",\"placeholder\":{},\"notes\":[{}]}}",
+            info.format,
+            info.placeholder,
+            notes.join(",")
         ))
     })
 }
@@ -191,19 +197,10 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `svg` or `log` (the command log).
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `svg` or `log` (the command log).
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
-    with(|p| {
-        let e = &p.editor;
-        Ok(match kind {
-            "mzdraw" => e.doc().to_json(),
-            "molfile" => e.doc().to_molfile(),
-            "svg" => e.svg(),
-            "log" => e.session.log_json(),
-            _ => return Err(js_err("error.draw2.request")),
-        })
-    })
+    with(|p| p.editor.save(kind).map_err(js_err))
 }
 
 /// The names of the built-in drawing styles.

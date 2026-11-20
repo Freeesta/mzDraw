@@ -248,14 +248,17 @@ function add(text) {
   const note = $("d2-note");
   try {
     const info = JSON.parse(ed.add(text));
-    note.textContent = info.placeholder ? t("draw2.import.placeholder") : "";
+    note.textContent = info.notes.map((/** @type {[string, number]} */ [key, n]) => t(key, { n })).join(" ");
     after(ed.fit(cv.clientWidth, cv.clientHeight) | CHANGED);
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
 /** downloads a text as a file @param {string} what @param {string} name @param {string} type */
 function save(what, name, type) {
-  const a = document.createElement("a"), url = URL.createObjectURL(new Blob([ed.save(what)], { type }));
+  const note = $("d2-ex-note"); note.textContent = "";
+  let text;
+  try { text = ed.save(what); } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; return; }
+  const a = document.createElement("a"), url = URL.createObjectURL(new Blob([text], { type }));
   a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
@@ -276,6 +279,8 @@ function panels() {
   $("d2-open").addEventListener("click", () => $("d2-file").click());
   $("d2-file").addEventListener("change", async e => { const f = /** @type {HTMLInputElement} */ (e.target).files?.[0]; if (f) add(await f.text()); });
   $("d2-ex-molfile").addEventListener("click", () => save("molfile", "drawing.mol", "chemical/x-mdl-molfile"));
+  $("d2-ex-v3000").addEventListener("click", () => save("molfile-v3000", "drawing-v3000.mol", "chemical/x-mdl-molfile"));
+  $("d2-ex-smiles").addEventListener("click", () => save("smiles", "drawing.smi", "chemical/x-daylight-smiles"));
   $("d2-ex-svg").addEventListener("click", () => save("svg", "drawing.svg", "image/svg+xml"));
   $("d2-ex-mzdraw").addEventListener("click", () => save("mzdraw", "drawing.mzdraw.json", "application/json"));
 }
