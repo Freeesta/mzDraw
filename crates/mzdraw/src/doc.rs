@@ -161,6 +161,16 @@ impl Document {
     /// wrong type makes the document unreadable.
     pub fn from_json(text: &str) -> Result<Document, &'static str> {
         let v: Value = serde_json::from_str(text).map_err(|_| "error.draw2.document")?;
+        // the version rule, as for the settings: version 1 is read, a higher number is the file of a newer mzDraw
+        match v
+            .get("format")
+            .and_then(Value::as_str)
+            .map(|f| crate::settings::version(f, "mzdraw"))
+        {
+            Some(Ok(1)) => {}
+            Some(Ok(_)) => return Err("error.draw2.documentNewer"),
+            _ => return Err("error.draw2.document"),
+        }
         let d = Self::read(&v).map_err(|()| "error.draw2.document")?;
         if d.format != FORMAT || !d.consistent() {
             return Err("error.draw2.document");

@@ -28,6 +28,51 @@ pub struct Style {
     pub subscript_scale: f64,
     /// One ink for every element instead of the element colours.
     pub mono: bool,
+    /// What the settings file held that this version does not know, kept to be written back: the unknown keys of the file and of
+    /// its `style` object. A file edited by a newer mzDraw survives a round through this one.
+    pub unknown: Unknown,
+}
+
+/// The keys of a settings file that this version does not know (`file`: next to `format` and `style`; `style`: inside `style`),
+/// each with its value as JSON text, kept as text because it is only ever written back.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Unknown {
+    pub file: Vec<(String, String)>,
+    pub style: Vec<(String, String)>,
+}
+
+/// A JSON object from (key, value as JSON text) pairs, keys in alphabetical order.
+fn object(mut pairs: Vec<(String, String)>) -> String {
+    pairs.sort();
+    let body: Vec<String> = pairs
+        .iter()
+        .map(|(k, v)| format!("{}:{v}", Value::from(k.as_str())))
+        .collect();
+    format!("{{{}}}", body.join(","))
+}
+
+/// The keys of the `style` object this version reads and writes.
+const STYLE_KEYS: [&str; 10] = [
+    "preset",
+    "bond_length",
+    "line_width",
+    "bold_width",
+    "hash_spacing",
+    "bond_spacing",
+    "margin",
+    "font_size",
+    "subscript_scale",
+    "colour",
+];
+
+/// The version of a format name `<name>/<n>`: `Ok(n)` when the name is `name`, `Err(())` otherwise.
+pub(crate) fn version(format: &str, name: &str) -> Result<u32, ()> {
+    let n = format
+        .strip_prefix(name)
+        .and_then(|r| r.strip_prefix('/'))
+        .ok_or(())?;
+    let digits = !n.is_empty() && !n.starts_with('0') && n.bytes().all(|b| b.is_ascii_digit());
+    n.parse().ok().filter(|_| digits).ok_or(())
 }
 
 /// The names of the built-in presets: `mzlab` (the default look), `acs-1996` (ACS "Document 1996": bond 14.4 pt, line 0.6 pt,
@@ -48,6 +93,7 @@ impl Default for Style {
             font_size: 12.0,
             subscript_scale: 0.7,
             mono: false,
+            unknown: Unknown::default(),
         }
     }
 }
@@ -82,6 +128,7 @@ impl Style {
             font_size: 10.0,
             subscript_scale: 0.7,
             mono: true,
+            unknown: Unknown::default(),
         };
         match name {
             "mzlab" => Some(Style::default()),
@@ -121,16 +168,33 @@ impl Style {
             return Style::preset(t).ok_or("error.draw2.style");
         }
         let v: Value = serde_json::from_str(t).map_err(|_| "error.draw2.style")?;
-        Self::read(&v).ok_or("error.draw2.style")
+        // the version rule: this version reads version 1; a higher number is a file of a newer mzDraw and is said so, never
+        // half read; within a version unknown keys are kept and written back
+        match v
+            .get("format")
+            .and_then(Value::as_str)
+            .map(|f| version(f, "mzdraw-settings"))
+        {
+            Some(Ok(1)) => Self::read(&v).ok_or("error.draw2.style"),
+            Some(Ok(_)) => Err("error.draw2.styleNewer"),
+            _ => Err("error.draw2.style"),
+        }
     }
 
     fn read(v: &Value) -> Option<Style> {
-        if v.get("format")?.as_str()? != FORMAT {
-            return None;
-        }
+        let file = v.as_object()?;
         let none = json!({});
         let style = v.get("style").unwrap_or(&none);
-        style.is_object().then_some(())?;
+        let unknown = Unknown {
+            file: (file.iter())
+                .filter(|(k, _)| k.as_str() != "format" && k.as_str() != "style")
+                .map(|(k, x)| (k.clone(), x.to_string()))
+                .collect(),
+            style: (style.as_object()?.iter())
+                .filter(|(k, _)| !STYLE_KEYS.contains(&k.as_str()))
+                .map(|(k, x)| (k.clone(), x.to_string()))
+                .collect(),
+        };
         let g = Fields(style);
         let base = match g.s("preset").ok()? {
             Some(name) => Style::preset(&name)?,
@@ -154,28 +218,36 @@ impl Style {
             subscript_scale: num("subscript_scale", base.subscript_scale)?,
             mono: colour,
             name: base.name,
+            unknown,
         };
         s.valid().then_some(s)
     }
 
-    /// The style as a settings file: fixed key order (alphabetical), every field written, so the same style gives the same bytes.
+    /// The style as a settings file: fixed key order (alphabetical), every known field written, the unknown keys it was read
+    /// with written back unchanged (a known key always wins over an unknown one of the same name), so the same style gives the
+    /// same bytes.
     pub fn to_json(&self) -> String {
-        json!({
-            "format": FORMAT,
-            "style": {
-                "preset": self.name,
-                "bond_length": self.bond_length,
-                "line_width": self.line_width,
-                "bold_width": self.bold_width,
-                "hash_spacing": self.hash_spacing,
-                "bond_spacing": self.bond_spacing,
-                "margin": self.margin,
-                "font_size": self.font_size,
-                "subscript_scale": self.subscript_scale,
-                "colour": if self.mono { "mono" } else { "element" },
-            }
-        })
-        .to_string()
+        let text = |v: &str| Value::from(v).to_string();
+        let num = |v: f64| Value::from(v).to_string();
+        let mut style = self.unknown.style.clone();
+        for (k, v) in [
+            ("preset", text(&self.name)),
+            ("bond_length", num(self.bond_length)),
+            ("line_width", num(self.line_width)),
+            ("bold_width", num(self.bold_width)),
+            ("hash_spacing", num(self.hash_spacing)),
+            ("bond_spacing", num(self.bond_spacing)),
+            ("margin", num(self.margin)),
+            ("font_size", num(self.font_size)),
+            ("subscript_scale", num(self.subscript_scale)),
+            ("colour", text(if self.mono { "mono" } else { "element" })),
+        ] {
+            style.push((k.to_string(), v));
+        }
+        let mut file = self.unknown.file.clone();
+        file.push(("format".to_string(), text(FORMAT)));
+        file.push(("style".to_string(), object(style)));
+        object(file)
     }
 
     /// The style at `scale` output pixels per bond length. On the screen (`screen`) lines never go below one pixel and the

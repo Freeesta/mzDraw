@@ -93,6 +93,8 @@ I18N.add("en", {
   "draw2.style.slides.note": "For slides: bonds of 21.6 pt, lines of 1.5 pt, 16 pt labels, black only.",
   "draw2.say.style": "Style set: {what}.",
   "error.draw2.style": "That is not a drawing style: choose a preset or a settings file.",
+  "error.draw2.styleNewer": "This settings file was written by a newer mzDraw and cannot be read by this one.",
+  "error.draw2.documentNewer": "This drawing was saved by a newer mzDraw and cannot be opened by this one.",
   "draw2.outline": "What is drawn",
   "draw2.outline.empty": "Nothing yet.",
   "draw2.outline.piece": "Structure {n}: {formula}, {atoms, plural, one {# atom} other {# atoms}}, {bonds, plural, one {# bond} other {# bonds}}.",
