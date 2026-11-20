@@ -506,3 +506,41 @@ fn rotate_and_flip_move_the_atoms_exactly_and_undo() {
     }
     assert_eq!(s.doc.to_json(), start);
 }
+
+#[test]
+fn the_log_reader_takes_what_the_writer_writes_and_refuses_the_rest() {
+    // every operation of a random session survives JSON, value by value
+    let mut r = Rng(0xD1B5_4A32_D192_ED03);
+    let mut s = Session::default();
+    for _ in 0..300 {
+        for op in random_step(&s, &mut r) {
+            let text = serde_json::to_string(&op).unwrap();
+            assert_eq!(serde_json::from_str::<Op>(&text).unwrap(), op, "{text}");
+        }
+        let _ = s.run(&random_step(&s, &mut r));
+    }
+    // defaults of fields left out, unknown fields ignored, null as absent
+    assert_eq!(
+        serde_json::from_str::<Op>(r#"{"op":"bond.add","a":1,"b":2,"later":true,"id":null}"#)
+            .unwrap(),
+        bond(1, 2, 1)
+    );
+    for bad in [
+        r#"{"op":"nope"}"#,
+        r#"{"a":1,"b":2}"#,
+        r#"{"op":"bond.add","a":1}"#,
+        r#"{"op":"bond.add","a":1,"b":"2"}"#,
+        r#"{"op":"bond.add","a":1,"b":2,"o":300}"#,
+        r#"{"op":"bond.add","a":-1,"b":2}"#,
+        r#"{"op":"atom.add","el":"C","x":"0","y":0}"#,
+        r#"{"op":"atom.add","el":7,"x":0,"y":0}"#,
+        r#"{"op":"atom.set","id":1,"chg":200}"#,
+        r#"{"op":"move","atoms":[1,"2"],"dx":0,"dy":0}"#,
+        r#"{"op":"move","atoms":[1],"dx":0}"#,
+        r#"{"op":"flip","atoms":[1],"axis":"x","at":0}"#,
+        r#"{"op":"bond.set","id":1,"rev":1}"#,
+        r#"[1,2]"#,
+    ] {
+        assert!(serde_json::from_str::<Op>(bad).is_err(), "{bad}");
+    }
+}
