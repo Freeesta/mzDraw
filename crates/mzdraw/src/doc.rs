@@ -8,6 +8,17 @@ use serde_json::Value;
 /// The value of the `format` field.
 pub const FORMAT: &str = "mzdraw/1";
 
+/// Ids stay below this, so that id arithmetic (the next id, the ids of a pasted copy) can never overflow.
+pub const MAX_ID: u32 = 1 << 31;
+
+/// Coordinates stay within this many bond lengths of the origin, and finite: a number that cannot be written as JSON never
+/// enters a document.
+pub const MAX_COORD: f64 = 1e6;
+
+fn in_range(v: f64) -> bool {
+    v.is_finite() && v.abs() <= MAX_COORD
+}
+
 fn is_zero<T: Default + PartialEq>(v: &T) -> bool {
     *v == T::default()
 }
@@ -226,6 +237,8 @@ impl Document {
             .collect();
         pairs.sort_unstable();
         unique
+            && self.next <= MAX_ID
+            && self.coords_ok()
             && self.objects.iter().all(Obj::valid)
             && ids.iter().all(|&i| i < self.next)
             && pairs.windows(2).all(|w| w[0] != w[1])
@@ -248,6 +261,12 @@ impl Document {
 
     pub fn atom(&self, id: u32) -> Option<&Atom> {
         self.atoms.iter().find(|a| a.id == id)
+    }
+
+    /// Every coordinate finite and within `MAX_COORD`.
+    pub(crate) fn coords_ok(&self) -> bool {
+        self.atoms.iter().all(|a| in_range(a.x) && in_range(a.y))
+            && (self.objects.iter()).all(|o| [o.x, o.y, o.x2, o.y2].into_iter().all(in_range))
     }
 
     pub fn object(&self, id: u32) -> Option<&Obj> {

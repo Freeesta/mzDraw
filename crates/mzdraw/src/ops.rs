@@ -2,7 +2,7 @@
 //! records an exact inverse, so undo restores the document byte for byte; a `Session` is a document with its undo and redo stacks.
 
 use crate::build;
-use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind};
+use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind, MAX_ID};
 use crate::m;
 use serde::{Deserialize, Serialize};
 
@@ -330,6 +330,7 @@ impl Document {
     fn take_id(&mut self, id: Option<u32>, inv: &mut Vec<Inv>) -> Result<u32, OpError> {
         let id = id.unwrap_or(self.next);
         if id == 0
+            || id >= MAX_ID
             || self.atom(id).is_some()
             || self.bond(id).is_some()
             || self.object(id).is_some()
@@ -724,6 +725,11 @@ impl Document {
                 self.revert(inv);
                 return Err(e);
             }
+        }
+        // a step that would put anything out of the range of coordinates is refused whole
+        if !self.coords_ok() {
+            self.revert(inv);
+            return err("error.draw2.coordinate", 0);
         }
         Ok((done, inv))
     }
