@@ -3,8 +3,8 @@
 use crate::build;
 use crate::doc::ObjKind;
 use crate::editor::{
-    Editor, Hit, Press, Tool, ASK_LABEL, ASK_TEXT, CHANGED, CTRL, FOCUS, HANDLED, REPAINT, SHIFT,
-    TOOL,
+    Editor, Hit, Press, Tool, ASK_LABEL, ASK_TEXT, CHANGED, CTRL, FOCUS, HANDLED, PALETTES,
+    REPAINT, SHIFT, TOOL,
 };
 use crate::m;
 use crate::ops::Op;
@@ -604,6 +604,11 @@ impl Editor {
             (false, "l") => ASK_LABEL,
             (false, "t") => ASK_TEXT,
             (false, "a") if shift => self.set_tool("arrow"),
+            // every palette of the page hidden, or shown again: the whole canvas in one key
+            (false, "\\") => {
+                self.layout.all_hidden = !self.layout.all_hidden;
+                PALETTES
+            }
             (false, k) => return self.element_key(k, shift),
         };
         f | HANDLED
