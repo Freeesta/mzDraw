@@ -37,6 +37,7 @@
     <section><h2 data-i18n="draw2.export">Save</h2>
       <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
         <button id="d2-ex-v3000" type="button" data-i18n="draw2.export.v3000" title="Save the drawing as a V3000 molfile" data-i18n-title="draw2.export.v3000.title">Molfile V3000</button>
+        <button id="d2-ex-sdf" type="button" data-i18n="draw2.export.sdf" title="Save the structures as an SDF, one record each, with their data" data-i18n-title="draw2.export.sdf.title">SDF</button>
         <button id="d2-ex-smiles" type="button" data-i18n="draw2.export.smiles" title="Save the drawing as SMILES" data-i18n-title="draw2.export.smiles.title">SMILES</button>
         <button id="d2-ex-ket" type="button" data-i18n="draw2.export.ket" title="Save the drawing as a KET file (Ketcher, Indigo)" data-i18n-title="draw2.export.ket.title">KET</button>
         <button id="d2-ex-cdxml" type="button" data-i18n="draw2.export.cdxml" title="Save the drawing as a CDXML file (ChemDraw XML)" data-i18n-title="draw2.export.cdxml.title">CDXML</button>
@@ -48,6 +49,9 @@
       <p id="d2-ex-note" role="status"></p></section>
     <section><h2 id="d2-outline-h" data-i18n="draw2.outline">What is drawn</h2>
       <ul id="d2-outline" aria-labelledby="d2-outline-h"></ul>
+      <details id="d2-data-more"><summary data-i18n="draw2.data">Data of the structures</summary>
+        <div id="d2-data"></div>
+        <p id="d2-data-note" role="status"></p></details>
       <p id="d2-focus"></p></section>
     <section><details id="d2-keys"><summary data-i18n="draw2.keys">Drawing with the keyboard</summary>
       <ul><li data-i18n="draw2.keys.walk">Arrow keys: move the focus along the bonds; Home: first atom; Page Down / Page Up: next or previous structure.</li>

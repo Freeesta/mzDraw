@@ -262,6 +262,19 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             lab: None,
         }],
         4 => vec![set_order(bond_id(r), 1 + r.next(3) as u8)],
+        15 if r.next(2) == 0 => {
+            // data on an atom: set, replaced, taken away
+            let fields = ["name", "CAS (synthetic)", "note"];
+            let data = (0..r.next(3))
+                .map(|k| {
+                    (
+                        fields[k].to_string(),
+                        format!("value {}\nline two", r.next(9)),
+                    )
+                })
+                .collect();
+            vec![Op::AtomData { id: atom(r), data }]
+        }
         5 => {
             let (dx, dy) = xy(r);
             vec![Op::Move {

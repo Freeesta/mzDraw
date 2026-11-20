@@ -40,6 +40,12 @@ pub enum Op {
         /// A label (an abbreviation or an R group); the empty text takes the label away.
         lab: Option<String>,
     },
+    /// Replaces the data kept on an atom (the data fields of its structure: name and value pairs, `doc::data_valid`); an empty
+    /// list takes them away.
+    AtomData {
+        id: u32,
+        data: Vec<(String, String)>,
+    },
     /// Sets the order and/or the wedge mark of a bond; a new order other than 1 drops the mark. `rev` swaps the two ends (the narrow
     /// end of a wedge moves to the other atom).
     BondSet {
@@ -183,6 +189,21 @@ impl Op {
                 if let Some(lab) = lab {
                     w.text("lab", lab);
                 }
+            }
+            Op::AtomData { id: i, data } => {
+                w.text("op", "atom.data");
+                w.int("id", i64::from(*i));
+                let rows: Vec<String> = data
+                    .iter()
+                    .map(|(k, v)| {
+                        format!(
+                            "[{},{}]",
+                            serde_json::Value::from(k.as_str()),
+                            serde_json::Value::from(v.as_str())
+                        )
+                    })
+                    .collect();
+                w.raw("data", &format!("[{}]", rows.join(",")));
             }
             Op::BondSet { id: i, o, s, rev } => {
                 w.text("op", "bond.set");
@@ -369,6 +390,18 @@ impl Op {
                 rad: g.u("rad")?,
                 h: g.u("h")?,
                 lab: g.s("lab")?,
+            },
+            "atom.data" => Op::AtomData {
+                id: g.u("id")?.ok_or(())?,
+                data: (g.0.get("data").and_then(|d| d.as_array()).ok_or(())?.iter())
+                    .map(|r| {
+                        Some((
+                            r.get(0)?.as_str()?.to_string(),
+                            r.get(1)?.as_str()?.to_string(),
+                        ))
+                    })
+                    .collect::<Option<Vec<(String, String)>>>()
+                    .ok_or(())?,
             },
             "bond.set" => Op::BondSet {
                 id: g.u("id")?.ok_or(())?,
@@ -639,6 +672,17 @@ impl Document {
             Op::BondAdd { id, a, b, o, s } => self.add_bond(*id, *a, *b, (*o, *s), done, inv)?,
             Op::AtomSet { .. } => {
                 self.set_atom(op, inv)?;
+                done.push(op.clone());
+            }
+            Op::AtomData { id, data } => {
+                let Some(i) = self.atom_index(*id) else {
+                    return err("error.draw2.noAtom", *id);
+                };
+                if !crate::doc::data_valid(data) {
+                    return err("error.draw2.data", *id);
+                }
+                inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                self.atoms[i].set_data(data);
                 done.push(op.clone());
             }
             Op::BondSet { id, o, s, rev } => {

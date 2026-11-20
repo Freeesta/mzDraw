@@ -357,7 +357,7 @@ impl Editor {
         REPAINT
     }
 
-    /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow),
+    /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `sdf` (one record per structure, with its data),
     /// `svg` (in the style of the editor) or `log` (the command log). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
@@ -369,6 +369,7 @@ impl Editor {
             "cdxml" => self.doc().to_cdxml(),
             "cml" => self.doc().to_cml(),
             "rxn" => self.doc().to_rxn()?,
+            "sdf" => self.doc().to_sdf(),
             "svg" => self.svg(),
             "log" => self.session.log_json(),
             _ => return Err("error.draw2.request"),
@@ -443,6 +444,14 @@ impl Editor {
                     lab: (!a.lab.is_empty()).then(|| a.lab.clone()),
                 });
             }
+            // the data of a structure (the fields of an SDF record) comes along with the atom that keeps it
+            let data = a.data();
+            if !data.is_empty() {
+                ops.push(Op::AtomData {
+                    id: base + a.id,
+                    data,
+                });
+            }
         }
         for b in &new.bonds {
             ops.push(Op::BondAdd {
@@ -508,6 +517,29 @@ impl Editor {
         self.style = Style::from_text(text)?;
         self.said = ("draw2.say.style", self.style.name.clone());
         Ok(REPAINT)
+    }
+
+    /// Sets the data of the structure the atom `anchor` belongs to (the data fields of its SDF record), as one undo step: the
+    /// list is kept on `anchor` and taken off the other atoms of the structure. A list an SDF could not hold is refused
+    /// (`error.draw2.data` in `error`) and changes nothing.
+    pub fn set_data(&mut self, anchor: u32, data: Vec<(String, String)>) -> u32 {
+        let piece = crate::layout::pieces(self.doc())
+            .into_iter()
+            .find(|p| p.contains(&anchor));
+        let mut ops: Vec<Op> = (self.doc().atoms.iter())
+            .filter(|a| {
+                a.id != anchor
+                    && piece.as_ref().is_some_and(|p| p.contains(&a.id))
+                    && !a.data().is_empty()
+            })
+            .map(|a| Op::AtomData {
+                id: a.id,
+                data: Vec::new(),
+            })
+            .collect();
+        let n = data.len().to_string();
+        ops.push(Op::AtomData { id: anchor, data });
+        self.run(&ops, "draw2.say.data", &n)
     }
 
     /// Sets one setting from its text, `<section>.<key>=<value>` as the `--set` of the CLI writes it. The one section of this
