@@ -60,8 +60,20 @@ async function context(browser, opts) {
   return { ctx, pg, cx: b.x + b.width / 2, cy: b.y + b.height / 2 };
 }
 const state = pg => pg.evaluate(STATE);
-const tool = (pg, name) => pg.click(`[data-testid="d2-${name}"]`);
+/** opens, by keyboard, the flyout that holds an element when it is not visible: the focus on the head, then the arrow key across
+ * the toolbar (right in the tool column, down in the top bar); a flyout opened this way changes no tool */
+async function reveal(pg, sel) {
+  if (await pg.isVisible(sel)) return;
+  const g = await pg.evaluate(s => document.querySelector(s).closest(".grp").dataset.group, sel);
+  await pg.focus(`[data-testid="d2-g-${g}"]`);
+  await pg.keyboard.press(await pg.evaluate(s => document.querySelector(s).closest("#d2-tools") ? "ArrowRight" : "ArrowDown", sel));
+  await until(pg, `!!document.querySelector(${JSON.stringify(sel)}).offsetParent`);
+}
+const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; await reveal(pg, sel); await pg.click(sel); };
+const fillIn = async (pg, sel, text) => { await reveal(pg, sel); await pg.fill(sel, text); };
+const saveAs = async (pg, sel) => { await reveal(pg, sel); await pg.click(sel); };
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
+const KEY = String.raw`(?:(?:Ctrl|Shift|Alt)\+)*(?:[A-Za-z0-9+\-−→=\[\]]|Del|Esc|Enter)`, KEYED = new RegExp(String.raw`\(${KEY}(?:,? ${KEY})*\)`);
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
 /** the drawing loop every pointer kind must manage: template, undo/redo, atom, sprouted bonds, the valence mistake, erase */
@@ -92,6 +104,46 @@ try {
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-tools button')].filter(b => !b.title || b.title.length > 90 || !b.getAttribute('aria-label')).map(b => b.dataset.cmd)"), []);      // every tool says in one short sentence what it does
     eq(await pg.evaluate("[...document.querySelectorAll('button')].filter(b => b.offsetParent && (b.offsetWidth < 24 || b.offsetHeight < 24)).map(b => b.id || b.dataset.cmd)"), []);
     eq(await pg.evaluate("[...I18N.missing || []]"), []);
+  });
+
+  await step("toolbars: every button has a name, an icon and its key in the tooltip; the 12 primary buttons are in view at 1280x720; flyouts work by keyboard", async () => {
+    await pg.setViewportSize({ width: 1280, height: 720 });
+    // the buttons of the toolbars and of their flyouts (the list of save formats is text, one entry per format)
+    eq(await pg.evaluate(`[...document.querySelectorAll("[role=toolbar] button")].filter(b => !b.closest("#d2-fly-save") || b.classList.contains("head"))
+      .filter(b => !b.getAttribute("aria-label") || !b.title || b.title.length > 90 || !b.querySelector("svg.ico, .sym")).map(b => b.dataset.testid)`), []);
+    // and its key: a key written in brackets in its tooltip ("Double bond (2)", "Cut (Ctrl+X)", "Bonds (1 2 3, W, Shift+W, Y)")
+    const titles = await pg.evaluate(`[...document.querySelectorAll("[role=toolbar] button")].filter(b => !b.closest("#d2-fly-save") || b.classList.contains("head")).map(b => [b.dataset.testid, b.title])`);
+    eq(titles.filter(([, title]) => !KEYED.test(title)).map(([id]) => id), []);
+    const prim = await pg.evaluate(`[...document.querySelectorAll("[data-level=primary]")].map(b => { const r = b.getBoundingClientRect();
+      return [b.dataset.testid, !!b.offsetParent && r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight]; })`);
+    eq(prim.length, 12); eq(prim.filter(p => !p[1]), []);
+    assert(await pg.evaluate("document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth && (t => t.scrollHeight <= t.clientHeight)(document.querySelector('#d2-tools'))"), "nothing scrolls");
+    // one tab stop per toolbar; the arrow keys walk it; across it they open the flyout on the kind in use
+    eq(await pg.evaluate("document.querySelectorAll('#d2-tools > button[tabindex=\"0\"], #d2-tools > .grp > .head[tabindex=\"0\"]').length"), 1);
+    const active = () => pg.evaluate("document.activeElement.dataset.testid || document.activeElement.id");
+    const open = g => pg.getAttribute(`[data-testid="d2-g-${g}"]`, "aria-expanded");
+    await pg.focus('[data-testid="d2-select"]'); await pg.keyboard.press("ArrowDown"); eq(await active(), "d2-erase");
+    await pg.keyboard.press("ArrowDown"); eq(await active(), "d2-g-bond");
+    await pg.keyboard.press("ArrowRight"); eq(await open("bond"), "true"); eq(await active(), "d2-bond:1");
+    await shot(pg, "toolbar-light");
+    await pg.emulateMedia({ colorScheme: "dark" }); await shot(pg, "toolbar-dark"); await pg.emulateMedia({ colorScheme: "light" });
+    await pg.keyboard.press("ArrowDown"); eq(await active(), "d2-bond:2");
+    await pg.keyboard.press("Escape"); eq(await open("bond"), "false"); eq(await active(), "d2-g-bond");
+    await pg.keyboard.press("ArrowRight"); await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("Enter");
+    await want(pg, { tool: "bond:3" }); eq(await open("bond"), "false"); eq(await active(), "d2-g-bond");
+    eq(await pg.getAttribute('[data-testid="d2-g-bond"] svg', "data-icon"), "bond:3");       // the head shows the kind last used
+    eq(await pg.getAttribute('[data-testid="d2-g-bond"]', "aria-pressed"), "true");
+    await pg.keyboard.press("Enter"); eq(await open("bond"), "true");                          // Enter on the head of the tool in use opens it
+    await pg.keyboard.press("Tab"); await pg.keyboard.press("Shift+Tab"); await pg.keyboard.press("Escape"); eq(await open("bond"), "false");
+    // the top bar: down opens, a press elsewhere closes
+    await pg.focus('[data-testid="d2-g-edit"]'); await pg.keyboard.press("ArrowDown"); eq(await open("edit"), "true");
+    await pg.click("#d2-status"); eq(await open("edit"), "false");
+    await pg.focus('[data-testid="d2-g-save"]'); await pg.keyboard.press("ArrowDown"); eq(await open("save"), "true"); eq(await active(), "d2-ex-molfile");
+    await pg.keyboard.press("Escape"); eq(await open("save"), "false");
+    // a key the module binds moves the head too; Escape is back to select
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("1"); await want(pg, { tool: "bond:1" });
+    eq(await pg.getAttribute('[data-testid="d2-g-bond"] svg', "data-icon"), "bond:1");
+    await pg.setViewportSize({ width: 1280, height: 800 });
   });
 
   await step("mouse: template, undo and redo, atom, bonds, live valence mistake, erase", () => loop(pg, cx, cy, (x, y) => pg.mouse.click(x, y), "desktop"));
@@ -141,7 +193,7 @@ try {
     const got = {};
     for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"], ["ket", "ket", "drawing.ket"], ["cdxml", "cdxml", "drawing.cdxml"], ["cml", "cml", "drawing.cml"],
       ["svg", "svg", "drawing.svg"], ["mzdraw", "mzdraw", "drawing.mzdraw.json"]]) {
-      const [d] = await Promise.all([pg.waitForEvent("download"), pg.click(`#d2-ex-${button}`)]);
+      const [d] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, `#d2-ex-${button}`)]);
       eq(d.suggestedFilename(), name);
       got[kind] = readFileSync(await d.path(), "utf8");
       eq(got[kind], await pg.evaluate(`window.MZDRAW.save('${kind}')`));
@@ -155,7 +207,7 @@ try {
     assert(ket.root.nodes[0].$ref === "mol0" && ket.mol0.type === "molecule" && ket.mol0.atoms.length === 4 && ket.mol0.bonds.length === 3, "a KET file");
     assert(got.svg.startsWith("<svg") && got.svg.includes("<line") && got.svg.replaceAll("OH", "O").includes(">O<"), "an SVG with lines and labels");
     // pictures that open again: the SVG and the PNG carry the document; a PNG is 300 dpi of the SVG, drawn by the browser
-    const [p] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-png")]);
+    const [p] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, "#d2-ex-png")]);
     eq(p.suggestedFilename(), "drawing.png");
     const png = readFileSync(await p.path()), plan = JSON.parse(await pg.evaluate("window.MZDRAW.png_plan()"));
     eq(png.subarray(1, 4).toString("latin1"), "PNG");
@@ -234,7 +286,7 @@ try {
     eq(await pg.innerText("#d2-data-note"), await pg.evaluate("I18N.t('draw2.data.done', { n: 3 })"));
     eq(await rows(), [[["name", "ethanol, absolute"], ["note", "line one\nline two"], ["purity", "99.8 %"]], []]);
     await shot(pg, "data");
-    const [sd] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-sdf")]);
+    const [sd] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, "#d2-ex-sdf")]);
     eq(sd.suggestedFilename(), "drawing.sdf");
     const sdfOut = readFileSync(await sd.path(), "utf8");
     eq(sdfOut, await pg.evaluate("window.MZDRAW.save('sdf')"));
@@ -316,7 +368,7 @@ try {
     await pg.fill("#d2-text", `$RXN\n\n  synthetic\n\n  1  1\n$MOL\n${ethanol}\n$MOL\n${ethanol}\n`); await pg.click("#d2-add");
     await want(pg, { atoms: 6, bonds: 4, objects: 1 });
     eq(await pg.innerText("#d2-note"), "");
-    const [r] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-rxn")]);
+    const [r] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, "#d2-ex-rxn")]);
     eq(r.suggestedFilename(), "drawing.rxn");
     const rxn = readFileSync(await r.path(), "utf8");
     eq(rxn, await pg.evaluate("window.MZDRAW.save('rxn')"));
@@ -324,10 +376,10 @@ try {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.setInputFiles("#d2-file", { name: "drawing.rxn", mimeType: "chemical/x-mdl-rxnfile", buffer: Buffer.from(rxn) }); await want(pg, { atoms: 6, bonds: 4, objects: 1 });
     await tool(pg, "clear"); await pg.fill("#d2-text", "CCO"); await pg.click("#d2-add"); await want(pg, { atoms: 3 });
-    await pg.click("#d2-ex-rxn");
+    await saveAs(pg, "#d2-ex-rxn");
     await until(pg, "document.querySelector('#d2-ex-note').textContent.length > 0");
     eq(await pg.innerText("#d2-ex-note"), await pg.evaluate("I18N.t('error.draw2.rxnArrow')"));
-    await pg.click("#d2-ex-smiles"); await until(pg, "document.querySelector('#d2-ex-note').textContent === ''");       // the next save clears the note
+    await saveAs(pg, "#d2-ex-smiles"); await until(pg, "document.querySelector('#d2-ex-note').textContent === ''");       // the next save clears the note
     // back to what the next steps expect
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", before); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3 });
@@ -397,7 +449,7 @@ try {
     const labs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms.map(a => a.lab || "");
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     assert(await pg.locator("#d2-labels option").count() >= 30, "the list of labels");
-    await pg.fill("#d2-label", "Ph"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:Ph" });
+    await fillIn(pg, "#d2-label", "Ph"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:Ph" });
     assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-canvas')"), "the keyboard is back on the canvas");
     await pg.mouse.click(cx, cy); await want(pg, { atoms: 1, bonds: 0 });
     await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1, warnings: 0 });
@@ -410,7 +462,7 @@ try {
     assert(mol.includes("  7  7  0") && mol.includes(" R# ") && mol.includes("M  RGP  1   2   1"), "phenyl expanded to six atoms and six ring bonds, R1 as an R# atom");
     const svg = await pg.evaluate("window.MZDRAW.save('svg')");
     assert(svg.includes(">Ph<") && svg.includes(">R<") && svg.includes(">1<"), "the labels are drawn as text");
-    await pg.fill("#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
+    await fillIn(pg, "#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.label')"));
     eq((await state(pg)).tool, "label:R1");                 // a refused label changes nothing
     // the refused entry stays to be corrected, marked and selected; typing takes the mark away; a good entry is taken
@@ -419,8 +471,8 @@ try {
     await shot(pg, "label-refused");
     await pg.keyboard.type("R2"); eq(await pg.getAttribute("#d2-label", "aria-invalid"), null);
     await pg.keyboard.press("Enter"); await want(pg, { tool: "label:R2" });
-    await pg.fill("#d2-label", "R1"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:R1" });
-    await pg.fill("#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
+    await fillIn(pg, "#d2-label", "R1"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:R1" });
+    await fillIn(pg, "#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
     await tool(pg, "atom:N");                              // another tool: the field does not keep what was refused
     eq(await pg.inputValue("#d2-label"), ""); eq(await pg.getAttribute("#d2-label", "aria-invalid"), null);
     await pg.mouse.click(cx + 35, cy - 20);                // an element takes the label away
@@ -460,7 +512,7 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+c"); await pg.keyboard.press("Control+v"); await want(pg, { objects: 5, selected: 1 });
     await pg.keyboard.press("Delete"); await want(pg, { objects: 4 });
     await tool(pg, "erase"); await pg.mouse.click(cx + 60, cy + 80); await want(pg, { objects: 3 });
-    await pg.fill("#d2-text-tool", "   "); await pg.press("#d2-text-tool", "Enter");
+    await fillIn(pg, "#d2-text-tool", "   "); await pg.press("#d2-text-tool", "Enter");
     eq((await state(pg)).tool, "erase");                    // an empty text picks nothing
     await tool(pg, "undo"); await want(pg, { objects: 4 });
   });
@@ -488,7 +540,7 @@ try {
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), doc);       // the style is not in the document
     assert(await pg.isDisabled('[data-testid="d2-redo"]') && JSON.parse(await pg.evaluate("window.MZDRAW.style()")).style.preset === "acs-1996", "a style is no undo step; it reads back as a settings file");
     await shot(pg, "style-acs");
-    const [d] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-svg")]);
+    const [d] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, "#d2-ex-svg")]);
     eq(readFileSync(await d.path(), "utf8"), acs);          // the saved file is in the chosen style
     await pg.focus("#d2-style"); await pg.keyboard.press("ArrowDown"); await want(pg, { style: "slides" });       // by keyboard
     await pg.selectOption("#d2-style", "mzlab"); await want(pg, { style: "mzlab" });
@@ -652,6 +704,30 @@ try {
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
   });
 
+  await step("tablet 768x1024: the 12 primary buttons in view, targets of at least 40 px, a flyout opened by tapping, the panel as a drawer", async () => {
+    const prim = await pg.evaluate(`[...document.querySelectorAll("[data-level=primary]")].map(b => { const r = b.getBoundingClientRect();
+      return [b.dataset.testid, !!b.offsetParent && r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight]; })`);
+    eq(prim.length, 12); eq(prim.filter(p => !p[1]), []);
+    eq(await pg.evaluate("[...document.querySelectorAll('[role=toolbar] button')].filter(b => b.offsetParent && (b.offsetWidth < 40 || b.offsetHeight < 40)).map(b => b.dataset.testid)"), []);
+    assert(await pg.evaluate("(t => t.scrollHeight <= t.clientHeight)(document.querySelector('#d2-tools'))"), "the tool column does not scroll");
+    await tool(pg, "bond:1");
+    await pg.tap('[data-testid="d2-g-ring"]'); await want(pg, { tool: "ring:6a" });             // the head picks the kind it shows
+    await pg.tap('[data-testid="d2-g-ring"]');                                                  // the head of the tool in use opens
+    eq(await pg.getAttribute('[data-testid="d2-g-ring"]', "aria-expanded"), "true");
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-fly-ring button')].filter(b => b.offsetHeight < 40).length"), 0);
+    await shot(pg, "tablet-flyout");
+    await pg.tap('[data-testid="d2-ring:5"]'); await want(pg, { tool: "ring:5" });
+    eq(await pg.getAttribute('[data-testid="d2-g-ring"]', "aria-expanded"), "false");
+    eq(await pg.getAttribute('[data-testid="d2-g-ring"] svg', "data-icon"), "ring:5");
+    // the panel: closed on a narrow screen, a drawer over the canvas (the canvas keeps its width), closed again by its button
+    const w = await pg.evaluate("document.querySelector('#d2-canvas').clientWidth");
+    assert(await pg.isHidden("#d2-panel"), "the panel starts closed");
+    await pg.tap('[data-testid="d2-panel"]'); assert(await pg.isVisible("#d2-panel"), "the panel opens");
+    eq(await pg.evaluate("document.querySelector('#d2-canvas').clientWidth"), w);
+    await shot(pg, "tablet-panel");
+    await pg.tap('[data-testid="d2-panel"]'); assert(await pg.isHidden("#d2-panel"), "the panel closes");
+  });
+
   await step("two fingers pan and zoom without drawing; a long press selects; a cancelled touch commits nothing; a pen draws and its eraser end erases", async () => {
     const cdp = await ctx.newCDPSession(pg);
     const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) });
@@ -710,4 +786,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 16 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 18 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);

@@ -1,12 +1,26 @@
 // mzDraw page: forwards pointer, wheel and key events to the editor in the mzdraw .wasm and paints the display list it returns.
 // No chemistry and no decision here: what a click does is decided in Rust (crates/mzdraw).
 
+import { icon } from "./icons.js";
+
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
 const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64;
-// toolbar: [command or tool name, key of the short label, key of the tooltip]; "|" is a separator
-const TOOLS = ["select", "erase", "|", "bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
-  "ring:6a", "ring:6", "ring:5", "|", "label", "|", "arrow", "plus", "text", "|", "charge:+", "charge:-", "|", "undo", "redo", "|", "copy", "cut", "paste", "duplicate", "|", "rotate-l", "rotate-r", "flip-h", "flip-v", "|", "zoom-in", "zoom-out", "fit", "|", "clear"];
+// The toolbars, after the hierarchy of docs/mzdraw-ui.md: a tool or command name, "|" a separator, or a group (a head button and
+// its flyout). "P:" and `p` mark the 12 primary buttons. A tool group's head shows the kind last used from it: a click on the head
+// picks that kind, a click on the head of the tool in use (or the arrow key) opens the flyout.
+const COLUMN = ["P:select", "P:erase", "|",
+  { g: "bond", p: 1, tools: ["bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy"] },
+  { g: "ring", p: 1, tools: ["ring:6a", "ring:3", "ring:4", "ring:5", "ring:6", "ring:7", "ring:8"] }, "|",
+  "P:atom:C", "P:atom:N", "P:atom:O",
+  { g: "atom", p: 1, tools: ["atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "atom:B", "atom:Si"], fields: ["atom", "label"] }, "|",
+  { g: "charge", tools: ["charge:+", "charge:-"] },
+  { g: "obj", tools: ["arrow", "plus"], fields: ["text"] }];
+const BAR = ["P:open", { g: "save", p: 1, adopt: "d2-save" }, "|", "P:undo", "P:redo", "|",
+  { g: "edit", cmds: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v", "clear"] }];
+const VIEW = ["zoom-out", "zoom-in", "fit", "|", "panel"];
+/** the groups by name: head, flyout, the tools it holds and the kind last used @type {Record<string, {g: string, head: HTMLButtonElement, fly: HTMLElement, tools: string[], last: string, owns: (c: string) => boolean}>} */
+const groups = {};
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus"];
 
 /** @type {any} */ let ed = null;
@@ -107,7 +121,11 @@ function warningText(w) {
 
 function refresh() {
   const st = JSON.parse(ed.state());
-  for (const b of $("d2-tools").querySelectorAll("button")) {
+  for (const g of Object.values(groups)) {
+    if (g.owns(st.tool)) setHead(g, st.tool);
+    if (g.tools.length) g.head.setAttribute("aria-pressed", String(g.owns(st.tool)));
+  }
+  for (const b of document.querySelectorAll("button[data-cmd]")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
     if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
     if (c === "undo") /** @type {HTMLButtonElement} */ (b).disabled = !st.undo;
@@ -123,7 +141,7 @@ function refresh() {
   if (!st.outline.length) { const li = document.createElement("li"); li.textContent = t("draw2.outline.empty"); $("d2-outline").append(li); }
   dataFields(st.outline); annFields(st.outline);
   $("d2-focus").textContent = st.focus ? focusText(st.focus) : "";
-  for (const [id, kind] of [["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
+  for (const [id, kind] of [["d2-element", "atom:"], ["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
     const input = /** @type {HTMLInputElement} */ ($(id)), on = st.tool.startsWith(kind);
     input.classList.toggle("on", on);
     // the field shows the tool: what it holds when another tool is chosen is taken away (a text still being typed is left, a
@@ -237,12 +255,13 @@ function clipboardEvents() {
   });
 }
 
-/** a toolbar field that picks a tool with an argument: the label field (an abbreviation or an R group, with its list) and the text field
- * (a line of text to place, or to set on an arrow); Enter or a choice picks the tool @param {"label" | "text"} kind */
+/** a flyout field that picks a tool with an argument: the element field (any symbol), the label field (an abbreviation or an R group,
+ * with its list) and the text field (a line of text to place, or to set on an arrow); Enter or a choice picks the tool; the module
+ * judges what is typed @param {"atom" | "label" | "text"} kind */
 function field(kind) {
   const box = document.createElement("label"), input = document.createElement("input"), out = [box];
   box.className = "field"; box.append(t(`draw2.tool.${kind}`) + " ", input);
-  input.id = kind === "label" ? "d2-label" : "d2-text-tool"; input.type = "text"; input.size = kind === "label" ? 7 : 12; input.autocomplete = "off"; input.spellcheck = false; input.maxLength = 200;
+  input.id = { atom: "d2-element", label: "d2-label", text: "d2-text-tool" }[kind]; input.type = "text"; input.size = kind === "text" ? 12 : 7; input.autocomplete = "off"; input.spellcheck = false; input.maxLength = kind === "atom" ? 3 : 200;
   input.title = t(`draw2.tool.${kind}.title`); input.placeholder = t(`draw2.tool.${kind}.hint`);
   if (kind === "label") {
     const list = document.createElement("datalist");
@@ -251,7 +270,7 @@ function field(kind) {
     out.push(list);
   }
   const pick = () => {
-    const v = kind === "label" ? input.value.trim() : input.value;
+    const v = kind === "text" ? input.value : input.value.trim();
     if (!v.trim()) return;
     if (after(ed.command(kind + ":" + v))) { input.removeAttribute("aria-invalid"); $("d2-live").textContent = t(`draw2.say.${kind}Tool`, { what: v }); cv.focus({ preventScroll: true }); }
     // a refused entry stays to be corrected, marked as not valid and selected: it is never shown as if it were the tool
@@ -263,19 +282,137 @@ function field(kind) {
   return out;
 }
 
-function toolbar() {
-  const bar = $("d2-tools");
-  for (const c of TOOLS) {
-    if (c === "|") { const s = document.createElement("span"); s.className = "sep"; s.setAttribute("role", "separator"); bar.append(s); continue; }
-    if (c === "label" || c === "text") { bar.append(...field(c)); continue; }
-    const b = document.createElement("button"), k = c.replace(":", ".").replace("+", "plus").replace("charge.-", "charge.minus").replace("zoom-in", "zoomIn").replace("zoom-out", "zoomOut");
-    b.type = "button"; b.dataset.cmd = c; b.dataset.testid = "d2-" + c;
-    b.textContent = c.startsWith("atom:") ? c.slice(5) : t(`draw2.tool.${k}`);
-    b.title = t(`draw2.tool.${k}.title`); b.setAttribute("aria-label", b.title);
-    // a pointer click gives the keyboard back to the canvas (shortcuts keep working); a keyboard activation stays on the button
-    b.addEventListener("click", e => { run(c); if (e.detail) cv.focus({ preventScroll: true }); });
-    bar.append(b);
+/** the name of a command in the i18n keys @param {string} c */
+const keyOf = c => c.replace(":", ".").replace("+", "plus").replace("charge.-", "charge.minus").replace("zoom-in", "zoomIn").replace("zoom-out", "zoomOut");
+
+/** the face of a button: the icon of the command, or an element symbol in its colour @param {string} c */
+function face(c) {
+  if (!c.startsWith("atom:")) return icon(c);
+  const s = document.createElement("span");
+  s.className = "sym"; s.dataset.el = c.slice(5); s.textContent = c.slice(5); s.setAttribute("aria-hidden", "true");
+  return s;
+}
+
+/** one button of a toolbar or a flyout; `text`: the short label is written next to the icon (flyouts) @param {string} c @param {boolean} primary @param {boolean} text */
+function button(c, primary, text) {
+  const b = document.createElement("button"), k = keyOf(c);
+  b.type = "button"; b.dataset.cmd = c; b.dataset.testid = "d2-" + c;
+  if (primary) b.dataset.level = "primary";
+  b.append(face(c));
+  if (text) { const s = document.createElement("span"); s.className = "txt"; s.textContent = c.startsWith("atom:") ? t(`draw2.tool.${k}.title`).replace(/ \(.*$/, "") : t(`draw2.tool.${k}`); b.append(s); }
+  b.title = t(`draw2.tool.${k}.title`); b.setAttribute("aria-label", b.title);
+  // a pointer click gives the keyboard back to the canvas (shortcuts keep working); a keyboard activation stays on the button
+  b.addEventListener("click", e => {
+    const grp = b.closest(".grp");
+    if (c === "open") $("d2-file").click();
+    else if (c === "panel") panel(!b.classList.contains("on"));
+    else run(c);
+    if (grp) { flyout(groups[/** @type {HTMLElement} */ (grp).dataset.group], false); if (!e.detail) groups[/** @type {HTMLElement} */ (grp).dataset.group].head.focus(); }
+    if (e.detail && c !== "open" && c !== "panel") cv.focus({ preventScroll: true });
+  });
+  return b;
+}
+
+/** a head and its flyout @param {any} spec @param {boolean} down the flyout opens below the head (top bar), else to its right */
+function group(spec, down) {
+  const wrap = document.createElement("div"), head = document.createElement("button"), fly = document.createElement("div");
+  const tools = spec.tools || [], grp = { g: spec.g, head, fly, tools, last: spec.g === "atom" ? "" : tools[0] || "", owns: (/** @type {string} */ c) => false };
+  grp.owns = spec.g === "atom" ? c => (c.startsWith("atom:") && !["atom:C", "atom:N", "atom:O"].includes(c)) || c.startsWith("label:")
+    : spec.g === "obj" ? c => tools.includes(c) || c.startsWith("text:") : c => tools.includes(c);
+  groups[spec.g] = grp;
+  wrap.className = "grp" + (down ? " down" : ""); wrap.dataset.group = spec.g;
+  head.type = "button"; head.className = "head"; head.dataset.testid = "d2-g-" + spec.g; head.dataset.group = spec.g;
+  if (spec.p) head.dataset.level = "primary";
+  head.title = t(`draw2.group.${spec.g}.title`); head.setAttribute("aria-label", head.title);
+  head.setAttribute("aria-expanded", "false"); head.setAttribute("aria-controls", "d2-fly-" + spec.g);
+  head.append(grp.last ? face(grp.last) : icon(spec.g === "atom" ? "elements" : spec.g === "save" ? "save" : "more"));
+  fly.id = "d2-fly-" + spec.g; fly.className = "fly" + (spec.g === "atom" ? " grid" : ""); fly.hidden = true;
+  fly.setAttribute("role", "group"); fly.setAttribute("aria-label", t(`draw2.group.${spec.g}`));
+  for (const c of [...tools, ...(spec.cmds || [])]) fly.append(button(c, false, spec.g !== "atom"));
+  for (const k of spec.fields || []) fly.append(...field(k));
+  if (spec.adopt) {
+    // the save buttons of the page move into the flyout (closeAfterSave)
+    const sec = $(spec.adopt);
+    fly.append(...sec.querySelectorAll("button"), $("d2-ex-note")); sec.remove();
   }
+  head.addEventListener("click", e => {
+    const now = JSON.parse(ed.state()).tool;
+    if (grp.last && now !== grp.last && fly.hidden) { run(grp.last); if (e.detail) cv.focus({ preventScroll: true }); }
+    else flyout(grp, fly.hidden, !e.detail);
+  });
+  fly.addEventListener("keydown", e => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); flyout(grp, false); head.focus(); return; }
+    const inField = /** @type {HTMLElement} */ (e.target).tagName === "INPUT";
+    const step = { ArrowDown: 1, ArrowUp: -1, ...(inField ? {} : { ArrowRight: 1, ArrowLeft: -1 }) }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const all = /** @type {HTMLElement[]} */ ([...fly.querySelectorAll("button:not(:disabled), input")]), i = all.indexOf(/** @type {HTMLElement} */ (document.activeElement));
+    all[(i + step + all.length) % all.length]?.focus();
+  });
+  wrap.addEventListener("focusout", e => { if (!fly.hidden && e.relatedTarget && !wrap.contains(/** @type {Node} */ (e.relatedTarget))) flyout(grp, false); });
+  wrap.append(head, fly);
+  return wrap;
+}
+
+/** the save flyout closes after a save and stays open to show a refusal; listened after the save itself (panels) */
+function closeAfterSave() {
+  const grp = groups.save;
+  for (const b of grp.fly.querySelectorAll("button")) b.addEventListener("click", e => {
+    if ($("d2-ex-note").textContent) return;
+    flyout(grp, false);
+    if (!(/** @type {MouseEvent} */ (e).detail)) grp.head.focus();
+  });
+}
+
+/** opens or closes a flyout; an opened one closes the others; `focus`: the keyboard goes to the kind in use, else the first item
+ * @param {any} grp @param {boolean} open @param {boolean} [focus] */
+function flyout(grp, open, focus = false) {
+  if (open) for (const o of Object.values(groups)) if (o !== grp) flyout(o, false);
+  grp.fly.hidden = !open; grp.head.setAttribute("aria-expanded", String(open));
+  if (open && focus) /** @type {HTMLElement} */ (grp.fly.querySelector('[aria-pressed="true"]') || grp.fly.querySelector("button:not(:disabled), input"))?.focus();
+}
+
+/** shows the kind last used from a tool group on its head @param {any} grp @param {string} c */
+function setHead(grp, c) {
+  if (grp.last === c || c.startsWith("label:") || c.startsWith("text:")) return;
+  grp.last = c; grp.head.firstChild.replaceWith(face(c));
+  grp.head.title = t(`draw2.group.${grp.g}.title`) ; grp.head.setAttribute("aria-label", t(`draw2.group.${grp.g}.title`));
+}
+
+/** the side panel: beside the canvas on a wide screen, a drawer over it on a narrow one @param {boolean} open */
+function panel(open) {
+  const p = $("d2-panel"), b = /** @type {HTMLElement} */ (document.querySelector('[data-cmd="panel"]'));
+  p.hidden = !open; b.classList.toggle("on", open); b.setAttribute("aria-expanded", String(open));
+  size();
+}
+
+/** a toolbar: one tab stop; the arrow keys move along it, and across it they open a flyout @param {HTMLElement} bar @param {any[]} spec @param {boolean} vertical */
+function toolbar(bar, spec, vertical) {
+  for (const c of spec) {
+    if (c === "|") { const s = document.createElement("span"); s.className = "sep"; s.setAttribute("role", "separator"); bar.append(s); continue; }
+    bar.append(typeof c === "string" ? button(c.replace(/^P:/, ""), c.startsWith("P:"), false) : group(c, !vertical));
+  }
+  const items = () => /** @type {HTMLElement[]} */ ([...bar.querySelectorAll(":scope > button, :scope > .grp > .head")]).filter(b => !/** @type {HTMLButtonElement} */ (b).disabled);
+  const rove = (/** @type {HTMLElement} */ to) => { for (const b of bar.querySelectorAll(":scope > button, :scope > .grp > .head")) b.setAttribute("tabindex", b === to ? "0" : "-1"); };
+  rove(items()[0]);
+  bar.addEventListener("focusin", e => { if (items().includes(/** @type {HTMLElement} */ (e.target))) rove(/** @type {HTMLElement} */ (e.target)); });
+  bar.addEventListener("keydown", e => {
+    const all = items(), i = all.indexOf(/** @type {HTMLElement} */ (e.target));
+    if (i < 0) return;
+    const [next, prev, across] = vertical ? ["ArrowDown", "ArrowUp", "ArrowRight"] : ["ArrowRight", "ArrowLeft", "ArrowDown"];
+    const to = e.key === next ? all[(i + 1) % all.length] : e.key === prev ? all[(i - 1 + all.length) % all.length] : e.key === "Home" ? all[0] : e.key === "End" ? all[all.length - 1] : null;
+    const grp = /** @type {HTMLElement} */ (e.target).dataset.group;
+    if (to) { e.preventDefault(); to.focus(); }
+    else if (e.key === across && grp) { e.preventDefault(); flyout(groups[grp], true, true); }
+  });
+}
+
+/** every toolbar of the page; a press outside a flyout closes it */
+function toolbars() {
+  toolbar($("d2-tools"), COLUMN, true); toolbar($("d2-bar"), BAR, false); toolbar($("d2-view"), VIEW, false);
+  document.addEventListener("pointerdown", e => { for (const g of Object.values(groups)) if (!g.fly.hidden && !g.head.parentElement?.contains(/** @type {Node} */ (e.target))) flyout(g, false); });
+  panel(!matchMedia("(max-width: 900px)").matches);
+  $("d2-panel").addEventListener("keydown", e => { if (e.key === "Escape" && matchMedia("(max-width: 900px)").matches) { panel(false); /** @type {HTMLElement} */ (document.querySelector('[data-cmd="panel"]')).focus(); } });
 }
 
 // bit 4: the eraser end or eraser button of a pen (button 5, buttons bit 32)
@@ -308,7 +445,10 @@ function events() {
   cv.addEventListener("keydown", e => {
     const f = ed.key(e.key, mods(e));
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
-    if (f & (ASK_LABEL | ASK_TEXT)) { const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
+    if (f & (ASK_LABEL | ASK_TEXT)) {
+      flyout(groups[f & ASK_LABEL ? "atom" : "obj"], true);
+      const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select();
+    }
   });
   addEventListener("resize", size);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
@@ -428,7 +568,7 @@ document.title = t("draw2.name");
 try {
   ed = await load();
   /** @type {any} */ (window).MZDRAW = ed;
-  toolbar(); events(); clipboardEvents(); panels(); await styles(); size(); refresh();
+  toolbars(); events(); clipboardEvents(); panels(); closeAfterSave(); await styles(); size(); refresh();
   document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });
   await autosave.offer();
   document.documentElement.dataset.d2Ready = "1";

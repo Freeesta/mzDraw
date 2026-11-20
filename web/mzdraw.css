@@ -3,10 +3,38 @@
 @media (prefers-color-scheme: dark) { :root { --fg: #ececec; --bg: #1b1b1b; --panel: #262626; --line: #9a9a9a; --accent: #7cc0ff; --d2-ink: #f0f0f0; --d2-select: #2f5f8a; --d2-hover: #454545; --d2-warn: #ff8a80; --d2-preview: #9db8d6; --d2-n: #8fa8ff; --d2-o: #ff8a80; --d2-s: #e6c14a; --d2-x: #7fd37f; --d2-p: #ffb066; --d2-focus: #7cc0ff; } }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
 body { display: flex; flex-direction: column; }
-header { display: flex; gap: 12px; align-items: baseline; padding: 4px 10px; }
+header { display: flex; gap: 8px; align-items: center; padding: 4px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
 h1 { font-size: 16px; margin: 0; } h2 { font-size: 13px; margin: 0 0 4px; }
-#d2-tools { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 10px; background: var(--panel); border-block: 1px solid var(--line); }
-#d2-tools .sep { width: 1px; background: var(--line); margin: 0 4px; }
+/* toolbars: the top bar (file, history, edit; view) and the tool column at the left of the canvas */
+h1 { margin-right: 8px; }
+#d2-bar, #d2-view { display: flex; gap: 2px; align-items: center; }
+#d2-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
+#d2-tools { display: flex; flex-direction: column; gap: 2px; padding: 6px 4px; background: var(--panel); border-right: 1px solid var(--line); }
+#d2-bar .sep, #d2-view .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+#d2-tools .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+#d2-top button, #d2-tools button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 40px; min-height: 40px; padding: 0 8px; border-color: transparent; background: transparent; }
+#d2-top button:hover:not(:disabled), #d2-tools button:hover:not(:disabled) { background: var(--d2-hover); }
+#d2-top button[aria-pressed="true"], #d2-tools button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+.ico { width: 24px; height: 24px; flex: none; }
+.sym { font-weight: 600; font-size: 17px; min-width: 24px; text-align: center; }
+.sym[data-el="N"] { color: var(--d2-n); } .sym[data-el="O"] { color: var(--d2-o); } .sym[data-el="S"] { color: var(--d2-s); } .sym[data-el="P"] { color: var(--d2-p); }
+.sym[data-el="F"], .sym[data-el="Cl"], .sym[data-el="Br"], .sym[data-el="I"] { color: var(--d2-x); }
+button[aria-pressed="true"] .sym { color: inherit; }
+/* flyouts: a head with a small corner mark, the flyout beside it (column) or under it (top bar) */
+.grp { position: relative; display: flex; }
+.grp > .head { position: relative; }
+#d2-tools .grp > .head::after { content: ""; position: absolute; right: 3px; bottom: 3px; border: 3px solid transparent; border-right-color: currentColor; border-bottom-color: currentColor; opacity: .7; }
+.fly { position: absolute; z-index: 20; left: calc(100% + 6px); top: 0; display: flex; flex-direction: column; gap: 2px; min-width: 190px; padding: 6px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px rgb(0 0 0 / .18); }
+.fly[hidden] { display: none !important; }
+.grp.down > .fly { left: 0; top: calc(100% + 6px); }
+#d2-top .fly button, #d2-tools .fly button { justify-content: flex-start; width: 100%; }
+.fly.grid { display: grid; grid-template-columns: repeat(5, 40px); min-width: 0; }
+.fly.grid .field { grid-column: 1 / -1; }
+.fly .field { margin-top: 4px; justify-content: space-between; }
+.fly p:empty { display: none; }
+#d2-fly-save { max-height: 70vh; overflow: auto; }
+#d2-ex-note { max-width: 220px; }
+[data-cmd="panel"].on { color: var(--accent); }
 button { min-height: 32px; min-width: 32px; padding: 2px 8px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; font: inherit; }
 button[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
 .field { display: flex; align-items: center; gap: 4px; }
@@ -34,6 +62,8 @@ button:focus-visible, canvas:focus-visible, textarea:focus-visible { outline: 3p
 main { flex: 1; display: flex; min-height: 0; }
 #d2-canvas { flex: 1; min-width: 0; touch-action: none; background: var(--bg); cursor: crosshair; }
 aside { width: 280px; padding: 8px 10px; background: var(--panel); border-left: 1px solid var(--line); overflow: auto; }
+aside[hidden] { display: none; }
+main { position: relative; }
 section { margin-bottom: 12px; }
 textarea { width: 100%; box-sizing: border-box; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; font: 12px/1.3 ui-monospace, monospace; }
 .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
@@ -43,6 +73,9 @@ details ul { margin: 4px 0; padding-left: 18px; } summary { cursor: pointer; fon
 #d2-warnings .lvl { font-weight: 600; }
 p { margin: 4px 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-@media (pointer: coarse) { button { min-height: 40px; min-width: 40px; } }
-@media (max-width: 800px) { main { flex-direction: column; } aside { width: auto; border-left: 0; border-top: 1px solid var(--line); max-height: 40%; } }
+@media (pointer: coarse) { button, #d2-top button, #d2-tools button { min-height: 44px; min-width: 44px; } .fly.grid { grid-template-columns: repeat(5, 44px); } }
+/* a narrow screen: the panel is a drawer over the canvas; a phone: the tool column becomes a row and its flyouts open downwards */
+@media (max-width: 900px) { aside { position: absolute; z-index: 15; top: 0; right: 0; bottom: 0; width: min(320px, 85vw); box-shadow: -4px 0 16px rgb(0 0 0 / .18); } }
+@media (max-width: 600px) { main { flex-direction: column; } #d2-tools { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); }
+  #d2-tools .sep { width: 1px; height: auto; margin: 6px 4px; } #d2-tools .fly { left: 0; top: calc(100% + 6px); } h1 { display: none; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

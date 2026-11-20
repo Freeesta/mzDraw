@@ -9,16 +9,19 @@
 <link rel="stylesheet" href="mzdraw.css">
 </head>
 <body>
-<header><h1 data-i18n="draw2.name">mzDraw</h1><span id="d2-status" role="status"></span></header>
-<div id="d2-tools" role="toolbar" aria-orientation="horizontal" aria-label="Drawing tools" data-i18n-aria-label="draw2.tools"></div>
+<header id="d2-top"><h1 data-i18n="draw2.name">mzDraw</h1>
+  <div id="d2-bar" role="toolbar" aria-orientation="horizontal" aria-label="File and edit" data-i18n-aria-label="draw2.bar"></div>
+  <span id="d2-status" role="status"></span>
+  <div id="d2-view" role="toolbar" aria-orientation="horizontal" aria-label="View" data-i18n-aria-label="draw2.view"></div></header>
 <div id="d2-restore" role="region" aria-label="Saved drawing" data-i18n-aria-label="draw2.restore.region" hidden>
   <span id="d2-restore-text"></span>
   <button id="d2-restore-yes" type="button" data-i18n="draw2.restore.yes" title="Open the saved drawing on the canvas" data-i18n-title="draw2.restore.yes.title">Restore</button>
   <button id="d2-restore-no" type="button" data-i18n="draw2.restore.no" title="Delete the saved drawing" data-i18n-title="draw2.restore.no.title">Discard</button>
 </div>
 <main>
+  <div id="d2-tools" role="toolbar" aria-orientation="vertical" aria-label="Drawing tools" data-i18n-aria-label="draw2.tools"></div>
   <canvas id="d2-canvas" tabindex="0" role="application" aria-label="Structure canvas" data-i18n-aria-label="draw2.canvas" aria-describedby="d2-outline d2-focus"></canvas>
-  <aside>
+  <aside id="d2-panel" aria-label="Structure, style and check" data-i18n-aria-label="draw2.panel">
     <section><h2 data-i18n="draw2.import">Add a structure</h2>
       <textarea id="d2-text" rows="3" spellcheck="false" autocomplete="off" aria-label="SMILES, molfile, SDF, KET, CDXML or CML" data-i18n-aria-label="draw2.import.field" placeholder="SMILES, molfile, SDF, KET, CDXML or CML" data-i18n-placeholder="draw2.import.field"></textarea>
       <div class="row"><button id="d2-add" type="button" data-i18n="draw2.import.add" title="Add this structure to the drawing" data-i18n-title="draw2.import.add.title">Add</button>
@@ -34,7 +37,7 @@
         <div class="row"><button id="d2-style-save" type="button" data-i18n="draw2.style.save" title="Save the style as a settings file" data-i18n-title="draw2.style.save.title">Save settings</button>
           <button id="d2-style-open" type="button" data-i18n="draw2.style.open" title="Open a settings file" data-i18n-title="draw2.style.open.title">Open settings</button>
           <input id="d2-style-file" type="file" hidden accept=".json"></div></details></section>
-    <section><h2 data-i18n="draw2.export">Save</h2>
+    <section id="d2-save"><h2 data-i18n="draw2.export">Save</h2>
       <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
         <button id="d2-ex-v3000" type="button" data-i18n="draw2.export.v3000" title="Save the drawing as a V3000 molfile" data-i18n-title="draw2.export.v3000.title">Molfile V3000</button>
         <button id="d2-ex-sdf" type="button" data-i18n="draw2.export.sdf" title="Save the structures as an SDF, one record each, with their data" data-i18n-title="draw2.export.sdf.title">SDF</button>
