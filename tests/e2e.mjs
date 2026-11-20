@@ -85,7 +85,7 @@ try {
   let { ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
 
   await step("the page loads the module and starts empty on the single-bond tool", async () => {
-    eq(await state(pg), { atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
+    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
     eq(await pg.evaluate("window.MZDRAW.version()"), "mzdraw/1");
     eq(await pg.innerText("#d2-summary"), await pg.evaluate("I18N.t('draw.check.empty')"));
     assert(await pg.locator("#d2-tools button").count() >= 26, "the toolbar");
@@ -304,6 +304,47 @@ try {
     assert(await pg.evaluate("(() => { try { window.MZDRAW.set_style('nope'); return false; } catch (e) { return JSON.parse(String(e)).error_key === 'error.draw2.style'; } })()"), "a style that is none is refused with its key");
     eq((await state(pg)).style, "mzlab");
   });
+
+  await step("keyboard alone: a molecule is drawn, walked and edited without the pointer; the outline and the focus are said in words", async () => {
+    const live = () => pg.innerText("#d2-live"), key = k => pg.keyboard.press(k);
+    await tool(pg, "clear"); await want(pg, { atoms: 0, focus: 0 });
+    eq(await pg.innerText("#d2-outline"), await pg.evaluate("I18N.t('draw2.outline.empty')"));
+    eq(await pg.getAttribute("#d2-canvas", "aria-describedby"), "d2-outline d2-focus");
+    await pg.mouse.move(5, 5);                                // the pointer is away: nothing below is under it
+    await pg.focus("#d2-canvas");
+    await key("Enter"); await want(pg, { atoms: 1, bonds: 0, focus: 1 });
+    eq(await live(), await pg.evaluate("I18N.t('draw2.focus.atom', { name: 'C', index: 1, of: 1, bonds: 0, hydrogens: 4 })"));
+    await key("Enter"); await key("Enter"); await want(pg, { atoms: 3, bonds: 2, focus: 3 });
+    await key("o"); await key("2");                           // the end atom becomes O, the bond walked becomes double
+    // back to the middle carbon with the arrow that points from the oxygen to it (document axes: y up)
+    const [, mid, end] = JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms;
+    const dx = mid.x - end.x, dy = mid.y - end.y;
+    await key(Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? "ArrowRight" : "ArrowLeft") : (dy > 0 ? "ArrowUp" : "ArrowDown"));
+    await want(pg, { focus: 2 });
+    eq(await live(), await pg.evaluate("I18N.t('draw2.focus.atom', { name: 'C', index: 2, of: 3, bonds: 2, hydrogens: 1 })"));
+    await key("Shift+Enter"); await key("1"); await key("n"); await want(pg, { atoms: 4, bonds: 3, focus: 4, warnings: 0 });
+    eq(await pg.innerText("#d2-outline"), await pg.evaluate("I18N.t('draw2.outline.piece', { n: 1, formula: 'C2H5NO', atoms: 4, bonds: 3 })"));
+    eq(await pg.innerText("#d2-focus"), await pg.evaluate("I18N.t('draw2.focus.atom', { name: 'N', index: 4, of: 4, bonds: 1, hydrogens: 2 })"));
+    await key("+");
+    eq(await live(), await pg.evaluate("I18N.t('draw2.focus.atom.plus', { name: 'N', index: 4, of: 4, bonds: 1, hydrogens: 3, n: 1 })"));
+    await shot(pg, "keyboard");
+    await key("-");
+    // Space selects the focused atom, so copy and paste work by keyboard; the copy is a second structure in the outline
+    await key("Home"); await key(" "); await want(pg, { selected: 1, focus: 1 });
+    await key("Control+c"); await key("Control+v"); await want(pg, { atoms: 5 });
+    eq(await pg.locator("#d2-outline li").count(), 2);
+    await key("Control+z"); await want(pg, { atoms: 4 });
+    // Delete removes the focused atom when nothing is selected; Escape leaves the focus; Tab leaves the canvas
+    await key("Escape"); await want(pg, { focus: 0, selected: 0 });
+    eq(await live(), await pg.evaluate("I18N.t('draw2.focus.none')"));
+    await key("End"); await key("Home"); await key("Delete"); await want(pg, { atoms: 3 });
+    await pg.focus("#d2-canvas"); await key("Tab");
+    assert(await pg.evaluate("document.activeElement !== document.querySelector('#d2-canvas')"), "Tab moves on: the canvas is no keyboard trap");
+    await key("Shift+Tab");
+    assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-canvas')"), "and Shift+Tab comes back");
+    // the help is on the page, closed until asked for
+    assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 4, "the keyboard help");
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
@@ -317,7 +358,7 @@ try {
     await until(pg, "Number(document.documentElement.dataset.d2Saved || 0) >= 1");       // one second after the last change
     const doc = await pg.evaluate("window.MZDRAW.save('mzdraw')");
     await pg.reload(); await ready();
-    eq(await state(pg), { atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
+    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
     assert(await pg.isVisible("#d2-restore"), "the saved drawing is offered");
     eq(await pg.innerText("#d2-restore-text"), await pg.evaluate("I18N.t('draw2.restore.found.objects', { atoms: 6, bonds: 5, objects: 1 })"));
     // while the offer waits nothing is written: a stray drawing does not replace the saved one
@@ -370,4 +411,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 13 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 14 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);

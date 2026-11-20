@@ -3,11 +3,11 @@
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
-const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32;
+const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64;
 // toolbar: [command or tool name, key of the short label, key of the tooltip]; "|" is a separator
 const TOOLS = ["select", "erase", "|", "bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
   "ring:6a", "ring:6", "ring:5", "|", "label", "|", "arrow", "plus", "text", "|", "charge:+", "charge:-", "|", "undo", "redo", "|", "copy", "cut", "paste", "duplicate", "|", "rotate-l", "rotate-r", "flip-h", "flip-v", "|", "zoom-in", "zoom-out", "fit", "|", "clear"];
-const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p"];
+const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus"];
 
 /** @type {any} */ let ed = null;
 const cv = /** @type {HTMLCanvasElement} */ ($("d2-canvas")), g = /** @type {CanvasRenderingContext2D} */ (cv.getContext("2d"));
@@ -57,6 +57,13 @@ function refresh() {
     if (c === "copy" || c === "cut" || c === "duplicate") /** @type {HTMLButtonElement} */ (b).disabled = !st.selected;
     if (c === "paste") /** @type {HTMLButtonElement} */ (b).disabled = !st.clip;
   }
+  $("d2-outline").replaceChildren(...st.outline.map((/** @type {any} */ s, /** @type {number} */ i) => {
+    const li = document.createElement("li");
+    li.textContent = t("draw2.outline.piece", { n: i + 1, formula: s.formula, atoms: s.atoms, bonds: s.bonds });
+    return li;
+  }));
+  if (!st.outline.length) { const li = document.createElement("li"); li.textContent = t("draw2.outline.empty"); $("d2-outline").append(li); }
+  $("d2-focus").textContent = st.focus ? focusText(st.focus) : "";
   $("d2-label").classList.toggle("on", st.tool.startsWith("label:"));
   $("d2-text-tool").classList.toggle("on", st.tool.startsWith("text:"));
   $("d2-status").textContent = t(st.objects ? "draw2.count.objects" : "draw2.count", { atoms: st.atoms, bonds: st.bonds, objects: st.objects });
@@ -70,7 +77,14 @@ function refresh() {
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
   if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
   else if (st.say.key) $("d2-live").textContent = t(`draw2.say.${st.say.key.slice(10)}`, { what: st.say.what });
-  document.documentElement.dataset.d2 = JSON.stringify({ atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, selected: st.selected });
+  document.documentElement.dataset.d2 = JSON.stringify({ focus: st.focus ? st.focus.index : 0, atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, selected: st.selected });
+}
+
+/** where the keyboard focus is, in words @param {any} f */
+function focusText(f) {
+  // one whole sentence per case: nothing is glued together
+  const key = f.charge > 0 ? "draw2.focus.atom.plus" : f.charge < 0 ? "draw2.focus.atom.minus" : "draw2.focus.atom";
+  return t(key, { name: f.name, index: f.index, of: f.of, bonds: f.bonds, hydrogens: f.hydrogens, n: Math.abs(f.charge) });
 }
 
 /** acts on the flags an editor call returned @param {number} f */
@@ -78,6 +92,7 @@ function after(f) {
   if (f & REPAINT) paint();
   if (f & (CHANGED | TOOL)) refresh();
   if (f & CHANGED) autosave.touch();
+  if (f & FOCUS) { refresh(); const st = JSON.parse(ed.state()); $("d2-live").textContent = st.focus ? focusText(st.focus) : t("draw2.focus.none"); }
   return f;
 }
 

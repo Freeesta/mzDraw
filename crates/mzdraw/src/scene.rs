@@ -28,6 +28,8 @@ pub mod colour {
     pub const S: f32 = 7.0;
     pub const HALOGEN: f32 = 8.0;
     pub const P: f32 = 9.0;
+    /// The ring of the keyboard focus.
+    pub const FOCUS: f32 = 10.0;
 }
 
 /// Document units to output pixels: `x' = ox + x * scale`, `y' = oy - y * scale`.
@@ -55,6 +57,8 @@ pub struct Overlay {
     pub sel_bonds: Vec<u32>,
     pub sel_objs: Vec<u32>,
     pub hover_obj: Option<u32>,
+    /// The atom with the keyboard focus.
+    pub focus: Option<u32>,
     pub hover_atom: Option<u32>,
     pub hover_bond: Option<u32>,
     pub warn_atoms: Vec<u32>,
@@ -444,6 +448,11 @@ impl Painter<'_> {
             }
             if self.over.warn_atoms.contains(&a.id) {
                 self.push(&[RING as f64, x, y, r * 1.15, colour::WARN as f64]);
+            }
+            if self.over.focus == Some(a.id) {
+                // two rings: the focus is seen by its shape, not by its colour alone
+                self.push(&[RING as f64, x, y, r * 1.4, colour::FOCUS as f64]);
+                self.push(&[RING as f64, x, y, r * 1.75, colour::FOCUS as f64]);
             }
         }
         for a in &self.doc.atoms {
