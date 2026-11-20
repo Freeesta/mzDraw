@@ -236,6 +236,8 @@ I18N.add("en", {
   "error.draw2.cml": "The CML or Marvin file could not be read.",
   "error.draw2.styleValue": "This value is outside what the style allows: nothing was changed.",
   "error.draw2.styleKey": "This is not a setting of the style.",
+  "error.draw2.layout": "This layout of the palettes cannot be read: a dock, an orientation, a number or a preset that is none.",
+  "error.draw2.export": "This is not a format a drawing is saved in, or not a background (white or none).",
   "error.draw2.set": "A setting is written section.key=value, for example style.line_width=1.",
   "error.draw2.smilesOut": "This drawing cannot be written as SMILES.",
   "error.draw2.import": "Paste SMILES, a molfile, an SDF or a drawing document.",
