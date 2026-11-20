@@ -74,6 +74,22 @@ const fillIn = async (pg, sel, text) => { await reveal(pg, sel); await pg.fill(s
 const saveAs = async (pg, sel) => { await reveal(pg, sel); await pg.click(sel); };
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
 const KEY = String.raw`(?:(?:Ctrl|Shift|Alt)\+)*(?:[A-Za-z0-9+\-−→=\[\]]|Del|Esc|Enter)`, KEYED = new RegExp(String.raw`\(${KEY}(?:,? ${KEY})*\)`);
+// WCAG 2 contrast of the theme tokens: a colour with alpha is laid over its background first
+const rgba = c => { if (c[0] === "#") return [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)).concat(1); const m = c.match(/rgba?\(([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)(?:[ ,/]+([\d.]+))?\)/); return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]]; };
+const over = (f, b) => f.slice(0, 3).map((v, i) => v * f[3] + b[i] * (1 - f[3]));
+const linear = c => c.map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+const lum = c => { const [r, g, b] = linear(c); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (fg, bg) => { const b = rgba(bg), f = over(rgba(fg), b), [x, y] = [lum(f), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+const lab = c => { const [r, g, b] = linear(rgba(c).slice(0, 3)), f = v => (v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
+  const [x, y, z] = [(r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047, r * 0.2126 + g * 0.7152 + b * 0.0722, (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883];
+  return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))]; };
+const TOKENS = ["surface", "surface-raised", "paper", "border", "control", "ink", "ink-muted", "accent", "accent-soft", "hover", "selection", "focus", "danger", "preview", "atom-n", "atom-o", "atom-s", "atom-x", "atom-p"];
+// [foreground, background, least ratio]: text 4.5:1, icons, borders of controls and the focus ring 3:1 (WCAG 2.2 AA, 1.4.3 and 1.4.11)
+const PAIRS = [["ink", "surface", 4.5], ["ink", "surface-raised", 4.5], ["ink", "paper", 4.5], ["ink", "hover", 4.5], ["ink", "accent-soft", 4.5], ["ink", "selection", 4.5],
+  ["ink-muted", "surface", 4.5], ["ink-muted", "surface-raised", 4.5], ["ink-muted", "paper", 4.5], ["danger", "surface", 4.5], ["danger", "surface-raised", 4.5], ["danger", "paper", 4.5],
+  ["control", "surface", 3], ["control", "surface-raised", 3], ["focus", "surface", 3], ["focus", "surface-raised", 3], ["focus", "paper", 3], ["focus", "accent-soft", 3],
+  ["accent", "accent-soft", 3], ["accent", "surface", 3], ["preview", "paper", 3],
+  ...["atom-n", "atom-o", "atom-s", "atom-x", "atom-p"].flatMap(a => [[a, "paper", 4.5], [a, "surface", 4.5], [a, "surface-raised", 4.5]])];
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
 /** the drawing loop every pointer kind must manage: template, undo/redo, atom, sprouted bonds, the valence mistake, erase */
@@ -144,6 +160,41 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("1"); await want(pg, { tool: "bond:1" });
     eq(await pg.getAttribute('[data-testid="d2-g-bond"] svg', "data-icon"), "bond:1");
     await pg.setViewportSize({ width: 1280, height: 800 });
+  });
+
+  await step("theme: the token pairs reach WCAG AA in light and in dark, the atom colours stay apart, data-theme and the system setting agree, the focus ring shows", async () => {
+    const tokens = () => pg.evaluate(names => { const c = getComputedStyle(document.documentElement); return Object.fromEntries(names.map(n => [n, c.getPropertyValue("--mzd-" + n).trim()])); }, TOKENS);
+    const sets = {};
+    for (const theme of ["light", "dark"]) {
+      await pg.evaluate(t => { document.documentElement.dataset.theme = t; }, theme);
+      const t = sets[theme] = await tokens();
+      eq(TOKENS.filter(n => !t[n]), []);
+      eq(PAIRS.map(([f, b, min]) => [theme, f, b, Math.round(contrast(t[f], t[b]) * 100) / 100, min]).filter(r => r[3] < r[4]), []);
+      // the colours of the elements, and the ink of carbon, stay apart from each other (CIE76 distance of at least 20)
+      const atoms = ["ink", "atom-n", "atom-o", "atom-s", "atom-x", "atom-p"], near = [];
+      for (let i = 0; i < atoms.length; i++) for (let j = i + 1; j < atoms.length; j++) {
+        const [a, b] = [lab(t[atoms[i]]), lab(t[atoms[j]])];
+        if (Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 20) near.push([theme, atoms[i], atoms[j]]);
+      }
+      eq(near, []);
+      // ink is never pure black on light nor pure white on dark; the paper of the canvas differs from the chrome
+      assert(!["#000000", "#ffffff"].includes(t.ink.toLowerCase()) && t.paper !== t.surface, "calm ink, paper apart from the chrome");
+      // the canvas is painted with the theme's ink
+      await pg.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
+      eq(await pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--d2-ink').trim()"), t.ink);
+      // the focus ring: drawn, in the focus colour, on every surface
+      await pg.focus('[data-testid="d2-select"]'); await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("ArrowUp");
+      const ring = await pg.evaluate("(s => [s.outlineStyle, s.outlineWidth, s.outlineColor])(getComputedStyle(document.activeElement))");
+      assert(ring[0] !== "none" && parseFloat(ring[1]) >= 2, "the focus ring " + ring);
+      assert(contrast(ring[2], t.surface) >= 3, "the focus ring stands out " + ring[2]);
+      await shot(pg, "theme-" + theme);
+    }
+    await pg.evaluate("delete document.documentElement.dataset.theme");
+    await pg.emulateMedia({ colorScheme: "dark" }); eq(await tokens(), sets.dark);
+    await pg.emulateMedia({ colorScheme: "light" }); eq(await tokens(), sets.light);
+    await pg.emulateMedia({ colorScheme: "dark" }); await pg.evaluate("document.documentElement.dataset.theme = 'light'"); eq(await tokens(), sets.light);       // the host's choice wins
+    await pg.evaluate("delete document.documentElement.dataset.theme"); await pg.emulateMedia({ colorScheme: "light" });
+    await pg.focus("#d2-canvas");
   });
 
   await step("mouse: template, undo and redo, atom, bonds, live valence mistake, erase", () => loop(pg, cx, cy, (x, y) => pg.mouse.click(x, y), "desktop"));
@@ -786,4 +837,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 18 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 19 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);

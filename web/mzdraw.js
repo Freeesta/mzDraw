@@ -452,6 +452,8 @@ function events() {
   });
   addEventListener("resize", size);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
+  // a host page may set the theme on the root (data-theme="light|dark"): the canvas is painted again in its colours
+  new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 }
 
 /** adds a structure text, or the bytes of a file, to the drawing and says how it went @param {string | Uint8Array} text */
