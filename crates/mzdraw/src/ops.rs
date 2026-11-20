@@ -46,6 +46,9 @@ pub enum Op {
         id: u32,
         data: Vec<(String, String)>,
     },
+    /// Replaces the annotation kept on an atom (the annotation of its structure: `ann` is the JSON text of a list of entries,
+    /// `ann::canon`); the empty list takes it away.
+    AtomAnn { id: u32, ann: String },
     /// Sets the order and/or the wedge mark of a bond; a new order other than 1 drops the mark. `rev` swaps the two ends (the narrow
     /// end of a wedge moves to the other atom).
     BondSet {
@@ -204,6 +207,11 @@ impl Op {
                     })
                     .collect();
                 w.raw("data", &format!("[{}]", rows.join(",")));
+            }
+            Op::AtomAnn { id: i, ann } => {
+                w.text("op", "atom.ann");
+                w.int("id", i64::from(*i));
+                w.raw("ann", ann);
             }
             Op::BondSet { id: i, o, s, rev } => {
                 w.text("op", "bond.set");
@@ -402,6 +410,10 @@ impl Op {
                     })
                     .collect::<Option<Vec<(String, String)>>>()
                     .ok_or(())?,
+            },
+            "atom.ann" => Op::AtomAnn {
+                id: g.u("id")?.ok_or(())?,
+                ann: (g.0.get("ann").filter(|a| a.is_array()).ok_or(())?).to_string(),
             },
             "bond.set" => Op::BondSet {
                 id: g.u("id")?.ok_or(())?,
@@ -684,6 +696,17 @@ impl Document {
                 inv.push(Inv::SetAtom(self.atoms[i].clone()));
                 self.atoms[i].set_data(data);
                 done.push(op.clone());
+            }
+            Op::AtomAnn { id, ann } => {
+                let Some(i) = self.atom_index(*id) else {
+                    return err("error.draw2.noAtom", *id);
+                };
+                let Some(text) = crate::ann::canon(ann) else {
+                    return err("error.draw2.ann", *id);
+                };
+                inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                self.atoms[i].set_ann(&text);
+                done.push(Op::AtomAnn { id: *id, ann: text });
             }
             Op::BondSet { id, o, s, rev } => {
                 let Some(i) = self.bond_index(*id) else {

@@ -16,6 +16,8 @@ pub struct Piece {
     pub anchor: u32,
     /// The data of the structure (the data fields of an SDF record): the data of its atoms, in pool order.
     pub data: crate::doc::Data,
+    /// The current entry of the annotation of the structure (the annotations of its atoms, in pool order), if it has one.
+    pub ann: Option<crate::ann::Current>,
 }
 
 /// What the keyboard focus is on.
@@ -119,6 +121,13 @@ pub fn pieces(doc: &Document) -> Vec<Piece> {
                 .filter(|&i| root(&mut piece_of, i) == first)
                 .flat_map(|i| doc.atoms[i].data())
                 .collect(),
+            ann: {
+                let ids: Vec<u32> = (0..doc.atoms.len().min(n))
+                    .filter(|&i| root(&mut piece_of, i) == first)
+                    .map(|i| doc.atoms[i].id)
+                    .collect();
+                crate::ann::current(&crate::doc::Atom::ann_of(&doc.atoms, &ids))
+            },
         });
     }
     out

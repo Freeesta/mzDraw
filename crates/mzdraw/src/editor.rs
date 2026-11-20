@@ -452,6 +452,13 @@ impl Editor {
                     data,
                 });
             }
+            let ann = a.ann();
+            if !ann.is_empty() {
+                ops.push(Op::AtomAnn {
+                    id: base + a.id,
+                    ann,
+                });
+            }
         }
         for b in &new.bonds {
             ops.push(Op::BondAdd {
@@ -540,6 +547,51 @@ impl Editor {
         let n = data.len().to_string();
         ops.push(Op::AtomData { id: anchor, data });
         self.run(&ops, "draw2.say.data", &n)
+    }
+
+    /// Annotates the structure the atom `anchor` belongs to, as one undo step: a new entry (`ann::entry`: the level, an
+    /// identifier, the evidence as lines `kind: ref`, a note; decided by the chemist) is added after the entries the structure
+    /// has, and the whole annotation is kept on `anchor`. An empty `level` takes the annotation of the structure away. An entry
+    /// that is not of its shape is refused (`error.draw2.ann` in `error`) and changes nothing.
+    pub fn annotate(
+        &mut self,
+        anchor: u32,
+        level: &str,
+        identifier: &str,
+        evidence: &str,
+        note: &str,
+    ) -> u32 {
+        let piece = crate::layout::pieces(self.doc())
+            .into_iter()
+            .find(|p| p.contains(&anchor))
+            .unwrap_or_default();
+        let held: Vec<(u32, String)> = (self.doc().atoms.iter())
+            .filter(|a| piece.contains(&a.id))
+            .map(|a| (a.id, a.ann()))
+            .filter(|a| !a.1.is_empty())
+            .collect();
+        let level = level.trim();
+        let new = crate::ann::entry(level, identifier, evidence, note, "chemist");
+        let list = if level.is_empty() {
+            "[]".to_string()
+        } else {
+            let old = held.iter().map(|a| a.1.as_str());
+            crate::ann::join(old.chain(new.as_deref()))
+        };
+        // refused: an entry that is not of its shape, a history over its limits, an atom that is none
+        let fine = (level.is_empty() || new.is_some()) && !piece.is_empty();
+        let Some(ann) = crate::ann::canon(&list).filter(|_| fine) else {
+            self.error = "error.draw2.ann";
+            return REPAINT;
+        };
+        let mut ops: Vec<Op> = (held.iter().filter(|a| a.0 != anchor))
+            .map(|a| Op::AtomAnn {
+                id: a.0,
+                ann: "[]".into(),
+            })
+            .collect();
+        ops.push(Op::AtomAnn { id: anchor, ann });
+        self.run(&ops, "draw2.say.ann", level)
     }
 
     /// Sets one setting from its text, `<section>.<key>=<value>` as the `--set` of the CLI writes it. The one section of this

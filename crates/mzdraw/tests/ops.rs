@@ -262,6 +262,22 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             lab: None,
         }],
         4 => vec![set_order(bond_id(r), 1 + r.next(3) as u8)],
+        15 if r.next(3) == 0 => {
+            // an annotation on an atom: set, a history, taken away
+            let levels = ["1", "2a", "2b", "3", "4", "5", "3a"];
+            let entries: Vec<String> = (0..r.next(3))
+                .map(|_| {
+                    format!(
+                        r#"{{"evidence":[{{"kind":"formula"}}],"level":"{}"}}"#,
+                        levels[r.next(7)]
+                    )
+                })
+                .collect();
+            vec![Op::AtomAnn {
+                id: atom(r),
+                ann: format!("[{}]", entries.join(",")),
+            }]
+        }
         15 if r.next(2) == 0 => {
             // data on an atom: set, replaced, taken away
             let fields = ["name", "CAS (synthetic)", "note"];

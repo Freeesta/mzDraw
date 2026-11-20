@@ -437,6 +437,36 @@ impl Painter<'_> {
         }
     }
 
+    /// The level of each annotated structure, as `L` and the level (`L2b`) centred under the structure.
+    fn levels(&mut self) {
+        if self.doc.atoms.iter().all(|a| a.ann().is_empty()) {
+            return;
+        }
+        for ids in crate::layout::pieces(self.doc) {
+            let of: Vec<&Atom> = (self.doc.atoms.iter())
+                .filter(|a| ids.contains(&a.id))
+                .collect();
+            let Some(now) = crate::ann::current(&Atom::ann_of(&self.doc.atoms, &ids)) else {
+                continue;
+            };
+            let (mut x0, mut x1, mut y1) = (f64::MAX, f64::MIN, f64::MIN);
+            for a in of {
+                let (x, y) = self.pos(a);
+                (x0, x1, y1) = (x0.min(x), x1.max(x), y1.max(y));
+            }
+            let f = self.font * 0.8;
+            let y = y1 + self.view.scale * 0.3 + f * 0.9;
+            self.text(
+                (x0 + x1) / 2.0,
+                y,
+                f,
+                colour::INK,
+                &format!("L{}", now.level),
+                0.0,
+            );
+        }
+    }
+
     fn atoms(&mut self) {
         let r = self.font * 0.7;
         for a in &self.doc.atoms {
@@ -477,6 +507,7 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
         p.bond(b);
     }
     p.atoms();
+    p.levels();
     for o in &doc.objects {
         p.object(o);
     }

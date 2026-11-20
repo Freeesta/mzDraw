@@ -72,6 +72,33 @@ function dataFields(outline) {
   }));
 }
 
+/** the annotation of each structure: level, identifier, evidence, note; what is typed is given to the module, which decides @param {any[]} outline */
+function annFields(outline) {
+  const box = $("d2-ann"), active = document.activeElement;
+  if (active && box.contains(active) && active.tagName !== "BUTTON") return;
+  const schema = JSON.parse(ed.ann_schema());
+  $("d2-ann-kinds").textContent = t("draw2.ann.kinds", { list: schema.kinds.join(", ") });
+  box.replaceChildren(...outline.map((s, i) => {
+    const set = document.createElement("fieldset"), legend = document.createElement("legend"), apply = document.createElement("button");
+    const level = document.createElement("select"), id = document.createElement("input"), evidence = document.createElement("textarea"), note = document.createElement("textarea");
+    const a = s.ann || { level: "", known: true, identifier: "", evidence: "", note: "", entries: 0 };
+    legend.textContent = t("draw2.data.piece", { n: i + 1, formula: s.formula });
+    // a level of another scale is kept and shown as it is written
+    for (const l of ["", ...schema.levels, ...(a.known ? [] : [a.level])]) level.append(new Option(l ? t("draw2.ann.level.n", { level: l }) : t("draw2.ann.level.none"), l));
+    level.value = a.level; id.type = "text"; id.value = a.identifier; id.maxLength = 200; evidence.value = a.evidence; note.value = a.note;
+    evidence.rows = 2; note.rows = 1;
+    const field = (/** @type {string} */ key, /** @type {HTMLElement} */ el) => { const l = document.createElement("label"); l.className = "d2-annf"; l.append(t(key), el); return l; };
+    apply.type = "button"; apply.textContent = t("draw2.data.apply");
+    apply.addEventListener("click", () => {
+      const f = after(ed.annotate(s.anchor, level.value, id.value, evidence.value.replace(/\r/g, ""), note.value.replace(/\r/g, ""))), st = JSON.parse(ed.state());
+      $("d2-ann-note").textContent = f & CHANGED ? t(level.value ? "draw2.ann.done" : "draw2.ann.gone", { level: level.value }) : t(st.error || "error.draw2.ann");
+    });
+    const history = document.createElement("p"); history.className = "hint"; history.textContent = a.entries > 1 ? t("draw2.ann.history", { n: a.entries }) : "";
+    set.append(legend, field("draw2.ann.level", level), field("draw2.ann.identifier", id), field("draw2.ann.evidence", evidence), field("draw2.ann.note", note), apply, history);
+    return set;
+  }));
+}
+
 /** the text of one check/1 warning, from the Drawing check catalog @param {any} w */
 function warningText(w) {
   const allowed = (w.allowed || []).join(", ");
@@ -90,11 +117,11 @@ function refresh() {
   }
   $("d2-outline").replaceChildren(...st.outline.map((/** @type {any} */ s, /** @type {number} */ i) => {
     const li = document.createElement("li");
-    li.textContent = t("draw2.outline.piece", { n: i + 1, formula: s.formula, atoms: s.atoms, bonds: s.bonds });
+    li.textContent = t("draw2.outline.piece", { n: i + 1, formula: s.formula, atoms: s.atoms, bonds: s.bonds }) + (s.ann ? " " + t("draw2.outline.level", { level: s.ann.level }) : "");
     return li;
   }));
   if (!st.outline.length) { const li = document.createElement("li"); li.textContent = t("draw2.outline.empty"); $("d2-outline").append(li); }
-  dataFields(st.outline);
+  dataFields(st.outline); annFields(st.outline);
   $("d2-focus").textContent = st.focus ? focusText(st.focus) : "";
   for (const [id, kind] of [["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
     const input = /** @type {HTMLInputElement} */ ($(id)), on = st.tool.startsWith(kind);
