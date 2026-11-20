@@ -122,8 +122,8 @@ fn a_style_gives_the_file_its_true_size_in_points() {
         .unwrap();
     assert_eq!(
         e.svg(),
-        svg::to_svg(e.doc()),
-        "the default style is the default file"
+        svg::carrying(svg::to_svg(e.doc()), e.doc()),
+        "the default style is the default file (the editor saves it with its document inside)"
     );
     let mut widths = Vec::new();
     for (name, bond, line, font, colour) in [

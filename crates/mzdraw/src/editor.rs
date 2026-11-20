@@ -363,12 +363,30 @@ impl Editor {
         self.import_placed(text).map(|r| r.0)
     }
 
+    /// `import` for the bytes of a file: also a PNG saved by mzDraw, which carries its document.
+    pub fn import_bytes(&mut self, bytes: &[u8]) -> Result<io::Imported, &'static str> {
+        let read = io::import_bytes(bytes)?;
+        self.add_read(read).map(|r| r.0)
+    }
+
+    /// The PNG of the drawing in the editor's style, for the surface that has a rasteriser (`png::plan`).
+    pub fn png_plan(&self) -> crate::png::Plan {
+        crate::png::plan(self.doc(), &self.style)
+    }
+
     /// `import`, also giving the ids of what was added.
     pub(crate) fn import_placed(
         &mut self,
         text: &str,
     ) -> Result<(io::Imported, Placed), &'static str> {
-        let (new, info) = io::import(text)?;
+        let read = io::import(text)?;
+        self.add_read(read)
+    }
+
+    fn add_read(
+        &mut self,
+        (new, info): (Document, io::Imported),
+    ) -> Result<(io::Imported, Placed), &'static str> {
         let right = self.doc().bounds().map(|b| b.2);
         let left = new.bounds().map(|b| b.0);
         let dx = match (right, left) {
@@ -475,9 +493,12 @@ impl Editor {
         Ok(REPAINT)
     }
 
-    /// The drawing as an SVG in the editor's style.
+    /// The drawing as an SVG in the editor's style, carrying its document (`svg::carrying`).
     pub fn svg(&self) -> String {
-        crate::svg::to_svg_styled(self.doc(), &self.style)
+        crate::svg::carrying(
+            crate::svg::to_svg_styled(self.doc(), &self.style),
+            self.doc(),
+        )
     }
 
     /// Marks the atoms a check flagged (ids), replacing the previous marks.

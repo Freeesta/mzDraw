@@ -160,8 +160,14 @@ pub fn fit(w: f64, h: f64) -> u32 {
 /// notes being what the page has to say about the import, as `[i18n key, count]` pairs.
 #[wasm_bindgen]
 pub fn add(text: &str) -> Result<String, JsValue> {
+    add_bytes(text.as_bytes())
+}
+
+/// `add` for the bytes of a file: a text as above, or a PNG saved by mzDraw (it carries its document).
+#[wasm_bindgen]
+pub fn add_bytes(bytes: &[u8]) -> Result<String, JsValue> {
     with(|p| {
-        let info = p.editor.import(text).map_err(js_err)?;
+        let info = p.editor.import_bytes(bytes).map_err(js_err)?;
         recheck(p);
         let notes: Vec<String> = (info.notes().iter())
             .map(|(key, n)| format!("[\"{key}\",{n}]"))
@@ -201,6 +207,26 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| p.editor.save(kind).map_err(js_err))
+}
+
+/// What the page draws to save a PNG: `{"svg", "width", "height", "paper"}` (pixels; the SVG is rasterised on a canvas of that
+/// size filled with the paper colour). The bytes of the canvas then go through `png_finish`.
+#[wasm_bindgen]
+pub fn png_plan() -> Result<String, JsValue> {
+    with(|p| {
+        let plan = p.editor.png_plan();
+        Ok(serde_json::json!({ "svg": plan.svg, "width": plan.width, "height": plan.height, "paper": plan.paper }).to_string())
+    })
+}
+
+/// The PNG the page drew, with the document inside (it opens again as a drawing) and its resolution.
+#[wasm_bindgen]
+pub fn png_finish(png: &[u8]) -> Result<Vec<u8>, JsValue> {
+    with(|p| {
+        let e = &p.editor;
+        mzdraw::png::finish(png, e.doc(), e.png_plan().density)
+            .ok_or_else(|| js_err("error.draw2.pngPlain"))
+    })
 }
 
 /// The names of the built-in drawing styles.

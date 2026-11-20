@@ -17,7 +17,7 @@ pub(crate) const R_STAND_IN: &str = "He";
 /// What an import read, and what it could not keep (the page says so: nothing is dropped in silence).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Imported {
-    /// `mzdraw`, `molfile` or `smiles`.
+    /// `mzdraw`, `svg` or `png` (a picture carrying its document), `molfile` or `smiles`.
     pub format: &'static str,
     /// The positions are placeholders (the text had no coordinates).
     pub placeholder: bool,
@@ -376,6 +376,19 @@ pub fn saved_summary(text: &str) -> Option<(usize, usize, usize)> {
     (!d.is_empty()).then_some((d.atoms.len(), d.bonds.len(), d.objects.len()))
 }
 
+/// `import` for the bytes of a file: a PNG saved by mzDraw gives the document it carries, anything else is read as text.
+pub fn import_bytes(bytes: &[u8]) -> Result<(Document, Imported), &'static str> {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
+        let d = crate::png::carried(bytes).ok_or("error.draw2.pngPlain")??;
+        let info = Imported {
+            format: "png",
+            ..Imported::default()
+        };
+        return Ok((d, info));
+    }
+    import(std::str::from_utf8(bytes).map_err(|_| "error.draw2.import")?)
+}
+
 /// Reads a structure text: an `mzdraw/1` document, a molfile or an SDF (V2000/V3000; every record, side by side) or SMILES (one
 /// per line). The error is an i18n key.
 pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
@@ -384,6 +397,12 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     if t.starts_with('{') {
         info.format = "mzdraw";
         return Ok((Document::from_json(t)?, info));
+    }
+    if t.starts_with('<') {
+        // an SVG written by mzDraw carries its document; a picture of another program has no structure to read
+        info.format = "svg";
+        let d = crate::svg::carried(t).ok_or("error.draw2.svgPlain")??;
+        return Ok((d, info));
     }
     if text.contains("M  END") {
         info.format = "molfile";

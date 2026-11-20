@@ -30,6 +30,35 @@ fn escape(s: &str) -> String {
         .replace('>', "&gt;")
 }
 
+/// Where an SVG written by mzDraw carries its document.
+const CARRIED: (&str, &str) = ("<metadata id=\"mzdraw\">", "</metadata>");
+
+/// The SVG with its document inside (`mzdraw/1` as the text of a `metadata` element, after the opening tag): the picture can be
+/// opened again and edited. A viewer does not show the element.
+pub fn carrying(svg: String, doc: &Document) -> String {
+    let Some(at) = svg.find('\n').filter(|_| !doc.is_empty()) else {
+        return svg;
+    };
+    let (head, body) = svg.split_at(at + 1);
+    format!(
+        "{head}{}{}{}\n{body}",
+        CARRIED.0,
+        escape(&doc.to_json()),
+        CARRIED.1
+    )
+}
+
+/// The document an SVG carries: `None` when it carries none (an SVG of another program), else the document or the key of what is
+/// wrong with it.
+pub fn carried(svg: &str) -> Option<Result<Document, &'static str>> {
+    let from = svg.find(CARRIED.0)? + CARRIED.0.len();
+    let to = from + svg[from..].find(CARRIED.1)?;
+    let json = (svg[from..to].replace("&lt;", "<"))
+        .replace("&gt;", ">")
+        .replace("&amp;", "&");
+    Some(Document::from_json(&json))
+}
+
 /// The whole document as an SVG of its own size in the default style (an empty document gives an empty 1x1 drawing).
 pub fn to_svg(doc: &Document) -> String {
     to_svg_styled(doc, &Style::default())
@@ -38,8 +67,14 @@ pub fn to_svg(doc: &Document) -> String {
 /// The whole document as an SVG in a style. One unit of the drawing is one point and the size is written in points, so the file
 /// prints at the true size of the style (a bond of `acs-1996` is 14.4 pt long on paper).
 pub fn to_svg_styled(doc: &Document, style: &Style) -> String {
+    drawn(doc, style).0
+}
+
+/// `to_svg_styled` with the width and the height of the drawing in points.
+pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
     let Some((x0, y0, mut x1, y1)) = doc.bounds() else {
-        return "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"></svg>\n".into();
+        let empty = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"></svg>\n";
+        return (empty.into(), 1.0, 1.0);
     };
     let scale = style.bond_length;
     let m = style.metrics(scale, false);
@@ -56,6 +91,8 @@ pub fn to_svg_styled(doc: &Document, style: &Style) -> String {
     };
     let (w, h) = ((x1 - x0) * scale + 2.0 * pad, (y1 - y0) * scale + 2.0 * pad);
     let sc = scene::build(doc, view, &Overlay::default(), m);
+    // the size as the file states it (two decimals)
+    let size = ((w * 100.0).round() / 100.0, (h * 100.0).round() / 100.0);
     let (w, h) = (num(w as f32), num(h as f32));
     let mut s = format!(
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}pt\" height=\"{h}pt\" viewBox=\"0 0 {w} {h}\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\">\n"
@@ -96,5 +133,5 @@ pub fn to_svg_styled(doc: &Document, style: &Style) -> String {
         }
     }
     s.push_str("</svg>\n");
-    s
+    (s, size.0, size.1)
 }
