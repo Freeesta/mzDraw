@@ -25,7 +25,7 @@ What none of them does well: a calm look in a dark theme, the key in every toolt
   - bond kinds and wedges; rings of 3 to 8 atoms and benzene; S P F Cl Br I H and any element;
   - charge + and −, and the abbreviation or R-group label; arrow, plus, text;
   - cut, copy, paste, duplicate, rotate, flip, select all; zoom in, zoom out, fit;
-  - the 11 save formats.
+  - the 12 save formats: the 11 that `Editor::save` writes, and PNG, which the page rasterises from the SVG.
 - **TERTIARY** (the side groups, one toggle away): add a structure by text, style and the settings file, data of the structures, annotation, what is drawn and the check, keyboard help, clear all.
 
 A collapsed palette shows only its head. The head shows the kind last used from it, so using it again takes one click; a click on the head of the tool in use opens the rest.
@@ -47,17 +47,17 @@ A collapsed palette shows only its head. The head shows the kind last used from 
 | ring of 3 to 8 atoms | S | — (button) | `R`, then `3`-`8` | `ring:3` ... `ring:8` | same |
 | carbon, nitrogen, oxygen | P | `C`, `N`, `O` | | `atom:C` ... | `atom.add`, or `atom.set` with `el` |
 | S P F H B I; Cl, Br, Si | S | the letter; `Shift+C`, `Shift+B`, `Shift+S` | | `atom:S` ... | same |
-| any element | S | — (type the symbol) | `Shift+E` | `atom:<symbol>` | same |
+| any element | S | — (type the symbol) | `X` | `atom:<symbol>` | same |
 | charge + / − | S | `+`, `-` | | `charge:+`, `charge:-` | `atom.set` with `chg` |
 | abbreviation or R group | S | `L` | | `label:<name>` | `atom.set` with `lab` |
 | arrow | S | `Shift+A` | | `arrow` | `obj.add` |
-| plus sign | S | — (button) | `Shift+P` | `plus` | `obj.add` |
+| plus sign | S | — (button) | `K` | `plus` | `obj.add` |
 | text | S | `T` | | `text:<line>` | `obj.add`, `obj.set` |
 | undo, redo | P | `Ctrl+Z`; `Ctrl+Y`, `Ctrl+Shift+Z` | | `undo`, `redo` | none: the log holds only the ops still applied |
 | cut, copy, paste | S | `Ctrl+X`, `Ctrl+C`, `Ctrl+V` | | `cut`, `copy`, `paste` | `remove` (cut); `atom.add`, `bond.add`, `obj.add` (paste) |
 | duplicate | S | `Ctrl+D` | | `duplicate` | as paste |
 | rotate 15° left or right | S | — (button) | `[`, `]` | `rotate-l`, `rotate-r` | `rotate` |
-| flip ↔ / ↕ | S | — (button) | `Alt+H`, `Alt+V` | `flip-h`, `flip-v` | `flip` |
+| flip ↔ / ↕ | S | — (button) | `Alt+H`, `Alt+V` (once `key` reads Alt first) | `flip-h`, `flip-v` | `flip` |
 | select all | S | `Ctrl+A` | | `all` | none |
 | zoom in, out, fit | S | — (wheel, pinch, buttons) | `Ctrl+=`, `Ctrl+-`, `Ctrl+0` | `ed.zoom`, `ed.fit` | none (view) |
 | open a file | P | — (button, drop) | `Ctrl+O` | `ed.add_bytes` | replay request `import` |
@@ -72,6 +72,8 @@ A collapsed palette shows only its head. The head shows the kind last used from 
 | keyboard walk, grow, set | — | arrows, `Home`, `PgUp`, `PgDn`, `Enter`, `Shift+Enter`, `Space` | | `ed.key` | `atom.add`, `bond.add`, `atom.set`, `bond.set` |
 
 Every button has a twin in the log, in the replay request or in the settings file.
+
+A planned key must be free in `Editor::key` (`editor_tools.rs`, `key` and `element_key`), which lowercases the key and reads Shift only with `W`, `A`, `C`, `B` and `S`. So `Shift+E` is erase and `Shift+P` is phosphorus today, and neither is planned: `X` and `K` are bound to nothing, with or without Shift. Alt is not read yet, so `Alt+H` and `Alt+V` would set hydrogen and pick select until the slice that binds them makes `key` handle Alt before the letters.
 
 ## 4. Palettes
 Every group of actions is a small palette with a drag handle (44 px on touch). The user drags a palette anywhere over the page, docks it on any of the four edges, collapses it to its head, or closes it. The Palettes menu of the File palette reopens a closed palette, and its Reset layout entry brings back the default below.
@@ -89,7 +91,7 @@ Every group of actions is a small palette with a drag handle (44 px on touch). T
 | `atoms` | C N O shown; S P F Cl Br I H B Si and any element in the flyout | elements | left, 4, C N O + head |
 | `charges` | +, −, the label field | charge-plus | left, 5, collapsed |
 | `objects` | arrow, plus, the text field | arrow | left, 6, collapsed |
-| `file` | open, save (default format), the 11 formats, new, the Palettes menu | open | top, 1 |
+| `file` | open, save (default format), the 12 formats, new, the Palettes menu | open | top, 1 |
 | `history` | undo, redo | undo | top, 2 |
 | `edit` | cut, copy, paste, duplicate, select all, rotate, flip | more | top, 3, collapsed |
 | `view` | zoom out, zoom in, fit | fit | top, 4 (end) |
@@ -100,7 +102,7 @@ Presets, chosen by Rust from the width of the viewport:
 - **tablet** (600 to 899 px): the same docks, with the right-hand side groups hidden behind the panel button and opened as a drawer.
 - **phone** (below 600 px): the left palettes dock at the top as a second row, and the side groups are hidden.
 
-At 1280×720 the left column holds 10 items × 44 px plus 3 separators = 467 px, below the 668 px left by the top row; at 768×1024 it fits with room to spare.
+Sizes: an item is 44 × 44 px and every palette has 4 px of padding on each side, inside the size the page measures; Rust stacks the palettes flush, so a separator between two neighbours is 8 px (the padding of both). At 1280×720 the left column holds 6 palettes with 10 items (tools 2, bonds 1, rings 1, atoms 4, charges 1, objects 1): 10 × 44 + 5 separators × 8 + 4 + 4 at its two ends = 488 px. The top row is one item high, 44 + 4 + 4 = 52 px, which leaves 720 − 52 = 668 px for the column. At 768×1024 the column has 1024 − 52 = 972 px.
 
 ## 5. Layout and export in the settings file (decided in Rust: slice R1)
 `mzdraw-settings/1` gains two optional objects. A version that does not know them keeps them, as it keeps every unknown key.
@@ -110,9 +112,9 @@ At 1280×720 the left column holds 10 items × 44 px plus 3 separators = 467 px,
   - Unknown ids are kept, and missing ids take the preset's place.
 - `export`: `{"default": "svg", "background": "white"}`.
   - One click on Save writes the default: an image of the canvas on a white background, with the document embedded (the format awaits the architect's confirmation).
-  - The other 10 formats stay in the flyout.
+  - The other 11 formats stay in the flyout.
 
-The page sends the measured size of each palette and the pointer or key events on a handle. Rust answers with the rectangle, dock, orientation and order of every palette; it handles snapping, clamping, ordering, the presets and the reset. The page paints that answer and decides nothing. The CLI twin is `--set layout=...` / `--set export.default=png`, with no `draw_edit/1` op. Property tests cover the layout: every palette stays inside the viewport, a reset restores the preset, and the layout survives a round trip through the settings text.
+The page sends the measured size of each palette and the pointer or key events on a handle. Rust answers with the rectangle, dock, orientation and order of every palette; it handles snapping, clamping, ordering, the presets and the reset. The page paints that answer and decides nothing. The CLI twin is `--set layout=<object>` or `--set layout.snap=12`, and `--set export.default=svg --set export.background=white` (the default, written out), with no `draw_edit/1` op. Property tests cover the layout: every palette stays inside the viewport, a reset restores the preset, and the layout survives a round trip through the settings text.
 
 ## 6. Icons (24×24 grid, 1.5 px stroke, round caps and joins, `currentColor`; 2 px of padding)
 | name | drawn as |

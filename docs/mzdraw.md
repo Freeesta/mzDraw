@@ -125,10 +125,11 @@ R = read, W = write. "Slice" is when it lands; "who" names the code that owns it
 Every reader returns an import report (`{read, lost: [{what, count}]}`) shown after opening: the user sees what did not come through.
 
 ## Customisation: one settings file `mzdraw-settings/1`
-One JSON file shared by the editor, the page and the CLI (`mol draw --set style=FILE|NAME`): `{format, style, templates, shortcuts}`.
+One JSON file shared by the editor, the page and the CLI (`mol draw --set style=FILE|NAME`): `{format, style, templates, shortcuts, layout, export}`.
 - `style`: bond length (pt), line width, bold width, hash spacing, double-bond gap, margin around labels, font family and size, subscript scale, atom colours (per element or all black), background, label placement (auto/left/right), explicit-H policy, terminal-carbon labels, aromatic rings as circles or alternating bonds.
 - Built-in presets: `mzlab` (screen default), `journal-1996` (the ACS Document 1996 numbers: bond length 14.4 pt, line width 0.6 pt, bold width 2 pt, hash spacing 2.5 pt, double-bond gap 18 % of the bond length, Arial/Helvetica 10 pt, fixed length), `slides` (thick lines, large labels), `dark`. A preset is a settings file like any other; the numbers are public journal guidelines, no resource of another program is copied (`drawing-menu.md`).
-- `templates`: named `mzdraw/1` fragments with an attachment atom or bond (rings 3-8, benzene, chair, common protecting groups); `shortcuts`: key to command. The file is validated by a JSON schema generated from the Rust types.
+- `templates`: named `mzdraw/1` fragments with an attachment atom or bond (rings 3-8, benzene, chair, common protecting groups); `shortcuts`: key to command.
+- `layout` (the palettes: preset, snap distance, the palettes that differ from the preset) and `export` (`default` format of Save, `background` `white` or `none`): `docs/mzdraw-ui.md` §5. The file is validated by a JSON schema generated from the Rust types.
 
 ## CLI integration (`mzlab-cli mol draw`, with D1-D3)
 - Whatever the editor produces, the CLI produces with the same Rust functions and the same bytes: `mol draw IN|- --set format=svg|png|pdf|molfile|ket|cdxml|mzdraw --set style=... --set edit=LOG`, `--json` with stable keys, exit codes per `cli-agenti.md`, data on stdout, progress on stderr, `--dry-run` = parse + check without output. Batch: several inputs or a stream on stdin (one SMILES or one JSON document per line, one result per line), no browser anywhere in the path.
