@@ -17,7 +17,7 @@ pub(crate) const R_STAND_IN: &str = "He";
 /// What an import read, and what it could not keep (the page says so: nothing is dropped in silence).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Imported {
-    /// `mzdraw`, `svg` or `png` (a picture carrying its document), `molfile` or `smiles`.
+    /// `mzdraw`, `svg` or `png` (a picture carrying its document), `ket`, `molfile` or `smiles`.
     pub format: &'static str,
     /// The positions are placeholders (the text had no coordinates).
     pub placeholder: bool,
@@ -31,6 +31,8 @@ pub struct Imported {
     pub query_bonds: usize,
     /// S-groups, not read.
     pub sgroups: usize,
+    /// Things of a file mzDraw does not draw (shapes, images, R-group definitions ...), left out.
+    pub other: usize,
     /// Enhanced-stereo groups "and" / "or": the centres are drawn with their wedges, the grouping is not kept.
     pub stereo_groups: usize,
 }
@@ -49,6 +51,7 @@ impl Imported {
             ("draw2.import.queryBonds", self.query_bonds),
             ("draw2.import.sgroups", self.sgroups),
             ("draw2.import.stereoGroups", self.stereo_groups),
+            ("draw2.import.other", self.other),
         ]
         .into_iter()
         .filter(|n| n.1 > 0)
@@ -395,6 +398,13 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     let t = text.trim();
     let mut info = Imported::default();
     if t.starts_with('{') {
+        // a JSON text with a `root` and no `format` is a KET file
+        let ket = serde_json::from_str::<serde_json::Value>(t).ok();
+        if let Some(v) = ket.filter(|v| v["root"].is_object() && v.get("format").is_none()) {
+            info.format = "ket";
+            let d = crate::ket::from_ket(&v, &mut info)?;
+            return checked(d, info, "error.draw2.ket");
+        }
         info.format = "mzdraw";
         return Ok((Document::from_json(t)?, info));
     }
@@ -419,12 +429,7 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
             info.records += 1;
             all.append(d);
         }
-        // a file may hold what a document does not (a coordinate far outside the bound): it is refused, not half kept
-        return if all.consistent() {
-            Ok((all, info))
-        } else {
-            Err("error.draw2.molfile")
-        };
+        return checked(all, info, "error.draw2.molfile");
     }
     if t.is_empty() {
         return Err("error.draw2.import");
@@ -449,9 +454,26 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     Ok((d, info))
 }
 
+/// A file may hold what a document does not (a coordinate far outside the bound): it is refused with `key`, not half kept.
+fn checked(
+    d: Document,
+    info: Imported,
+    key: &'static str,
+) -> Result<(Document, Imported), &'static str> {
+    if d.consistent() {
+        Ok((d, info))
+    } else {
+        Err(key)
+    }
+}
+
 /// The drawing of a record whose atoms `labels` (index, label) are stand-ins of R groups: they get their label back. What the
 /// drawing does not keep of the record is counted in `info`.
-fn labelled(m: &Mol, labels: Vec<(usize, String)>, info: &mut Imported) -> (Document, bool) {
+pub(crate) fn labelled(
+    m: &Mol,
+    labels: Vec<(usize, String)>,
+    info: &mut Imported,
+) -> (Document, bool) {
     let grouped = |g: &&mzlab_mol::StereoGroup| g.kind != mzlab_mol::GroupKind::Abs;
     info.stereo_groups += m.groups.iter().filter(grouped).count();
     let (mut d, placeholder) = Document::from_mol(m);
