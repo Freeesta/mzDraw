@@ -304,6 +304,12 @@ try {
     const bare = await bondStart('"el":"O"'), anion = await bondStart('"el":"O","chg":-1');
     assert(anion.size > 0 && anion.line >= anion.minus + anion.size * 0.5, `the bond starts after the minus sign: ${JSON.stringify(anion)}`);
     assert(anion.line > bare.line + 1, "and later than without a charge");
+    // the NH between two bonds (the bottom of a ring) has its H under the N; a Cl keeps its bond clear of both letters
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", '{"format":"mzdraw/1","next":8,"atoms":[{"id":1,"el":"N","x":0.0,"y":0.0},{"id":2,"el":"C","x":-0.866,"y":0.5},{"id":3,"el":"C","x":0.866,"y":0.5},{"id":4,"el":"Cl","x":1.732,"y":0.0}],"bonds":[{"id":5,"a":1,"b":2,"o":1},{"id":6,"a":1,"b":3,"o":1},{"id":7,"a":3,"b":4,"o":1}]}'); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3 });
+    const placed = await pg.evaluate("(() => { const d = window.MZDRAW.scene(), s = window.MZDRAW.strings(), out = {}; let far = 0; for (let i = 0; i < d.length;) { if (d[i] === 1) far = Math.max(far, d[i + 1], d[i + 3]); if (d[i] === 2) out[s[d[i + 5]]] = [d[i + 1], d[i + 2], d[i + 3]]; i += d[i] === 1 || d[i] === 2 ? 7 : d[i] === 3 ? 6 : d[i] === 6 ? 8 : 5; } out.far = far; return out; })()");
+    assert(placed.H[1] > placed.N[1] + placed.N[2] * 0.6 && Math.abs(placed.H[0] + placed.H[2] * 0.35 - placed.N[0]) < 1, `the H stands under the N: ${JSON.stringify(placed)}`);
+    assert(placed.far <= placed.Cl[0] - placed.Cl[2] * 0.45, `the bond stops before the Cl: ${JSON.stringify(placed)}`);
     await shot(pg, "crowding");
     // a reaction file: read with its roles (reactant, arrow, product), saved again; a drawing without an arrow is refused in words
     await tool(pg, "clear"); await want(pg, { atoms: 0 });

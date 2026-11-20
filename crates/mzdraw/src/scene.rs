@@ -125,8 +125,21 @@ struct Parts {
     hw: f64,
     /// Whether the hydrogens stand on the left.
     left: bool,
+    /// Where the hydrogens stand when bonds leave on both sides: 1 under the symbol, -1 over it, 0 beside it.
+    stack: f64,
     /// The charge and the radical dots.
     mark: String,
+}
+
+impl Parts {
+    /// The width of the hydrogens when they stand beside the symbol.
+    fn side(&self) -> f64 {
+        if self.stack == 0.0 {
+            self.hw
+        } else {
+            0.0
+        }
+    }
 }
 
 struct Painter<'a> {
@@ -194,6 +207,11 @@ impl Painter<'_> {
         let (nx, ny) = (-uy * off, ux * off);
         let shift = |p: (f64, f64), k: f64| (p.0 + nx * k, p.1 + ny * k);
         if b.s != 0 {
+            if lq && b.s != crate::doc::WEDGE_WAVY {
+                // the wide end of a wedge needs more room in front of a label than a line does
+                let more = (self.m.wedge * 0.5).min(len * 0.1);
+                e = (e.0 - ux * more, e.1 - uy * more);
+            }
             return self.wedge(b.s, s, e, w);
         }
         match b.o {
@@ -353,19 +371,22 @@ impl Painter<'_> {
         }
         if p.h > 0 {
             // on the left the hydrogens stand before the mass number: H3 13C
-            let hx = if p.left {
+            let hx = if p.stack != 0.0 {
+                x - width("H", f) / 2.0
+            } else if p.left {
                 x - half - p.iso - p.hw
             } else {
                 x + half
             };
-            self.text(hx, y, f, c, "H", 1.0);
+            let hy = y + p.stack * f * 0.95;
+            self.text(hx, hy, f, c, "H", 1.0);
             if p.h > 1 {
                 let count = p.h.to_string();
-                self.text(hx + width("H", f), y + f * 0.3, small, c, &count, 1.0);
+                self.text(hx + width("H", f), hy + f * 0.3, small, c, &count, 1.0);
             }
         }
         if !p.mark.is_empty() {
-            let right = x + half + if p.left { 0.0 } else { p.hw };
+            let right = x + half + if p.left { 0.0 } else { p.side() };
             self.text(right, y - f * 0.35, small, c, &p.mark, 1.0);
         }
     }
@@ -374,14 +395,22 @@ impl Painter<'_> {
     fn parts(&self, a: &Atom) -> Parts {
         let (f, small) = (self.font, self.m.small);
         let h = self.doc.hydrogens(a);
-        // hydrogens go left when the bonds leave to the right
-        let lean: f64 = self
-            .doc
-            .neighbours(a.id)
-            .iter()
-            .filter_map(|&n| self.doc.atom(n))
-            .map(|n| n.x - a.x)
-            .sum();
+        // hydrogens go left when the bonds leave to the right; with bonds on both sides they go under the symbol, or over it
+        // when the bonds leave downwards
+        let (mut lean, mut rise, mut sides) = (0.0, 0.0, [false; 2]);
+        for n in (self.doc.neighbours(a.id).iter()).filter_map(|&n| self.doc.atom(n)) {
+            let (dx, dy) = (n.x - a.x, n.y - a.y);
+            lean += dx;
+            rise += dy;
+            if dx.abs() > 0.3 * m::hypot(dx, dy) {
+                sides[usize::from(dx > 0.0)] = true;
+            }
+        }
+        let stack = match (h > 0 && sides == [true; 2], rise < -0.01) {
+            (false, _) => 0.0,
+            (true, false) => 1.0,
+            (true, true) => -1.0,
+        };
         let count = if h > 1 { h.to_string() } else { String::new() };
         let mut mark = String::new();
         if a.chg != 0 {
@@ -404,7 +433,8 @@ impl Painter<'_> {
             } else {
                 0.0
             },
-            left: lean > 0.01,
+            left: stack == 0.0 && lean > 0.01,
+            stack,
             mark,
         }
     }
@@ -417,16 +447,17 @@ impl Painter<'_> {
         }
         let p = self.parts(a);
         let marks = width(&p.mark, self.m.small);
+        let (hw, beside) = (p.side(), p.h > 0 && p.stack == 0.0);
         let (reach, raised) = match (ux > 0.0, p.left) {
             (true, true) => (marks, true),
-            (true, false) => (p.hw + marks, p.h == 0),
-            (false, true) => (p.iso + p.hw, p.h == 0),
+            (true, false) => (hw + marks, !beside),
+            (false, true) => (p.iso + hw, !beside),
             (false, false) => (p.iso, true),
         };
+        // a symbol of two letters is wider than the gap of the style allows for
+        let wide = (p.half - self.font * 0.35).max(0.0);
         // a raised part (charge, mass number) is cleared by a bond that goes down; the row of the text by one steep enough
-        if raised && uy > 0.3 {
-            return 0.0;
-        }
+        let reach = wide + if raised && uy > 0.3 { 0.0 } else { reach };
         let row = self.font * 0.6 / uy.abs().max(1e-6) - p.half;
         (reach / ux.abs()).min(row.max(0.0))
     }
