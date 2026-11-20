@@ -199,11 +199,32 @@ pub fn save(kind: &str) -> Result<String, JsValue> {
         Ok(match kind {
             "mzdraw" => e.doc().to_json(),
             "molfile" => e.doc().to_molfile(),
-            "svg" => mzdraw::svg::to_svg(e.doc()),
+            "svg" => e.svg(),
             "log" => e.session.log_json(),
             _ => return Err(js_err("error.draw2.request")),
         })
     })
+}
+
+/// The names of the built-in drawing styles.
+#[wasm_bindgen]
+pub fn styles() -> Vec<String> {
+    mzdraw::settings::PRESETS
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// Sets the drawing style of the screen and of the saved SVG: a preset name or the text of a settings file `mzdraw-settings/1`.
+#[wasm_bindgen]
+pub fn set_style(text: &str) -> Result<u32, JsValue> {
+    with(|p| p.editor.set_style(text).map_err(js_err))
+}
+
+/// The current style as a settings file.
+#[wasm_bindgen]
+pub fn style() -> String {
+    with(|p| p.editor.style.to_json())
 }
 
 /// The labels the label tool takes: the abbreviations of the table, then `R` and `R1` ... `R9` (up to `R32` can be typed).
@@ -237,6 +258,7 @@ pub fn state() -> String {
         let check: serde_json::Value = serde_json::from_str(&p.check).unwrap_or_default();
         serde_json::json!({
             "tool": e.tool.name(),
+            "style": e.style.name,
             "atoms": e.doc().atoms.len(),
             "bonds": e.doc().bonds.len(),
             "undo": e.session.can_undo(),

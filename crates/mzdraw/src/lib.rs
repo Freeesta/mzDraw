@@ -14,11 +14,13 @@ mod m;
 pub mod ops;
 pub mod replay;
 pub mod scene;
+pub mod settings;
 pub mod svg;
 
 pub use doc::{Atom, Bond, Document, Obj, ObjKind, FORMAT};
 pub use editor::Editor;
 pub use ops::{Axis, Op, OpError, Session};
+pub use settings::Style;
 
 /// The product name, kept here only (the page shows the i18n key `draw2.name`).
 pub const NAME: &str = "mzDraw";

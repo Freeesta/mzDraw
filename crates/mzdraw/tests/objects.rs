@@ -168,6 +168,8 @@ fn a_reaction_is_drawn_with_the_tools_and_painted() {
         .split('"')
         .next()
         .unwrap()
+        .strip_suffix("pt")
+        .expect("the size of the file is written in points")
         .parse()
         .unwrap();
     let text_x: f64 = out

@@ -85,7 +85,7 @@ try {
   let { ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
 
   await step("the page loads the module and starts empty on the single-bond tool", async () => {
-    eq(await state(pg), { atoms: 0, bonds: 0, objects: 0, tool: "bond:1", warnings: 0, selected: 0 });
+    eq(await state(pg), { atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
     eq(await pg.evaluate("window.MZDRAW.version()"), "mzdraw/1");
     eq(await pg.innerText("#d2-summary"), await pg.evaluate("I18N.t('draw.check.empty')"));
     assert(await pg.locator("#d2-tools button").count() >= 26, "the toolbar");
@@ -272,6 +272,38 @@ try {
     eq((await state(pg)).tool, "erase");                    // an empty text picks nothing
     await tool(pg, "undo"); await want(pg, { objects: 4 });
   });
+
+  await step("style: a preset changes the screen and the saved SVG, in points, and not the document", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0, style: "mzlab" });
+    await pg.fill("#d2-text", "C[C@H](N)C(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 6 });
+    eq(await pg.locator("#d2-style option").allInnerTexts(), await pg.evaluate("window.MZDRAW.styles().map(n => I18N.t('draw2.style.' + n))"));
+    const doc = await pg.evaluate("window.MZDRAW.save('mzdraw')"), plain = await pg.evaluate("window.MZDRAW.save('svg')");
+    const ink = () => pg.evaluate("(() => { const c = document.querySelector('#d2-canvas'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })()");
+    // the width of the first line of the display list, in pixels, and the size of its first text
+    const lineWidth = () => pg.evaluate("window.MZDRAW.scene()[5]");
+    const fontSize = () => pg.evaluate("(() => { const d = window.MZDRAW.scene(); for (let i = 0; i < d.length;) { if (d[i] === 2) return d[i + 3]; i += d[i] === 1 || d[i] === 2 ? 7 : d[i] === 3 ? 6 : d[i] === 6 ? 8 : 5; } return 0; })()");
+    const before = { ink: await ink(), line: await lineWidth(), font: await fontSize() };
+    assert(plain.includes('stroke-width="1.35"') && /width="[0-9.]+pt"/.test(plain), "the default file: lines of 1.35 pt, a size in points");
+    await pg.selectOption("#d2-style", "acs-1996"); await want(pg, { style: "acs-1996", atoms: 6 });
+    eq(await pg.innerText("#d2-style-note"), await pg.evaluate("I18N.t('draw2.style.acs-1996.note')"));
+    const acs = await pg.evaluate("window.MZDRAW.save('svg')");
+    assert(acs.includes('stroke-width="0.6"') && acs.includes('font-size="10"') && !acs.includes("#2040c0"), "ACS 1996: 0.6 pt lines, 10 pt labels, black only");
+    // on the screen at the same zoom: ACS lines are thinner and its labels larger relative to the bond, and the canvas is repainted
+    const now = { ink: await ink(), line: await lineWidth(), font: await fontSize() };
+    assert(now.line < before.line && now.line >= 1, `thinner lines on the screen too: ${now.line} < ${before.line}`);
+    assert(now.font > before.font, `larger labels relative to the bond: ${now.font} > ${before.font}`);
+    assert(now.ink !== before.ink && now.ink > 200, "the canvas is repainted in the style");
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), doc);       // the style is not in the document
+    assert(await pg.isDisabled('[data-testid="d2-redo"]') && JSON.parse(await pg.evaluate("window.MZDRAW.style()")).style.preset === "acs-1996", "a style is no undo step; it reads back as a settings file");
+    await shot(pg, "style-acs");
+    const [d] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-svg")]);
+    eq(readFileSync(await d.path(), "utf8"), acs);          // the saved file is in the chosen style
+    await pg.focus("#d2-style"); await pg.keyboard.press("ArrowDown"); await want(pg, { style: "slides" });       // by keyboard
+    await pg.selectOption("#d2-style", "mzlab"); await want(pg, { style: "mzlab" });
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), plain);
+    assert(await pg.evaluate("(() => { try { window.MZDRAW.set_style('nope'); return false; } catch (e) { return JSON.parse(String(e)).error_key === 'error.draw2.style'; } })()"), "a style that is none is refused with its key");
+    eq((await state(pg)).style, "mzlab");
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
@@ -285,7 +317,7 @@ try {
     await until(pg, "Number(document.documentElement.dataset.d2Saved || 0) >= 1");       // one second after the last change
     const doc = await pg.evaluate("window.MZDRAW.save('mzdraw')");
     await pg.reload(); await ready();
-    eq(await state(pg), { atoms: 0, bonds: 0, objects: 0, tool: "bond:1", warnings: 0, selected: 0 });
+    eq(await state(pg), { atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
     assert(await pg.isVisible("#d2-restore"), "the saved drawing is offered");
     eq(await pg.innerText("#d2-restore-text"), await pg.evaluate("I18N.t('draw2.restore.found.objects', { atoms: 6, bonds: 5, objects: 1 })"));
     // while the offer waits nothing is written: a stray drawing does not replace the saved one
@@ -338,4 +370,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 12 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 13 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
