@@ -83,6 +83,12 @@ const shotEl = async (pg, sel, name) => { if (shots) await pg.locator(sel).scree
 const RECTS = `Object.fromEntries([...document.querySelectorAll(".pal")].map(p => [p.dataset.pal, p.hidden ? null
   : (r => ({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), dock: p.dataset.dock, orient: p.dataset.orient }))(p.getBoundingClientRect())]))`;
 const rects = pg => pg.evaluate(RECTS);
+/** shows or hides a palette from the Palettes menu by tapping (a tablet's preset keeps the side palettes hidden) */
+const tapPalette = async (pg, id, show) => {
+  if (!!(await rects(pg))[id] === show) return;
+  await pg.tap('[data-testid="d2-palettes"]'); await pg.tap(`[data-testid="d2-menu-hidden-${id}"]`); await pg.tap('[data-testid="d2-palettes"]'); await frames(pg);
+  assert(!!(await rects(pg))[id] === show, `the ${id} palette is ${show ? "shown" : "hidden"}`);
+};
 const frames = pg => pg.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
 const center = async (pg, sel) => { const b = await pg.locator(sel).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
 /** the shown palettes lie inside the viewport, no two docked ones overlap, and the canvas is in the area they leave free */
@@ -96,7 +102,7 @@ async function tidy(pg, w, h) {
   eq(docked.filter(([, r]) => cut(r, { x: c.x, y: c.y, w: c.width, h: c.height })).map(([id]) => id), []);
 }
 // the keys the module binds today (Editor::key): a tooltip names no other key
-const BUILT = new Set(["V", "E", "1", "2", "3", "W", "Shift+W", "Y", "C", "N", "O", "S", "P", "F", "H", "B", "I", "Shift+C", "Shift+B", "Shift+S", "+", "-", "L", "Shift+A", "T",
+const BUILT = new Set(["V", "E", "1", "2", "3", "W", "Shift+W", "Y", "C", "N", "O", "S", "P", "F", "H", "B", "I", "Shift+C", "Shift+B", "Shift+S", "+", "-", "L", "Shift+A", "T", "M",
   "Ctrl+Z", "Ctrl+Y", "Ctrl+Shift+Z", "Ctrl+X", "Ctrl+C", "Ctrl+V", "Ctrl+D", "Ctrl+A", "\\"]);
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
@@ -494,7 +500,7 @@ try {
     await shot(pg, "label-reversal");
     // the same group on the atom the bond leaves to the left: as written
     await tool(pg, "undo"); eq(await labs(), ["", ""]);
-    await pg.fill("#d2-label", "CO2H"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:CO2H" });
+    await fillIn(pg, "#d2-label", "CO2H"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:CO2H" });
     await pg.mouse.click(cx + 35, cy - 20);                   // the second atom: its bond leaves to the left
     eq(await labs(), ["", "CO2H"]);
     eq((await drawn()).filter(t => ["HO", "2", "C", "CO", "H"].includes(t)), ["CO", "2", "H"]);
@@ -714,10 +720,10 @@ try {
       return [gx, gy];
     };
     // floating: the palette follows the pointer
-    const [ex, ey] = await drag("edit", 640, 360, "");
+    const [ex, ey] = await drag("edit", 760, 395, "");
     let r = await rects(pg);
     eq(r.edit.dock, "float");
-    assert(Math.abs(r.edit.x - (640 - (ex - home.edit.x))) <= 1 && Math.abs(r.edit.y - (360 - (ey - home.edit.y))) <= 1, "the palette follows the pointer");
+    assert(Math.abs(r.edit.x - (760 - (ex - home.edit.x))) <= 1 && Math.abs(r.edit.y - (395 - (ey - home.edit.y))) <= 1, "the palette follows the pointer");
     // docked on the bottom as a row, on the right as a column
     await drag("view", 640, 719, "bottom");
     await drag("history", 1279, 300, "right");
@@ -882,6 +888,7 @@ try {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await tool(pg, "bond:down"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
     const tapOn = async sel => { const b = await pg.locator(sel).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+    await tapPalette(pg, "annotation", true);
     if (!(await pg.evaluate("document.querySelector('#d2-ann-more').open"))) { await pg.locator("#d2-ann-more summary").scrollIntoViewIfNeeded(); await tapOn("#d2-ann-more summary"); }
     const af = "#d2-ann fieldset:nth-of-type(1)";
     await pg.selectOption(`${af} .d2-annf:nth-of-type(1) select`, "charbonnet-2022");   // the native picker of a select is the system's: the choice is made on the element
@@ -892,25 +899,28 @@ try {
     eq(await pg.evaluate("(a => a.scale + '/' + a.level)(JSON.parse(window.MZDRAW.state()).outline[0].ann)"), "charbonnet-2022/2c");
     assert((await pg.innerText("#d2-outline li:nth-of-type(1)")).endsWith(await pg.evaluate("I18N.t('draw2.outline.level', { level: '2c' })")), "the outline says the level");
     await shot(pg, "annotation-scale");
+    await tapPalette(pg, "annotation", false);
   });
 
   await step("drawing checks by touch: a tap on the line selects the atom and bond it is about", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, std: 0 });
     await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
     await tool(pg, "bond:up"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 3, bonds: 2, std: 1 });
+    await tapPalette(pg, "check", true);
     if (!(await pg.evaluate("document.querySelector('#d2-std').open"))) await pg.locator("#d2-std summary").tap();
     await pg.locator("#d2-std-list button").tap();
     await want(pg, { selected: 2 });
     await shotEl(pg, "#d2-std-panel", "std-tablet");
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.std.selected', { n: 2 })"));
     assert(await pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), "the panel does not scroll the page sideways");
+    await tapPalette(pg, "check", false);
   });
 
   await step("tablet with touch: a group label on the left of its bond is written reversed", async () => {
     const drawn = () => pg.evaluate("Array.from(window.MZDRAW.strings())");
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
-    await pg.fill("#d2-label", "CO2H"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:CO2H" });
+    await fillIn(pg, "#d2-label", "CO2H"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:CO2H" });
     await pg.touchscreen.tap(cx, cy);
     eq(JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms.map(a => a.lab || ""), ["CO2H", ""]);
     eq((await drawn()).filter(t => ["HO", "2", "C", "CO", "H"].includes(t)), ["HO", "2", "C"]);
