@@ -932,10 +932,11 @@ pub fn sizes_of(json: &str) -> Vec<(String, f64, f64)> {
         .collect()
 }
 
-/// The formats a drawing is saved in (`Editor::save`, and `png` through the page's rasteriser).
-pub const FORMATS: [&str; 12] = [
+/// The formats a drawing is saved in (`Editor::save`, and `png` through the page's rasteriser, `pdf` as bytes).
+pub const FORMATS: [&str; 13] = [
     "svg",
     "png",
+    "pdf",
     "mzdraw",
     "molfile",
     "molfile-v3000",

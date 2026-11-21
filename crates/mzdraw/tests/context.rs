@@ -23,6 +23,8 @@ fn drawing() -> Editor {
         x2: 0.0,
         y2: 0.0,
         text: text.into(),
+        from: 0,
+        to: 0,
     };
     e.session.run(&[add(ObjKind::Text, 6.0, "note")]).unwrap();
     e.session.run(&[add(ObjKind::Plus, 8.0, "")]).unwrap();

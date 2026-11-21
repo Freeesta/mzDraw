@@ -63,6 +63,8 @@ fn two_structures_and_an_arrow() {
         x2: 2.0,
         y2: 3.0,
         text: String::new(),
+        from: 0,
+        to: 0,
         more: Default::default(),
     });
     let s = svg::to_svg(&d);

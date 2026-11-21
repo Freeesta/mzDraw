@@ -255,7 +255,7 @@ fn replay_gives_every_output_and_refuses_with_a_key() {
         .unwrap()
         .starts_with(r#"[{"op":"atom.add","id":1,"#));
     assert_eq!(
-        mzdraw::replay::replay(&req("pdf")).unwrap_err().key,
+        mzdraw::replay::replay(&req("docx")).unwrap_err().key,
         "error.draw2.request"
     );
     assert_eq!(

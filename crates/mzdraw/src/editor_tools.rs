@@ -201,6 +201,8 @@ impl Editor {
                     x2,
                     y2,
                     text: String::new(),
+                    from: 0,
+                    to: 0,
                 };
                 self.run(&[add], "draw2.say.arrow", "")
             }
@@ -214,6 +216,8 @@ impl Editor {
                     x2: 0.0,
                     y2: 0.0,
                     text: String::new(),
+                    from: 0,
+                    to: 0,
                 };
                 self.run(&[add], "draw2.say.plus", "")
             }
@@ -226,6 +230,8 @@ impl Editor {
                             text: Some(text.clone()),
                             x2: None,
                             y2: None,
+                            from: None,
+                            to: None,
                         }
                     }
                     _ => {
@@ -238,6 +244,8 @@ impl Editor {
                             x2: 0.0,
                             y2: 0.0,
                             text: text.clone(),
+                            from: 0,
+                            to: 0,
                         }
                     }
                 };

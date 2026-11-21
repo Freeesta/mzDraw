@@ -1,0 +1,1 @@
+{"log":[{"op":"ring","n":6,"arom":true,"x":0,"y":0},{"op":"atom.add","el":"Cl","x":0.0,"y":2.0,"id":13},{"op":"bond.add","a":1,"b":13},{"op":"atom.add","el":"O","x":0.0,"y":-2.0,"id":15},{"op":"bond.add","a":4,"b":15}],"out":"smiles"}

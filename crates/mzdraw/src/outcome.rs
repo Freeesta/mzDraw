@@ -222,6 +222,14 @@ impl Failed {
         }
     }
 
+    /// A refused editor command of the request, by its index in `commands`.
+    pub fn command(op: usize, key: &'static str, id: u32) -> Failed {
+        Failed {
+            stage: "command",
+            ..Failed::log(op, key, id)
+        }
+    }
+
     fn json(&self) -> String {
         let mut s = format!("{{\"stage\":{}", Value::from(self.stage));
         if let Some(op) = self.op {

@@ -299,6 +299,12 @@ pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| p.editor.save(kind).map_err(js_err))
 }
 
+/// The drawing as a PDF file (vector, text as text, the document inside so that it opens again).
+#[wasm_bindgen]
+pub fn save_pdf() -> Vec<u8> {
+    with(|p| p.editor.pdf())
+}
+
 /// What the page draws to save a PNG: `{"svg", "width", "height", "paper"}` (pixels; the SVG is rasterised on a canvas of that
 /// size filled with the paper colour). The bytes of the canvas then go through `png_finish`.
 #[wasm_bindgen]
