@@ -231,7 +231,7 @@ fn markdown() -> String {
     let v: Value = serde_json::from_str(&schema::json()).unwrap();
     let cell = |x: &Value| x.as_str().unwrap_or("").replace('|', "\\|");
     let mut out = String::from(
-        "Generated from `schema::json()` (`\"out\":\"schema\"`); the test `crates/mzdraw/tests/schema.rs` fails when this text drifts (`MZDRAW_BLESS=1` rewrites it).\n\n| op | since | mzdraw | mzlab | inverse | fields (`key` type, `*` required, unit, bounds) |\n|---|---|---|---|---|---|\n",
+        "Generated from `schema::json()` (`\"out\":\"schema\"`); the test `crates/mzdraw/tests/schema.rs` fails when this text drifts (`MZDRAW_BLESS=1` rewrites it). A field outside the row of its operation is an error (`error.draw2.opField`; before, unknown fields were ignored). The `mzlab` column is true by operation name only: mzLab reads some fields under other names (`label`, `wedge`, `x_a`) and addresses bonds by their atoms.\n\n| op | since | mzdraw | mzlab | inverse | fields (`key` type, `*` required, unit, bounds) |\n|---|---|---|---|---|---|\n",
     );
     for o in v["ops"].as_array().unwrap() {
         let fields: Vec<String> = (o["fields"].as_array().unwrap().iter())

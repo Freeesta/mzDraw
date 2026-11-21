@@ -62,6 +62,22 @@ with the key `error.draw2.ann` and changes nothing.
 | `"4"` | Unequivocal molecular formula |
 | `"5"` | Exact mass of interest |
 
+## The scales the page offers
+
+One table in Rust (`ann::SCALES`, given to the page by `ann_schema`) lists the scales and their levels; the meaning of each level is
+an i18n text of the page, `draw2.ann.level.<scale>.<level>`, a short paraphrase in our own words. The page offers a scale before
+the level; the level list follows the scale and the entry is written with that `scale`. Validation does not change: any word of the
+level shape is kept. A level that is not in the chosen scale stays allowed and is shown as "of the file". The picture is unchanged
+(`L` and the level: `L3b`, `L5a`).
+
+| `scale` | Levels (most confident first) |
+|---|---|
+| `schymanski-2014` (default) | `1`, `2a`, `2b`, `3`, `4`, `5` |
+| `charbonnet-2022` (PFAS; Charbonnet et al., Environ. Sci. Technol. Lett. 2022, 9, 473) | `1a`, `1b`, `2a`, `2b`, `2c`, `3a`, `3b`, `3c`, `3d`, `4`, `5a`, `5b` |
+
+The level meanings for the PFAS scale are paraphrased; the Table 1 of that paper is an image that was not read here, so they are to be
+checked against it before a release.
+
 ## Where it is exported
 
 | Format | What is written | Read back |
@@ -74,8 +90,8 @@ with the key `error.draw2.ann` and changes nothing.
 
 ## On the page and from the CLI route
 
-- Page: "Annotation of the structures" has, for each structure, the level (the six of the scale, plus the level of the file
-  when it is of another scale), the identifier, the evidence (one per line, `kind: reference`) and a note. Apply adds an
+- Page: "Annotation of the structures" has, for each structure, the scale, the level (those of the chosen scale, plus the level of the file
+  when it is not in it), the identifier, the evidence (one per line, `kind: reference`) and a note. Apply adds an
   entry after the ones the structure has (`Editor::annotate`, one undo step, `by` = `chemist`); "Not annotated" takes the
   annotation away. The list "What is drawn" says the level.
 - Headless (`replay`, the route of `mzlab-cli mol draw`): the `atom.ann` operation in the `log` of a request; `out: "sdf"`,

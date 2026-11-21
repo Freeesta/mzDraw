@@ -8,5 +8,7 @@
 # with it linked, 500659 B without).
 cap = 4000000
 # 2026-11-21: 584638 B with the drawing checks std/1 (stereo family, +16634 B over 568004 B).
-# 2026-11-21: 589761 B with the table of the operations `schema.rs` (+5123 B over 584638 B).
-measured = 589761
+# 2026-11-21: 589976 B with drag-free editing (keys, Move here; +5338 B over 584638 B).
+# 2026-11-21: 592912 B with the annotation scales (arch-std-14; +2936 B over 589976 B).
+# 2026-11-21: 598010 B with the table of the operations `schema.rs` (+5098 B over 592912 B).
+measured = 598010
