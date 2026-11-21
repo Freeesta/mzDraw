@@ -39,9 +39,10 @@ impl Editor {
         };
         let d = self.doc();
         let mut atoms = self.over.sel_atoms.clone();
-        if atoms.is_empty() && self.over.sel_bonds.is_empty() {
+        if atoms.is_empty() && self.over.sel_bonds.is_empty() && self.over.sel_objs.is_empty() {
             atoms.extend(self.over.focus);
         }
+        let mut objects = self.over.sel_objs.clone();
         let mut bonds = self.over.sel_bonds.clone();
         bonds.extend(
             (d.bonds.iter())
@@ -50,11 +51,13 @@ impl Editor {
         );
         atoms.retain(|&i| d.atom(i).is_some_and(|a| a.col() != col));
         bonds.retain(|&i| d.bond(i).is_some_and(|b| b.col() != col));
+        objects.retain(|&i| d.object(i).is_some_and(|o| o.col() != col));
         bonds.sort_unstable();
         bonds.dedup();
-        if atoms.is_empty() && bonds.is_empty() {
+        if atoms.is_empty() && bonds.is_empty() && objects.is_empty() {
             let any = !self.over.sel_atoms.is_empty()
                 || !self.over.sel_bonds.is_empty()
+                || !self.over.sel_objs.is_empty()
                 || self.over.focus.is_some();
             self.error = if any { "" } else { "error.draw2.colourNone" };
             return REPAINT;
@@ -65,7 +68,12 @@ impl Editor {
             col.clone()
         };
         self.run(
-            &[Op::Colour { atoms, bonds, col }],
+            &[Op::Colour {
+                atoms,
+                bonds,
+                objects,
+                col,
+            }],
             "draw2.say.coloured",
             &what,
         )
@@ -83,6 +91,11 @@ impl Editor {
                 (d.bonds.iter())
                     .filter(|b| o.sel_bonds.contains(&b.id))
                     .map(|b| b.col()),
+            )
+            .chain(
+                (d.objects.iter())
+                    .filter(|x| o.sel_objs.contains(&x.id))
+                    .map(|x| x.col()),
             )
             .collect();
         if cols.is_empty() {

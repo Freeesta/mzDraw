@@ -59,6 +59,7 @@ pub enum Op {
     Colour {
         atoms: Vec<u32>,
         bonds: Vec<u32>,
+        objects: Vec<u32>,
         col: String,
     },
     /// Sets the order and/or the wedge mark of a bond; a new order other than 1 drops the mark. `rev` swaps the two ends (the narrow
@@ -239,10 +240,16 @@ impl Op {
                 w.int("id", i64::from(*i));
                 w.raw("ann", ann);
             }
-            Op::Colour { atoms, bonds, col } => {
+            Op::Colour {
+                atoms,
+                bonds,
+                objects,
+                col,
+            } => {
                 w.text("op", "colour");
                 ids(&mut w, "atoms", atoms, false);
                 ids(&mut w, "bonds", bonds, false);
+                ids(&mut w, "objects", objects, false);
                 w.text("col", col);
             }
             Op::BondSet { id: i, o, s, rev } => {
@@ -481,6 +488,7 @@ impl Op {
             "colour" => Op::Colour {
                 atoms: g.ids("atoms")?,
                 bonds: g.ids("bonds")?,
+                objects: g.ids("objects")?,
                 col: g.s("col")?.ok_or(())?,
             },
             "bond.set" => Op::BondSet {
@@ -846,7 +854,12 @@ impl Document {
                 self.atoms[i].set_ann(&text);
                 done.push(Op::AtomAnn { id: *id, ann: text });
             }
-            Op::Colour { atoms, bonds, col } => {
+            Op::Colour {
+                atoms,
+                bonds,
+                objects,
+                col,
+            } => {
                 let Some(col) = crate::ink::canon(col) else {
                     return err("error.draw2.colour", 0);
                 };
@@ -875,9 +888,17 @@ impl Document {
                     inv.push(Inv::SetBond(self.bonds[i].clone()));
                     crate::ink::put(&mut self.bonds[i].more, &col);
                 }
+                for id in objects {
+                    let Some(i) = self.objects.iter().position(|o| o.id == *id) else {
+                        return err("error.draw2.noObject", *id);
+                    };
+                    inv.push(Inv::SetObj(self.objects[i].clone()));
+                    crate::ink::put(&mut self.objects[i].more, &col);
+                }
                 done.push(Op::Colour {
                     atoms: atoms.clone(),
                     bonds: bonds.clone(),
+                    objects: objects.clone(),
                     col,
                 });
             }

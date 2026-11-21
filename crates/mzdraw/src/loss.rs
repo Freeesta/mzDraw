@@ -99,6 +99,7 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("atom.map", [Y, Y, Y, Y, Y, N, N, Y, Y, Y]),
     ("atom.radical", [Y, Y, P, Y, Y, Y, Y, Y, Y, Y]),
     ("colour", [N, N, N, N, N, Y, N, N, Y, Y]),
+    ("colour.object", [N, N, N, N, N, N, N, N, Y, Y]),
     ("data", [N, N, N, Y, N, N, N, N, Y, Y]),
     ("geometry", [Y, Y, P, P, Y, Y, Y, P, Y, Y]),
     ("object.arrow", [N, N, N, N, Y, Y, N, Y, Y, Y]),
@@ -214,7 +215,10 @@ pub fn instances(d: &Document) -> Vec<Instance> {
             ObjKind::Plus => push("object.plus", String::new(), 0, 0, o.id),
             ObjKind::Text => push("object.text", o.text.clone(), 0, 0, o.id),
         }
-        for (key, _) in &o.more {
+        if !o.col().is_empty() {
+            push("colour.object", o.col(), 0, 0, o.id);
+        }
+        for (key, _) in o.more.iter().filter(|m| m.0 != "col") {
             push("unknown", format!("object.{key}"), 0, 0, o.id);
         }
     }

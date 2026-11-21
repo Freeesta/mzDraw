@@ -591,6 +591,11 @@ impl Editor {
                     .filter(|b| self.over.sel_bonds.contains(&b.id))
                     .map(|b| b.col()),
             )
+            .chain(
+                (d.objects.iter())
+                    .filter(|o| self.over.sel_objs.contains(&o.id))
+                    .map(|o| o.col()),
+            )
             .collect();
         let same = cols
             .first()
@@ -622,6 +627,7 @@ impl Editor {
                 a.from != 0 || a.to != 0,
             ));
         }
+        items.push(self.colour_group(self.doc().object(o).map(|x| x.col())));
         items.push(item("edit.delete", "Delete", "Del", true));
         items
     }

@@ -348,6 +348,7 @@ fn every_feature_the_document_can_hold_has_a_row_and_every_format_a_column() {
         "atom.map",
         "atom.radical",
         "colour",
+        "colour.object",
         "data",
         "geometry",
         "object.arrow",
@@ -363,7 +364,7 @@ fn every_feature_the_document_can_hold_has_a_row_and_every_format_a_column() {
             assert!(mzdraw::loss::carry(what, f).is_some(), "{what} {f}");
         }
     }
-    assert_eq!(mzdraw::loss::TABLE.len(), 19);
+    assert_eq!(mzdraw::loss::TABLE.len(), 20);
 }
 
 #[test]

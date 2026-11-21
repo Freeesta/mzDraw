@@ -557,6 +557,7 @@ impl Painter<'_> {
             None
         };
         let w = self.m.line;
+        let ink = crate::ink::index(&o.col()).unwrap_or(colour::INK);
         match o.t {
             ObjKind::Arrow => {
                 let e = self.view.to_px(o.x2 + dx, o.y2 + dy);
@@ -568,7 +569,7 @@ impl Painter<'_> {
                 let head = (self.view.scale * 0.3).min(len * 0.5);
                 let neck = (e.0 - ux * head, e.1 - uy * head);
                 let (nx, ny) = (-uy * head * 0.4, ux * head * 0.4);
-                self.line((x, y), neck, w * 1.3, colour::INK);
+                self.line((x, y), neck, w * 1.3, ink);
                 self.push(&[
                     TRI as f64,
                     e.0,
@@ -577,7 +578,7 @@ impl Painter<'_> {
                     neck.1 + ny,
                     neck.0 - nx,
                     neck.1 - ny,
-                    colour::INK as f64,
+                    ink as f64,
                 ]);
                 if !o.text.is_empty() {
                     // above the middle of the shaft, on the side that is up on the screen
@@ -588,7 +589,7 @@ impl Painter<'_> {
                         mx + uy * off,
                         my - ux * off,
                         f * 0.85,
-                        colour::INK,
+                        ink,
                         &crate::steplabel::display(&o.text),
                         0.0,
                     );
@@ -598,14 +599,14 @@ impl Painter<'_> {
                 if let Some(c) = mark {
                     self.push(&[DISC as f64, x, y, f * 0.8, c as f64]);
                 }
-                self.text(x, y, f * 1.3, colour::INK, "+", 0.0);
+                self.text(x, y, f * 1.3, ink, "+", 0.0);
             }
             ObjKind::Text => {
                 if let Some(c) = mark {
                     let tw = width(&o.text, f);
                     self.line((x, y + f * 0.75), (x + tw, y + f * 0.75), w * 3.0, c);
                 }
-                self.text(x, y, f, colour::INK, &o.text, 1.0);
+                self.text(x, y, f, ink, &o.text, 1.0);
             }
         }
     }

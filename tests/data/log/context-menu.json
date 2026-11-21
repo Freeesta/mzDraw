@@ -221,7 +221,7 @@
     },
     {
       "name": "right-click on an arrow",
-      "out": "{\"items\":[{\"enabled\":true,\"id\":\"obj.edit\",\"label\":\"Edit\"},{\"enabled\":true,\"id\":\"pathway.anchor\",\"label\":\"Anchor to structures\"},{\"enabled\":false,\"id\":\"pathway.free\",\"label\":\"Free ends\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"object\"}",
+      "out": "{\"items\":[{\"enabled\":true,\"id\":\"obj.edit\",\"label\":\"Edit\"},{\"enabled\":true,\"id\":\"pathway.anchor\",\"label\":\"Anchor to structures\"},{\"enabled\":false,\"id\":\"pathway.free\",\"label\":\"Free ends\"},{\"children\":[{\"checked\":true,\"enabled\":true,\"id\":\"colour.auto\",\"label\":\"Automatic\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.black\",\"label\":\"Black\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.red\",\"label\":\"Red\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.orange\",\"label\":\"Orange\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.yellow\",\"label\":\"Yellow\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.green\",\"label\":\"Green\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.teal\",\"label\":\"Teal\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.blue\",\"label\":\"Blue\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.purple\",\"label\":\"Purple\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.magenta\",\"label\":\"Magenta\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.brown\",\"label\":\"Brown\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.grey\",\"label\":\"Grey\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.custom\",\"label\":\"Custom...\"}],\"enabled\":true,\"id\":\"edit.colour\",\"label\":\"Colour\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"object\"}",
       "request": {
         "import": "CC=O",
         "log": [
@@ -292,7 +292,7 @@
     },
     {
       "name": "right-click on a plus sign",
-      "out": "{\"items\":[{\"enabled\":false,\"id\":\"obj.edit\",\"label\":\"Edit\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"object\"}",
+      "out": "{\"items\":[{\"enabled\":false,\"id\":\"obj.edit\",\"label\":\"Edit\"},{\"children\":[{\"checked\":true,\"enabled\":true,\"id\":\"colour.auto\",\"label\":\"Automatic\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.black\",\"label\":\"Black\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.red\",\"label\":\"Red\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.orange\",\"label\":\"Orange\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.yellow\",\"label\":\"Yellow\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.green\",\"label\":\"Green\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.teal\",\"label\":\"Teal\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.blue\",\"label\":\"Blue\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.purple\",\"label\":\"Purple\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.magenta\",\"label\":\"Magenta\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.brown\",\"label\":\"Brown\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.grey\",\"label\":\"Grey\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.custom\",\"label\":\"Custom...\"}],\"enabled\":true,\"id\":\"edit.colour\",\"label\":\"Colour\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"object\"}",
       "request": {
         "import": "CC=O",
         "log": [
@@ -363,7 +363,7 @@
     },
     {
       "name": "right-click on a text",
-      "out": "{\"items\":[{\"enabled\":true,\"id\":\"obj.edit\",\"label\":\"Edit\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"object\"}",
+      "out": "{\"items\":[{\"enabled\":true,\"id\":\"obj.edit\",\"label\":\"Edit\"},{\"children\":[{\"checked\":true,\"enabled\":true,\"id\":\"colour.auto\",\"label\":\"Automatic\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.black\",\"label\":\"Black\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.red\",\"label\":\"Red\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.orange\",\"label\":\"Orange\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.yellow\",\"label\":\"Yellow\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.green\",\"label\":\"Green\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.teal\",\"label\":\"Teal\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.blue\",\"label\":\"Blue\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.purple\",\"label\":\"Purple\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.magenta\",\"label\":\"Magenta\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.brown\",\"label\":\"Brown\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.grey\",\"label\":\"Grey\"},{\"checked\":false,\"enabled\":true,\"id\":\"colour.custom\",\"label\":\"Custom...\"}],\"enabled\":true,\"id\":\"edit.colour\",\"label\":\"Colour\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"object\"}",
       "request": {
         "import": "CC=O",
         "log": [

@@ -269,6 +269,11 @@ impl ObjKind {
 }
 
 impl Obj {
+    /// The explicit colour (`ink`): `#rrggbb`, empty for automatic.
+    pub fn col(&self) -> String {
+        crate::ink::get(&self.more)
+    }
+
     /// An arrow has a length, a text has a text of one line, a plus has neither a second point nor a text.
     pub fn valid(&self) -> bool {
         let one_line = !self.text.contains(['\n', '\r']) && self.text.chars().count() <= 200;

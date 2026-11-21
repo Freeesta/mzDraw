@@ -107,12 +107,18 @@ pub const LOST_IN: [&str; 8] = [
 ];
 
 impl crate::doc::Document {
-    /// How many atoms and bonds have an explicit colour that the output `kind` of `Editor::save` cannot hold.
+    /// How many atoms, bonds and objects have an explicit colour that the output `kind` of `Editor::save` cannot hold: all of them
+    /// for the formats of `LOST_IN`; only the objects for CDXML (it carries the colour of atoms and bonds, not of the objects).
     pub fn colours_lost(&self, kind: &str) -> usize {
+        let objects = self.objects.iter().filter(|o| !o.col().is_empty()).count();
+        if kind == "cdxml" {
+            return objects;
+        }
         if !LOST_IN.contains(&kind) {
             return 0;
         }
         self.atoms.iter().filter(|a| !a.col().is_empty()).count()
             + self.bonds.iter().filter(|b| !b.col().is_empty()).count()
+            + objects
     }
 }

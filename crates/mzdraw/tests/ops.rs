@@ -370,6 +370,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             vec![Op::Colour {
                 atoms: (0..r.next(4)).map(|_| atom(r)).collect(),
                 bonds: (0..r.next(3)).map(|_| bond_id(r)).collect(),
+                objects: (0..r.next(2)).map(|_| obj_id(r)).collect(),
                 col: cols[r.next(cols.len())].into(),
             }]
         }
@@ -1015,6 +1016,7 @@ fn the_patch_is_in_the_fixed_order() {
         Op::AtomSet { .. } | Op::AtomData { .. } | Op::AtomAnn { .. } => 6,
         // the colour of an atom is said with the atom, the colour of a bond with the bond
         Op::Colour { atoms, .. } if !atoms.is_empty() => 6,
+        Op::Colour { objects, .. } if !objects.is_empty() => 8,
         Op::BondSet { .. } | Op::Colour { .. } => 7,
         Op::ObjSet { .. } => 8,
         Op::Move { .. } => 9,

@@ -49,6 +49,7 @@ fn full_ops() -> Vec<Op> {
         Op::Colour {
             atoms: vec![1, 2],
             bonds: vec![3],
+            objects: vec![4],
             col: "#d00000".into(),
         },
         Op::BondSet {

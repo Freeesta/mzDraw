@@ -216,6 +216,7 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
             out.push(Op::Colour {
                 atoms: vec![y.id],
                 bonds: Vec::new(),
+                objects: Vec::new(),
                 col: y.col(),
             });
         }
@@ -227,6 +228,7 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                 out.push(Op::Colour {
                     atoms: Vec::new(),
                     bonds: vec![y.id],
+                    objects: Vec::new(),
                     col: y.col(),
                 });
             }
@@ -237,6 +239,7 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
             out.push(Op::Colour {
                 atoms: Vec::new(),
                 bonds: vec![y.id],
+                objects: Vec::new(),
                 col: y.col(),
             });
         }
@@ -260,6 +263,15 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
     }
     for p in &b.objects {
         let Some(o) = a_object(p.id).filter(|o| o.t == p.t) else {
+            // an object added now: its colour is said with it
+            if !p.col().is_empty() {
+                out.push(Op::Colour {
+                    atoms: Vec::new(),
+                    bonds: Vec::new(),
+                    objects: vec![p.id],
+                    col: p.col(),
+                });
+            }
             continue;
         };
         let d = (round4(p.x - o.x), round4(p.y - o.y));
@@ -282,6 +294,14 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                 y2,
                 from,
                 to,
+            });
+        }
+        if o.col() != p.col() {
+            out.push(Op::Colour {
+                atoms: Vec::new(),
+                bonds: Vec::new(),
+                objects: vec![p.id],
+                col: p.col(),
             });
         }
         if d != (0.0, 0.0) {
@@ -498,7 +518,12 @@ pub(crate) fn touched(op: &Op) -> Vec<u32> {
         | Op::AtomAnn { id, .. }
         | Op::BondSet { id, .. }
         | Op::ObjSet { id, .. } => vec![*id],
-        Op::Colour { atoms, bonds, .. } => atoms.iter().chain(bonds).copied().collect(),
+        Op::Colour {
+            atoms,
+            bonds,
+            objects,
+            ..
+        } => atoms.iter().chain(bonds).chain(objects).copied().collect(),
         Op::Rotate { atoms, .. } | Op::Flip { atoms, .. } => atoms.clone(),
         Op::Move { atoms, objects, .. } => atoms.iter().chain(objects).copied().collect(),
         Op::Remove {

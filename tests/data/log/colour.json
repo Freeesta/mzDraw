@@ -189,6 +189,42 @@
           }
         ]
       }
+    },
+    {
+      "name": "colour: one operation for atoms, bonds and objects (an arrow with its head and text, a text)",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<colortable><color r=\"0.482\" g=\"0.184\" b=\"0.745\"/></colortable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 45.00\"/>\n<n id=\"3\" p=\"60.00 30.00\" color=\"2\" Element=\"8\" NumHydrogens=\"1\"><t><s font=\"3\" size=\"10\" face=\"0\">OH</s></t></n>\n<b id=\"4\" B=\"2\" E=\"3\" color=\"2\"/>\n</fragment>\n<graphic id=\"5\" SupersededBy=\"6\" BoundingBox=\"180.00 45.00 120.00 45.00\" GraphicType=\"Line\" ArrowType=\"FullHead\"/>\n<arrow id=\"6\" Head3D=\"180.00 45.00 0\" Tail3D=\"120.00 45.00 0\" ArrowheadHead=\"Full\"/>\n<t id=\"7\" p=\"150.00 30.00\"><s font=\"3\" size=\"10\" face=\"0\">H2</s></t>\n<graphic id=\"8\" BoundingBox=\"210.00 45.00 217.50 45.00\" GraphicType=\"Symbol\" SymbolType=\"Plus\"/>\n<t id=\"9\" p=\"240.00 45.00\"><s font=\"3\" size=\"10\" face=\"0\">note</s></t>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"O\" x2=\"1.0000\" y2=\"0.5000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"},{\"type\":\"arrow\",\"data\":{\"mode\":\"open-angle\",\"pos\":[{\"x\":3.0,\"y\":0.0,\"z\":0},{\"x\":5.0,\"y\":0.0,\"z\":0}]}},{\"type\":\"text\",\"data\":{\"content\":\"{\\\"blocks\\\":[{\\\"text\\\":\\\"H2\\\",\\\"type\\\":\\\"unstyled\\\",\\\"depth\\\":0,\\\"inlineStyleRanges\\\":[],\\\"entityRanges\\\":[],\\\"data\\\":{}}],\\\"entityMap\\\":{}}\",\"position\":{\"x\":4.0,\"y\":0.5,\"z\":0}}},{\"type\":\"plus\",\"location\":[6.0,0.0,0]},{\"type\":\"text\",\"data\":{\"content\":\"{\\\"blocks\\\":[{\\\"text\\\":\\\"note\\\",\\\"type\\\":\\\"unstyled\\\",\\\"depth\\\":0,\\\"inlineStyleRanges\\\":[],\\\"entityRanges\\\":[],\\\"data\\\":{}}],\\\"entityMap\\\":{}}\",\"position\":{\"x\":7.0,\"y\":0.0,\"z\":0}}}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"O\",\"location\":[1.0,0.5,0]}],\"bonds\":[{\"type\":1,\"atoms\":[0,1]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"O\",\"x\":1.0,\"y\":0.5},{\"op\":\"bond.add\",\"id\":3,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"obj.add\",\"id\":8,\"t\":\"arrow\",\"x\":3.0,\"y\":0.0,\"x2\":5.0,\"text\":\"H2\"},{\"op\":\"obj.add\",\"id\":9,\"t\":\"plus\",\"x\":6.0,\"y\":0.0},{\"op\":\"obj.add\",\"id\":10,\"t\":\"text\",\"x\":7.0,\"y\":0.0,\"text\":\"note\"},{\"op\":\"colour\",\"atoms\":[2],\"bonds\":[3],\"objects\":[8,10],\"col\":\"#7b2fbe\"}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.0000    0.5000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 2 1 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0\nM  V30 2 O 1.000000 0.500000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 1 2\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":11,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"O\",\"x\":1.0,\"y\":0.5,\"col\":\"#7b2fbe\"}],\"bonds\":[{\"id\":3,\"a\":1,\"b\":2,\"o\":1,\"col\":\"#7b2fbe\"}],\"objects\":[{\"id\":8,\"t\":\"arrow\",\"x\":3.0,\"y\":0.0,\"x2\":5.0,\"text\":\"H2\",\"col\":\"#7b2fbe\"},{\"id\":9,\"t\":\"plus\",\"x\":6.0,\"y\":0.0},{\"id\":10,\"t\":\"text\",\"x\":7.0,\"y\":0.0,\"text\":\"note\",\"col\":\"#7b2fbe\"}]}",
+        "rxn": "$RXN\n\n  mzDraw\n\n  1  0\n$MOL\nmzDraw\n  mzLab             2D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.0000    0.5000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\nM  END\n",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.0000    0.5000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "CO",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"302.4pt\" height=\"83.4pt\" viewBox=\"0 0 302.4 83.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-f6720ed6 d-f6720ed6\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":11,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"O\",\"x\":1.0,\"y\":0.5,\"col\":\"#7b2fbe\"}],\"bonds\":[{\"id\":3,\"a\":1,\"b\":2,\"o\":1,\"col\":\"#7b2fbe\"}],\"objects\":[{\"id\":8,\"t\":\"arrow\",\"x\":3.0,\"y\":0.0,\"x2\":5.0,\"text\":\"H2\",\"col\":\"#7b2fbe\"},{\"id\":9,\"t\":\"plus\",\"x\":6.0,\"y\":0.0},{\"id\":10,\"t\":\"text\",\"x\":7.0,\"y\":0.0,\"text\":\"note\",\"col\":\"#7b2fbe\"}]}</metadata>\n<title id=\"t-f6720ed6\">CH4O with a reaction arrow</title>\n<desc id=\"d-f6720ed6\">Reaction scheme: CH4O, with a reaction arrow.</desc>\n<line x1=\"34.2\" y1=\"49.2\" x2=\"57.55\" y2=\"37.53\" stroke=\"#7b2fbe\" stroke-width=\"1.35\"/>\n<text x=\"64.2\" y=\"34.2\" font-size=\"12\" fill=\"#7b2fbe\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"68.4\" y=\"34.2\" font-size=\"12\" fill=\"#7b2fbe\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<line x1=\"124.2\" y1=\"49.2\" x2=\"175.2\" y2=\"49.2\" stroke=\"#7b2fbe\" stroke-width=\"1.75\"/>\n<polygon points=\"184.2,49.2 175.2,52.8 175.2,45.6\" fill=\"#7b2fbe\"/>\n<text x=\"154.2\" y=\"39.6\" font-size=\"10.2\" fill=\"#7b2fbe\" text-anchor=\"middle\" dominant-baseline=\"central\">H2</text>\n<text x=\"214.2\" y=\"49.2\" font-size=\"15.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">+</text>\n<text x=\"244.2\" y=\"49.2\" font-size=\"12\" fill=\"#7b2fbe\" text-anchor=\"start\" dominant-baseline=\"central\">note</text>\n</svg>\n"
+      },
+      "request": {
+        "import": "{\"format\": \"mzdraw/1\", \"next\": 11, \"atoms\": [{\"id\": 1, \"el\": \"C\", \"x\": 0.0, \"y\": 0.0}, {\"id\": 2, \"el\": \"O\", \"x\": 1.0, \"y\": 0.5}], \"bonds\": [{\"id\": 3, \"a\": 1, \"b\": 2, \"o\": 1}], \"objects\": [{\"id\": 8, \"t\": \"arrow\", \"x\": 3.0, \"y\": 0.0, \"x2\": 5.0, \"y2\": 0.0, \"text\": \"H2\"}, {\"id\": 9, \"t\": \"plus\", \"x\": 6.0, \"y\": 0.0}, {\"id\": 10, \"t\": \"text\", \"x\": 7.0, \"y\": 0.0, \"text\": \"note\"}]}",
+        "log": [
+          {
+            "atoms": [
+              2
+            ],
+            "bonds": [
+              3
+            ],
+            "col": "#7B2FBE",
+            "objects": [
+              8,
+              10
+            ],
+            "op": "colour"
+          }
+        ]
+      }
     }
   ],
   "losses": [
@@ -276,6 +312,30 @@
               4
             ],
             "col": "",
+            "op": "colour"
+          }
+        ],
+        "out": "loss:cdxml"
+      }
+    },
+    {
+      "name": "what CDXML drops of coloured objects",
+      "out": "{\"format\":\"loss/1\",\"target\":\"cdxml\",\"items\":[{\"what\":\"arrow.text\",\"atoms\":[],\"bonds\":[],\"objects\":[8]},{\"what\":\"colour.object\",\"atoms\":[],\"bonds\":[],\"objects\":[8]},{\"what\":\"colour.object\",\"atoms\":[],\"bonds\":[],\"objects\":[10]}]}",
+      "request": {
+        "import": "{\"format\": \"mzdraw/1\", \"next\": 11, \"atoms\": [{\"id\": 1, \"el\": \"C\", \"x\": 0.0, \"y\": 0.0}, {\"id\": 2, \"el\": \"O\", \"x\": 1.0, \"y\": 0.5}], \"bonds\": [{\"id\": 3, \"a\": 1, \"b\": 2, \"o\": 1}], \"objects\": [{\"id\": 8, \"t\": \"arrow\", \"x\": 3.0, \"y\": 0.0, \"x2\": 5.0, \"y2\": 0.0, \"text\": \"H2\"}, {\"id\": 9, \"t\": \"plus\", \"x\": 6.0, \"y\": 0.0}, {\"id\": 10, \"t\": \"text\", \"x\": 7.0, \"y\": 0.0, \"text\": \"note\"}]}",
+        "log": [
+          {
+            "atoms": [
+              2
+            ],
+            "bonds": [
+              3
+            ],
+            "col": "#7B2FBE",
+            "objects": [
+              8,
+              10
+            ],
             "op": "colour"
           }
         ],
@@ -431,6 +491,56 @@
               4
             ],
             "col": "",
+            "op": "colour"
+          }
+        ],
+        "out": "cdxml",
+        "report": true
+      }
+    },
+    {
+      "name": "colour of objects as a digest: the colours of the structure and of the objects are named",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"digest/1\\\",\\\"pieces\\\":[{\\\"ids\\\":\\\"1-2\\\",\\\"formula\\\":\\\"CH4O\\\",\\\"box\\\":[0.0,0.0,1.4,0.7],\\\"labels\\\":[[2,\\\"O\\\"]],\\\"stereo\\\":[],\\\"rings\\\":0,\\\"colours\\\":[[\\\"#7b2fbe\\\",\\\"2\\\",\\\"3\\\"]]}],\\\"objects\\\":[[8,\\\"arrow\\\",[3.0,0.0,5.0,0.0],\\\"#7b2fbe\\\"],[9,\\\"plus\\\",[5.7,-0.3,6.3,0.3]],[10,\\\"text\\\",[7.0,-0.2,7.8,0.2],\\\"#7b2fbe\\\"]],\\\"clearance\\\":null,\\\"std\\\":{}}\",\"created\":{},\"removed\":{}}",
+      "request": {
+        "import": "{\"format\": \"mzdraw/1\", \"next\": 11, \"atoms\": [{\"id\": 1, \"el\": \"C\", \"x\": 0.0, \"y\": 0.0}, {\"id\": 2, \"el\": \"O\", \"x\": 1.0, \"y\": 0.5}], \"bonds\": [{\"id\": 3, \"a\": 1, \"b\": 2, \"o\": 1}], \"objects\": [{\"id\": 8, \"t\": \"arrow\", \"x\": 3.0, \"y\": 0.0, \"x2\": 5.0, \"y2\": 0.0, \"text\": \"H2\"}, {\"id\": 9, \"t\": \"plus\", \"x\": 6.0, \"y\": 0.0}, {\"id\": 10, \"t\": \"text\", \"x\": 7.0, \"y\": 0.0, \"text\": \"note\"}]}",
+        "log": [
+          {
+            "atoms": [
+              2
+            ],
+            "bonds": [
+              3
+            ],
+            "col": "#7B2FBE",
+            "objects": [
+              8,
+              10
+            ],
+            "op": "colour"
+          }
+        ],
+        "out": "digest",
+        "report": true
+      }
+    },
+    {
+      "name": "colour of objects written as CDXML: the objects' colour is reported as left out",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"<?xml version=\\\"1.0\\\" encoding=\\\"UTF-8\\\" ?>\\n<!DOCTYPE CDXML SYSTEM \\\"http://www.camsoft.com/xml/cdxml.dtd\\\">\\n<CDXML CreationProgram=\\\"mzDraw\\\" BondLength=\\\"30\\\">\\n<fonttable><font id=\\\"3\\\" charset=\\\"iso-8859-1\\\" name=\\\"Arial\\\"/></fonttable>\\n<colortable><color r=\\\"0.482\\\" g=\\\"0.184\\\" b=\\\"0.745\\\"/></colortable>\\n<page>\\n<fragment id=\\\"1\\\">\\n<n id=\\\"2\\\" p=\\\"30.00 45.00\\\"/>\\n<n id=\\\"3\\\" p=\\\"60.00 30.00\\\" color=\\\"2\\\" Element=\\\"8\\\" NumHydrogens=\\\"1\\\"><t><s font=\\\"3\\\" size=\\\"10\\\" face=\\\"0\\\">OH</s></t></n>\\n<b id=\\\"4\\\" B=\\\"2\\\" E=\\\"3\\\" color=\\\"2\\\"/>\\n</fragment>\\n<graphic id=\\\"5\\\" SupersededBy=\\\"6\\\" BoundingBox=\\\"180.00 45.00 120.00 45.00\\\" GraphicType=\\\"Line\\\" ArrowType=\\\"FullHead\\\"/>\\n<arrow id=\\\"6\\\" Head3D=\\\"180.00 45.00 0\\\" Tail3D=\\\"120.00 45.00 0\\\" ArrowheadHead=\\\"Full\\\"/>\\n<t id=\\\"7\\\" p=\\\"150.00 30.00\\\"><s font=\\\"3\\\" size=\\\"10\\\" face=\\\"0\\\">H2</s></t>\\n<graphic id=\\\"8\\\" BoundingBox=\\\"210.00 45.00 217.50 45.00\\\" GraphicType=\\\"Symbol\\\" SymbolType=\\\"Plus\\\"/>\\n<t id=\\\"9\\\" p=\\\"240.00 45.00\\\"><s font=\\\"3\\\" size=\\\"10\\\" face=\\\"0\\\">note</s></t>\\n</page>\\n</CDXML>\\n\",\"created\":{},\"removed\":{},\"lost\":[{\"key\":\"draw2.export.coloursLost\",\"n\":2}]}",
+      "request": {
+        "import": "{\"format\": \"mzdraw/1\", \"next\": 11, \"atoms\": [{\"id\": 1, \"el\": \"C\", \"x\": 0.0, \"y\": 0.0}, {\"id\": 2, \"el\": \"O\", \"x\": 1.0, \"y\": 0.5}], \"bonds\": [{\"id\": 3, \"a\": 1, \"b\": 2, \"o\": 1}], \"objects\": [{\"id\": 8, \"t\": \"arrow\", \"x\": 3.0, \"y\": 0.0, \"x2\": 5.0, \"y2\": 0.0, \"text\": \"H2\"}, {\"id\": 9, \"t\": \"plus\", \"x\": 6.0, \"y\": 0.0}, {\"id\": 10, \"t\": \"text\", \"x\": 7.0, \"y\": 0.0, \"text\": \"note\"}]}",
+        "log": [
+          {
+            "atoms": [
+              2
+            ],
+            "bonds": [
+              3
+            ],
+            "col": "#7B2FBE",
+            "objects": [
+              8,
+              10
+            ],
             "op": "colour"
           }
         ],

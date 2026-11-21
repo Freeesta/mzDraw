@@ -16,6 +16,7 @@ fn colour(atoms: &[u32], bonds: &[u32], col: &str) -> Op {
     Op::Colour {
         atoms: atoms.into(),
         bonds: bonds.into(),
+        objects: Vec::new(),
         col: col.into(),
     }
 }
@@ -91,6 +92,15 @@ fn a_refused_colour_changes_nothing() {
         (colour(&[1], &[], "#12345"), "error.draw2.colour"),
         (colour(&[1, 99], &[], "#000000"), "error.draw2.noAtom"),
         (colour(&[1], &[1], "#000000"), "error.draw2.noBond"),
+        (
+            Op::Colour {
+                atoms: vec![],
+                bonds: vec![],
+                objects: vec![99],
+                col: "#000000".into(),
+            },
+            "error.draw2.noObject",
+        ),
     ] {
         assert_eq!(s.run(&[op]).unwrap_err().key, key);
         assert_eq!(s.doc.to_json(), before, "{key}: all or nothing");
@@ -452,4 +462,118 @@ fn colouring_grows_with_the_size_not_with_its_square() {
         big.as_secs_f64() < 3.0 * small.as_secs_f64() + 0.02,
         "20,000 atoms {small:?}, 40,000 atoms {big:?}"
     );
+}
+
+/// A drawing with an arrow, a plus and a text next to the molecule: ids 8, 9 and 10.
+const WITH_OBJECTS: &str = r##"{"format":"mzdraw/1","next":11,"atoms":[{"id":1,"el":"C","x":0.0,"y":0.0},{"id":2,"el":"O","x":1.0,"y":0.5}],"bonds":[{"id":3,"a":1,"b":2,"o":1}],"objects":[{"id":8,"t":"arrow","x":3.0,"y":0.0,"x2":5.0,"y2":0.0,"text":"H2"},{"id":9,"t":"plus","x":6.0,"y":0.0},{"id":10,"t":"text","x":7.0,"y":0.0,"text":"note"}]}"##;
+
+#[test]
+fn one_operation_colours_atoms_bonds_and_objects_and_undoes_exactly() {
+    let mut s = Session::new(Document::from_json(WITH_OBJECTS).unwrap());
+    let before = s.doc.to_json();
+    s.run(&[Op::Colour {
+        atoms: vec![2],
+        bonds: vec![3],
+        objects: vec![8, 10],
+        col: "#7B2FBE".into(),
+    }])
+    .unwrap();
+    assert_eq!(s.steps(), 1, "one step for all three kinds");
+    assert_eq!(s.doc.object(8).unwrap().col(), "#7b2fbe");
+    assert_eq!(s.doc.object(9).unwrap().col(), "");
+    assert!(s.log_json().contains(r##""objects":[8,10]"##));
+    // the field round trips through the document text
+    assert_eq!(Document::from_json(&s.doc.to_json()).unwrap(), s.doc);
+    assert!(s.undo());
+    assert_eq!(s.doc.to_json(), before);
+}
+
+#[test]
+fn objects_are_drawn_in_their_colour_with_the_arrow_head_and_the_text() {
+    let mut e = Editor::default();
+    e.open(WITH_OBJECTS).unwrap();
+    let ink = |e: &Editor| {
+        colours(e)
+            .iter()
+            .filter(|c| **c == mzdraw::scene::colour::INK)
+            .count()
+    };
+    let plain = ink(&e);
+    e.over.sel_objs = vec![8, 9, 10];
+    assert!(e.colour("#d00000") & CHANGED != 0);
+    assert_eq!(e.selection_colour().as_deref(), Some("#d00000"));
+    let red = mzdraw::ink::index("#d00000").unwrap();
+    // the shaft, the text above the arrow, the plus and the text are red; the head is a triangle (checked in the SVG)
+    assert!(colours(&e).iter().filter(|c| **c == red).count() >= 4);
+    assert!(ink(&e) < plain);
+    let svg = e.svg();
+    assert!(svg.contains("<polygon") && svg.contains("fill=\"#d00000\""));
+    assert!(svg.matches("#d00000").count() >= 5, "{svg}");
+}
+
+#[test]
+fn digest_names_the_colours_and_a_drawing_without_any_is_unchanged() {
+    let mut e = Editor::default();
+    e.open(WITH_OBJECTS).unwrap();
+    let plain = e.save("digest").unwrap();
+    assert!(!plain.contains("colours") && !plain.contains("#"));
+    e.over.sel_atoms = vec![2];
+    e.over.sel_bonds = vec![3];
+    e.over.sel_objs = vec![8];
+    e.colour("#d00000");
+    let d: serde_json::Value = serde_json::from_str(&e.save("digest").unwrap()).unwrap();
+    assert_eq!(
+        d["pieces"][0]["colours"],
+        serde_json::json!([["#d00000", "2", "3"]])
+    );
+    assert_eq!(d["objects"][0][3], "#d00000");
+    assert_eq!(
+        d["objects"][1].as_array().unwrap().len(),
+        3,
+        "an object with no colour says none"
+    );
+}
+
+#[test]
+fn the_loss_notes_count_objects_and_cdxml_leaves_only_them_out() {
+    let mut e = Editor::default();
+    e.open(WITH_OBJECTS).unwrap();
+    e.over.sel_atoms = vec![1, 2];
+    e.over.sel_objs = vec![8];
+    e.colour("#d00000");
+    // atoms 1 and 2, the bond between them and the arrow
+    assert_eq!(e.lost_on_save("molfile"), [("draw2.export.coloursLost", 4)]);
+    assert_eq!(e.lost_on_save("cdxml"), [("draw2.export.coloursLost", 1)]);
+    assert!(e.lost_on_save("svg").is_empty() && e.lost_on_save("mzdraw").is_empty());
+    let cdxml = e.save("loss:cdxml").unwrap();
+    assert!(cdxml.contains(r#""what":"colour.object""#) && !cdxml.contains(r#""what":"colour""#));
+    assert!(e
+        .save("loss:ket")
+        .unwrap()
+        .contains(r#""what":"colour.object""#));
+    // the context menu of an object has the group
+    let (x, y) = {
+        let o = e.doc().object(9).unwrap();
+        e.view.to_px(o.x, o.y)
+    };
+    let menu: serde_json::Value = serde_json::from_str(&e.context_menu(x, y)).unwrap();
+    assert_eq!(menu["target"], "object");
+    assert!(menu["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|i| i["id"] == "edit.colour"));
+    e.context_run("colour.green");
+    assert_eq!(e.doc().object(9).unwrap().col(), "#1a7f1a");
+}
+
+#[test]
+fn a_colour_field_of_a_newer_file_is_kept_and_never_an_error() {
+    // a structured value, a wrong type, a long text: not colours, read as automatic, written back as they were
+    for odd in [r#"{"a":1}"#, "7", r#""not a colour""#, "null"] {
+        let text = WITH_OBJECTS.replacen(r#""id":8,"#, &format!(r#""id":8,"col":{odd},"#), 1);
+        let d = Document::from_json(&text).unwrap();
+        assert_eq!(d.object(8).unwrap().col(), "");
+        assert!(d.to_json().contains(&format!(r#""col":{odd}"#)), "{odd}");
+    }
 }
