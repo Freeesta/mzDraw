@@ -62,7 +62,7 @@ The kill test asks the owner to paste the CSV into their SI table workflow once.
 3. `mass_diff` has a plus sign on a positive value; S66 has none.
 4. S66 has a row for the parent and one for the TP (`ParentOrTP`, `Eawag_ID_of_Pair`); here a row per parent-TP pair with `parent_id`.
 5. Column names `SMILES`, `MolecularFormula`, `ExactMass`, `Form_Diff`, `Mass_Diff` are not the names here (the contract fixed ours).
-6. `InChIKey` is not a column: there is no InChI in `mzlab-mol`. **Question for COO 16:** is an InChIKey from mzLab wanted (a new engine), or is the column left out for good? It is never faked.
+6. `InChIKey` is not a column: there is no InChI in `mzlab-mol`. **Question for COO 16:** is an InChIKey from mzLab wanted (a new engine), or is the column left out for good? It is never faked. **Closed by the owner (21 Nov 2026): an InChIKey is NOT wanted now; do not build it.** The question to COO 16 is withdrawn.
 
 ## Not built
 
