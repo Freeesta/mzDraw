@@ -525,7 +525,10 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
             // the data fields of the record are kept on its first atom
             let (data, ann, left) = formats::sdf_data(record);
             info.data_left += left;
-            info.no_pathway += usize::from(data.iter().any(|(k, _)| k == "TP_ID"));
+            info.no_pathway += usize::from(
+                data.iter()
+                    .any(|(k, _)| k.trim().eq_ignore_ascii_case("TP_ID")),
+            );
             if let Some(a) = d.atoms.first_mut() {
                 a.set_data(&data);
                 if !ann.is_empty() {

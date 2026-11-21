@@ -331,6 +331,18 @@ fn read_csv(text: &str) -> Read {
         rows.push(row);
     }
     if table {
+        // the spreadsheet guard of the table writer: a `'` before `=`, `+`, `-` or `@` in a text cell is taken off again
+        for r in &mut rows {
+            let mut cells = vec![&mut r.name, &mut r.adduct, &mut r.level, &mut r.identifier];
+            cells.extend(r.parents.iter_mut());
+            for c in cells {
+                if c.strip_prefix('\'')
+                    .is_some_and(|t| t.starts_with(['=', '+', '-', '@']))
+                {
+                    c.remove(0);
+                }
+            }
+        }
         merge_pairs(&mut rows, &mut bad);
     }
     Ok((rows, bad))
@@ -681,7 +693,7 @@ fn field(ix: &Index, atoms: &[u32], name: &str) -> Option<f64> {
 }
 
 /// The structures of a pathway in an order: the atoms of each and its layer.
-pub(crate) type Ordered = Vec<(Vec<u32>, usize)>;
+pub type Ordered = Vec<(Vec<u32>, usize)>;
 
 /// The structures of the pathway (a root only when `roots`; else the products, the structures an anchored arrow reaches), in the
 /// order `number` gives, as the atoms of each with its layer (tp-05). The error is the key of the layout's refusal (no anchored arrow,
@@ -741,10 +753,7 @@ fn products(
 
 /// Every structure of the pathway (roots too) with its layer, in the order of `pathway.number` as `tp:number` numbers the products
 /// (the table of tp-09 is written in this order); `None` when the drawing has no anchored arrow, so no pathway.
-pub(crate) fn table_order(
-    doc: &Document,
-    style: &Style,
-) -> Result<Option<Ordered>, (&'static str, u32)> {
+pub fn table_order(doc: &Document, style: &Style) -> Result<Option<Ordered>, (&'static str, u32)> {
     match ordered(doc, style, style.pathway_number, true) {
         Ok(v) => Ok(Some(v)),
         Err(("error.draw2.schemeEmpty", _)) => Ok(None),

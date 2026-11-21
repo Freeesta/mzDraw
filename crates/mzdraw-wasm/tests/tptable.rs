@@ -349,3 +349,10 @@ fn the_goldens_of_the_table_are_what_the_glue_door_writes() {
         std::fs::write(path, serde_json::to_string_pretty(&fresh).unwrap() + "\n").unwrap();
     }
 }
+
+#[test]
+fn an_sdf_field_named_in_lower_case_still_counts_as_a_name_for_the_pathway_note() {
+    let mut e = Editor::default();
+    let info = e.import("\n  x\n\n  1  0  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\nM  END\n>  <tp_id>\nA\n\n$$$$\n").unwrap();
+    assert_eq!(info.no_pathway, 1);
+}

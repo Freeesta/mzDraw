@@ -202,6 +202,20 @@ pub fn build(
     if doc.atoms.len() > MAX_ATOMS {
         return Err(KEY_SIZE);
     }
+    let order = crate::tp_list::table_order(doc, style).map_err(|e| e.0)?;
+    build_with(doc, order.as_ref(), engine)
+}
+
+/// `build` with the order and layers of the pathway given (`tp_list::table_order`, `None` for no pathway): the work of this module alone,
+/// without the layout of tp-05 (which the scaling tests time apart).
+pub fn build_with(
+    doc: &Document,
+    order: Option<&crate::tp_list::Ordered>,
+    engine: Option<Measurer>,
+) -> Result<Table, &'static str> {
+    if doc.atoms.len() > MAX_ATOMS {
+        return Err(KEY_SIZE);
+    }
     let scan = values::scan(doc);
     let n = scan.structures.len();
     if n > MAX_STRUCTURES {
@@ -215,10 +229,9 @@ pub fn build(
         .flat_map(|(k, s)| s.ids.iter().map(move |&a| (a, k)))
         .collect();
     // the order and the layers of the pathway; the structures no arrow touches follow, in the order of their first atom
-    let order = crate::tp_list::table_order(doc, style).map_err(|e| e.0)?;
     let mut seq: Vec<(usize, Option<usize>)> = Vec::with_capacity(n);
     let mut seen = vec![false; n];
-    for (atoms, layer) in order.iter().flatten() {
+    for (atoms, layer) in order.into_iter().flatten() {
         if let Some(&k) = atoms.first().and_then(|a| owner.get(a))
             && !seen[k]
         {
@@ -364,7 +377,9 @@ pub fn build(
     };
     for &(k, layer) in &seq {
         let (s, i) = (&scan.structures[k], &infos[k]);
-        if !i.mz.is_empty() && mz[k].is_some() && ppm_of(k).is_none() {
+        // a typed m/z or retention time that is not a number is copied as typed and listed, whatever the adduct
+        let bad = |t: &str| !t.is_empty() && !t.parse::<f64>().is_ok_and(f64::is_finite);
+        if bad(&i.mz) || bad(&i.rt) {
             note(&mut table, "draw2.export.tpNumber", k, "");
         }
         let mut base = vec![String::new(); COLUMNS.len()];
@@ -467,11 +482,13 @@ fn field_csv(s: &str) -> String {
     }
 }
 
-/// The columns of free text, whose cells a spreadsheet must not read as a formula.
+/// The columns of free text, whose cells a spreadsheet must not read as a formula, and the two columns typed as numbers (`mz_obs`, `rt`),
+/// guarded when what is there is not a number (a field of an SDF is any text).
 const TEXT: [usize; 5] = [0, 1, 6, 13, 14];
+const TYPED_NUMBER: [usize; 2] = [8, 10];
 
 /// The table as CSV: the header, then a line per row, each ending in LF. The second value is how many text cells got the guard `'`
-/// (`draw2.export.tpGuard`).
+/// (`draw2.export.tpGuard`); `tp_list` takes the `'` off again on import.
 pub fn csv_counted(t: &Table) -> (String, usize) {
     let mut out = COLUMNS.join(",");
     out.push('\n');
@@ -481,7 +498,9 @@ pub fn csv_counted(t: &Table) -> (String, usize) {
             .iter()
             .enumerate()
             .map(|(c, v)| {
-                if TEXT.contains(&c) && v.starts_with(['=', '+', '-', '@']) {
+                let text = TEXT.contains(&c)
+                    || (TYPED_NUMBER.contains(&c) && !v.parse::<f64>().is_ok_and(f64::is_finite));
+                if text && v.starts_with(['=', '+', '-', '@']) {
                     guarded += 1;
                     field_csv(&format!("'{v}"))
                 } else {

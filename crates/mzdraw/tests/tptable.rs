@@ -443,12 +443,14 @@ fn big(n: usize, linked: bool) -> Editor {
     e
 }
 
-/// The best of `runs` builds of the table of `e` (the document is built before and outside the timing).
+/// The best of `runs` builds of the table of `e`, with the layout of the pathway made before and outside the timing (the document and the
+/// stand-in engine too): the work of `tptable` alone.
 fn best(e: &Editor, runs: usize) -> f64 {
+    let order = mzdraw::tp_list::table_order(e.doc(), &e.style).unwrap();
     (0..runs)
         .map(|_| {
             let t = Instant::now();
-            let table = tptable::build(e.doc(), &e.style, e.measurer).unwrap();
+            let table = tptable::build_with(e.doc(), order.as_ref(), e.measurer).unwrap();
             let s = t.elapsed().as_secs_f64();
             assert!(!table.rows.is_empty());
             s
@@ -467,16 +469,16 @@ fn the_table_of_unlinked_structures_grows_linearly() {
         a * 1e3,
         b * 1e3
     );
-    assert!(b < 8.0 * a + 0.002, "250: {a:.4} s, 1000: {b:.4} s");
+    assert!(b < 6.0 * a + 0.002, "250: {a:.4} s, 1000: {b:.4} s");
 }
 
 #[test]
-fn the_table_of_a_pathway_grows_linearly_with_the_layout_it_uses() {
-    // the layout of the pathway (`pathway::layout`, tp-05: 73 ms for 1000 nodes in release) is part of the cost; 100 against 400 rows
+fn the_table_of_a_pathway_grows_linearly() {
+    // the pathway is laid out before the timing (that layout is tp-05's, with its own tests); 100 against 400 rows
     let (small, large) = (big(100, true), big(400, true));
     let (a, b) = (best(&small, 5), best(&large, 5));
     println!("100 linked {:.1} ms, 400 linked {:.1} ms", a * 1e3, b * 1e3);
-    assert!(b < 8.0 * a + 0.005, "100: {a:.4} s, 400: {b:.4} s");
+    assert!(b < 6.0 * a + 0.002, "100: {a:.4} s, 400: {b:.4} s");
 }
 
 #[test]
@@ -505,4 +507,63 @@ fn the_key_table_file_says_what_the_module_writes() {
         .map(|k| text.find(&format!("\"{}\":", k.as_str().unwrap())).unwrap())
         .collect();
     assert!(order.windows(2).all(|w| w[0] < w[1]), "{order:?}");
+}
+
+/// A structure whose data `MZ` and `RT` are the given texts (as an SDF may carry any text there).
+fn with_fields(name: &str, mz: &str, rt: &str, adduct: &str) -> Editor {
+    let mut e = Editor::default();
+    e.import("CCO").unwrap();
+    let mut data = vec![
+        ("TP_ID".to_string(), name.to_string()),
+        ("MZ".into(), mz.into()),
+        ("RT".into(), rt.into()),
+    ];
+    if !adduct.is_empty() {
+        data.push(("ADDUCT".into(), adduct.into()));
+    }
+    e.set_data(1, data);
+    e.measurer = Some(engine);
+    e
+}
+
+#[test]
+fn a_typed_number_that_is_text_is_guarded_and_listed_with_or_without_an_adduct() {
+    let e = with_fields("A", "=HYPERLINK(\"x\")", "@rt", "");
+    let csv = e.save("tptable-csv").unwrap();
+    assert!(csv.contains(",\"'=HYPERLINK(\"\"x\"\")\","), "{csv}");
+    assert!(csv.contains(",'@rt,"), "{csv}");
+    assert_eq!(
+        e.lost_on_save("tptable-csv"),
+        vec![("draw2.export.tpNumber", 1), ("draw2.export.tpGuard", 2)]
+    );
+    // junk with no adduct is a note too, and a real number is neither guarded nor listed
+    let e = with_fields("B", "n/a", "x", "");
+    e.save("tptable").unwrap();
+    assert_eq!(
+        e.lost_on_save("tptable"),
+        vec![("draw2.export.tpNumber", 1)]
+    );
+    let e = with_fields("C", "151.1117", "-1", "[M+H]+");
+    let csv = e.save("tptable-csv").unwrap();
+    assert!(
+        csv.contains(",151.1117,") && csv.contains(",-1,") && !csv.contains("'-1"),
+        "{csv}"
+    );
+    assert!(e.lost_on_save("tptable-csv").is_empty());
+}
+
+#[test]
+fn a_guarded_text_cell_round_trips_and_a_plain_quote_stays() {
+    let e = with_fields("=x", "100", "1", "");
+    let csv = e.save("tptable-csv").unwrap();
+    assert!(csv.contains("\n'=x,"), "{csv}");
+    let mut again = Editor::default();
+    again.import(&csv).unwrap();
+    again.measurer = Some(engine);
+    assert_eq!(again.save("tptable-csv").unwrap(), csv);
+    assert_eq!(cell(&table(&again)["rows"][0], "tp_id"), "=x");
+    // a name that merely starts with a quote is kept as written
+    let mut q = Editor::default();
+    q.import("tp_id,smiles\n'a,CCO\n").unwrap();
+    assert_eq!(cell(&table(&q)["rows"][0], "tp_id"), "'a");
 }

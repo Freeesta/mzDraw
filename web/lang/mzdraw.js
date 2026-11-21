@@ -28,7 +28,7 @@ I18N.add("en", {
   "draw2.export.tpSmiles": "Structures whose SMILES is not written (above 500 atoms, or refused by the writer), left with an empty cell: {n}.",
   "draw2.export.tpParentName": "Parents with no name (TP_ID), so their products have an empty parent cell: {n}. Name the parent or number the structures.",
   "draw2.export.tpDelta": "Parent and product pairs with no formula difference (a free-text label, or the same atoms with another charge), left with an empty form_diff: {n}.",
-  "draw2.export.tpNumber": "Structures whose observed m/z is not a number, left without ppm: {n}.",
+  "draw2.export.tpNumber": "Structures whose observed m/z or retention time is not a number (copied as typed, and without ppm where it is the m/z): {n}.",
   "draw2.export.tpGuard": "Text cells that start with =, +, - or @ and got a leading apostrophe so that a spreadsheet does not read them as a formula: {n}.",
   "draw2.export.tptable": "TP table (JSON)",
   "draw2.export.tptable.title": "Save the pathway as a table: one row per parent and product, with formula, masses, m/z, ppm and differences (tptable/1)",
