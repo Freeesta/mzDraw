@@ -14,7 +14,7 @@ use crate::settings::Style;
 use std::collections::{BTreeSet, HashMap};
 
 pub mod steps;
-pub use steps::{name_of, sites, step, steps_json, Kind, Sites, Step, STEPS};
+pub use steps::{filter, name_of, sites, step, steps_json, Kind, Sites, Step, STEPS};
 
 /// Ids at or above this name a new atom of the patch (`NEW + k` is the k-th `atom.add`, k from 1): a real id never reaches it
 /// (`doc::MAX_ID` is `1 << 31`).

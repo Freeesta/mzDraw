@@ -2262,6 +2262,99 @@ try {
     await tpShown(false); await frames(pg); await tpSame("pen");
     await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
   });
+  // tp-11: the step field (the item "Apply step..." of the context menu; no key of its own): type a step, pick a site, derive. The rings and the ghost
+  // are an overlay; the page equals the goldens of tests/data/log/step-field.json after the keyboard, the touch and the pen way
+  const stGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/step-field.json"), "utf8")).cases;
+  const stField = async () => JSON.parse(await pg.evaluate("window.MZDRAW.step_field()"));
+  const stOpen = async () => { await pg.evaluate("window.MZDRAW.set('pathway.derive=on')"); await pg.evaluate(text => { const m = /** @type {any} */ (window).MZDRAW; m.open(m.replay(JSON.stringify({ import: text, out: "mzdraw" }))); }, stGold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 4, objects: 0 }); return tpDoc(); };
+  /** the rings of the sites, in page pixels, in site order (the accent rings of the scene, the focused site's second ring dropped) */
+  const stRings = async () => {
+    const d = await pg.evaluate("Array.from(window.MZDRAW.scene())"), b = await pg.locator("#d2-canvas").boundingBox(), out = [];
+    for (let i = 0; i < d.length;) { const op = d[i]; if (op === 5 && d[i + 4] === 11 && !out.some(p => Math.abs(p[0] - d[i + 1]) < 1 && Math.abs(p[1] - d[i + 2]) < 1)) out.push([d[i + 1], d[i + 2]]); i += op === 1 ? 7 : op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : 5; }
+    return out.map(([x, y]) => [b.x + x, b.y + y]);
+  };
+  const stSame = async (gold, what) => { eq(await tpDoc(), gold.out.mzdraw, what + ": document"); eq(await tpSvg(), gold.out.svg, what + ": picture"); eq((await stField()).open, false); await want(pg, { atoms: 9, objects: 1 }); };
+  const stMenuKey = async () => { await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await until(pg, `${STATE}.focus === 1`); await pg.keyboard.press("Shift+F10"); await tpShown(); await pg.keyboard.press("A"); await pg.keyboard.press("A"); eq(await pg.evaluate("document.activeElement.dataset.id"), "tp.step"); await pg.keyboard.press("Enter"); await tpShown(false); await until(pg, `document.getElementById("d2-step").hidden === false && document.activeElement.id === "d2-step-text"`); };
+  await step("step field by keyboard: Shift+F10 and the item Apply step... open it on the focused structure (Shift+T stays the text tool: the kill test of tp-11 did not pass), +O lists hydroxylation and n-oxidation, ] twice moves to the third site, Enter derives; the page equals the golden, the overlay is no operation, one undo", async () => {
+    const before = await stOpen();
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await until(pg, `${STATE}.focus === 1`);
+    eq((await stField()).open, false);
+    await pg.keyboard.press("["); await pg.keyboard.press("]"); eq(await tpDoc(), before);                    // bare [ and ] are unbound with the field closed
+    await pg.keyboard.press("Shift+T"); await frames(pg); eq(await pg.evaluate(`document.getElementById("d2-step").hidden`), true);   // no key of its own
+    await pg.keyboard.press("Escape"); await pg.keyboard.press("Home");
+    await stMenuKey();
+    await pg.keyboard.type("+O"); await frames(pg);
+    eq((await stField()).rows.map(r => r.name), ["hydroxylation", "n-oxidation"]);
+    eq(await pg.locator("#d2-step-list li").allInnerTexts(), ["hydroxylation\n+O +15.9949", "n-oxidation\n+O +15.9949"]);
+    eq((await stField()).sites, [1, 3, 4]);
+    eq((await stRings()).length, 3, "a ring on each site");
+    await shot(pg, "tp11-field");
+    await pg.keyboard.press("]"); await pg.keyboard.press("]"); await frames(pg);
+    eq((await stField()).site, 2);
+    eq(await pg.innerText("#d2-step-line"), "hydroxylation, +O, at C4, site 3 of 3");
+    eq(await tpDoc(), before, "the overlay is no operation");
+    await pg.keyboard.press("Enter"); await frames(pg); await stSame(stGold[0], "keyboard");
+    await until(pg, `document.getElementById("d2-step").hidden`);
+    await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+    // Escape closes the field and leaves the drawing as it was
+    await stMenuKey();
+    await pg.keyboard.press("Escape"); await until(pg, `document.getElementById("d2-step").hidden`); eq(await tpDoc(), before);
+    // Alt+[ and Alt+] still turn the selection with the field open
+    await stMenuKey(); await pg.keyboard.press("Alt+["); eq((await stField()).open, true);
+    // "Apply step..." chosen again while the field is open: a fresh field, the input shows the module's (empty) text and the list is whole
+    await pg.keyboard.type("+O"); await frames(pg); eq(await pg.inputValue("#d2-step-text"), "+O");
+    await pg.mouse.click(...(await stRings())[0], { button: "right" }); await tpShown(); await pg.click('[data-testid="d2-ctx-tp.step"]'); await tpShown(false); await frames(pg);
+    eq(await pg.inputValue("#d2-step-text"), ""); eq((await stField()).rows.length, 13); eq(await pg.locator("#d2-step-list li").count(), 13);
+    await pg.keyboard.press("Escape");
+  });
+  await step("step field by touch: long press the structure, Apply step..., tap the second ring, tap Derive; the page equals the golden, one undo", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    const before = await stOpen();
+    await stMenuKey(); await pg.keyboard.type("+O");
+    const rings = await stRings(); await pg.keyboard.press("Escape"); await until(pg, `document.getElementById("d2-step").hidden`);
+    await touch("touchStart", [rings[0]]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await tpShown(); eq((await tpMenu()).kind, "touch");
+    eq((await pg.innerText(`[data-testid="d2-ctx-tp.step"]`)).split("\n"), [await pg.evaluate("I18N.t('draw2.ctx.tp.step')")]);
+    const [bx, by] = await center(pg, '[data-testid="d2-ctx-tp.step"]');
+    await pg.touchscreen.tap(bx, by); await tpShown(false); await until(pg, `document.getElementById("d2-step").hidden === false`);
+    await pg.fill("#d2-step-text", "+O"); await frames(pg);
+    const two = await stRings(); eq(two.length, 3);
+    await pg.touchscreen.tap(...two[1]); await frames(pg);
+    eq((await stField()).site, 1); eq(await tpDoc(), before, "a tap on a ring makes no operation");
+    await shot(pg, "tp11-field-touch");
+    const [dx, dy] = await center(pg, "#d2-step-derive"); await pg.touchscreen.tap(dx, dy); await frames(pg);
+    await stSame(stGold[1], "touch"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  await step("step field by pen: barrel button on the structure, Apply step..., a pen tap on the second ring, a pen tap on Derive; the page equals the golden, one undo", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y, barrel = false) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : barrel ? "right" : "left", buttons: type === "mousePressed" ? (barrel ? 2 : 1) : 0, clickCount: 1 });
+    const tap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const before = await stOpen();
+    await stMenuKey(); await pg.keyboard.type("+O");
+    const rings = await stRings(); await pg.keyboard.press("Escape"); await until(pg, `document.getElementById("d2-step").hidden`);
+    await pen("mouseMoved", ...rings[0], true); await pen("mousePressed", ...rings[0], true); await tpShown(); eq((await tpMenu()).kind, "pen"); await pen("mouseReleased", ...rings[0], true);
+    await tap(...await center(pg, '[data-testid="d2-ctx-tp.step"]')); await tpShown(false); await until(pg, `document.getElementById("d2-step").hidden === false`);
+    await pg.fill("#d2-step-text", "+O"); await frames(pg);
+    await tap(...(await stRings())[1]); await frames(pg);
+    eq((await stField()).site, 1); eq(await tpDoc(), before, "a tap on a ring makes no operation");
+    await tap(...await center(pg, "#d2-step-derive")); await frames(pg);
+    await stSame(stGold[1], "pen"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  await step("step field: a mass shift filters too (+15.99 lists the same two rows with their shifts), a row is picked by a tap and gives n-oxidation; with the pathway features off the menu has no such item", async () => {
+    const before = await stOpen();
+    await stMenuKey(); await pg.keyboard.type("+15.99"); await frames(pg);
+    eq((await stField()).rows.map(r => [r.name, r.mass]), [["hydroxylation", "+15.9949"], ["n-oxidation", "+15.9949"]]);
+    await pg.click("#d2-step-list li:nth-child(2)"); await frames(pg);
+    eq((await stField()).step, "n-oxidation");
+    await pg.click("#d2-step-derive"); await frames(pg); await stSame(stGold[2], "pick");
+    await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+    await pg.evaluate("window.MZDRAW.set('pathway.derive=off')");
+    const at = (await stRings())[0] ?? null; eq(at, null, "no ring with the field closed");
+    await pg.mouse.click(...(await tpAtom()), { button: "right" }); await tpShown();
+    assert(!(await tpMenu()).ids.includes("tp.step"), "no Apply step while the setting is off");
+    await pg.keyboard.press("Escape"); await tpShown(false);
+  });
   await ctx.close();
 
   // tp-04: the diff lens (display.lens: off, tint, tint+ghost) on the products of anchored arrows, from the keyboard (Shift+L), the

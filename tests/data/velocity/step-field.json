@@ -1,0 +1,28 @@
+{
+ "format": "step-field-velocity/1",
+ "task": "three hydroxylation products of methylcyclohexane (two of the parent, one of the first product)",
+ "parent_actions": 6,
+ "step_field": {
+  "per_product": 4,
+  "total": 18,
+  "steps": "right-click the parent atom, the item Apply step..., tap the ring of the site, Enter"
+ },
+ "derive_then_edit": {
+  "per_product": 5,
+  "last_product_of_a_chain": 4,
+  "total": 20,
+  "steps": "click the parent atom, Shift+D, press the O tool, drag a bond to a new O, press Select (the same edit as tests/data/velocity/mzdraw.json parent-five-tps)"
+ },
+ "reached": {
+  "oxygens": 4,
+  "carbons": 28,
+  "structures": 4,
+  "atoms": 32
+ },
+ "cut": 0.1,
+ "kill_test": {
+  "bar": 0.3,
+  "passed": false,
+  "decision": "remove Shift+T, keep the field behind the context menu only"
+ }
+}
