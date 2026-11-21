@@ -1175,3 +1175,70 @@ fn an_id_that_changes_kind_is_removed_and_added() {
     assert_eq!(hunks.len(), 1);
     assert_eq!(hunks[0].ids, [1, 2, 3, 4, 5]);
 }
+
+#[test]
+fn a_patch_with_an_operation_that_names_no_id_is_one_hunk_and_never_panics() {
+    let a = ethanol().doc;
+    let arrow = Op::ObjAdd {
+        id: None,
+        t: ObjKind::Arrow,
+        x: 4.0,
+        y: 0.0,
+        x2: 6.0,
+        y2: 0.0,
+        text: String::new(),
+        from: 0,
+        to: 0,
+    };
+    let patches: Vec<Vec<Op>> = vec![
+        vec![add("N", 3.0, 3.0)],
+        vec![arrow],
+        vec![bond(1, 3, 1)],
+        vec![Op::Move {
+            atoms: vec![],
+            objects: vec![],
+            dx: 1.0,
+            dy: 0.0,
+        }],
+        vec![Op::Remove {
+            atoms: vec![],
+            bonds: vec![],
+            objects: vec![],
+        }],
+        // a named op beside one that names nothing: still one hunk, nothing dropped
+        vec![
+            Op::AtomSet {
+                id: 1,
+                el: None,
+                chg: Some(1),
+                iso: None,
+                rad: None,
+                h: None,
+                lab: None,
+                map: None,
+            },
+            add("N", 3.0, 3.0),
+        ],
+    ];
+    for ops in patches {
+        let hunks = mzdraw::diff::hunks(&a, &ops);
+        assert_eq!(hunks.len(), 1, "{}", mzdraw::ops::log_text(&ops));
+        assert_eq!(hunks[0].ops, ops);
+    }
+    assert!(mzdraw::diff::hunks(&a, &[]).is_empty());
+}
+
+#[test]
+fn the_editor_gives_the_patch_to_another_document() {
+    let mut e = mzdraw::Editor::default();
+    e.import(r#"{"format":"mzdraw/1","next":3,"atoms":[{"id":1,"el":"C","x":0,"y":0},{"id":2,"el":"C","x":1,"y":0}],"bonds":[]}"#)
+        .unwrap();
+    let other = Document::from_json(r#"{"format":"mzdraw/1","next":4,"atoms":[{"id":1,"el":"C","x":0,"y":0},{"id":2,"el":"O","x":1,"y":0},{"id":3,"el":"N","x":2,"y":0}],"bonds":[]}"#).unwrap();
+    let ops = e.diff_with(&other);
+    assert_eq!(ops, mzdraw::diff::diff(e.doc(), &other));
+    assert_eq!(ops.len(), 2);
+    let mut s = Session::new(e.doc().clone());
+    s.run(&ops).unwrap();
+    assert_eq!(s.doc.to_json(), other.to_json());
+    assert!(e.diff_with(e.doc()).is_empty());
+}

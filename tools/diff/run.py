@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
-"""Independent proof of the semantic diff of mzDraw (plan-15): `apply(diff(a, b), a)` is `b`, checked outside our test code.
+"""Check of the semantic diff of mzDraw (plan-15): `apply(diff(a, b), a)` is `b`, with RDKit as a second reader of the molecules.
+
+What this is, and is not. The oracle that decides is BYTE EQUALITY of `mzdraw/1` documents, and both sides of it come from our own
+code (our diff, applied by our own replay). It is not independent of mzDraw. RDKit adds one thing only: for the pairs it can read, the
+canonical SMILES and the InChIKey of the result and of `b` agree; both SMILES are written by `mzlab-mol` through the example, so once
+the bytes are equal RDKit can only agree, and it would catch only a bug of the SMILES writer. A pair RDKit cannot read on either side
+(an edit made a valence it refuses) is compared by bytes alone and counted apart.
 
 For each structure of tests/data/fidelity/set.smi (200 synthetic structures) the script draws `a` (the native `replay` example imports
-the SMILES), makes `b` by a few seeded random edits of its own (an element, a charge, a bond order, a new atom on a bond, an atom
-removed, a piece moved), asks the example for the diff `{"diff": {"a", "b"}}`, applies the patch to `a` and the hunks one by one and
-all together, and checks:
+the SMILES; half of the drawings also get an arrow and a text), makes `b` by 1-4 seeded random edits of its own, asks the example for the diff
+`{"diff": {"a", "b"}}`, applies the patch to `a` and the hunks one by one and all together, and checks:
   1. the document bytes of the result equal those of `b` (the counter `next` aside: no operation sets it);
-  2. RDKit reads the SMILES of the result and the SMILES of `b` (both written by mzlab-mol through the example) and gives the same
-     canonical SMILES and the same InChIKey (RDKit's canonicalisation and bundled InChI are not ours); a pair RDKit reads on neither
-     side (an edit made a valence it refuses) is counted apart, not as a pass;
-  3. every hunk applies to `a` alone, and the hunks in order give the same atoms and bonds as `b`.
+  2. RDKit's canonical SMILES and InChIKey of the result and of `b` are equal, where RDKit reads them;
+  3. every hunk applies to `a` alone, and the hunks in order give the same atoms, bonds and objects as `b` (by id).
+Edits covered: element, charge, isotope, radical, explicit hydrogens, label, bond order, wedge, bond reversal, a moved piece, an atom
+added or removed, an object added, moved, reshaped or removed. Not covered: rings (`ring`), `rotate` and `flip` as edits (their
+results are moves of atoms to new places, which the moves above reach), data and annotations on atoms, atom-to-atom maps, arrow anchors.
 
 Usage:  python3 tools/diff/run.py --replay target/debug/examples/replay > tests/data/diff/reference.json
-Exit 0 when every check holds, 1 on a failure or a tool error; data on stdout, diagnostics on stderr. Needs `rdkit` (pip). Nothing
-third-party is committed: the output holds our synthetic structures' counts, the program name and version and the date.
+Exit 0 when every check holds; 1 when a check fails (the numbers are on stdout); 2 on a tool error (the example refuses a request it
+must accept, or it is missing); 3 when `rdkit` is not installed (as the scripts of tools/fidelity). Data on stdout, diagnostics on
+stderr. Nothing third-party is committed: the output holds counts for our synthetic structures, the program name and version and the date.
 """
 import argparse
 import datetime
@@ -27,9 +34,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SET = os.path.join(HERE, "..", "..", "tests", "data", "fidelity", "set.smi")
 
 
-def die(msg):
+def die(msg, code=2):
     print(msg, file=sys.stderr)
-    sys.exit(1)
+    sys.exit(code)
 
 
 def main():
@@ -44,10 +51,13 @@ def main():
         from rdkit.Chem import inchi
         RDLogger.DisableLog("rdApp.*")
     except ImportError:
-        die("rdkit is needed: pip install rdkit")
+        die("rdkit is needed: pip install rdkit", 3)
 
     def replay(request):
-        p = subprocess.run([args.replay], input=json.dumps(request), capture_output=True, text=True)
+        try:
+            p = subprocess.run([args.replay], input=json.dumps(request), capture_output=True, text=True)
+        except OSError as e:
+            die(f"cannot run {args.replay}: {e}")
         return p.returncode, p.stdout, p.stderr
 
     def ok(request):
@@ -80,12 +90,39 @@ def main():
         if code != 0:
             skipped += 1
             continue
+        if rng.random() < 0.5:
+            a = ok({"import": a, "log": [
+                {"op": "obj.add", "t": "arrow", "x": -4.0, "y": 0.0, "x2": -2.0, "y2": 0.0},
+                {"op": "obj.add", "t": "text", "x": -4.0, "y": 1.0, "text": "cat."}], "out": "mzdraw"})
         doc = json.loads(a)
         atoms = [x["id"] for x in doc["atoms"]]
         bonds = [x["id"] for x in doc["bonds"]]
+        objs = [x["id"] for x in doc.get("objects", [])]
         edits = []
         for _ in range(rng.randint(1, 4)):
-            k = rng.randint(0, 5)
+            k = rng.randint(0, 14)
+            if k >= 6:
+                if k == 6:
+                    edits.append({"op": "atom.set", "id": rng.choice(atoms), "iso": rng.choice([2, 13])})
+                elif k == 7:
+                    edits.append({"op": "atom.set", "id": rng.choice(atoms), "h": rng.randint(0, 3)})
+                elif k == 8:
+                    edits.append({"op": "atom.set", "id": rng.choice(atoms), "lab": rng.choice(["Ph", "Me", ""])})
+                elif k == 9 and bonds:
+                    edits.append({"op": "bond.set", "id": rng.choice(bonds), "s": rng.randint(0, 3)})
+                elif k == 10 and bonds:
+                    edits.append({"op": "bond.set", "id": rng.choice(bonds), "rev": True})
+                elif k == 11:
+                    edits.append({"op": "atom.set", "id": rng.choice(atoms), "rad": rng.randint(0, 2)})
+                elif objs and k == 12:
+                    edits.append({"op": "move", "objects": [rng.choice(objs)], "dx": 0.5 * rng.randint(-4, 4), "dy": -1.0})
+                elif objs and k == 13:
+                    edits.append({"op": "obj.set", "id": objs[0], "x2": rng.randint(-1, 3) / 2.0})
+                elif objs and k == 14:
+                    edits.append({"op": "remove", "objects": [rng.choice(objs)]})
+                else:
+                    edits.append({"op": "obj.add", "t": "plus", "x": rng.randint(-4, 4), "y": 3.0})
+                continue
             if k == 0:
                 edits.append({"op": "atom.set", "id": rng.choice(atoms), "el": rng.choice(["N", "O", "S", "Cl"])})
             elif k == 1:
@@ -131,7 +168,7 @@ def main():
         "structures": len(lines),
         "pairs": pairs,
         "pairs_with_a_patch": changed,
-        "skipped_edits_refused_by_the_drawing": skipped,
+        "pairs_not_made_edit_refused_or_import_failed": skipped,
         "bytes_equal": same_bytes,
         "rdkit_compared": compared,
         "rdkit_canonical_smiles_and_inchikey_equal": same_rdkit,
@@ -140,7 +177,7 @@ def main():
         "all_hunks_give_b": hunks_all,
     }
     print(json.dumps(out, indent=2))
-    sys.exit(0 if n == pairs == same_bytes and compared == same_rdkit and hunks_alone == hunks_all else 1)
+    sys.exit(0 if n == pairs == same_bytes == hunks_alone == hunks_all and compared == same_rdkit else 1)
 
 
 main()

@@ -8,13 +8,13 @@
   "date": "2026-11-21",
   "seed": 15,
   "structures": 200,
-  "pairs": 192,
-  "pairs_with_a_patch": 188,
-  "skipped_edits_refused_by_the_drawing": 8,
-  "bytes_equal": 192,
-  "rdkit_compared": 154,
-  "rdkit_canonical_smiles_and_inchikey_equal": 154,
-  "rdkit_read_neither_side": 38,
-  "every_hunk_applies_alone": 192,
-  "all_hunks_give_b": 192
+  "pairs": 186,
+  "pairs_with_a_patch": 181,
+  "pairs_not_made_edit_refused_or_import_failed": 14,
+  "bytes_equal": 186,
+  "rdkit_compared": 151,
+  "rdkit_canonical_smiles_and_inchikey_equal": 151,
+  "rdkit_read_neither_side": 35,
+  "every_hunk_applies_alone": 186,
+  "all_hunks_give_b": 186
 }

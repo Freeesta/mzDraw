@@ -300,13 +300,10 @@ fn split(sets: &mut Sets, lists: &[&[u32]]) -> Vec<(u32, Vec<Vec<u32>>)> {
 /// The hunks of a patch of `diff` (or any patch of `a` made of the operations `diff` writes). A piece is a connected piece of `a`
 /// joined by the bonds the patch adds; an id used by several operations (an atom and a bond that swap ids, an object moved and
 /// reshaped) keeps them together, so the hunks do not depend on each other and any subset applies in order. An operation that
-/// touches several pieces (`remove`, `move`) is split. A patch with an operation `diff` never writes (`rotate`, `flip`, `ring`)
-/// is one hunk. The hunks come in the order of their first operation.
+/// touches several pieces (`remove`, `move`) is split. A patch with an operation `diff` never writes (`rotate`, `flip`, `ring`), an
+/// add that names no id (its id comes from the counter) or an operation that names nothing is one hunk. The hunks come in the order of their first operation.
 pub fn hunks(a: &Document, ops: &[Op]) -> Vec<Hunk> {
-    if ops
-        .iter()
-        .any(|o| matches!(o, Op::Rotate { .. } | Op::Flip { .. } | Op::Ring { .. }))
-    {
+    if !ops.iter().all(splittable) {
         let mut ids = Vec::new();
         for op in ops {
             ids.extend(touched(op));
@@ -326,7 +323,7 @@ pub fn hunks(a: &Document, ops: &[Op]) -> Vec<Hunk> {
     for op in ops {
         match op {
             Op::BondAdd { id, a, b, .. } => {
-                sets.join(id.unwrap_or(0), *a);
+                sets.join(id.unwrap_or_default(), *a);
                 sets.join(*a, *b);
             }
             _ => {
@@ -402,6 +399,15 @@ pub fn hunks(a: &Document, ops: &[Op]) -> Vec<Hunk> {
             h
         })
         .collect()
+}
+
+/// Whether the hunks can tell what an operation touches: an operation `diff` writes, with its ids named.
+fn splittable(op: &Op) -> bool {
+    match op {
+        Op::Rotate { .. } | Op::Flip { .. } | Op::Ring { .. } => false,
+        Op::AtomAdd { id, .. } | Op::BondAdd { id, .. } | Op::ObjAdd { id, .. } => id.is_some(),
+        _ => !touched(op).is_empty(),
+    }
 }
 
 /// The ids an operation of `diff` names (for a bond add: its own id and its two atoms).
