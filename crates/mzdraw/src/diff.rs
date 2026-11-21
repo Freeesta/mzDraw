@@ -421,8 +421,8 @@ fn split(sets: &mut Sets, lists: &[&[u32]]) -> Vec<(u32, Vec<Vec<u32>>)> {
 pub fn hunks(a: &Document, ops: &[Op]) -> Vec<Hunk> {
     // the mass-label choice of the scheme names no id and depends on nothing in the drawing: it is a hunk of its own, last
     if ops.iter().any(|o| matches!(o, Op::DocLabels { .. })) {
-        let (doc, rest): (Vec<Op>, Vec<Op>) = (ops.iter().cloned())
-            .partition(|o| matches!(o, Op::DocLabels { .. }));
+        let (doc, rest): (Vec<Op>, Vec<Op>) =
+            (ops.iter().cloned()).partition(|o| matches!(o, Op::DocLabels { .. }));
         let mut out = if rest.is_empty() {
             Vec::new()
         } else {

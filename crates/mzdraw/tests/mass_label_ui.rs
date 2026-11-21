@@ -372,7 +372,10 @@ fn the_preferences_words_are_the_words_of_the_field_and_the_adduct_list() {
             .map(|v| v["value"].as_str().unwrap().to_string())
             .collect()
     };
-    let modes: Vec<String> = mzdraw::doc::LABEL_MODES.iter().map(|s| s.to_string()).collect();
+    let modes: Vec<String> = mzdraw::doc::LABEL_MODES
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     assert_eq!(words("pathway.label"), modes);
     let mut adducts = vec!["none".to_string()];
     adducts.extend(mzdraw::values::ADDUCTS.iter().map(|s| s.to_string()));
@@ -383,7 +386,12 @@ fn the_preferences_words_are_the_words_of_the_field_and_the_adduct_list() {
 fn the_sentence_of_the_button_is_a_finished_key_in_the_catalogue() {
     let lang = include_str!("../../../web/lang/mzdraw.js");
     let mut e = editor(true);
-    for (mode, adduct) in [("delta", ""), ("mass", ""), ("delta+mass", "[M+H]+"), ("name+delta", "")] {
+    for (mode, adduct) in [
+        ("delta", ""),
+        ("mass", ""),
+        ("delta+mass", "[M+H]+"),
+        ("name+delta", ""),
+    ] {
         e.session.run(&[doc_op(mode, adduct)]).unwrap();
         let l = labels(&e);
         let key = l["now"].as_str().unwrap();
@@ -404,7 +412,10 @@ fn a_patch_with_the_choice_has_a_hunk_of_its_own_and_says_it() {
     // the choice and a change of the drawing: two hunks that apply alone
     b.objects[0].text = "x".into();
     let ops = mzdraw::diff::diff(&a, &b);
-    assert!(ops.iter().any(|o| matches!(o, Op::DocLabels { .. })), "{ops:?}");
+    assert!(
+        ops.iter().any(|o| matches!(o, Op::DocLabels { .. })),
+        "{ops:?}"
+    );
     let hunks = mzdraw::diff::hunks(&a, &ops);
     assert_eq!(hunks.len(), 2, "{hunks:?}");
     let own = hunks
@@ -412,5 +423,8 @@ fn a_patch_with_the_choice_has_a_hunk_of_its_own_and_says_it() {
         .find(|h| h.ops.iter().any(|o| matches!(o, Op::DocLabels { .. })))
         .unwrap();
     assert_eq!(own.ops.len(), 1);
-    assert_eq!(mzdraw::proposal::say(own), [("draw2.hunk.labels", String::new())]);
+    assert_eq!(
+        mzdraw::proposal::say(own),
+        [("draw2.hunk.labels", String::new())]
+    );
 }
