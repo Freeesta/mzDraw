@@ -7,5 +7,5 @@ Not built:
 - RDKit and Open Babel have no KET reader (KET rows carry a hash only); RDKit has no CML reader.
 - The reverse direction is not byte-checked by the Rust test (the files are written by the programs and are not committed): a reader change is seen only by rerunning the tool.
 - Open Babel makes no InChI of a structure with an R group: those 14 are not compared with it.
-- The public-corpus option (`--corpus`, PubChem ids listed in the script) prints rates only; nothing from it is committed.
+- The public-corpus option (`--corpus`, PubChem ids listed in the script) prints rates only; it was run once by hand on 20 ids and nothing from it is committed (E19 asked for committed corpus rates: a deviation).
 - No reader or writer was fixed here: the failures are listed in the PR.

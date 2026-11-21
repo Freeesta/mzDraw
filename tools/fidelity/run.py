@@ -52,7 +52,7 @@ def fnv1a(text: str) -> str:
 def stable(text: str) -> str:
     """A molfile of another program without its stamp line (line 2: program, date and time), so the hash is the same on every run."""
     lines = text.split("\n")
-    if len(lines) > 2 and "V2000" in text[:400] or "V3000" in text[:400]:
+    if len(lines) > 2 and ("V2000" in text[:400] or "V3000" in text[:400]):
         lines[1] = ""
     return "\n".join(lines)
 
@@ -438,7 +438,7 @@ def main():
                 "rdkit": rdkit.__version__,
                 "rdkit_inchi": inchi.GetInchiVersion(),
                 "openbabel": version([OBABEL, "-V"]),
-                "inchi-1": version([INCHI1, "-?"]) if INCHI1 else None,
+                "inchi-1": version([INCHI1, "-?"]) if INCHI1 else "not measured",
             },
             "hash": "fnv1a-64 of the text our writer gives (a change of one byte changes it)",
             "layers": "InChI layers that differ in `lost`: f formula, c connectivity, h hydrogens, q/p charge, b/t/m/s stereo, i/r isotopes",
