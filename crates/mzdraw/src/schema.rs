@@ -355,7 +355,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("set", "display.maps", "on|off", "draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file)"),
     r("request", "log", "json[]", "the command log, operations of `draw_edit/1`"),
     r("request", "out", "string", "the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings`"),
-    r("request", "commands", "object[]", "editor commands `[{\"command\":NAME,\"args\":{...}}]` (move, rotate, flip), run after `log` and before `out`; the route of the anchored arrows follows; not with `command`"),
+    r("request", "commands", "object[]", "editor commands `[{\"command\":NAME,\"args\":{...}}]` (move, rotate, flip, `scheme:orient`: every structure after an arrow turned onto the one before it, no `args`), run after `log` and before `out`; the route of the anchored arrows follows; not with `command`"),
     r("request", "command", "string", "one editor command, with `args`: the same as a `commands` list of length one; not with `commands`"),
     r("request", "args", "object", "the fields of the operation of the same name as `command` (a rotate without x, y or a flip without at works about the centre of its atoms)"),
     r("request", "events", "array[]", "pointer and key events the page forwards, run after `commands` and before `out`: `[\"pointer\",phase,id,x,y,kind,mods,t]` and `[\"key\",key,mods,t]`; their flags and what they leave are read with `out` `context-state:<w>,<h>` (the context menu of a point is `context:<x>,<y>`)"),

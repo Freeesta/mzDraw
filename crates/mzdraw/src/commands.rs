@@ -5,11 +5,12 @@
 
 use crate::editor::Editor;
 use crate::ops::{Op, OpError};
+use crate::orient::Status;
 use serde_json::{json, Value};
 
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
-    matches!(name, "move" | "rotate" | "flip")
+    matches!(name, "move" | "rotate" | "flip" | "scheme:orient")
 }
 
 /// Checks the shape of a command before any command runs: a known name, `args` an object whose fields are the fields of the
@@ -18,6 +19,13 @@ pub(crate) fn known(name: &str) -> bool {
 pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     if !known(name) {
         return Err("error.draw2.command");
+    }
+    if name == "scheme:orient" {
+        // no argument: it orients every structure after an arrow on the one before it
+        return match args.as_object() {
+            Some(o) if o.is_empty() => Ok(()),
+            _ => Err("error.draw2.request"),
+        };
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or("error.draw2.request")?;
@@ -40,6 +48,9 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     let bad = |key| OpError { key, id: 0 };
     if !known(name) {
         return Err(bad("error.draw2.command"));
+    }
+    if name == "scheme:orient" {
+        return orient(e);
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or(bad("error.draw2.request"))?;
@@ -74,4 +85,29 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     let op = Op::parse(&v).map_err(bad)?;
     let ops = e.following(&[op]);
     e.session.run(&ops)
+}
+
+/// `scheme:orient`: one undo step with the turns of `orient::plan` (and the route of the arrows that follow). Refused, and nothing
+/// changed, when a pair would overlap itself, when there is no pair with a core, or when every pair is oriented already.
+fn orient(e: &mut Editor) -> Result<(), OpError> {
+    let plan = crate::orient::plan(e.doc());
+    if let Some(s) = (plan.steps.iter()).find(|s| s.status == Status::Overlap) {
+        return Err(OpError {
+            key: s.status.key(),
+            id: s.at,
+        });
+    }
+    if plan.ops.is_empty() {
+        // the reason of the first pair that has one; no pair at all is no core
+        let s = (plan.steps.iter()).find(|s| s.status == Status::Already);
+        let key = s.map_or(Status::NoCore.key(), |s| s.status.key());
+        return Err(OpError { key, id: 0 });
+    }
+    let n = (plan.steps.iter())
+        .filter(|s| s.status == Status::Oriented)
+        .count();
+    let ops = e.following(&plan.ops);
+    e.session.run(&ops)?;
+    e.said = ("draw2.say.oriented", n.to_string());
+    Ok(())
 }

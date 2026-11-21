@@ -68,6 +68,25 @@ async function context(browser, opts) {
   return { ctx, pg, cx: b.x + b.width / 2, cy: b.y + b.height / 2 };
 }
 const state = pg => pg.evaluate(STATE);
+/** a scheme for `scheme:orient`: a methylpyridine, and its copy drawn turned by `deg` degrees 10 bond lengths to the right, free arrow between */
+const orientScheme = deg => {
+  const atoms = [], bonds = [], mol = (base, ox, d) => {
+    const pts = [0, 1, 2, 3, 4, 5].map(i => [Math.cos(i * Math.PI / 3), Math.sin(i * Math.PI / 3)]);
+    pts.push([pts[0][0] + 1, pts[0][1] + 0.0]);
+    const cx = pts.reduce((a, p) => a + p[0], 0) / 7, cy = pts.reduce((a, p) => a + p[1], 0) / 7, t = d * Math.PI / 180;
+    pts.forEach((p, i) => {
+      const dx = p[0] - cx, dy = p[1] - cy, r4 = v => Math.round(v * 1e4) / 1e4;
+      atoms.push({ id: base + i + 1, el: i === 3 ? "N" : "C", x: r4(ox + dx * Math.cos(t) - dy * Math.sin(t)), y: r4(dx * Math.sin(t) + dy * Math.cos(t)) });
+    });
+    for (let i = 0; i < 6; i++) bonds.push({ id: base + 50 + i, a: base + i + 1, b: base + (i + 1) % 6 + 1, o: 1 + i % 2 });
+    bonds.push({ id: base + 56, a: base + 1, b: base + 7, o: 1 });
+  };
+  mol(0, 0, 0); mol(100, 10, deg);
+  return JSON.stringify({ format: "mzdraw/1", next: 1000, atoms, bonds, objects: [{ id: 900, t: "arrow", x: 4, y: 0, x2: 6, y2: 0 }] });
+};
+/** the angle of the bond from atom `a` to atom `b` of a saved document, in degrees */
+const bondAngle = (d, a, b) => { const p = d.atoms.find(x => x.id === a), q = d.atoms.find(x => x.id === b); return Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI; };
+
 /** opens, by keyboard, the flyout that holds an element when it is not in view: the focus on the button that opens it, then the
  * arrow key across its palette (or Enter on a button that is itself in a flyout); a flyout opened this way changes no tool */
 async function reveal(pg, sel) {
@@ -600,6 +619,25 @@ try {
     await pg.evaluate("(() => { const d = new DataTransfer(); d.setData('text/plain', 'not a structure ((('); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()");
     await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('error.draw2.smiles')");
     eq((await state(pg)).atoms, 16);
+  });
+
+  await step("scheme orient by keyboard: the button reached with the keys turns the structure after the arrow onto the one before it, one undo step; a second press says it is done", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.evaluate(`(() => { const d = new DataTransfer(); d.setData('text/plain', ${JSON.stringify(orientScheme(70))}); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()`);
+    await want(pg, { atoms: 14, objects: 1 });
+    const before = await doc(), ids = before.atoms.map(a => a.id).sort((a, b) => a - b);
+    // the pasted atoms have new ids; the first seven are the source, the next seven the product
+    assert(Math.abs(bondAngle(before, ids[7], ids[13]) - bondAngle(before, ids[0], ids[6])) > 30, "the product is drawn turned");
+    const sel = '[data-testid="d2-scheme-orient"]'; await reveal(pg, sel); await pg.focus(sel); await pg.keyboard.press("Enter");
+    const after = await doc();
+    const turn = Math.abs((bondAngle(after, ids[7], ids[13]) - bondAngle(after, ids[0], ids[6]) + 540) % 360 - 180);
+    assert(turn < 0.1, `the methyl bond of the product lies as the source's (off by ${turn} degrees)`);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate(`I18N.t("draw2.say.oriented", { what: "1" })`));
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await doc(), before);                       // one undo step
+    await pg.keyboard.press("Control+y"); await reveal(pg, sel); await pg.focus(sel); await pg.keyboard.press("Enter");
+    await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('error.draw2.orientDone')").catch(async e => { throw new Error(e.message + " | live: " + await pg.innerText("#d2-live") + " | " + await pg.evaluate("document.documentElement.dataset.d2")); });
+    await shot(pg, "plan-14-scheme-orient");
   });
 
   await step("labels: an abbreviation and an R group are chosen, typed, refused in words, drawn and expanded in the molfile", async () => {
@@ -1191,6 +1229,30 @@ try {
       await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...at }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
     });
     eq(pdf.subarray(0, 5).toString("latin1"), "%PDF-");
+  });
+
+  await step("scheme orient by touch and by pen: a tap and a pen press on the button turn the structure after the arrow onto the one before it, each one undo step", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    const sel = '[data-testid="d2-scheme-orient"]';
+    const load = async deg => {
+      await tool(pg, "clear"); await want(pg, { atoms: 0 });
+      await pg.evaluate(`(() => { const d = new DataTransfer(); d.setData('text/plain', ${JSON.stringify(orientScheme(deg))}); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()`);
+      await want(pg, { atoms: 14, objects: 1 });
+    };
+    const off = async () => { const d = await doc(), ids = d.atoms.map(a => a.id).sort((a, b) => a - b); return Math.abs((bondAngle(d, ids[7], ids[13]) - bondAngle(d, ids[0], ids[6]) + 540) % 360 - 180); };
+    await load(70); assert(await off() > 30, "drawn turned");
+    await reveal(pg, sel); const b = await pg.locator(sel).boundingBox();
+    await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+    await until(pg, "document.querySelector('#d2-live').textContent.length > 0");
+    assert(await off() < 0.1, `a tap orients it (off by ${await off()})`);
+    await tool(pg, "undo"); assert(await off() > 30, "one undo step");
+    await load(130);
+    const cdp = await pg.context().newCDPSession(pg);
+    await reveal(pg, sel); const c = await pg.locator(sel).boundingBox();
+    const at = { x: c.x + c.width / 2, y: c.y + c.height / 2, button: "left", clickCount: 1, pointerType: "pen" };
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...at }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
+    assert(await off() < 0.1, `a pen orients it (off by ${await off()})`);
+    await shot(pg, "plan-14-scheme-orient-touch");
   });
 
   await step("drawing checks by touch: a tap on the line selects the atom and bond it is about", async () => {

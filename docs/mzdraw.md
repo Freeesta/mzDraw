@@ -122,7 +122,7 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 | set | `display.maps` | on\|off | draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file) |
 | request | `log` | json[] | the command log, operations of `draw_edit/1` |
 | request | `out` | string | the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings` |
-| request | `commands` | object[] | editor commands `[{"command":NAME,"args":{...}}]` (move, rotate, flip), run after `log` and before `out`; the route of the anchored arrows follows; not with `command` |
+| request | `commands` | object[] | editor commands `[{"command":NAME,"args":{...}}]` (move, rotate, flip, `scheme:orient`: every structure after an arrow turned onto the one before it, no `args`), run after `log` and before `out`; the route of the anchored arrows follows; not with `command` |
 | request | `command` | string | one editor command, with `args`: the same as a `commands` list of length one; not with `commands` |
 | request | `args` | object | the fields of the operation of the same name as `command` (a rotate without x, y or a flip without at works about the centre of its atoms) |
 | request | `events` | array[] | pointer and key events the page forwards, run after `commands` and before `out`: `["pointer",phase,id,x,y,kind,mods,t]` and `["key",key,mods,t]`; their flags and what they leave are read with `out` `context-state:<w>,<h>` (the context menu of a point is `context:<x>,<y>`) |

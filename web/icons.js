@@ -38,6 +38,7 @@ export const ICONS = {
   "rotate-r": '<path d="M17.3 6.7a7.5 7.5 0 1 1-10.6 0"/><path d="M3.2 7l3.5-.3.3 3.5"/>',
   "flip-h": '<path d="M12 3v18" stroke-dasharray="2 2.5"/><path d="M9 7L3.5 17H9zM15 7l5.5 10H15z"/>',
   "flip-v": '<path d="M3 12h18" stroke-dasharray="2 2.5"/><path d="M7 9l10-5.5V9zM7 15l10 5.5V15z"/>',
+  "scheme-orient": '<path d="M3 17l4.5-9 4.5 9z"/><path d="M15 8.5a5 5 0 0 1 5 5" /><path d="M20.8 10.6l-.8 3.3-3.2-.9"/>',
   "zoom-in": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.3 15.3l5.2 5.2M7.5 10.5h6M10.5 7.5v6"/>',
   "zoom-out": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.3 15.3l5.2 5.2M7.5 10.5h6"/>',
   fit: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="8.5" y="8.5" width="7" height="7" rx="1"/>',
