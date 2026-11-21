@@ -137,7 +137,12 @@ impl Editor {
 
     /// Drops a press in progress without committing anything.
     pub fn cancel_press(&mut self) -> u32 {
-        let had = self.press.take().is_some();
+        let mut had = self.press.take().is_some();
+        // a drag of the range inside an edited text ends too: no later move may grow it
+        if let Some(t) = self.over.text.as_mut().filter(|t| t.dragging) {
+            t.dragging = false;
+            had = true;
+        }
         self.over.drag = (0.0, 0.0);
         self.over.preview = None;
         self.over.band = None;

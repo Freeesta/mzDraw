@@ -37,6 +37,10 @@ impl Editor {
             self.error = "error.draw2.colour";
             return REPAINT;
         };
+        // the characters of a text being edited: the colour of the range (or of the next characters), not of the whole object
+        if self.text_target().is_some_and(|t| t.editing) {
+            return self.text_style("colour", &col);
+        }
         let d = self.doc();
         let mut atoms = self.over.sel_atoms.clone();
         if atoms.is_empty() && self.over.sel_bonds.is_empty() && self.over.sel_objs.is_empty() {
@@ -82,6 +86,9 @@ impl Editor {
     /// The colour the selected atoms and bonds (or the focused atom) have in common: `Some("")` when they are all automatic,
     /// `None` when nothing is selected or the colours differ.
     pub fn selection_colour(&self) -> Option<String> {
+        if let Some(t) = self.text_target().filter(|t| t.editing) {
+            return te_colour(&t.runs, t.lo, t.hi);
+        }
         let d = self.doc();
         let o = &self.over;
         let mut cols: Vec<String> = (d.atoms.iter())
@@ -329,4 +336,9 @@ impl Editor {
         }
         self.paste(None)
     }
+}
+
+/// The colour a range of a text has in common (`Some("")` automatic, `None` when they differ).
+fn te_colour(runs: &[crate::runs::Run], lo: usize, hi: usize) -> Option<String> {
+    crate::textedit::style_of(runs, lo, hi).color
 }

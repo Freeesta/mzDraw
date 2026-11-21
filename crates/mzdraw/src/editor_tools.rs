@@ -16,6 +16,11 @@ const SLOP: f64 = 4.0;
 
 impl Editor {
     pub fn pointer_down(&mut self, px: f64, py: f64, kind: u32, mods: u32) -> u32 {
+        // a text being edited: a press on it sets the caret, a press elsewhere ends the editing and goes on as any press
+        self.text_sync();
+        if let Some(f) = self.text_press(px, py, mods) {
+            return f;
+        }
         let hit = self.hit(px, py, kind);
         let shift = mods & SHIFT != 0;
         // a click on an empty spot in "move here" mode keeps the selection it is about to bring there
@@ -72,6 +77,9 @@ impl Editor {
     }
 
     pub fn pointer_move(&mut self, px: f64, py: f64, kind: u32) -> u32 {
+        if self.text_drag(px, py) {
+            return REPAINT;
+        }
         let Some(p) = self.press.as_mut() else {
             let hit = self.hit(px, py, kind);
             let (a, b, o) = match hit {
@@ -152,6 +160,9 @@ impl Editor {
     }
 
     pub fn pointer_up(&mut self, px: f64, py: f64) -> u32 {
+        if self.text_drag_end() {
+            return REPAINT | CHANGED;
+        }
         let Some(p) = self.press.take() else {
             return 0;
         };
@@ -276,6 +287,7 @@ impl Editor {
                     }
                     _ => {
                         let (x, y) = self.view.to_doc(px, py);
+                        let (plain, runs) = self.text_new(plain.clone(), runs.clone());
                         Op::ObjAdd {
                             id: None,
                             t: ObjKind::Text,
@@ -668,6 +680,26 @@ impl Editor {
         let ctrl = mods & CTRL != 0;
         let shift = mods & SHIFT != 0;
         let lower = key.to_ascii_lowercase();
+        // a text being edited takes its keys first (typing, the caret, the style shortcuts)
+        self.text_sync();
+        if !(lower == "contextmenu" || (lower == "f10" && shift))
+            && let Some(f) = self.text_key(key, mods)
+        {
+            return f;
+        }
+        // Enter or F2 on a selected text starts editing it
+        if !ctrl
+            && matches!(lower.as_str(), "enter" | "f2")
+            && self.over.focus.is_none()
+            && self.text_target().is_some_and(|t| !t.editing)
+        {
+            return self.text_open() | HANDLED;
+        }
+        // F2 on a selected arrow: the panel styles text objects only; the page says so (keyed) instead of doing nothing
+        if !ctrl && lower == "f2" && self.text_target().is_none() && self.arrow_selected_alone() {
+            self.error = "error.draw2.textArrow";
+            return REPAINT | HANDLED;
+        }
         // the Menu key and Shift+F10 open the context menu of what has the keyboard focus (`Editor::context_anchor`)
         if !ctrl && (lower == "contextmenu" || (lower == "f10" && shift)) {
             return MENU | HANDLED;

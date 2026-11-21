@@ -468,6 +468,50 @@ pub fn set_colour(text: &str) -> u32 {
     act(|e| e.colour(text))
 }
 
+/// A style button of the text panel: `kind` is `b`, `i`, `u`, `sub`, `sup` (toggles), `font` (a key of `state().text.fonts`), `size` (a
+/// percent of `state().text.sizes`) or `colour`; it acts on the selected characters of a text (the whole text when it is selected and
+/// not edited; the next typed characters when there is a caret and no range). One undo step; a refusal is in `state().error`.
+#[wasm_bindgen]
+pub fn text_style(kind: &str, value: &str) -> u32 {
+    act(|e| e.text_style(kind, value))
+}
+
+/// Starts editing the selected text (Enter, F2 or the panel's Edit button), or ends it (`false`).
+#[wasm_bindgen]
+pub fn text_edit(on: bool) -> u32 {
+    act(|e| if on { e.text_open() } else { e.text_close() })
+}
+
+/// Typed text, a paste or the result of an input method, put in place of the selected characters of the text being edited.
+#[wasm_bindgen]
+pub fn text_input(text: &str) -> u32 {
+    act(|e| e.text_input(text))
+}
+
+/// Whether keys and the clipboard act on the characters of a text being edited.
+#[wasm_bindgen]
+pub fn text_editing() -> bool {
+    with(|p| p.editor.text_editing())
+}
+
+/// A double click or a double tap at a point: a text under it is selected, edited and its word under the point selected.
+#[wasm_bindgen]
+pub fn text_double(x: f64, y: f64) -> u32 {
+    act(|e| e.text_double(x, y))
+}
+
+/// The selected characters of the text being edited, for the clipboard (empty when none); `text_cut` removes them.
+#[wasm_bindgen]
+pub fn text_selected() -> String {
+    with(|p| p.editor.text_selected())
+}
+
+/// Removes the selected characters of the text being edited (a cut).
+#[wasm_bindgen]
+pub fn text_cut() -> u32 {
+    act(|e| e.text_delete(true))
+}
+
 /// The colours of the picker as JSON `[{"key", "name", "hex"}]`; the automatic colour is the empty text and is the page's first entry.
 #[wasm_bindgen]
 pub fn colour_palette() -> String {
@@ -763,7 +807,7 @@ pub fn state() -> String {
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         let colour = e.selection_colour().map_or("null".to_string(), |c| q(&c));
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"text":{},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -773,6 +817,7 @@ pub fn state() -> String {
             e.doc().objects.len(),
             e.session.can_undo(),
             e.session.can_redo(),
+            e.text_json(),
             e.move_here,
             !e.clipboard(mzdraw::brand::SLUG).is_empty(),
             q(e.said.0),
