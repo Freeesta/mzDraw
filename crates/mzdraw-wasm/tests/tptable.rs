@@ -325,7 +325,13 @@ fn the_goldens_of_the_table_are_what_the_glue_door_writes() {
     let file: Value =
         serde_json::from_str(include_str!("../../../tests/data/log/tp-table.json")).unwrap();
     let cases = file["values"].as_array().unwrap();
-    assert!(cases.len() >= 7);
+    assert!(cases.len() >= 9);
+    // the last two cases are export, import, export: the same CSV (the guard is injective, tp-hardening)
+    let out = |i: usize| -> String {
+        let r: Value = serde_json::from_str(cases[i]["out"].as_str().unwrap()).unwrap();
+        r["out"].as_str().unwrap().to_string()
+    };
+    assert_eq!(out(cases.len() - 2), out(cases.len() - 1));
     let bless = std::env::var("MZDRAW_BLESS").is_ok();
     let mut fresh = file.clone();
     for (i, c) in cases.iter().enumerate() {

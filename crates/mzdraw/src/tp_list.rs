@@ -331,14 +331,19 @@ fn read_csv(text: &str) -> Read {
         rows.push(row);
     }
     if table {
-        // the spreadsheet guard of the table writer: a `'` before `=`, `+`, `-` or `@` in a text cell is taken off again
+        // the spreadsheet guard of the table writer (`tptable::unguard`): the exact inverse of what it wrote in every text cell
         for r in &mut rows {
-            let mut cells = vec![&mut r.name, &mut r.adduct, &mut r.level, &mut r.identifier];
+            let mut cells = vec![
+                &mut r.name,
+                &mut r.adduct,
+                &mut r.level,
+                &mut r.identifier,
+                &mut r.mz,
+                &mut r.rt,
+            ];
             cells.extend(r.parents.iter_mut());
             for c in cells {
-                if c.strip_prefix('\'')
-                    .is_some_and(|t| t.starts_with(['=', '+', '-', '@']))
-                {
+                if crate::tptable::unguard(c).len() != c.len() {
                     c.remove(0);
                 }
             }
@@ -966,4 +971,98 @@ pub fn import_ops(doc: &Document, style: &Style, input: &Input) -> Result<Vec<Op
         ops.extend(name_ops(&ix, &piece, &format!("TP{k}")));
     }
     Ok(ops)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tptable::{self, Table, COLUMNS};
+
+    /// xorshift: repeatable pseudo-random cells, not a dependency.
+    struct Rng(u64);
+
+    impl Rng {
+        fn next(&mut self, n: usize) -> usize {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            (self.0 % n.max(1) as u64) as usize
+        }
+    }
+
+    /// A synthetic cell over the characters that matter to the guard and to RFC 4180. The import trims a cell, so none starts or ends
+    /// with white space; `;` is the separator of parents, so a `parent_id` has none.
+    fn cell(r: &mut Rng, semicolon: bool) -> String {
+        const ALPHABET: [char; 14] = [
+            '=', '+', '-', '@', '\'', '"', ',', '\n', '\r', 'a', '1', '.', ' ', ';',
+        ];
+        let len = r.next(6);
+        let s: String = (0..len)
+            .map(|_| ALPHABET[r.next(ALPHABET.len() - usize::from(!semicolon))])
+            .collect();
+        // no edge white space: what the importer trims is not part of a cell (the drawing's data fields are trimmed too)
+        s.trim().to_string()
+    }
+
+    fn read_one(cells: &[(usize, &str)]) -> Row {
+        let mut t = Table::default();
+        let mut row = vec![String::new(); COLUMNS.len()];
+        row[3] = "CCO".into();
+        for (c, v) in cells {
+            row[*c] = (*v).to_string();
+        }
+        t.rows.push(row);
+        let (rows, bad) = read_csv(&tptable::csv(&t)).expect("the table header is accepted");
+        assert!(bad.is_empty(), "{bad:?}");
+        assert_eq!(rows.len(), 1);
+        rows.into_iter().next().unwrap()
+    }
+
+    #[test]
+    fn export_then_import_returns_every_text_cell_exactly() {
+        let mut r = Rng(0x9E37_79B9_7F4A_7C15);
+        for _ in 0..3000 {
+            let c: Vec<String> = (0..7).map(|k| cell(&mut r, k != 1)).collect();
+            let got = read_one(&[
+                (0, &c[0]),
+                (1, &c[1]),
+                (6, &c[2]),
+                (8, &c[3]),
+                (10, &c[4]),
+                (13, &c[5]),
+                (14, &c[6]),
+            ]);
+            let parents: Vec<String> = if c[1].is_empty() {
+                Vec::new()
+            } else {
+                vec![c[1].clone()]
+            };
+            let want = (&c[0], &parents, &c[2], &c[3], &c[4], &c[5], &c[6]);
+            let have = (
+                &got.name,
+                &got.parents,
+                &got.adduct,
+                &got.mz,
+                &got.rt,
+                &got.level,
+                &got.identifier,
+            );
+            assert_eq!(have, want, "cells {c:?}");
+        }
+    }
+
+    #[test]
+    fn the_guard_is_injective_on_the_cases_that_failed_before() {
+        // a cell that really starts with `'` and a guarded one were the same text once written
+        for v in ["'=x", "'a", "''", "'", "'+1", "=x", "-CH2", "@x", "'@"] {
+            assert_eq!(read_one(&[(0, v)]).name, v, "{v:?}");
+        }
+        assert_eq!(tptable::unguard("'=x"), "=x");
+        assert_eq!(tptable::unguard("''=x"), "'=x");
+        // a file made by hand: a `'` before an ordinary character is as written
+        assert_eq!(tptable::unguard("'a"), "'a");
+        // a number is not guarded, a text that starts like one is
+        assert_eq!(read_one(&[(8, "-5.25")]).mz, "-5.25");
+        assert_eq!(read_one(&[(8, "-x")]).mz, "-x");
+    }
 }

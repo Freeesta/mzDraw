@@ -102,6 +102,40 @@
         ],
         "out": "sdf"
       }
+    },
+    {
+      "name": "tp-table: the guard of the CSV is injective: a name that starts with =, +, -, @ or an apostrophe is guarded once, quotes and commas are quoted",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"tp_id,parent_id,generation,smiles,formula,monoisotopic_mass,adduct,mz_calc,mz_obs,ppm,rt,form_diff,mass_diff,level,identifier\\n''=x,,0,CCO,C2H6O,,,,,,,,,,\\n\\\"Q, \\\"\\\"s\\\"\\\"\\\",''=x,1,CCCO,C3H8O,,,,,,,+CH2,,,\\n'''y,\\\"Q, \\\"\\\"s\\\"\\\"\\\",2,CCCCO,C4H10O,,,,,,,+CH2,,,\\n'+z,'''y,3,CCCCCO,C5H12O,,,,,,,+CH2,,,\\n'-m,'+z,4,CCCCCCO,C6H14O,,,,,,,+CH2,,,\\n'@w,'-m,5,CCCCCCCO,C7H16O,,,,,,,+CH2,,,\\n\",\"created\":{\"atoms\":[1,2,3,6,7,8,9,13,14,15,16,17,22,23,24,25,26,27,33,34,35,36,37,38,39,46,47,48,49,50,51,52,53],\"bonds\":[4,5,10,11,12,18,19,20,21,28,29,30,31,32,40,41,42,43,44,45,54,55,56,57,58,59,60],\"objects\":[61,62,63,64,65]},\"removed\":{},\"lost\":[{\"key\":\"draw2.export.tpEngine\",\"n\":6},{\"key\":\"draw2.export.tpGuard\",\"n\":9}]}",
+      "plain": true,
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "csv": "smiles,name,parent\nCCO,'=x,\nCCCO,\"Q, \"\"s\"\"\",'=x\nCCCCO,''y,\"Q, \"\"s\"\"\"\nCCCCCO,+z,''y\nCCCCCCO,-m,+z\nCCCCCCCO,@w,-m\n"
+            },
+            "command": "tp:import"
+          }
+        ],
+        "out": "tptable-csv",
+        "report": true
+      }
+    },
+    {
+      "name": "tp-table: the table of the previous case read back and written again is the same bytes (export, import, export)",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"tp_id,parent_id,generation,smiles,formula,monoisotopic_mass,adduct,mz_calc,mz_obs,ppm,rt,form_diff,mass_diff,level,identifier\\n''=x,,0,CCO,C2H6O,,,,,,,,,,\\n\\\"Q, \\\"\\\"s\\\"\\\"\\\",''=x,1,CCCO,C3H8O,,,,,,,+CH2,,,\\n'''y,\\\"Q, \\\"\\\"s\\\"\\\"\\\",2,CCCCO,C4H10O,,,,,,,+CH2,,,\\n'+z,'''y,3,CCCCCO,C5H12O,,,,,,,+CH2,,,\\n'-m,'+z,4,CCCCCCO,C6H14O,,,,,,,+CH2,,,\\n'@w,'-m,5,CCCCCCCO,C7H16O,,,,,,,+CH2,,,\\n\",\"created\":{\"atoms\":[1,2,3,6,7,8,9,13,14,15,16,17,22,23,24,25,26,27,33,34,35,36,37,38,39,46,47,48,49,50,51,52,53],\"bonds\":[4,5,10,11,12,18,19,20,21,28,29,30,31,32,40,41,42,43,44,45,54,55,56,57,58,59,60],\"objects\":[61,62,63,64,65]},\"removed\":{},\"lost\":[{\"key\":\"draw2.export.tpEngine\",\"n\":6},{\"key\":\"draw2.export.tpGuard\",\"n\":9}]}",
+      "plain": true,
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "csv": "tp_id,parent_id,generation,smiles,formula,monoisotopic_mass,adduct,mz_calc,mz_obs,ppm,rt,form_diff,mass_diff,level,identifier\n''=x,,0,CCO,C2H6O,,,,,,,,,,\n\"Q, \"\"s\"\"\",''=x,1,CCCO,C3H8O,,,,,,,+CH2,,,\n'''y,\"Q, \"\"s\"\"\",2,CCCCO,C4H10O,,,,,,,+CH2,,,\n'+z,'''y,3,CCCCCO,C5H12O,,,,,,,+CH2,,,\n'-m,'+z,4,CCCCCCO,C6H14O,,,,,,,+CH2,,,\n'@w,'-m,5,CCCCCCCO,C7H16O,,,,,,,+CH2,,,\n"
+            },
+            "command": "tp:import"
+          }
+        ],
+        "out": "tptable-csv",
+        "report": true
+      }
     }
   ]
 }
