@@ -321,6 +321,14 @@ fn check_document(text: &str, schema: &Value) {
             text_of.contains(r#","ok":"#)
                 && text_of.matches(r#"{"check":"#).count() == list.as_array().unwrap().len()
         );
+        // the order of each item on the raw text: check, ok, detail
+        for item in text_of.split(r#"{"check":"#).skip(1) {
+            let (ok, detail) = (
+                item.rfind(r#","ok":"#).unwrap(),
+                item.rfind(r#","detail":"#).unwrap(),
+            );
+            assert!(ok < detail, "{item}");
+        }
         for x in list.as_array().unwrap() {
             assert_eq!(keys(x), ["check", "detail", "ok"]);
             assert_eq!(x["check"].as_object().unwrap().len(), 1);
@@ -444,4 +452,34 @@ fn the_order_check_sees_a_swapped_document() {
     let at =
         std::panic::catch_unwind(|| in_order(&["ok".to_string(), "format".to_string()], &KEYS));
     assert!(at.is_err());
+}
+
+#[test]
+fn an_out_the_drawing_cannot_give_is_the_keyed_error_dry_run_or_not() {
+    // exit 2 (an error and no document): the `out` cannot be written for this drawing, so the request cannot be answered
+    for extra in [
+        json!({"dry_run":true}),
+        json!({"report":true}),
+        json!({"expect":[{"pieces":0}]}),
+    ] {
+        let mut r = json!({"out":"rxn"});
+        r.as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        assert_eq!(
+            replay(&r.to_string()).unwrap_err().key,
+            "error.draw2.rxnArrow"
+        );
+    }
+    // a verdict that is not ok writes nothing, so the same `out` is not asked for
+    let r = run(json!({"out":"rxn","expect":[{"pieces":1}]}));
+    assert_eq!(r["ok"], false);
+}
+
+#[test]
+fn the_smiles_arm_compares_byte_for_byte_and_says_what_it_found() {
+    // not canonicalised: another writing of the same molecule is a false expectation, and `detail` gives the actual SMILES
+    let r = run(json!({"import":"CCO","expect":[{"smiles":"OCC"}]}));
+    assert_eq!(r["expect"][0]["ok"], false);
+    assert_eq!(r["expect"][0]["detail"], "the SMILES of the drawing is CCO");
 }

@@ -280,7 +280,6 @@ pub const OPS: &[OpSpec] = &[
     },
 ];
 
-/// The row of an operation by name.
 /// One field of the replay request (`mol draw`), or one arm of its `expect`.
 pub struct RequestSpec {
     /// `request` for a field of the request, `expect` for an arm of the list `expect`.
@@ -323,6 +322,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("expect", "smiles", "string", "the SMILES of the whole drawing equals this text"),
 ];
 
+/// The row of an operation by name.
 pub fn spec(name: &str) -> Option<&'static OpSpec> {
     OPS.iter().find(|o| o.name == name)
 }
