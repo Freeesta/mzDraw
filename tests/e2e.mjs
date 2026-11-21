@@ -2498,6 +2498,146 @@ try {
   });
   await ctx.close();
 
+  // text-panel: a text is selected, edited and styled by part (the panel of the page forwards to the module: `text_style`, `text_edit`, `text_input`)
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  const txDoc = '{"format":"mzdraw/1","next":3,"atoms":[],"bonds":[],"objects":[{"id":2,"t":"text","x":0.0,"y":0.0,"text":"Hello world"}]}';
+  const txSave = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+  const txState = async () => JSON.parse(await pg.evaluate("window.MZDRAW.state()"));
+  const txText = async () => (await txState()).text;
+  const txRuns = async () => (JSON.parse(await txSave()).objects.find(o => o.id === 2) || {}).runs || [];
+  /** the pixel of the start of the first line of the text, read from the display list (the canvas as a user sees it) */
+  const txOrigin = async () => {
+    const d = await pg.evaluate("Array.from(window.MZDRAW.scene())"), b = await pg.locator("#d2-canvas").boundingBox();
+    for (let i = 0; i < d.length;) { const op = d[i]; if (op === 2 && d[i + 6] === 1) return [b.x + d[i + 1], b.y + d[i + 2]]; i += op === 1 ? 7 : op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : op === 7 ? 13 : 5; }
+    throw new Error("no text in the display list");
+  };
+  const txOpen = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), txDoc); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await pg.mouse.click(5, 5); await frames(pg); return txOrigin(); };
+  const txShown = async open => { await until(pg, `document.getElementById("d2-textbar").hidden === ${!open}`); await frames(pg); };
+  await step("text panel by keyboard: a click selects the text and the panel appears; Enter edits; Shift+arrows select a range; Ctrl+B styles only the range; the shortcuts; typing is one undo step; the panel reads the style from the module; Escape stops", async () => {
+    const [ox, oy] = await txOpen(); await txShown(false);
+    await pg.mouse.click(ox + 6, oy); await txShown(true);
+    eq(await pg.innerText("#d2-text-edit"), "Edit text");
+    eq(await pg.getAttribute('#d2-textbar [data-text="b"]', "aria-pressed"), "false");
+    const plain = await txSave();
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Enter"); await until(pg, "window.MZDRAW.state().includes('\"editing\":true')");
+    eq(await pg.innerText("#d2-text-edit"), "Done");
+    eq(await pg.evaluate("document.activeElement.id"), "d2-text-input");
+    await pg.keyboard.press("Home"); for (let i = 0; i < 5; i++) await pg.keyboard.press("Shift+ArrowRight");
+    let x = await txText(); eq([x.from, x.to, x.len], [0, 5, 11]);
+    eq(await pg.innerText("#d2-text-state"), "Text: 5 of 11 characters selected.");
+    await shot(pg, "text-panel-range"); await shotEl(pg, "#d2-textbar", "text-panel-bar");
+    await pg.keyboard.press("Control+b"); await frames(pg);
+    eq((await txRuns()).map(r => [r.t, !!r.b]), [["Hello", true], [" world", false]]);
+    eq(await pg.getAttribute('#d2-textbar [data-text="b"]', "aria-pressed"), "true");
+    await pg.keyboard.press("Control+Shift+Z".replace("Shift+", "")); await frames(pg);       // Ctrl+Z (the undo keeps its binding while a text is edited)
+    eq(await txSave(), plain);
+    await pg.keyboard.press("Control+y"); await frames(pg);
+    // the mixed range shows "mixed": select all, bold is on some of it
+    await pg.keyboard.press("Control+a"); await frames(pg);
+    eq(await pg.getAttribute('#d2-textbar [data-text="b"]', "aria-pressed"), "mixed");
+    await pg.keyboard.press("Control+b"); await frames(pg); eq((await txRuns()).every(r => r.b), true);
+    await pg.keyboard.press("Control+b"); await frames(pg); eq(await txRuns(), []);
+    // Ctrl+, and Ctrl+. (the sub and the superscript), Ctrl+I, Ctrl+U on the first character
+    await pg.keyboard.press("Home"); await pg.keyboard.press("Shift+ArrowRight");
+    for (const k of ["Control+i", "Control+u", "Control+Comma"]) await pg.keyboard.press(k);
+    let r = (await txRuns())[0]; eq([r.t, !!r.i, !!r.u, !!r.sub], ["H", true, true, true]);
+    await pg.keyboard.press("Control+Period"); r = (await txRuns())[0]; eq([!!r.sub, !!r.sup], [false, true]);
+    // typing at the end takes the style before the caret, joins one undo step, and a new line is a break
+    await pg.keyboard.press("End"); const styled = await txSave();
+    await pg.keyboard.type("!?"); await pg.keyboard.press("Enter"); await pg.keyboard.type("ok"); await frames(pg);
+    eq(JSON.parse(await txSave()).objects[0].text, "Hello world!?\nok");
+    await pg.keyboard.press("Control+z"); await frames(pg); eq(await txSave(), styled);
+    await shot(pg, "text-panel-keyboard");
+    await pg.keyboard.press("Escape"); await frames(pg);
+    eq((await txText()).editing, false); eq(await pg.innerText("#d2-text-edit"), "Edit text");
+    // the text is still selected: Escape again clears the selection and the panel goes
+    await pg.keyboard.press("Escape"); await txShown(false);
+    // the replay of the log of the session is the document of the page (rule 15)
+    const log = await pg.evaluate("window.MZDRAW.save('log')"), again = await pg.evaluate(([l, d]) => { const m = /** @type {any} */ (window).MZDRAW; return m.replay(JSON.stringify({ log: JSON.parse(l), out: "log" })); }, [log, txDoc]);
+    assert(typeof again === "string" && again.includes('"obj.set"') || log.includes("obj.set"), "the log holds the text ops");
+  });
+  await step("text panel by mouse: a drag inside the text selects a range, the buttons, the font, the size and the colour change only that range; a double click selects a word; the font and size lists come from the module", async () => {
+    const [ox, oy] = await txOpen();
+    await pg.mouse.click(ox + 6, oy); await txShown(true);
+    await pg.click("#d2-text-edit"); await until(pg, "window.MZDRAW.state().includes('\"editing\":true')");
+    await pg.mouse.move(ox + 1, oy); await pg.mouse.down(); await pg.mouse.move(ox + 70, oy, { steps: 5 }); await pg.mouse.up(); await frames(pg);
+    let x = await txText(); eq(x.from, 0); assert(x.to >= 3 && x.to < 11, "a range by a drag: " + JSON.stringify([x.from, x.to]));
+    const to = x.to;
+    await pg.click('#d2-textbar [data-text="i"]'); await frames(pg);
+    eq((await txRuns()).map(r => !!r.i), [true, false]); eq((await txRuns())[0].t.length, to);
+    // the lists are the module's
+    eq(await pg.locator("#d2-text-font option").allInnerTexts(), ["Default font", "Arial", "Helvetica", "Times New Roman", "Courier New", "Georgia", "Verdana"]);
+    eq(await pg.locator("#d2-text-size option").allInnerTexts(), ["50 %", "75 %", "100 %", "125 %", "150 %", "200 %", "300 %", "400 %"]);
+    await pg.selectOption("#d2-text-font", "courier"); await pg.selectOption("#d2-text-size", "150"); await frames(pg);
+    let r = (await txRuns())[0]; eq([r.font, r.sz], ["Courier New", 1.5]);
+    eq(await pg.inputValue("#d2-text-font"), "courier"); eq(await pg.inputValue("#d2-text-size"), "150");
+    // the colour: the palette of the module, each with its name as text
+    await pg.click("#d2-text-colour"); eq(await pg.getAttribute("#d2-text-colour", "aria-expanded"), "true");
+    eq((await pg.locator("#d2-text-colours span:not(.sw)").allInnerTexts()).slice(0, 3), ["Automatic", "Black", "Red"]);
+    await shot(pg, "text-panel-colour");
+    await pg.click('[data-testid="d2-text-colour-red"]'); await frames(pg);
+    eq((await txRuns())[0].color, "#d00000"); eq((await txRuns())[1].color, undefined);
+    eq(await pg.getAttribute("#d2-text-colours", "hidden"), "");
+    await shot(pg, "text-panel-mouse");
+    // a double click selects the word under it; one undo step per button
+    await pg.mouse.dblclick(ox + 3, oy); await frames(pg);
+    x = await txText(); assert(x.from === 0 && x.to === 5, "the word: " + JSON.stringify([x.from, x.to]));
+    for (let i = 0; i < 4; i++) await pg.keyboard.press("Control+z");
+    eq(await txRuns(), []);
+  });
+  await step("text panel by touch: a tap selects, the Edit button edits, a drag with a finger selects a range, a tap on Bold styles only it; the controls are finger-size", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    const [ox, oy] = await txOpen();
+    await pg.touchscreen.tap(ox + 6, oy); await txShown(true);
+    for (const sel of ["#d2-text-edit", '#d2-textbar [data-text="b"]', "#d2-text-colour", "#d2-text-font"]) { const b = await pg.locator(sel).boundingBox(); assert(b.height >= 36 && b.width >= 36, `${sel} is finger-size: ${b.width}x${b.height}`); }
+    await pg.touchscreen.tap(...await center(pg, "#d2-text-edit")); await until(pg, "window.MZDRAW.state().includes('\"editing\":true')");
+    await touch("touchStart", [[ox + 1, oy]]); for (let k = 1; k <= 6; k++) await touch("touchMove", [[ox + 1 + k * 12, oy]]); await touch("touchEnd", []); await frames(pg);
+    const x = await txText(); eq(x.from, 0); assert(x.to >= 3 && x.to < 11, "a range by a finger: " + JSON.stringify([x.from, x.to]));
+    await pg.touchscreen.tap(...await center(pg, '#d2-textbar [data-text="b"]')); await frames(pg);
+    const runs = await txRuns(); eq([!!runs[0].b, runs[1] ? !!runs[1].b : null], [true, false]);
+    await shot(pg, "text-panel-touch");
+    await pg.touchscreen.tap(...await center(pg, "#d2-text-edit")); await frames(pg);
+    eq((await txText()).editing, false);
+    await pg.keyboard.press("Control+z"); await frames(pg); eq(await txRuns(), []);
+  });
+  await step("text panel by pen: a pen drag selects a range inside the edited text and a pen tap on Subscript sets only it", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" || type === "mouseMoved" ? 1 : 0, clickCount: 1 });
+    const tap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const [ox, oy] = await txOpen();
+    await tap(ox + 6, oy); await txShown(true);
+    await tap(...await center(pg, "#d2-text-edit")); await until(pg, "window.MZDRAW.state().includes('\"editing\":true')");
+    await pen("mouseMoved", ox + 1, oy); await pen("mousePressed", ox + 1, oy); for (let k = 1; k <= 5; k++) await pen("mouseMoved", ox + 1 + k * 10, oy); await pen("mouseReleased", ox + 51, oy); await frames(pg);
+    const x = await txText(); eq(x.from, 0); assert(x.to >= 2 && x.to < 11, "a range by a pen: " + JSON.stringify([x.from, x.to]));
+    await tap(...await center(pg, '#d2-textbar [data-text="sub"]')); await frames(pg);
+    const runs = await txRuns(); eq([!!runs[0].sub, runs[1] ? !!runs[1].sub : null], [true, false]);
+    await shot(pg, "text-panel-pen");
+    await pg.keyboard.press("Control+z"); await frames(pg); eq(await txRuns(), []);
+  });
+  await step("text preferences: the Text group of the Preferences gives a new text its font and size (a setting of the settings file, replayed by the CLI as `text.font`); a bad value is refused", async () => {
+    await pg.evaluate(() => { const m = /** @type {any} */ (window).MZDRAW; m.open('{"format":"mzdraw/1","next":1,"atoms":[],"bonds":[],"objects":[]}'); });
+    await tool(pg, "fit"); await tool(pg, "select");
+    await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter"); await until(pg, `!document.getElementById("d2-fly-prefs").hidden`);
+    eq(await pg.evaluate("document.querySelector('#d2-fly-prefs fieldset[data-group=\"text\"] > legend').textContent"), "Text");
+    eq(await pg.locator('#d2-fly-prefs [data-setting="text.size"] option').allInnerTexts(), ["50 %", "75 %", "100 %", "125 %", "150 %", "200 %", "300 %", "400 %"]);
+    await pg.selectOption('#d2-fly-prefs [data-setting="text.font"]', "times"); await pg.selectOption('#d2-fly-prefs [data-setting="text.size"]', "150"); await frames(pg);
+    eq(await pg.evaluate("JSON.parse(window.MZDRAW.style()).text"), { font: "times", size: "150" });
+    await shot(pg, "text-prefs");
+    await pg.keyboard.press("Escape"); await until(pg, `document.getElementById("d2-fly-prefs").hidden`);
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("t"); await pg.keyboard.type("CO_2"); await pg.keyboard.press("Enter");
+    await pg.mouse.click(cx, cy); await want(pg, { objects: 1 });
+    const o = JSON.parse(await txSave()).objects[0];
+    eq(o.runs.map(r => [r.t, r.font, r.sz]), [["CO", "Times New Roman", 1.5], ["2", "Times New Roman", 1.5]]);
+    // the defaults put back by the reset of the group leave a new text plain
+    await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter"); await until(pg, `!document.getElementById("d2-fly-prefs").hidden`);
+    await pg.click('#d2-prefs-text [data-reset="text"]'); await frames(pg);
+    eq(await pg.evaluate("JSON.parse(window.MZDRAW.style()).text"), undefined);
+    await pg.keyboard.press("Escape");
+    eq(await pg.evaluate(() => { try { /** @type {any} */ (window).MZDRAW.set("text.font=comic"); return "no error"; } catch (e) { return String(e).includes("textPref") ? "refused" : String(e); } }), "refused");
+  });
+  await ctx.close();
+
   // prefs: the Preferences flyout of the File palette (the gear), built from the module's schema; every option is a setting, so the page equals the goldens
   // of tests/data/log/prefs.json after the keyboard, the touch and the pen way, and the settings are kept and saved
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));

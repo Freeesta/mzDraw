@@ -484,7 +484,7 @@ pub fn formula(runs: &[Run]) -> Vec<Run> {
 }
 
 /// Bold is a little wider than the regular face (the one table of advance widths serves all faces).
-const BOLD: f64 = 1.07;
+pub(crate) const BOLD: f64 = 1.07;
 
 /// One piece of laid-out text: a run on a line.
 #[derive(Clone, Debug, PartialEq)]

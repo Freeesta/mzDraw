@@ -197,6 +197,7 @@ function refresh() {
   const st = JSON.parse(ed.state());
   show(st);
   colourState(st);
+  textBar(st);
   for (const b of document.querySelectorAll("button[data-cmd]")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
     if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
@@ -356,6 +357,70 @@ function after(f) {
   return f;
 }
 
+/** the text panel (state.text): shown while a text is selected or edited. Each control forwards to the module (`text_style`, `text_edit`,
+ * `text_input`) and shows what the module says: the style of the range, `null` for a mixed one. The page decides nothing about text. */
+const textPanel = (() => {
+  const $in = () => /** @type {HTMLInputElement} */ ($("d2-text-input"));
+  /** @type {any} */ let now = null, said = "", built = false;
+  const colours = () => /** @type {HTMLElement} */ ($("d2-text-colours"));
+  /** the keyboard goes to the text while it is edited, to the canvas when it is only selected */
+  const focus = () => { const x = JSON.parse(ed.state()).text; if (x?.editing) $in().focus({ preventScroll: true }); };
+  const style = (/** @type {string} */ kind, /** @type {string} */ value) => { after(ed.text_style(kind, value) | CHANGED); const st = JSON.parse(ed.state()); if (st.error) $("d2-status").textContent = t(st.error); else $("d2-status").textContent = ""; focus(); };
+  const build = () => {
+    built = true;
+    for (const b of /** @type {NodeListOf<HTMLElement>} */ ($("d2-textbar").querySelectorAll("button[data-text]"))) b.addEventListener("click", () => style(b.dataset.text || "", ""));
+    $("d2-text-edit").addEventListener("click", () => { after(ed.text_edit(!now?.editing) | CHANGED); focus(); if (!now?.editing) cv.focus({ preventScroll: true }); });
+    $("d2-text-font").addEventListener("change", e => style("font", /** @type {HTMLSelectElement} */ (e.target).value));
+    $("d2-text-size").addEventListener("change", e => style("size", /** @type {HTMLSelectElement} */ (e.target).value));
+    const pop = colours(), open = $("d2-text-colour");
+    for (const r of [{ key: "auto", hex: "" }, ...JSON.parse(ed.colour_palette())]) {
+      const b = document.createElement("button"), sw = document.createElement("span"), name = document.createElement("span");
+      b.type = "button"; b.dataset.hex = r.hex; b.dataset.testid = "d2-text-colour-" + r.key;
+      sw.className = "sw"; sw.setAttribute("aria-hidden", "true"); if (r.hex) sw.style.background = r.hex;
+      name.textContent = t("draw2.colour." + r.key); b.append(sw, name);
+      b.addEventListener("click", () => { pop.hidden = true; open.setAttribute("aria-expanded", "false"); style("colour", r.hex); });
+      pop.append(b);
+    }
+    open.addEventListener("click", () => { pop.hidden = !pop.hidden; open.setAttribute("aria-expanded", String(!pop.hidden)); if (!pop.hidden) /** @type {HTMLElement} */ (pop.querySelector('[aria-pressed="true"]') || pop.querySelector("button"))?.focus(); });
+    pop.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); pop.hidden = true; open.setAttribute("aria-expanded", "false"); open.focus(); } });
+    // typed text that did not come through a key (an input method, a phone's keyboard, a dictation)
+    const inp = $in();
+    inp.addEventListener("input", e => { if (/** @type {InputEvent} */ (e).isComposing) return; const v = inp.value; inp.value = ""; if (v) after(ed.text_input(v) | CHANGED); });
+    inp.addEventListener("compositionend", e => { const v = /** @type {CompositionEvent} */ (e).data; inp.value = ""; if (v) after(ed.text_input(v) | CHANGED); });
+  };
+  /** @param {any} st the state of the module */
+  const show = st => {
+    const x = st.text, bar = $("d2-textbar");
+    if (!built) build();
+    bar.hidden = !x; now = x;
+    if (!x) { colours().hidden = true; $("d2-text-colour").setAttribute("aria-expanded", "false"); said = ""; if (document.activeElement === $in()) cv.focus({ preventScroll: true }); return; }
+    const edit = $("d2-text-edit");
+    edit.setAttribute("aria-pressed", String(x.editing)); edit.textContent = t(x.editing ? "draw2.text.done" : "draw2.text.edit"); edit.title = t(x.editing ? "draw2.text.done.title" : "draw2.text.edit.title");
+    for (const b of /** @type {NodeListOf<HTMLElement>} */ (bar.querySelectorAll("button[data-text]"))) { const v = x.style[b.dataset.text || ""]; b.setAttribute("aria-pressed", v === null ? "mixed" : String(v)); }
+    // the lists come from the module; a value outside the list (a file's font, a size between two) is shown too, never lost
+    const fonts = /** @type {HTMLSelectElement} */ ($("d2-text-font")), sizes = /** @type {HTMLSelectElement} */ ($("d2-text-size"));
+    const opt = (/** @type {string} */ v, /** @type {string} */ label, /** @type {boolean} */ off = false) => { const o = document.createElement("option"); o.value = v; o.textContent = label; o.disabled = off; return o; };
+    const fontKey = x.style.font === null ? "mixed" : (x.fonts.find((/** @type {any} */ f) => f.name === x.style.font) || { key: "other" }).key;
+    fonts.replaceChildren(...x.fonts.map((/** @type {any} */ f) => opt(f.key, f.name || t("draw2.text.font.default"))));
+    if (fontKey === "mixed") fonts.prepend(opt("mixed", t("draw2.text.mixed"), true)); else if (fontKey === "other") fonts.prepend(opt("other", x.style.font, true));
+    fonts.value = fontKey;
+    const list = [...x.sizes]; if (x.style.size !== null && !list.includes(x.style.size)) list.push(x.style.size);
+    sizes.replaceChildren(...list.sort((/** @type {number} */ a, /** @type {number} */ b) => a - b).map(n => opt(String(n), t("draw2.text.size.pct", { n }))));
+    if (x.style.size === null) { sizes.prepend(opt("-1", t("draw2.text.size.mixed"), true)); sizes.value = "-1"; } else sizes.value = String(x.style.size);
+    for (const b of /** @type {NodeListOf<HTMLElement>} */ (colours().querySelectorAll("button"))) b.setAttribute("aria-pressed", String(x.style.colour !== null && b.dataset.hex === x.style.colour));
+    // the keyboard goes to the text while it is edited, and back to the canvas when it stops
+    const at = document.activeElement;
+    if (x.editing && (at === cv || at === document.body)) $in().focus({ preventScroll: true });
+    else if (!x.editing && at === $in()) cv.focus({ preventScroll: true });
+    const range = x.from === x.to ? t("draw2.text.range.caret", { at: x.to, total: x.len }) : x.to - x.from === x.len ? t("draw2.text.range.all", { n: x.len }) : t("draw2.text.range.some", { n: x.to - x.from, total: x.len });
+    const line = t("draw2.text.state", { range });
+    if (line !== said) { said = line; $("d2-text-state").textContent = line; }
+  };
+  return { show };
+})();
+/** @param {any} st */
+function textBar(st) { textPanel.show(st); }
+
 // Autosave: the document is written to the browser's private file system (OPFS) one second after the last change, and offered back
 // on the next visit. What is worth offering and what a saved text holds is decided in Rust (saved_summary, open). While an offer
 // waits for its answer nothing is written, so the saved drawing cannot be lost to a stray click. Without OPFS there is no autosave.
@@ -420,9 +485,15 @@ function run(c) {
 // The system clipboard: plain text is a molfile (for other programs), our own type is the document (nothing lost between two pages of the editor).
 const CLIP = NAMES.clip;
 function clipboardEvents() {
-  const here = () => document.activeElement === cv;
+  const here = () => document.activeElement === cv || document.activeElement === $("d2-text-input");
   const put = (/** @type {ClipboardEvent} */ e, /** @type {string} */ c) => {
     if (!here() || !e.clipboardData) return;
+    // the characters of a text being edited are what is copied or cut, as plain text
+    if (ed.text_editing()) {
+      const chars = ed.text_selected();
+      if (chars) { e.clipboardData.setData("text/plain", chars); e.preventDefault(); if (c === "cut") after(ed.text_cut() | CHANGED); }
+      return;
+    }
     const f = ed.command(c);
     if (!ed.clipboard(NAMES.slug)) return;
     e.clipboardData.setData("text/plain", ed.clipboard("molfile")); e.clipboardData.setData(CLIP, ed.clipboard(NAMES.slug));
@@ -432,6 +503,7 @@ function clipboardEvents() {
   document.addEventListener("cut", e => put(e, "cut"));
   document.addEventListener("paste", e => {
     if (!here() || !e.clipboardData) return;
+    if (ed.text_editing()) { const typed = e.clipboardData.getData("text/plain"); e.preventDefault(); if (typed) after(ed.text_input(typed) | CHANGED); return; }
     const own = [CLIP, ...NAMES.clipOld].map(k => /** @type {DataTransfer} */ (e.clipboardData).getData(k)).find(Boolean);
     const text = own || e.clipboardData.getData("text/plain");
     if (text) { e.preventDefault(); after(ed.paste(text) | CHANGED); }
@@ -494,12 +566,16 @@ function events() {
   // no menu of the browser on the canvas or on our menu: the event is cancelled and nothing else is decided here
   cv.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = at(e); after(ed.zoom(x, y, e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
-  cv.addEventListener("keydown", e => {
+  // the text being edited has its own focus (a field that takes no look, for input methods and the keyboards of phones): its keys go to the module like the canvas's
+  const key = (/** @type {KeyboardEvent} */ e) => {
     const f = ed.key(e.key, mods(e), e.timeStamp);
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
     if (f & MENU) menu.openAtAnchor();
     if (f & (ASK_LABEL | ASK_TEXT)) { open(f & ASK_LABEL ? "charges" : "objects", true); const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
-  });
+  };
+  cv.addEventListener("keydown", key);
+  $("d2-text-input").addEventListener("keydown", key);
+  cv.addEventListener("dblclick", e => { const [x, y] = at(e); after(ed.text_double(x, y) | CHANGED); });
   // the key that hides every palette also works from a palette button or a handle (the canvas forwards its own keys above); the
   // module decides what the key does, a text field keeps its own keys
   document.addEventListener("keydown", e => {

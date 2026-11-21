@@ -7,9 +7,10 @@ use crate::settings::{Style, FIELDS, PRESETS};
 use serde_json::Value;
 
 /// The groups of the panel, in order: the id and the text key of its title.
-pub const GROUPS: [(&str, &str); 5] = [
+pub const GROUPS: [(&str, &str); 6] = [
     ("display", "draw2.prefs.group.display"),
     ("style", "draw2.prefs.group.style"),
+    ("text", "draw2.prefs.group.text"),
     ("pathway", "draw2.prefs.group.pathway"),
     ("files", "draw2.prefs.group.files"),
     ("appearance", "draw2.prefs.group.appearance"),
@@ -49,6 +50,16 @@ const BACKGROUND: &[&str] = &["white", "none"];
 const FORMATS: &[&str] = &crate::palettes::FORMATS;
 const PRESET_WORDS: &[&str] = &PRESETS;
 const THEME_WORDS: &[&str] = &THEMES;
+const FONT_WORDS: &[&str] = &[
+    "default",
+    "arial",
+    "helvetica",
+    "times",
+    "courier",
+    "georgia",
+    "verdana",
+];
+const SIZE_WORDS: &[&str] = &["50", "75", "100", "125", "150", "200", "300", "400"];
 
 const fn p(setting: &'static str, group: &'static str, label: &'static str, kind: Kind) -> Pref {
     Pref {
@@ -60,7 +71,7 @@ const fn p(setting: &'static str, group: &'static str, label: &'static str, kind
 }
 
 /// The options, in the order of the panel. The numbers of the style come after this table (`all`), from `FIELDS`.
-const WORDS: [Pref; 13] = [
+const WORDS: [Pref; 15] = [
     p(
         "style.colour",
         "display",
@@ -96,6 +107,18 @@ const WORDS: [Pref; 13] = [
         "style",
         "draw2.prefs.style.preset",
         Kind::Words(PRESET_WORDS),
+    ),
+    p(
+        "text.font",
+        "text",
+        "draw2.prefs.text.font",
+        Kind::Words(FONT_WORDS),
+    ),
+    p(
+        "text.size",
+        "text",
+        "draw2.prefs.text.size",
+        Kind::Words(SIZE_WORDS),
     ),
     p(
         "pathway.dir",
@@ -206,6 +229,8 @@ pub fn default_of(setting: &str) -> Option<String> {
         "export.default" => Some("svg".into()),
         "export.background" => Some("white".into()),
         "ui.theme" => Some("auto".into()),
+        "text.font" => Some("default".into()),
+        "text.size" => Some("100".into()),
         _ => Style::default().value(setting),
     }
 }
@@ -327,6 +352,78 @@ impl Ui {
         let mut pairs = self.unknown.clone();
         if self.theme != "auto" {
             pairs.push(("theme".into(), Value::from(self.theme.as_str()).to_string()));
+        }
+        if pairs.is_empty() {
+            return None;
+        }
+        pairs.sort();
+        let body: Vec<String> = pairs
+            .iter()
+            .map(|(k, v)| format!("{}:{v}", Value::from(k.as_str())))
+            .collect();
+        Some(format!("{{{}}}", body.join(",")))
+    }
+}
+
+/// The default font and size of a new text (`text.font`, `text.size`) and the keys of the object `text` of the settings file this version
+/// does not know, kept to be written back. The font is a key of `textedit::FONTS`, the size a percent of the style's size.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextPrefs {
+    pub font: String,
+    pub size: String,
+    unknown: Vec<(String, String)>,
+}
+
+impl Default for TextPrefs {
+    fn default() -> Self {
+        TextPrefs {
+            font: "default".into(),
+            size: "100".into(),
+            unknown: Vec::new(),
+        }
+    }
+}
+
+impl TextPrefs {
+    /// Reads the `text` object of a settings file; a key this version does not know is kept, a value that is none is refused with
+    /// `error.draw2.textPref`.
+    pub fn read(v: &Value) -> Result<TextPrefs, &'static str> {
+        let mut t = TextPrefs::default();
+        for (k, x) in v.as_object().ok_or("error.draw2.textPref")? {
+            if k == "font" || k == "size" {
+                let word = match x {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    _ => return Err("error.draw2.textPref"),
+                };
+                t.set(k, &word)?;
+            } else {
+                t.unknown.push((k.clone(), x.to_string()));
+            }
+        }
+        Ok(t)
+    }
+
+    /// One setting, as `--set text.<key>=<value>` gives it. The error is an i18n key and changes nothing.
+    pub fn set(&mut self, key: &str, value: &str) -> Result<(), &'static str> {
+        let v = value.trim();
+        match key {
+            "font" if FONT_WORDS.contains(&v) => self.font = v.into(),
+            "size" if SIZE_WORDS.contains(&v) => self.size = v.into(),
+            "font" | "size" => return Err("error.draw2.textPref"),
+            _ => return Err("error.draw2.set"),
+        }
+        Ok(())
+    }
+
+    /// The `text` object as JSON text, `None` when it holds only the defaults.
+    pub fn to_text(&self) -> Option<String> {
+        let mut pairs = self.unknown.clone();
+        if self.font != "default" {
+            pairs.push(("font".into(), Value::from(self.font.as_str()).to_string()));
+        }
+        if self.size != "100" {
+            pairs.push(("size".into(), Value::from(self.size.as_str()).to_string()));
         }
         if pairs.is_empty() {
             return None;
