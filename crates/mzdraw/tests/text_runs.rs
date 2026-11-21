@@ -155,8 +155,8 @@ fn the_text_tool_reads_the_markup_in_rust() {
     let mut e = Editor::default();
     e.import("CC").unwrap();
     // the same ops a log would carry: obj.add with runs
-    let (plain, r) = runs::typed("Pd(OAc)_2, 80 °C");
-    assert!(plain.is_empty() && runs::plain(&r) == "Pd(OAc)2, 80 °C");
+    let (plain, r) = runs::typed("Pd(OAc)_2, 80 \u{b0}C");
+    assert!(plain.is_empty() && runs::plain(&r) == "Pd(OAc)2, 80 \u{b0}C");
     let (plain, r) = runs::typed("no markup");
     assert_eq!((plain.as_str(), r.len()), ("no markup", 0));
 }
@@ -480,13 +480,13 @@ fn the_svg_escapes_what_a_text_can_hold() {
         },
         Run {
             font: "Courier New".into(),
-            ..Run::plain("שלום ")
+            ..Run::plain("\u{5e9}\u{5dc}\u{5d5}\u{5dd} ")
         },
         Run::sub("a<b"),
     ]);
     let svg = mzdraw::svg::to_svg(&d);
     assert!(svg.contains("A&amp;B &lt;x&gt; &quot;q&quot; "));
-    assert!(svg.contains("שלום"));
+    assert!(svg.contains("\u{5e9}\u{5dc}\u{5d5}\u{5dd}"));
     assert!(svg.contains(">a&lt;b</text>"));
     assert!(!svg.contains("<x>"));
 }
@@ -760,7 +760,16 @@ fn reference(text: &str, ranges: &[(usize, usize, &str)]) -> Vec<Run> {
 
 #[test]
 fn the_ket_sweep_agrees_with_the_per_character_rule_over_random_texts() {
-    let alphabet = ['a', 'b', '𝄞', '😀', 'é', ' ', '中', '𝒳'];
+    let alphabet = [
+        'a',
+        'b',
+        '\u{1d11e}',
+        '\u{1f600}',
+        '\u{e9}',
+        ' ',
+        '\u{4e2d}',
+        '\u{1d4b3}',
+    ];
     let styles = [
         "BOLD",
         "ITALIC",
@@ -815,16 +824,16 @@ fn the_ket_sweep_agrees_with_the_per_character_rule_over_random_texts() {
     assert!(with_pairs > 500 && styled > 500, "{with_pairs} {styled}");
     // the case of the review: an italic range over units 3 to 10: the three characters that start in it, after a surrogate pair
     let ket = ket_text(
-        serde_json::json!([{"text": "db𝄞a𝄞😀", "type": "unstyled", "depth": 0, "inlineStyleRanges": [{"offset": 3, "length": 7, "style": "ITALIC"}], "entityRanges": [], "data": {}}]),
+        serde_json::json!([{"text": "db\u{1d11e}a\u{1d11e}\u{1f600}", "type": "unstyled", "depth": 0, "inlineStyleRanges": [{"offset": 3, "length": 7, "style": "ITALIC"}], "entityRanges": [], "data": {}}]),
     );
     let (d, _) = import(&ket).unwrap();
     assert_eq!(
         d.objects[0].runs,
         vec![
-            Run::plain("db𝄞"),
+            Run::plain("db\u{1d11e}"),
             Run {
                 i: true,
-                ..Run::plain("a𝄞😀")
+                ..Run::plain("a\u{1d11e}\u{1f600}")
             }
         ]
     );
@@ -873,4 +882,20 @@ fn a_hostile_ket_text_with_both_characters_and_ranges_growing_is_read_in_linear_
         "x4 characters and x4 ranges took x{:.1}",
         b / a
     );
+}
+
+#[test]
+fn the_texts_of_the_text_run_notes_and_errors_are_on_the_page() {
+    let texts = include_str!("../../../web/lang/mzdraw.js");
+    for key in [
+        "draw2.import.textCut",
+        "draw2.import.runsAdjusted",
+        "error.draw2.runFont",
+        "error.draw2.runColor",
+        "error.draw2.runSize",
+        "error.draw2.runStyle",
+        "error.draw2.runsCount",
+    ] {
+        assert!(texts.contains(&format!("\"{key}\"")), "{key}");
+    }
 }

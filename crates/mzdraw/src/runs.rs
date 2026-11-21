@@ -585,8 +585,12 @@ mod tests {
             ),
             ("^{13}C", vec![Run::sup("13"), Run::plain("C")]),
             (
-                "Pd(OAc)_2, 80 °C",
-                vec![Run::plain("Pd(OAc)"), Run::sub("2"), Run::plain(", 80 °C")],
+                "Pd(OAc)_2, 80 \u{b0}C",
+                vec![
+                    Run::plain("Pd(OAc)"),
+                    Run::sub("2"),
+                    Run::plain(", 80 \u{b0}C"),
+                ],
             ),
             ("a\\nb", vec![Run::plain("a"), Run::line(), Run::plain("b")]),
         ];
