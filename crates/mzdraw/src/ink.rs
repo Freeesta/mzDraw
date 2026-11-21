@@ -24,7 +24,7 @@ pub const PALETTE: [(&str, &str, &str); 11] = [
     ("grey", "Grey", "#6b6b6b"),
 ];
 
-/// The canonical text of a colour: `#rgb` or `#rrggbb` in any case gives `#rrggbb` in lower case; the empty text (automatic) stays
+/// The canonical text of a colour; the empty text is `Some("")`, which means automatic (no explicit colour), not an error: `#rgb` or `#rrggbb` in any case gives `#rrggbb` in lower case; the empty text (automatic) stays
 /// empty; anything else is `None`.
 pub fn canon(text: &str) -> Option<String> {
     let t = text.trim();

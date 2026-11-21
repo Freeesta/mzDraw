@@ -640,29 +640,39 @@ fn every_text_of_the_colour_picker_exists_in_the_catalog() {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/lang/mzdraw.js"),
     )
     .unwrap();
-    let has = |key: &str| lang.contains(&format!("\"{key}\":"));
+    // the English catalog as (key, text) pairs: the lines `"key": "text",`
+    let catalog: std::collections::BTreeMap<String, String> = lang
+        .lines()
+        .filter_map(|l| {
+            let l = l.trim().trim_end_matches(',');
+            let (k, v) = l.split_once("\": \"")?;
+            Some((
+                k.strip_prefix('"')?.to_string(),
+                v.strip_suffix('"')?.to_string(),
+            ))
+        })
+        .collect();
+    // every key of the colour picker is in the catalog with a text: the families, then the keys the module and the page use
+    let family = |p: &str| catalog.keys().filter(|k| k.starts_with(p)).count();
+    assert!(family("draw2.colour.") >= 20 && family("draw2.ctx.colour.") >= 12);
+    for (k, v) in &catalog {
+        if k.starts_with("draw2.colour.") || k.starts_with("draw2.ctx.colour.") {
+            assert!(!v.trim().is_empty(), "{k}");
+        }
+    }
     let mut keys: Vec<String> = [
         "draw2.tool.colour",
         "draw2.tool.colour.title",
         "draw2.fly.colour",
         "draw2.say.coloured",
-        "draw2.colour.list",
-        "draw2.colour.custom",
-        "draw2.colour.hex.title",
-        "draw2.colour.set",
-        "draw2.colour.set.title",
-        "draw2.colour.auto",
-        "draw2.colour.auto.title",
-        "draw2.colour.done",
-        "draw2.colour.same",
-        "draw2.colour.title",
         "draw2.ctx.edit.colour",
-        "draw2.ctx.colour.auto",
-        "draw2.ctx.colour.custom",
         "draw2.ctx.say.colour",
         "error.draw2.colour",
         "error.draw2.colourNone",
         "draw2.export.coloursLost",
+        "draw2.colour.current",
+        "draw2.colour.mixed",
+        "draw2.colour.customName",
     ]
     .map(String::from)
     .to_vec();
@@ -670,11 +680,16 @@ fn every_text_of_the_colour_picker_exists_in_the_catalog() {
         keys.push(format!("draw2.colour.{key}"));
         keys.push(format!("draw2.ctx.colour.{key}"));
         // the English text is the module's own name
-        assert!(
-            lang.contains(&format!("\"draw2.colour.{key}\": \"{name}\"")),
-            "{key}"
-        );
+        assert_eq!(catalog[&format!("draw2.colour.{key}")], name);
+        assert_eq!(catalog[&format!("draw2.ctx.colour.{key}")], name);
     }
-    let missing: Vec<&String> = keys.iter().filter(|k| !has(k)).collect();
-    assert!(missing.is_empty(), "{missing:?}");
+    for k in ["auto", "custom"] {
+        keys.push(format!("draw2.ctx.colour.{k}"));
+    }
+    for k in &keys {
+        assert!(catalog.get(k).is_some_and(|v| !v.trim().is_empty()), "{k}");
+    }
+    // the words follow the scope: atoms, bonds and objects
+    assert!(catalog["draw2.export.coloursLost"].contains("atoms, bonds and objects"));
+    assert!(catalog["error.draw2.colourNone"].contains("atoms, bonds or objects"));
 }

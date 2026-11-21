@@ -2405,7 +2405,7 @@ try {
     await pg.evaluate("window.MZDRAW.set('style.colour=element')");
     eq(await pg.evaluate("window.MZDRAW.colours_lost('molfile')"), 4); eq(await pg.evaluate("window.MZDRAW.colours_lost('cdxml')"), 0); eq(await pg.evaluate("window.MZDRAW.colours_lost('svg')"), 0);
     await saveAs(pg, "#d2-ex-molfile"); await until(pg, `document.getElementById("d2-ex-note").textContent.includes("colours")`);
-    eq(await pg.innerText("#d2-ex-note"), "This format has no place for colours: 4 atoms and bonds are written without theirs.");
+    eq(await pg.innerText("#d2-ex-note"), "This format has no place for colours: 4 atoms, bonds and objects are written without theirs.");
   });
   await step("colour by mouse: right-click the oxygen, the group Colour, Blue; the page equals the golden, the item that is in use is checked, one undo", async () => {
     const before = await clOpen(), at = await clOxygen();
