@@ -98,6 +98,7 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("atom.isotope", [Y, Y, Y, Y, Y, Y, Y, Y, Y, Y]),
     ("atom.map", [Y, Y, Y, Y, Y, N, N, Y, Y, Y]),
     ("atom.radical", [Y, Y, P, Y, Y, Y, Y, Y, Y, Y]),
+    ("caption", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("colour", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("colour.object", [N, N, N, N, N, N, N, N, Y, Y]),
     ("data", [N, N, N, Y, N, N, N, N, Y, Y]),
@@ -178,6 +179,9 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if !a.col().is_empty() {
             push("colour", a.col(), a.id, 0, 0);
         }
+        if !a.cap().is_empty() {
+            push("caption", a.cap().join(","), a.id, 0, 0);
+        }
         for (name, value) in a.data() {
             push("data", format!("{name}={value}"), a.id, 0, 0);
         }
@@ -186,7 +190,9 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         }
         // `col` is not unknown when it is a colour (it has its own row); a value that is not one (a newer file) is
         for (key, _) in (a.more.iter()).filter(|m| {
-            !["data", "ann"].contains(&m.0.as_str()) && (m.0 != "col" || a.col().is_empty())
+            !["data", "ann"].contains(&m.0.as_str())
+                && (m.0 != "col" || a.col().is_empty())
+                && (m.0 != "cap" || a.cap().is_empty())
         }) {
             push("unknown", format!("atom.{key}"), a.id, 0, 0);
         }

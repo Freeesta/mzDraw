@@ -128,6 +128,11 @@ impl Atom {
         crate::ink::get(&self.more)
     }
 
+    /// The lines kept under the molecule this atom holds the choice of (`props`), empty for none.
+    pub fn cap(&self) -> Vec<String> {
+        crate::props::get(&self.more)
+    }
+
     /// The data kept on this atom (empty for most atoms; a field `data` of another shape is not data and is left alone).
     pub fn data(&self) -> Data {
         let text = self

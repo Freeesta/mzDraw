@@ -66,9 +66,10 @@ pub fn say(h: &Hunk) -> Vec<(&'static str, String)> {
                 c[1][1].extend(bonds);
                 c[1][2].extend(objects);
             }
-            Op::AtomSet { id, .. } | Op::AtomData { id, .. } | Op::AtomAnn { id, .. } => {
-                c[2][0].push(*id)
-            }
+            Op::AtomSet { id, .. }
+            | Op::AtomData { id, .. }
+            | Op::AtomAnn { id, .. }
+            | Op::AtomCap { id, .. } => c[2][0].push(*id),
             Op::BondSet { id, .. } => c[2][1].push(*id),
             Op::Colour {
                 atoms,
@@ -511,7 +512,10 @@ impl Editor {
                             ring(&mut marks, &mut pts, (o.x, o.y), colour::WARN);
                         }
                     }
-                    Op::AtomSet { id, .. } | Op::AtomData { id, .. } | Op::AtomAnn { id, .. } => {
+                    Op::AtomSet { id, .. }
+                    | Op::AtomData { id, .. }
+                    | Op::AtomAnn { id, .. }
+                    | Op::AtomCap { id, .. } => {
                         if let Some(&q) = at.get(id) {
                             ring(&mut marks, &mut pts, q, colour::ACCENT);
                         }

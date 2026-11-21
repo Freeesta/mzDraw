@@ -97,6 +97,14 @@
       <ul id="d2-outline" aria-labelledby="d2-outline-h"></ul>
       <ul id="d2-values" aria-label="Calculated values" data-i18n-aria-label="draw2.values"></ul>
       <p id="d2-values-sel"></p>
+      <details id="d2-props"><summary data-i18n="draw2.props.title">Lines kept under the molecule</summary>
+        <p class="hint" data-i18n="draw2.props.hint">Choose which values stay written under the selected molecule. They move with it and go into the SVG, PDF, PNG and CDXML files.</p>
+        <div id="d2-props-lines" role="group" aria-label="Lines kept under the molecule" data-i18n-aria-label="draw2.props.title"></div>
+        <p id="d2-props-note" role="status"></p>
+        <div class="row"><label for="d2-props-form" data-i18n="draw2.props.form">Copy as</label>
+          <select id="d2-props-form"></select>
+          <button type="button" id="d2-props-copy" data-i18n="draw2.props.copy">Copy values</button></div>
+      </details>
       <p id="d2-focus"></p>
       <p id="d2-summary"></p>
       <p id="d2-lens-note" role="status"></p>

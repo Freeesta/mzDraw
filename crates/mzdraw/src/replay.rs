@@ -46,6 +46,9 @@ struct Request {
     /// `values`: the answer is `values/1` (`values::document_json`): the calculated values of every structure and, when `atoms` is
     /// given, of those atoms as one selection. `true` is no selection. It stands alone with the editing fields (no `out`, no `report`).
     values: Option<Option<Vec<u32>>>,
+    /// `props`: the answer is `props/1` (`values::props_json`), or, with `text`, the values copied as text (`values::props_text`):
+    /// `(atoms of a selection, form, line keys)`. Like `values` it stands alone.
+    props: Option<PropsRequest>,
     /// `feedback`: the answer is `feedback/1` (`feedback::build`): `(kind, with the command log, user agent, language)`.
     feedback: Option<(String, bool, String, String)>,
 }
@@ -57,7 +60,7 @@ enum Event {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 19] = [
+const FIELDS: [&str; 20] = [
     "propose",
     "accept",
     "diff",
@@ -76,8 +79,12 @@ const FIELDS: [&str; 19] = [
     "id",
     "events",
     "values",
+    "props",
     "feedback",
 ];
+
+/// The request field `props`: the atoms of a selection, the form of a copy as text, the line keys to copy.
+type PropsRequest = (Option<Vec<u32>>, Option<String>, Vec<String>);
 
 impl Request {
     fn read(text: &str) -> Result<Request, &'static str> {
@@ -228,6 +235,47 @@ impl Request {
                 Some(Some(ids))
             }
         };
+        let props = match v.get("props") {
+            None | Some(serde_json::Value::Bool(false)) => None,
+            Some(serde_json::Value::Bool(true)) => Some((None, None, Vec::new())),
+            // `{"atoms": [id, ...], "text": "text|tsv|line", "lines": [key, ...]}`, each optional
+            Some(o) => {
+                let bad = "error.draw2.props";
+                let o = o.as_object().ok_or(bad)?;
+                if o.keys()
+                    .any(|k| !["atoms", "text", "lines"].contains(&k.as_str()))
+                {
+                    return Err(bad);
+                }
+                let atoms = match o.get("atoms") {
+                    None => None,
+                    Some(a) => Some(
+                        (a.as_array().ok_or(bad)?.iter())
+                            .map(|n| n.as_u64().and_then(|n| u32::try_from(n).ok()))
+                            .collect::<Option<Vec<u32>>>()
+                            .ok_or(bad)?,
+                    ),
+                };
+                let text = match o.get("text") {
+                    None => None,
+                    Some(t) => Some(t.as_str().ok_or(bad)?.to_string()),
+                };
+                if text
+                    .as_deref()
+                    .is_some_and(|t| !crate::values::FORMS.contains(&t))
+                {
+                    return Err(bad);
+                }
+                let lines = match o.get("lines") {
+                    None => Vec::new(),
+                    Some(l) => (l.as_array().ok_or(bad)?.iter())
+                        .map(|x| x.as_str().map(str::to_string))
+                        .collect::<Option<Vec<String>>>()
+                        .ok_or(bad)?,
+                };
+                Some((atoms, text, lines))
+            }
+        };
         let feedback = match v.get("feedback") {
             None => None,
             // `"bug"`, or `{"kind", "log", "agent", "lang"}` and nothing else (`kind` is the only one required)
@@ -259,6 +307,7 @@ impl Request {
         };
         if feedback.is_some()
             && (values.is_some()
+                || props.is_some()
                 || propose.is_some()
                 || v.get("id").is_some()
                 || v.get("out").is_some()
@@ -268,8 +317,9 @@ impl Request {
         {
             return Err("error.draw2.feedbackAlone");
         }
-        if values.is_some()
+        if (values.is_some() || props.is_some())
             && (v.get("out").is_some()
+                || (values.is_some() && props.is_some())
                 || flag("report")?
                 || flag("dry_run")?
                 || v.get("expect").is_some())
@@ -279,6 +329,7 @@ impl Request {
         Ok(Request {
             diff: None,
             values,
+            props,
             feedback,
             propose,
             accept,
@@ -515,12 +566,27 @@ pub fn replay_with(
             crate::values::document_json(e.doc(), &e.style.adducts, select.as_deref(), engine);
         return Ok(Reply { text, ok: true });
     }
-    // the numbers an export draws under the structures (`display.values` mass and mz)
+    if let Some((select, form, keys)) = &r.props {
+        let text = crate::values::document_props(
+            e.doc(),
+            &e.style.adducts,
+            select.as_deref(),
+            engine,
+            form.as_deref().map(|f| (f, keys.as_slice())),
+        )
+        .map_err(fail)?;
+        return Ok(Reply { text, ok: true });
+    }
+    // the numbers an export draws under the structures (`display.values` mass and mz, or a molecule's chosen lines)
     if engine.is_some()
-        && matches!(
+        && (matches!(
             e.style.values,
             crate::values::Mode::Mass | crate::values::Mode::Mz
-        )
+        ) || e
+            .doc()
+            .atoms
+            .iter()
+            .any(|a| a.cap().iter().any(|k| crate::props::needs_engine(k))))
     {
         e.measurer = engine;
         e.refresh_values();

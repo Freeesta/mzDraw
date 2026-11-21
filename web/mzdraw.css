@@ -150,6 +150,12 @@ textarea { width: 100%; box-sizing: border-box; color: var(--fg); background: va
 .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
 #d2-outline, #d2-values { margin: 0; padding-left: 18px; }
 #d2-values-sel { margin: 4px 0 0; }
+#d2-props { margin: 6px 0; }
+#d2-props-lines label { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+#d2-props-lines input { width: 20px; height: 20px; flex: none; }
+#d2-props-lines .val { color: var(--muted, #666); font-size: 0.9em; overflow-wrap: anywhere; }
+#d2-props .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#d2-props .row select, #d2-props .row button { min-height: 40px; }
 #d2-style-adducts { border: 0; margin: 4px 0 0; padding: 0; }
 #d2-style-adducts legend { padding: 0; }
 #d2-style-adducts label { display: inline-block; margin-right: 10px; }

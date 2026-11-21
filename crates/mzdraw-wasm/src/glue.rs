@@ -124,7 +124,30 @@ pub fn measure(
         average: v["average"].as_f64(),
         ion_mz: label["mz"].as_f64(),
         mz,
+        pct: composition(molfile),
     })
+}
+
+/// The elemental analysis of a structure: the mass per cent of each element in Hill order, from `analysis/1` of mzLab
+/// (`mzlab_feat::chem::analysis`) on the atoms the engine reads from the molfile (open valences filled with hydrogen, as `sel` does).
+/// Empty when the engine does not give it (an element with no weight): the other numbers stand.
+#[cfg(feature = "sel")]
+fn composition(molfile: &str) -> Vec<(String, f64)> {
+    use mzlab_feat::chem;
+    let Ok(g) = chem::graph::Mol::from_molfile(molfile) else {
+        return Vec::new();
+    };
+    let atoms: Vec<serde_json::Value> = (g.atoms.iter())
+        .map(|a| serde_json::json!({"el": a.el, "iso": a.iso, "h": a.h, "q": a.charge}))
+        .collect();
+    let request = serde_json::json!({ "atoms": atoms }).to_string();
+    let Ok(answer) = chem::analysis::analysis_json(&request) else {
+        return Vec::new();
+    };
+    let v: serde_json::Value = serde_json::from_str(&answer).unwrap_or_default();
+    (v["composition"].as_array().into_iter().flatten())
+        .filter_map(|c| Some((c["el"].as_str()?.to_string(), c["pct"].as_f64()?)))
+        .collect()
 }
 
 /// The headless door with engines: a replay request (see `mzdraw::replay`) plus `"engines": [{"engine", "args"?}]`. Gives

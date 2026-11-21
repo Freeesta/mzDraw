@@ -1,0 +1,58 @@
+# Lines kept under a molecule (struct-props), built
+
+The owner chooses, per molecule, which calculated values stay written under it: formula, molecular weight, exact mass, elemental analysis, adduct m/z, logP, tPSA, hydrogen-bond donors and acceptors, rotatable bonds, heavy atoms. The choice is part of the document, moves and exports with the molecule, and the values can be copied as text. Everything is first a Rust command with a machine form (rule 15); the page is one client of it.
+
+Code: `crates/mzdraw/src/props.rs` (the lines, the field, the descriptors), `values.rs` (`entries`, `chosen_lines`, `captions`, `props_json`, `props_text`, `document_props`), `editor_props.rs` (the editor commands), `ops.rs` (`Op::AtomCap`), `replay.rs` (the request field `props`), `cdxml.rs` (`to_cdxml_with`), the glue `crates/mzdraw-wasm/src/glue.rs` (`composition`), the page `web/mzdraw.js` (`propsField`, `propsState`), `web/index.html` (`#d2-props`).
+
+## Where the numbers come from
+
+| line | key | source |
+|---|---|---|
+| formula | `formula` | counted on the record (`values::scan`) |
+| molecular weight (average mass) | `mw` | the shared measure: engine `sel` of mzLab, as before |
+| exact mass | `exact` | the shared measure: `sel` |
+| elemental analysis, mass % of each element | `ea` | the shared measure: `analysis/1` of mzLab (`mzlab_feat::chem::analysis::analysis_json`) called by `glue::measure` on the atoms the engine reads from the molfile; `Measured.pct` |
+| m/z of the adducts | `mz` | the shared measure: `sel` plus `adduct_shift`, as before (`display.adducts` names the adducts) |
+| logP | `logp` | `mzlab_mol::Mol::descriptors()`: Wildman-Crippen logP, two decimals |
+| tPSA | `tpsa` | `Mol::descriptors()`: topological polar surface area from N and O only (Ertl 2000), in square angstrom, two decimals |
+| donors | `hbd` | `Mol::descriptors()` |
+| acceptors | `hba` | `Mol::descriptors()` |
+| rotatable bonds | `rotb` | `Mol::descriptors()` |
+| heavy atoms | `heavy` | made here: the atoms of the record that are not hydrogen (abbreviations expanded) |
+
+No engine call is duplicated: the four engine lines use the one shared `Measurer` of `values` (`Scan::measure`, `Selected::measure`, the glue `measure`); the descriptors need no engine (`mzlab-mol` is already a dependency of the core, the pin of `Cargo.toml` is not moved), so they are also there in the plain native replay. Without the engine the four engine lines write nothing (never a made-up number); the formula is always there. A structure with an R group or another label that is not an element has the key `error.draw2.valuesOpen` and no number and no descriptor. Above the caps of `values` (5000 atoms, 200 structures) the engine lines have `error.draw2.valuesSize`.
+
+**Method and its limits.** The descriptors are the "molecular descriptors of a record" of `mzlab-mol` (`descr.rs`, at the pin), whose own doc comment says: "Wildman-Crippen logP and MR (typing in `crippen.rs`), TPSA, hydrogen-bond donors and acceptors, rotatable bonds and molecular weight. Used by the retention-time prediction of the engines; our own definitions, not another toolkit's code." Nothing more is claimed here: the donor, acceptor and rotatable-bond rules are the library's own and are read in `descr.rs`; a number may differ from another toolkit's. The values recorded in the tests (`the_descriptor_lines_of_a_few_molecules_are_the_pinned_engines_outputs`: methane, ethanol, aspirin, caffeine) are the outputs of the pinned engine, not reference-toolkit values; a move of the pin shows as a change there. The panel shows each line's method as the tooltip of its row (`draw2.props.method.*`). A later mzLab `descriptors/1` (with the method name and reference in its output) can replace this call without changing the keys or old files.
+
+**Versioned keys.** The keys of the lines (`formula mw exact ea mz logp tpsa hbd hba rotb heavy`) belong to the format `props/1` and to the field `cap` of `mzdraw/1`; a later slice adds a key without changing the meaning of an old one, and a file with a key this version does not know keeps it and writes no line for it. Wording of a line: the text of a line is `name value` (`Exact mass 194.0804`, `MW 194.1940`, `%C 49.48  %H 5.19  %N 28.85  %O 16.48` as one line, `[M+H]+ 195.0877`, `logP -1.03`, `tPSA 61.82`, `HBD 0`, `HBA 3`, `Rotatable bonds 0`, `Heavy atoms 14`); masses have four decimals, per cent, logP and tPSA two (half away from zero, `-0.00` written `0.00`).
+
+Not built, needs an mzlab engine or a decision: an isotope pattern line (`analysis/1` has the pattern; a line of it is a separate slice), values for a lasso part of a structure pinned on the canvas, a dedicated dialog.
+
+## The choice, in the document
+
+The optional field `cap` of an atom: a JSON list of line keys in the order they are written, e.g. `"cap":["formula","logp"]`. It lives in the unknown-field list of the atom (`doc::More`) like `col`: `mzdraw/1` is unchanged, a document without it reads and writes as before, an older reader keeps it. A molecule's choice is the `cap` of the first of its atoms (pool order) that has one; the editor and the operation keep it on the first atom of the molecule and clear it on the others, so two molecules joined by a bond have the first one's choice. A molecule with no choice follows the style `display.values` (off by default). A key this version does not know is kept in the list and writes no line; a `cap` that is not a list of texts is not a choice and is left as read. At most 24 keys of at most 40 characters (`props::canon`; the repeats and the empty keys go, the order stays); anything else is `error.draw2.lines`.
+
+Operation `atom.cap {id, lines}` of `draw_edit/1` (row in `schema.rs`, `mzlab` false: mzLab does not read it yet). The empty list takes the choice away. The inverse is the recorded `SetAtom` (exact: the property test `undo_restores_the_identical_document_and_redo_the_identical_result` has the operation in its random steps, with refused values too). Paste, duplicate, the diff, proposals and `tp:derive` copies carry it.
+
+Editor (`Editor::toggle_line(key, on)`, `set_lines(keys)`, `set_lines_json`, wasm `toggle_line`, `set_lines`): the target is the molecules of the selected atoms, else the molecule of the atom with the keyboard focus; one undo step; the same choice again changes nothing (no empty undo step). A first tick on a molecule that has no choice starts from what the style writes (`formula` for `display.values=formula`, `formula` and `exact` for `mass`, `mz` for `mz`). Several molecules with different choices: a tick is `error.draw2.linesMixed`, `set_lines` sets a whole list for all. Nothing to choose for is `error.draw2.linesNone`.
+
+## Under the drawing and in files
+
+`values::captions` writes, under each molecule that has a choice, its lines (the others as `display.values` says). The SVG, PDF and PNG page grows to hold them; they move with the molecule because they are derived from its atoms. CDXML: one centred 9 pt text object per molecule with the lines in rows, under its lowest atom (`Document::to_cdxml_with`, `Editor::save("cdxml")`); a drawing with no choice and style off writes the same CDXML bytes as before. Not verified against a ChemDraw file; read back by mzDraw they are ordinary texts. The formats with no place for the choice (molfile, V3000, SMILES, SDF, KET, CML, RXN, `trasf`) write the structure without it and say so: `draw2.export.captionsLost` (page note), the row `caption` of `loss.rs` (`out: loss:FORMAT`), the replay `lost`. The document, SVG, PDF and CDXML carry it.
+
+## CLI route (rules 10 and 15)
+
+- `{"op":"atom.cap","id":1,"lines":["formula","logp"]}` in the `log` of a replay request (`mzlab-cli mol draw`); `out` `svg`, `pdf`, `cdxml`, `mzdraw` give the file with the lines, `out: "schema"` lists the row.
+- Request field `props`: `true` answers `props/1` (`values::props_json`): `{"format","keys","adducts","engine","error","structures":[{"anchor","atoms","formula","charge","cap","error","values"}],"selection"}`, where `values` has one key per line key and the list of `[name, value]` pairs (strings; empty when the number is not there). `{"atoms":[...]}` adds a selection (with `of`); `{"text":"text"|"tsv"|"line","lines":[...]}` answers the values copied as plain text: `text` is a block per structure (the formula, then `name: value`), `tsv` has a header `structure<TAB>name<TAB>value` and a row per value, `line` one line per structure with `; ` between values. The lines copied are `lines` if given, else the choice kept under each molecule, else every line; the formula heads each block and is not repeated. A form that is none, a field that is not allowed or nothing to copy is `error.draw2.props` / `error.draw2.propsCopy`; it stands alone as `values` does (`error.draw2.valuesAlone`).
+- Through the glue door the engine numbers are there (`cargo run -p mzdraw-wasm --example replay_glue`, the `.wasm` `replay_glue`); the plain replay has the lines that need no engine and `"engine": false`. The twin in `mzlab-cli mol draw` must call `replay_with(request, n, Some(measure))` with its own copy of `glue::measure` (now also `analysis_json`), as said in `arch-web-17-values.md`.
+- Parity: `tests/data/log/struct-props.json` (cases, losses, refused, results, values) held by `tests/parity.mjs` wasm == native == recorded.
+
+## Page
+
+The Check palette has the section "Lines kept under the molecule" (`#d2-props`, shut by default; it costs a call only while open): one checkbox per line with its name and, beside it, the module's own number for the selected molecule (the selection, or the only molecule); the ticks follow the choice of the selection (or the focused atom) and are off, with the words `draw2.props.none`, when there is no molecule. A tick goes to the module; a refusal puts the tick back and says why. "Copy as" (text, table, one line) and "Copy values" put the module's text on the system clipboard. Rows are 40 px high or more; the boxes are native checkboxes (keyboard Space, touch and pen taps). Words: `draw2.props.*`, `draw2.say.lines`, `draw2.export.captionsLost`, `error.draw2.lines*`, `error.draw2.props*` of `web/lang/mzdraw.js` (key test in `crates/mzdraw/tests/props.rs`).
+
+## Tests
+
+`crates/mzdraw/tests/props.rs` (the operation, canon, unknown keys, editor commands, captions, copy forms, the request field, SVG and CDXML, losses, catalog, cost); `crates/mzdraw-wasm/tests/props.rs` (elemental analysis against hand sums with the real engine, selection, charged and open structures, the golden values); `ops.rs` property test; `loss.rs` and `schema.rs` rows; golden parity; e2e by keyboard, touch and pen with screenshots at deviceScaleFactor 2.
+
+Cost: the new code is linear in the number of molecules (test `the_new_code_scales_linearly_in_the_number_of_molecules`: best of five runs, four times the molecules may cost up to eight times, no floor, the descriptors' memo emptied before each run; the planted pass over all atoms per molecule makes the same guard fail, test `a_planted_quadratic_version_fails_the_scaling_test`). The descriptors are memoised by the content of the record, so the painter does not ask the library again at every frame.

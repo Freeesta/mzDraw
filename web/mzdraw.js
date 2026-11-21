@@ -130,6 +130,48 @@ function colourField() {
   input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(); } });
 }
 
+/** the lines kept under the molecule of the selection (struct-props): one checkbox per line the module lists, ticked when the molecule's choice has it;
+ * a tick goes to the module, which judges it and keeps the choice on the molecule in one undo step. The words and numbers are the module's (this
+ * file only puts them in a list). The copy of the values as text is the module's too. */
+function propsField() {
+  const box = $("d2-props-lines"), note = $("d2-props-note"), form = /** @type {HTMLSelectElement} */ ($("d2-props-form"));
+  const keys = JSON.parse(ed.props()).keys;
+  box.replaceChildren(...keys.map((/** @type {string} */ key) => {
+    const label = document.createElement("label"), input = document.createElement("input"), name = document.createElement("span"), val = document.createElement("span");
+    input.type = "checkbox"; input.dataset.key = key; input.dataset.testid = "d2-props-" + key;
+    name.textContent = t("draw2.props.line." + key); val.className = "val";
+    label.title = val.title = t("draw2.props.method." + key);       // every value shows its method
+    label.append(input, name, val);
+    input.addEventListener("change", () => {
+      const f = after(ed.toggle_line(key, input.checked)), st = JSON.parse(ed.state());
+      note.textContent = f & CHANGED ? t("draw2.say.lines", { what: (st.lines || []).join(", ") }) : st.error ? t(st.error) : "";
+      $("d2-live").textContent = note.textContent;
+      if (!(f & CHANGED)) input.checked = !input.checked;
+    });
+    return label;
+  }));
+  form.replaceChildren(...["text", "tsv", "line"].map(f => new Option(t("draw2.props.form." + f), f)));
+  $("d2-props-copy").addEventListener("click", () => {
+    const text = ed.copy_values(form.value);
+    if (!text) { note.textContent = t(JSON.parse(ed.state()).error || "error.draw2.propsCopy"); return; }
+    navigator.clipboard?.writeText(text).catch(() => { });       // best effort
+    note.textContent = t("draw2.props.copied", { form: form.options[form.selectedIndex].text });
+    $("d2-live").textContent = note.textContent;
+  });
+}
+
+/** the ticks and the numbers beside them follow the module (only while the section is open: it costs a call) @param {any} st */
+function propsState(st) {
+  if (!/** @type {HTMLDetailsElement} */ ($("d2-props")).open) return;
+  const p = JSON.parse(ed.props()), one = p.selection || (p.structures.length === 1 ? p.structures[0] : null);
+  for (const input of /** @type {NodeListOf<HTMLInputElement>} */ ($("d2-props-lines").querySelectorAll("input"))) {
+    const key = input.dataset.key || "", val = /** @type {HTMLElement} */ (input.parentElement).querySelector(".val");
+    input.checked = !!st.lines && st.lines.includes(key); input.disabled = st.lines === null;
+    if (val) val.textContent = one ? (one.values[key] || []).map((/** @type {string[]} */ [n, v]) => `${n} ${v}`).join("; ") : "";
+  }
+  if (st.lines === null) $("d2-props-note").textContent = t("draw2.props.none");
+}
+
 /** the colour in use on the selection is the pressed one; a mixed selection presses none @param {any} st */
 function colourState(st) {
   const now = st.colour;
@@ -197,6 +239,7 @@ function refresh() {
   const st = JSON.parse(ed.state());
   show(st);
   colourState(st);
+  propsState(st);
   for (const b of document.querySelectorAll("button[data-cmd]")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
     if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
@@ -540,6 +583,8 @@ function save(what, name, type) {
     const left = what.startsWith("tptable") ? JSON.parse(ed.save_notes()).map((/** @type {[string, number]} */ [key, n]) => t(key, { n })) : [];
     const dim = ed.colours_lost(what);
     if (dim) left.unshift(t("draw2.export.coloursLost", { n: dim }));
+    const caps = ed.captions_lost(what);
+    if (caps) left.unshift(t("draw2.export.captionsLost", { n: caps }));
     if (lost) left.unshift(t("draw2.export.mapsLost", { n: lost }));
     if (left.length) { note.textContent = left.join(" "); $("d2-live").textContent = note.textContent; } else open("saveas", false);
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
@@ -723,7 +768,7 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
-  mapField(); colourField(); proposalEvents(); stepEvents(); feedbackBoxes({ ed, t, focusCanvas: () => cv.focus({ preventScroll: true }) });
+  mapField(); colourField(); propsField(); $("d2-props").addEventListener("toggle", () => propsState(JSON.parse(ed.state()))); proposalEvents(); stepEvents(); feedbackBoxes({ ed, t, focusCanvas: () => cv.focus({ preventScroll: true }) });
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); preferences(); layout(); refresh();

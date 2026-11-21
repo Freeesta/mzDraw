@@ -1,0 +1,90 @@
+//! The lines kept under a molecule with the real engine (the glue of mzLab): elemental analysis against hand sums, the m/z lines, the
+//! request field `props` through the glue door, and the golden file `tests/data/log/struct-props.json`. Synthetic structures only.
+
+use mzdraw_wasm::glue;
+use serde_json::{json, Value};
+
+fn props(request: Value) -> Value {
+    serde_json::from_str(&glue::replay(&request.to_string()).unwrap()).unwrap()
+}
+
+#[test]
+fn the_elemental_analysis_is_the_mass_per_cent_of_the_conventional_weights() {
+    // caffeine C8H10N4O2, weights of `sel` (C 12.011, H 1.008, N 14.007, O 15.999): MW 194.194
+    //   C 8 * 12.011 = 96.088 -> 49.4804 %   H 10 * 1.008 = 10.08 -> 5.1909 %
+    //   N 4 * 14.007 = 56.028 -> 28.8514 %   O 2 * 15.999 = 31.998 -> 16.4772 %
+    let v = props(json!({"import": "Cn1cnc2c1c(=O)n(C)c(=O)n2C", "props": true}));
+    assert_eq!(v["engine"], true);
+    let s = &v["structures"][0]["values"];
+    assert_eq!(
+        s["ea"],
+        json!([
+            ["%C", "49.48"],
+            ["%H", "5.19"],
+            ["%N", "28.85"],
+            ["%O", "16.48"]
+        ])
+    );
+    assert_eq!(s["mw"], json!([["MW", "194.1940"]]));
+    assert_eq!(s["exact"], json!([["Exact mass", "194.0804"]]));
+    assert_eq!(
+        s["mz"],
+        json!([["[M+H]+", "195.0877"], ["[M-H]-", "193.0731"]])
+    );
+    // the descriptors of the library: caffeine has no donor, three acceptors, no rotatable bond (a methyl on a ring nitrogen is not one)
+    assert_eq!(s["hbd"], json!([["HBD", "0"]]));
+    assert_eq!(s["hba"], json!([["HBA", "3"]]));
+    assert_eq!(s["rotb"], json!([["Rotatable bonds", "0"]]));
+    assert_eq!(s["heavy"], json!([["Heavy atoms", "14"]]));
+    assert_eq!(s["tpsa"], json!([["tPSA", "61.82"]]));
+}
+
+#[test]
+fn the_per_cent_of_a_selection_is_that_of_its_closed_structure() {
+    // the methyl of ethanol, closed with hydrogen, is CH4: C 12.011 / 16.043 = 74.8738 %, H 4.032 / 16.043 = 25.1325 %
+    let v = props(json!({"import": "CCO", "props": {"atoms": [1]}}));
+    let s = &v["selection"];
+    assert_eq!(s["formula"], "CH4");
+    assert_eq!(s["values"]["ea"], json!([["%C", "74.87"], ["%H", "25.13"]]));
+    assert_eq!(s["values"]["exact"], json!([["Exact mass", "16.0313"]]));
+}
+
+#[test]
+fn a_charged_structure_has_its_own_mz_and_no_adduct_and_a_structure_with_an_r_group_no_number() {
+    let v = props(json!({"import": "C[NH3+]", "props": true}));
+    let s = &v["structures"][0]["values"];
+    assert_eq!(s["mz"], json!([["m/z", "32.0495"]]));
+    let v = props(json!({"import": "C[*]", "props": true}));
+    let b = &v["structures"][0];
+    // no engine number and no descriptor: a structure with an R group is not a molecule yet
+    assert_eq!(b["error"], "error.draw2.valuesOpen");
+    assert_eq!(b["values"]["exact"], json!([]));
+    assert_eq!(b["values"]["logp"], json!([]));
+}
+
+/// The golden file `tests/data/log/struct-props.json`, section `values`: each request through the glue door (or, with `"plain": true`, the
+/// plain core replay) gives the recorded bytes; `tests/parity.mjs` holds the `.wasm` to the same bytes. `MZDRAW_BLESS=1` rewrites them.
+#[test]
+fn the_golden_requests_give_the_recorded_bytes() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/data/log/struct-props.json");
+    let mut file: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let bless = std::env::var("MZDRAW_BLESS").is_ok();
+    let cases = file["values"].as_array_mut().unwrap();
+    assert!(cases.len() >= 6);
+    for case in cases.iter_mut() {
+        let request = case["request"].to_string();
+        let got = if case["plain"] == true {
+            mzdraw::replay::replay(&request).unwrap()
+        } else {
+            glue::replay(&request).unwrap()
+        };
+        if bless {
+            case["out"] = json!(got);
+        }
+        assert_eq!(case["out"], json!(got), "{}", case["name"]);
+    }
+    if bless {
+        std::fs::write(&path, serde_json::to_string_pretty(&file).unwrap() + "\n").unwrap();
+    }
+}

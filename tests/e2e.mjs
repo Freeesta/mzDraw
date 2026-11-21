@@ -2496,6 +2496,71 @@ try {
     await clFly(tap); await tap(...await center(pg, '[data-testid="d2-colour-red"]')); await frames(pg);
     await clSame(clGold[2], "pen, toolbar"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
   });
+  // struct-props: the owner chooses which lines stay written under a molecule. A tick of the Check palette goes to the module, which keeps the choice
+  // on the molecule in one undo step; the page equals the goldens of tests/data/log/struct-props.json after each way of ticking
+  const spGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/struct-props.json"), "utf8")).cases;
+  const spPlain = spGold.find(c => c.name.includes("taken back")), spChosen = spGold.find(c => c.name.includes("one tick at a time"));
+  const spOpen = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), spPlain.out.mzdraw); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 3 }); await setOpen(pg, "#d2-props", true); return tpDoc(); };
+  const spSame = async what => { eq(await tpDoc(), spChosen.out.mzdraw, what + ": document"); eq(await tpSvg(), spChosen.out.svg, what + ": picture"); };
+  const spBox = key => `[data-testid="d2-props-${key}"]`;
+  /** a tap (touch or pen) on the tick of a line, the row scrolled into view first (the palette scrolls) */
+  const spTap = async (tap, key) => { await pg.locator(spBox(key)).scrollIntoViewIfNeeded(); await tap(...await center(pg, spBox(key))); await frames(pg); };
+  const spTicked = () => pg.evaluate("[...document.querySelectorAll('#d2-props-lines input')].filter(i => i.checked).map(i => i.dataset.key)");
+  await step("struct-props by keyboard: with nothing selected the ticks are off and the words say why; select all (Ctrl+A), Space on Formula and on Hydrogen-bond donors; the page equals the golden, each tick is one undo step, the numbers beside the ticks are the module's", async () => {
+    const before = await spOpen();
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-props-lines input')].every(i => i.disabled)"), true);
+    eq(await pg.innerText("#d2-props-note"), await pg.evaluate("I18N.t('draw2.props.none')"));
+    eq(await pg.locator("#d2-props-lines label span:not(.val)").allInnerTexts(), await pg.evaluate("['formula','mw','exact','ea','mz','logp','tpsa','hbd','hba','rotb','heavy'].map(k => I18N.t('draw2.props.line.' + k))"));
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await until(pg, `${STATE}.selected > 0`);
+    await until(pg, `!document.querySelector('${spBox("formula")}').disabled`);
+    eq(await pg.innerText(`${spBox("exact")} + span + .val`), "Exact mass 46.0419");
+    eq(await pg.innerText(`${spBox("ea")} + span + .val`), "%C 52.14; %H 13.13; %O 34.73");
+    await pg.focus(spBox("formula")); await pg.keyboard.press("Space"); await frames(pg);
+    eq(await spTicked(), ["formula"]); eq(await pg.innerText("#d2-props-note"), await pg.evaluate("I18N.t('draw2.say.lines', { what: 'formula' })"));
+    await pg.focus(spBox("hbd")); await pg.keyboard.press("Space"); await frames(pg);
+    eq(await spTicked(), ["formula", "hbd"]);
+    await spSame("keyboard");
+    await shotEl(pg, "#d2-props", "struct-props-panel"); await shot(pg, "struct-props");
+    // the values copied as text: the module's own forms, three of them, the choice of the molecule
+    await pg.selectOption("#d2-props-form", "tsv"); await pg.click("#d2-props-copy");
+    eq(await pg.evaluate("window.MZDRAW.copy_values('tsv')"), "structure\tname\tvalue\nC2H6O\tHBD\t1\n");
+    eq(await pg.evaluate("window.MZDRAW.copy_values('line')"), "C2H6O; HBD 1\n");
+    eq(await pg.evaluate("window.MZDRAW.copy_values('text')"), "C2H6O\nHBD: 1\n");
+    eq(await pg.innerText("#d2-props-note"), await pg.evaluate("I18N.t('draw2.props.copied', { form: I18N.t('draw2.props.form.tsv') })"));
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await spTicked(), ["formula"]); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+    await pg.keyboard.press("Control+y"); await pg.keyboard.press("Control+y"); await spSame("redo");
+    // a tick that is taken away gives the line back; the file that has no place for the lines says so
+    await pg.focus(spBox("hbd")); await pg.keyboard.press("Space"); await frames(pg); eq(await spTicked(), ["formula"]);
+    eq(await pg.evaluate("window.MZDRAW.captions_lost('molfile')"), 1); eq(await pg.evaluate("window.MZDRAW.captions_lost('cdxml')"), 0);
+    await saveAs(pg, "#d2-ex-molfile"); await until(pg, `document.getElementById("d2-ex-note").textContent.includes("lines")`);
+    eq(await pg.innerText("#d2-ex-note"), await pg.evaluate("I18N.t('draw2.export.captionsLost', { n: 1 })"));
+    await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas");        // the Save as list is left open by a note: close it
+  });
+  await step("struct-props by touch: select all, tap Formula and Hydrogen-bond donors (a finger-size row); the page equals the golden, one undo each", async () => {
+    const before = await spOpen();
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await until(pg, `${STATE}.selected > 0`);
+    await until(pg, `!document.querySelector('${spBox("formula")}').disabled`);
+    const row = await pg.locator(`${spBox("formula")}`).locator("xpath=..").boundingBox(); assert(row.height >= 40, "a finger-size row: " + row.height);
+    const fingerTap = (x, y) => pg.touchscreen.tap(x, y);
+    await spTap(fingerTap, "formula"); await spTap(fingerTap, "hbd");
+    await spSame("touch"); await shot(pg, "struct-props-touch");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  await step("struct-props by pen: a pen tap on Formula and on Hydrogen-bond donors after Select all; the page equals the golden, a refused tick (no molecule) changes nothing", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const tap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const before = await spOpen();
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await until(pg, `${STATE}.selected > 0`);
+    await until(pg, `!document.querySelector('${spBox("formula")}').disabled`);
+    await spTap(tap, "formula"); await spTap(tap, "hbd");
+    await spSame("pen");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+    // nothing selected, nothing focused: the module refuses and the tick goes back
+    const area = await pg.locator("#d2-canvas").boundingBox(); await pg.mouse.click(area.x + 12, area.y + area.height - 12); await frames(pg); await pg.keyboard.press("Escape");
+    await pg.evaluate("window.MZDRAW.toggle_line('formula', true)");
+    eq(await tpDoc(), before); eq(JSON.parse(await pg.evaluate("window.MZDRAW.state()")).error, "error.draw2.linesNone");
+  });
   await ctx.close();
 
   // prefs: the Preferences flyout of the File palette (the gear), built from the module's schema; every option is a setting, so the page equals the goldens

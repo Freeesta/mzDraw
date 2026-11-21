@@ -54,6 +54,9 @@ pub enum Op {
     /// Replaces the annotation kept on an atom (the annotation of its structure: `ann` is the JSON text of a list of entries,
     /// `ann::canon`); the empty list takes it away.
     AtomAnn { id: u32, ann: String },
+    /// Replaces the lines kept under the molecule this atom holds the choice of (`props`: line keys in the order they are written);
+    /// the empty list takes the choice away (the molecule follows `display.values` again).
+    AtomCap { id: u32, lines: Vec<String> },
     /// Sets the explicit colour of atoms and bonds (`col` is `#rgb` or `#rrggbb`; the empty text is automatic and takes the colour
     /// away: the element colour or the mono ink shows again). The inverse restores each atom and bond as it was.
     Colour {
@@ -243,6 +246,11 @@ impl Op {
                 w.text("op", "atom.ann");
                 w.int("id", i64::from(*i));
                 w.raw("ann", ann);
+            }
+            Op::AtomCap { id: i, lines } => {
+                w.text("op", "atom.cap");
+                w.int("id", i64::from(*i));
+                w.raw("lines", &serde_json::json!(lines).to_string());
             }
             Op::Colour {
                 atoms,
@@ -499,6 +507,14 @@ impl Op {
             "atom.ann" => Op::AtomAnn {
                 id: g.u("id")?.ok_or(())?,
                 ann: (g.0.get("ann").filter(|a| a.is_array()).ok_or(())?).to_string(),
+            },
+            "atom.cap" => Op::AtomCap {
+                id: g.u("id")?.ok_or(())?,
+                lines: (g.0.get("lines").and_then(|a| a.as_array()).ok_or(())?)
+                    .iter()
+                    .map(|x| x.as_str().map(str::to_string))
+                    .collect::<Option<Vec<String>>>()
+                    .ok_or(())?,
             },
             "colour" => Op::Colour {
                 atoms: g.ids("atoms")?,
@@ -870,6 +886,17 @@ impl Document {
                 inv.push(Inv::SetAtom(self.atoms[i].clone()));
                 self.atoms[i].set_ann(&text);
                 done.push(Op::AtomAnn { id: *id, ann: text });
+            }
+            Op::AtomCap { id, lines } => {
+                let Some(i) = self.atom_index(*id) else {
+                    return err("error.draw2.noAtom", *id);
+                };
+                let Some(lines) = crate::props::canon(lines) else {
+                    return err("error.draw2.lines", *id);
+                };
+                inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                crate::props::put(&mut self.atoms[i].more, &lines);
+                done.push(Op::AtomCap { id: *id, lines });
             }
             Op::Colour {
                 atoms,
