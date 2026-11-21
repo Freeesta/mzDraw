@@ -12,25 +12,33 @@ pub fn clean_up(_doc: &Document) -> Vec<(u32, f64, f64)> {
     Vec::new()
 }
 
-/// The connected pieces of a document, as lists of atom ids in pool order.
+/// The connected pieces of a document, as lists of atom ids in pool order (each piece in the order a walk along the bonds, in bond
+/// order, meets its atoms). Linear in the atoms and bonds.
 pub fn pieces(doc: &Document) -> Vec<Vec<u32>> {
-    let mut seen: Vec<u32> = Vec::new();
+    use std::collections::{HashMap, HashSet};
+    let mut next: HashMap<u32, Vec<u32>> = HashMap::with_capacity(doc.atoms.len());
+    for b in &doc.bonds {
+        next.entry(b.a).or_default().push(b.b);
+        if b.b != b.a {
+            next.entry(b.b).or_default().push(b.a);
+        }
+    }
+    let mut seen: HashSet<u32> = HashSet::with_capacity(doc.atoms.len());
     let mut out = Vec::new();
     for a in &doc.atoms {
-        if seen.contains(&a.id) {
+        if !seen.insert(a.id) {
             continue;
         }
         let mut piece = vec![a.id];
         let mut k = 0;
         while k < piece.len() {
-            for n in doc.neighbours(piece[k]) {
-                if !piece.contains(&n) {
+            for &n in next.get(&piece[k]).map_or(&[][..], Vec::as_slice) {
+                if seen.insert(n) {
                     piece.push(n);
                 }
             }
             k += 1;
         }
-        seen.extend(&piece);
         out.push(piece);
     }
     out

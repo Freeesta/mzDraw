@@ -325,9 +325,10 @@ impl Document {
                 out += &format!("><t>{}</t></n>\n", run(&format!("{}{h}", a.el)));
             }
         }
+        let index = self.index_map();
         for (k, b) in m.bonds.iter().enumerate() {
             let ends = (self.bonds.get(k).filter(|d| d.s != 0))
-                .and_then(|d| Some((d.s, self.atom_index(d.a)?, self.atom_index(d.b)?)));
+                .and_then(|d| Some((d.s, *index.get(&d.a)?, *index.get(&d.b)?)));
             let (from, to, more) = match ends {
                 Some((s, narrow, wide)) => {
                     let display = match s {

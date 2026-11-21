@@ -188,9 +188,6 @@ fn round_trip(d: &Document, format: &str) -> Result<Document, String> {
 }
 
 /// For random drawings and every format: what the round trip lost is in `loss`, and what `loss` lists is a real difference.
-/// For random drawings and every format: what the round trip lost is in `loss`, and what `loss` lists is a real difference.
-/// For random drawings and every format: what the round trip lost is in `loss`, and what `loss` lists is a real difference.
-/// For random drawings and every format: what the round trip lost is in `loss`, and what `loss` lists is a real difference.
 #[test]
 fn the_table_equals_the_round_trip() {
     let mut checked = 0;
@@ -220,6 +217,19 @@ fn the_table_equals_the_round_trip() {
                 "seed {seed} {format}: observed {seen:?}, listed {said:?}\n{}",
                 d.to_json()
             );
+            // the answer is per kind: every occurrence of a listed kind is listed once (with its own id)
+            let found = mzdraw::loss::instances(&d);
+            for what in &said {
+                let n = found.iter().filter(|i| i.what == *what).count();
+                let m = listed.iter().filter(|l| l.what == *what).count();
+                // the shape of the drawing is one item for all its atoms
+                let want = if *what == "geometry" { 1 } else { n };
+                assert_eq!(m, want, "seed {seed} {format} {what}");
+            }
+            for l in &listed {
+                let ids = l.atoms.len() + l.bonds.len() + l.objects.len();
+                assert!(ids >= 1, "seed {seed} {format}: {} has no id", l.what);
+            }
             checked += 1;
         }
     }
@@ -366,21 +376,137 @@ fn an_unknown_format_and_a_refusing_writer_are_errors() {
     assert_eq!(loss(&none, "rxn").unwrap_err(), "error.draw2.rxnArrow");
 }
 
-/// Hostile size: a drawing above the cap is refused at once; one at the cap is listed in a bounded time.
-#[test]
-fn a_huge_drawing_is_refused_and_one_at_the_cap_is_fast() {
+/// A zigzag chain of `n` carbons (unit-ish bonds, no two atoms on one point) with a solid wedge on every second bond.
+fn chain(n: u32, wedges: bool) -> Document {
     let mut d = Document::default();
-    for i in 1..=100_000u32 {
-        d.atoms
-            .push(atom(i, "C", f64::from(i % 300), f64::from(i / 300)));
+    for i in 1..=n {
+        let y = f64::from(i / 1000) * 2.0 + if i % 2 == 0 { 0.5 } else { 0.0 };
+        d.atoms.push(atom(i, "C", f64::from(i % 1000), y));
+        if i > 1 {
+            let s = u8::from(wedges && i % 2 == 0);
+            d.bonds.push(Bond {
+                id: n + i,
+                a: i - 1,
+                b: i,
+                o: 1,
+                s,
+                more: vec![],
+            });
+        }
     }
-    d.next = 100_001;
-    let t = std::time::Instant::now();
-    let l = loss(&d, "molfile").unwrap();
-    assert!(l.is_empty());
-    d.atoms.push(atom(100_001, "C", 0.0, 0.0));
-    assert_eq!(loss(&d, "molfile").unwrap_err(), "error.draw2.lossSize");
-    assert!(t.elapsed().as_secs() < 5, "{:?}", t.elapsed());
+    d.next = 2 * n + 2;
+    d
+}
+
+/// The seconds a listing may take: a release build does the largest drawing in about a second; a debug build is slower.
+fn bound() -> u64 {
+    if cfg!(debug_assertions) {
+        40
+    } else {
+        4
+    }
+}
+
+/// Hostile size: a drawing at the cap, with wedge marks (so every probe format writes and reads the whole drawing), is listed in a
+/// bounded time in every format that has no atom limit of its own; one thing more is refused at once.
+#[test]
+fn a_drawing_at_the_cap_with_wedges_is_listed_in_time_and_one_above_it_is_refused() {
+    // 25,000 atoms and 24,999 bonds are 49,999 things
+    let d = chain(25_000, true);
+    for format in ["molfile", "molfile-v3000", "ket", "cdxml", "cml"] {
+        let t = std::time::Instant::now();
+        let l = loss(&d, format).unwrap();
+        assert_eq!(
+            l.len(),
+            12_500,
+            "{format}: every wedge is a loss in a chain with no centre"
+        );
+        assert!(
+            t.elapsed().as_secs() < bound(),
+            "{format}: {:?}",
+            t.elapsed()
+        );
+    }
+    let mut over = chain(25_000, true);
+    over.atoms.push(atom(60_000, "C", 5.0, 50.0));
+    over.atoms.push(atom(60_001, "C", 6.0, 50.0));
+    for format in FORMATS {
+        let t = std::time::Instant::now();
+        assert_eq!(
+            loss(&over, format).unwrap_err(),
+            "error.draw2.lossSize",
+            "{format}"
+        );
+        assert!(t.elapsed().as_secs() < 1, "{format}: refused at once");
+    }
+}
+
+/// The SMILES writer recurses along a chain: `loss` refuses above 500 atoms before it calls it, so a 1 MiB stack (the `.wasm`'s) is enough.
+#[test]
+fn a_long_chain_is_refused_for_smiles_before_the_writer_can_overflow_the_stack() {
+    let run = std::thread::Builder::new()
+        .stack_size(1 << 20)
+        .spawn(|| {
+            let ok = loss(&chain(500, true), "smiles").map(|l| l.len());
+            let over = loss(&chain(501, true), "smiles").unwrap_err();
+            let huge = loss(&chain(25_000, true), "smiles").unwrap_err();
+            (ok.is_ok(), over, huge)
+        })
+        .unwrap();
+    let (ok, over, huge) = run.join().unwrap();
+    assert!(ok);
+    assert_eq!(
+        (over, huge),
+        ("error.draw2.lossSize", "error.draw2.lossSize")
+    );
+}
+
+/// Where the shape is compared (all distances, quadratic) the atoms are limited, and a file that reads back as too many atoms is refused.
+#[test]
+fn the_shape_limits_are_keyed_not_silent() {
+    for format in ["sdf", "rxn"] {
+        let mut d = chain(600, false);
+        // a reaction file needs one arrow
+        d.objects.push(Obj {
+            id: 5000,
+            t: ObjKind::Arrow,
+            x: 700.0,
+            y: 0.0,
+            x2: 702.0,
+            y2: 0.0,
+            text: String::new(),
+            from: 0,
+            to: 0,
+            more: vec![],
+        });
+        d.next = 5001;
+        assert!(loss(&d, format).is_ok(), "{format}: 600 atoms");
+        d.atoms.push(atom(6000, "C", 3000.0, 0.0));
+        assert_eq!(
+            loss(&d, format).unwrap_err(),
+            "error.draw2.lossSize",
+            "{format}: 601 atoms"
+        );
+    }
+    // 600 atoms, each an abbreviation of seven atoms: the file reads back as 4,200
+    let mut d = chain(600, false);
+    for a in &mut d.atoms {
+        a.lab = "Boc".into();
+    }
+    assert_eq!(loss(&d, "sdf").unwrap_err(), "error.draw2.lossSize");
+    // the same drawing in `expect lossless` is false, with the key in the detail
+    let json = d.to_json();
+    let request = format!(
+        r#"{{"import":{},"expect":[{{"lossless":"sdf"}}]}}"#,
+        serde_json::Value::from(json)
+    );
+    let reply = mzdraw::replay::replay_at(&request, 0).unwrap();
+    assert!(!reply.ok);
+    assert!(
+        reply.text.contains("error.draw2.lossSize"),
+        "{}",
+        reply.text
+    );
 }
 
 /// The table of `docs/mzdraw-formats.md` is the table of the code (`MZDRAW_BLESS=1` rewrites it).

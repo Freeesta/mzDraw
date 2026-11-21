@@ -120,7 +120,7 @@
     },
     {
       "name": "a reaction without exactly one arrow has no file to be lossless",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"lossless\":\"rxn\"},\"ok\":false,\"detail\":\"the drawing has no rxn file\"}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"lossless\":\"rxn\"},\"ok\":false,\"detail\":\"the drawing has no rxn file (error.draw2.rxnArrow)\"}]}",
       "request": {
         "expect": [
           {

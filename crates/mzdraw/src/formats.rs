@@ -70,6 +70,7 @@ impl Document {
             atoms: Vec::new(),
         });
         let mut out = String::new();
+        let index = self.index_map();
         let (mut block, mut k) = (' ', 0);
         for line in m.to_molfile(crate::NAME).lines() {
             let body = line.strip_prefix("M  V30 ").unwrap_or("");
@@ -109,7 +110,7 @@ impl Document {
                 }
                 (_, 'b') => {
                     let ends = (self.bonds.get(k).filter(|b| b.s != 0))
-                        .and_then(|b| Some((b.s, self.atom_index(b.a)?, self.atom_index(b.b)?)));
+                        .and_then(|b| Some((b.s, *index.get(&b.a)?, *index.get(&b.b)?)));
                     if let Some((s, i, j)) = ends {
                         let cfg = match s {
                             WEDGE_UP => 1,

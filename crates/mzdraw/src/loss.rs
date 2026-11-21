@@ -6,7 +6,8 @@
 //!
 //! The features the table cannot decide are the wedge mark, the radical in a SMILES (kept for some atoms and not for others), the plus signs of a reaction file (it makes its own between the structures) and the geometry (a SMILES has no coordinates, an SDF puts its records side by side again, a reaction file places the structures about its arrow; whether a drawing's own layout is the one they give depends on the drawing): the readers derive the marks again from the stereo of the record, so
 //! whether a drawn mark comes back depends on the chemistry of the centre. Those cells are `Carry::Probe`: `loss` writes the document,
-//! reads it back and compares the marks (the round trip itself is the answer, a limit stated in `docs/built/loss-manifest.md`).
+//! reads it back and compares the marks (the round trip itself is the answer, a limit stated in `docs/built/loss-manifest.md`). The answer
+//! is per kind: when some marks of a kind do not come back, the reader does not say which, so every occurrence of that kind is listed.
 
 use crate::doc::{Document, ObjKind};
 use crate::label::{self, Kind};
@@ -29,9 +30,21 @@ pub const FORMATS: [&str; 10] = [
 /// The format field of the document `loss/1`.
 pub const FORMAT: &str = "loss/1";
 
-/// Documents above this many atoms, bonds and objects together are refused (`error.draw2.lossSize`): the round trip of the wedge
-/// marks writes and reads the whole drawing.
-pub const MAX_THINGS: usize = 100_000;
+/// Documents above this many atoms, bonds and objects together are refused (`error.draw2.lossSize`): a round trip writes and reads the
+/// whole drawing (about a second in the worst case at this size, in a release build).
+pub const MAX_THINGS: usize = 50_000;
+
+/// The SMILES writer of `mzlab-mol` walks a chain by recursion and overflows a 1 MiB stack (the stack of the `.wasm`) between 2,000 and
+/// 4,000 atoms in a chain: `loss` for `smiles` refuses a drawing above this many atoms before it calls the writer.
+pub const MAX_SMILES_ATOMS: usize = 500;
+
+/// The shape of a drawing is compared by the distances between all its atoms, which grow with the square of the atom count: where the
+/// shape is part of the answer (SMILES, SDF, reaction file) a drawing above this many atoms is refused, and so is a file that reads
+/// back as more than `MAX_BACK_ATOMS` (abbreviations come back as their atoms).
+pub const MAX_SHAPE_ATOMS: usize = 600;
+
+/// See `MAX_SHAPE_ATOMS`.
+pub const MAX_BACK_ATOMS: usize = 3_000;
 
 /// What a writer does with a feature.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -193,15 +206,15 @@ fn distances(d: &Document, max: usize) -> Option<Vec<i64>> {
     Some(dist)
 }
 
-/// Whether a drawing has a shape worth keeping (two atoms or more, at most 200).
+/// Whether a drawing has a shape worth keeping: two atoms or more.
 pub fn has_shape(d: &Document) -> bool {
-    distances(d, 200).is_some()
+    d.atoms.len() >= 2
 }
 
 /// Whether the shape of `a` is in `b`: every distance of `a` is a distance of `b` (a reader may add atoms, an abbreviation comes back
 /// as its atoms, but the atoms drawn stay where they were).
 fn shape_kept(a: &Document, b: &Document) -> bool {
-    let (Some(da), Some(db)) = (distances(a, 200), distances(b, 2000)) else {
+    let (Some(da), Some(db)) = (distances(a, MAX_SHAPE_ATOMS), distances(b, MAX_BACK_ATOMS)) else {
         return true;
     };
     // the writers round to a hundredth of a point, which is about 0.0005 of a bond: a distance matches within 0.02 of a bond
@@ -264,13 +277,18 @@ fn write(d: &Document, format: &str) -> Result<String, &'static str> {
 }
 
 /// What `format` drops or changes of this document, ordered by `what` then by the smallest id. An unknown format is
-/// `error.draw2.request`; a document above `MAX_THINGS` is `error.draw2.lossSize`; a document the writer refuses gives the writer's
+/// `error.draw2.request`; a document above `MAX_THINGS` (or the limits of `MAX_SMILES_ATOMS`, `MAX_SHAPE_ATOMS`, `MAX_BACK_ATOMS`) is `error.draw2.lossSize`; a document the writer refuses gives the writer's
 /// key (there is no file, so no loss to list).
 pub fn loss(d: &Document, format: &str) -> Result<Vec<Loss>, &'static str> {
     if !FORMATS.contains(&format) {
         return Err("error.draw2.request");
     }
     if d.atoms.len() + d.bonds.len() + d.objects.len() > MAX_THINGS {
+        return Err("error.draw2.lossSize");
+    }
+    if (format == "smiles" && d.atoms.len() > MAX_SMILES_ATOMS)
+        || (d.atoms.len() > MAX_SHAPE_ATOMS && carry("geometry", format) == Some(Carry::Probe))
+    {
         return Err("error.draw2.lossSize");
     }
     // the writers that refuse some drawings say so before anything is listed
@@ -281,13 +299,17 @@ pub fn loss(d: &Document, format: &str) -> Result<Vec<Loss>, &'static str> {
     // the cells that depend on the drawing: write it, read it back, see which kinds of mark do not return
     let shape = has_shape(d);
     let probe = |what| carry(what, format) == Some(Carry::Probe);
-    let probed: Vec<&'static str> =
-        if all.iter().any(|i| probe(i.what)) || (shape && probe("geometry")) {
-            let back = crate::io::import(&write(d, format)?)?.0;
-            observed(d, &back)
-        } else {
-            Vec::new()
-        };
+    let probed: Vec<&'static str> = if all.iter().any(|i| probe(i.what))
+        || (shape && probe("geometry"))
+    {
+        let back = crate::io::import(&write(d, format)?)?.0;
+        if back.atoms.len() > MAX_BACK_ATOMS && carry("geometry", format) == Some(Carry::Probe) {
+            return Err("error.draw2.lossSize");
+        }
+        observed(d, &back)
+    } else {
+        Vec::new()
+    };
     let mut out: Vec<Loss> = Vec::new();
     for i in &all {
         let gone = match carry(i.what, format) {

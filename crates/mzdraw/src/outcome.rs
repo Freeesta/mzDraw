@@ -94,6 +94,7 @@ pub struct Expectation {
 }
 
 const BAD_EXPECT: &str = "error.draw2.expect";
+const LOSS_SIZE: &str = "error.draw2.lossSize";
 
 /// Reads the value of `expect`: a list of objects of one key each. An unknown arm or a value of the wrong kind is refused.
 pub fn read_expect(v: &Value) -> Result<Vec<Expectation>, &'static str> {
@@ -196,7 +197,8 @@ impl Check {
                     kinds.dedup();
                     (false, format!("{format} loses {}", kinds.join(", ")))
                 }
-                Err(_) => (false, format!("the drawing has no {format} file")),
+                Err("error.draw2.lossSize") => (false, format!("too large to check ({LOSS_SIZE})")),
+                Err(key) => (false, format!("the drawing has no {format} file ({key})")),
             },
         }
     }
