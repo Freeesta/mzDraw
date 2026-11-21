@@ -515,7 +515,10 @@ fn marking_and_saying_a_proposal_scales() {
             e
         },
         |e| {
-            let _ = (e.proposal_marks(), e.proposal_json());
+            // repeated, so that the small run is tens of milliseconds and not a few (a few is inside the noise of the clock)
+            for _ in 0..20 {
+                let _ = (e.proposal_marks(), e.proposal_json());
+            }
         },
     );
     scales(
@@ -533,7 +536,10 @@ fn marking_and_saying_a_proposal_scales() {
             e
         },
         |e| {
-            let _ = (e.proposal_marks(), e.proposal_json());
+            // repeated, so that the small run is tens of milliseconds and not a few (a few is inside the noise of the clock)
+            for _ in 0..20 {
+                let _ = (e.proposal_marks(), e.proposal_json());
+            }
         },
     );
 }

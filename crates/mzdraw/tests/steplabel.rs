@@ -403,9 +403,12 @@ fn chain(n: usize, extra: usize) -> String {
 /// document layer owns, are not timed).
 fn timed(text: &str) -> u128 {
     let doc = Document::from_json(text).unwrap();
+    // twenty plans per run: a run of a few hundred microseconds is inside the noise of the clock, twenty of them are not
     timing::best_of(1, 7, || {
-        let p = mzdraw::steplabel::plan(&doc, Mode::Delta, &Opts::default(), None).unwrap();
-        assert!(!p.ops.is_empty());
+        for _ in 0..20 {
+            let p = mzdraw::steplabel::plan(&doc, Mode::Delta, &Opts::default(), None).unwrap();
+            assert!(!p.ops.is_empty());
+        }
     })
     .as_nanos()
 }
