@@ -28,7 +28,7 @@ Out (do not build here, say so in the PR if you meet it):
 
 ## Context
 
-Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Built state": what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
+Read first: `CLAUDE.md` (the rules override this prompt), `docs/built/` (the Built state: what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
 
 - `crates/mzdraw/src/context.rs` and `crates/mzdraw/tests/context.rs` (PR #37): `context_menu`, `context_menu_at`, `context_run`, `ASK`, the fingerprint that refuses a stale menu; `crates/mzdraw/src/replay.rs` (`out: "context:<x>,<y>"`).
 - `crates/mzdraw/src/editor_touch.rs` (the long press selects, half a second, finger held still).
@@ -52,11 +52,11 @@ Tests to add (synthetic data, small):
 
 UI: the reordered menus with separators; e2e: right-click an atom and a bond with the mouse, a long press with a finger, `Shift+F10` on the focused atom; screenshots of the atom and the abbreviation menus at deviceScaleFactor 2. Screenshots at deviceScaleFactor 2 (`MZDRAW_SHOTS=<dir> node tests/e2e.mjs`), attached to the PR description; keep the touch/pen and keyboard steps of `tests/e2e.mjs` green and add yours.
 
-Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
+Docs: keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
 CLI route and native replay (rule 15): the menu is already a replay output (`out: "context:<x>,<y>"`, PR #37); this slice adds the replay field `context` that runs items natively, so every item has a CLI route (`mzlab-cli mol draw` passes the request) and a native replay test in `tests/parity.mjs`.
 
-Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, there is no `measured` to write (the build prints the size); give the delta in the PR.
 
 ## Acceptance
 
@@ -69,7 +69,7 @@ cargo build --locked -p mzdraw --example replay && node tests/parity.mjs
 node tests/e2e.mjs
 ```
 
-If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend `tests/data/mzdraw_log.json` with the new op(s) so that the parity test replays them.
+If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend your own file `tests/data/log/<area>.json` with the new op(s) so that the parity test replays them.
 
 ## Messages
 

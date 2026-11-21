@@ -24,7 +24,7 @@ Out (do not build here, say so in the PR if you meet it):
 
 ## Context
 
-Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Built state": what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
+Read first: `CLAUDE.md` (the rules override this prompt), `docs/built/` (the Built state: what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
 
 - `crates/mzdraw/src/palettes.rs`, `docs/mzdraw-ui.md` §4-§5 (item 44 px, padding 4 px), `settings.rs` (unknown keys kept).
 - Study facts: ChemDoodle saves, reverts and resets its workspace (CDD-G §2.2.7); MarvinSketch configurations can be copied, renamed, reset, imported and exported (MS-IOD/configurations-of-marvinsketch.html) and toolbars have large or small icons (MS-IOD/customizing-marvinsketch-gui.html).
@@ -43,11 +43,11 @@ Tests to add (synthetic data, small):
 
 UI: the names in the Palettes menu and a size toggle; e2e: save a layout, change it, switch back; keyboard path; screenshots small and large. Screenshots at deviceScaleFactor 2 (`MZDRAW_SHOTS=<dir> node tests/e2e.mjs`), attached to the PR description; keep the touch/pen and keyboard steps of `tests/e2e.mjs` green and add yours.
 
-Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
+Docs: keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
 CLI route and native replay (rule 15): settings only (`--set layout.save=<name>`, `--set layout.use=<name>`, `--set layout.icons=small`), no `draw_edit/1` op; the replay output `out: "layout:<w>,<h>"` (from arch-cd-18 or R1) compares the arranged JSON with small icons wasm == native.
 
-Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, there is no `measured` to write (the build prints the size); give the delta in the PR.
 
 ## Acceptance
 
@@ -60,7 +60,7 @@ cargo build --locked -p mzdraw --example replay && node tests/parity.mjs
 node tests/e2e.mjs
 ```
 
-If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend `tests/data/mzdraw_log.json` with the new op(s) so that the parity test replays them.
+If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend your own file `tests/data/log/<area>.json` with the new op(s) so that the parity test replays them.
 
 ## Messages
 

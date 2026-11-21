@@ -26,7 +26,7 @@ Out (do not build here, say so in the PR if you meet it):
 
 ## Context
 
-Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Built state": what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
+Read first: `CLAUDE.md` (the rules override this prompt), `docs/built/` (the Built state: what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
 
 - `crates/mzdraw/src/palettes.rs` (`Layout::press/drag/release/key/toggle/reset/arranged_json`, `Dock`, presets), `crates/mzdraw/tests/palettes.rs` (the property test over random sequences), `docs/mzdraw-ui.md` §4-§5 (the decisions; keep them).
 - `docs/study/arch-cd.md` §4: ChemDraw tears sub-palettes off by their title and docks toolbars by double-click (CD-UG17, 17.1); complaints to design against: palettes that vanish for good, layouts lost without administrator rights, windows off-screen after a monitor change (CD-KB articles*).
@@ -47,11 +47,11 @@ Tests to add (synthetic data, small):
 
 UI: tear-off and the Palettes menu; e2e: tear off the bonds flyout with the mouse, move it, reload, it is where it was; double-click its handle; the same with touch (one finger on the header) and with the keyboard (Enter on the header, arrows, Home); screenshots of a torn-off palette and of the menu. Screenshots at deviceScaleFactor 2 (`MZDRAW_SHOTS=<dir> node tests/e2e.mjs`), attached to the PR description; keep the touch/pen and keyboard steps of `tests/e2e.mjs` green and add yours.
 
-Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
+Docs: keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
 CLI route and native replay (rule 15): the layout is a setting, not a `draw_edit/1` op (`docs/mzdraw-ui.md` §5): the CLI twin is `--set layout=<object>`; add a replay output `out: "layout:<w>,<h>"` (the arranged JSON for a viewport) if R1 has none, and a parity entry with a torn-off palette, so the arranged rectangles are compared wasm == native.
 
-Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, there is no `measured` to write (the build prints the size); give the delta in the PR.
 
 ## Acceptance
 
@@ -64,7 +64,7 @@ cargo build --locked -p mzdraw --example replay && node tests/parity.mjs
 node tests/e2e.mjs
 ```
 
-If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend `tests/data/mzdraw_log.json` with the new op(s) so that the parity test replays them.
+If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend your own file `tests/data/log/<area>.json` with the new op(s) so that the parity test replays them.
 
 ## Messages
 
