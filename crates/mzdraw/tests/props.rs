@@ -650,60 +650,39 @@ fn a_structure_with_an_element_the_descriptors_are_not_written_for_has_no_descri
     assert_eq!(v["structures"][0]["propsError"], Value::Null);
 }
 
-/// An engine that refuses a structure, or gives a mass of zero for one that has atoms (what the real one does above its limit), leaves no
-/// number: not the engine lines, and not the descriptors.
+/// An engine that refuses a structure leaves no number: not the engine lines, and not the descriptors. (A mass of zero, which the real
+/// engine gives for a structure it cannot read, is turned into a key by the glue: tested in `crates/mzdraw-wasm/tests/props.rs`.)
 #[test]
-fn a_refusing_engine_or_a_zero_mass_leaves_no_number_at_all() {
-    fn zero(_: &str, a: &[String]) -> Result<Measured, &'static str> {
-        Ok(Measured {
-            mass: 0.0,
-            average: Some(0.0),
-            ion_mz: None,
-            pct: Vec::new(),
-            mz: a.iter().map(|_| Some(1.0)).collect(),
-        })
-    }
+fn a_refusing_engine_leaves_no_number_at_all() {
     fn refuse(_: &str, _: &[String]) -> Result<Measured, &'static str> {
         Err("error.grafo.element")
     }
-    for (engine, key) in [
-        (zero as values::Measurer, "error.draw2.valuesZero"),
-        (refuse, "error.grafo.element"),
-    ] {
-        let mut e = editor("CCO");
-        e.session
-            .run(&[cap(1, &["formula", "mw", "exact", "mz", "logp", "hbd"])])
-            .unwrap();
-        e.measurer = Some(engine);
-        e.refresh_values();
-        let c = values::captions(
-            e.doc(),
-            values::Mode::Off,
-            &keys(&["[M+H]+"]),
-            e.measured_entries(),
-        );
-        assert_eq!(c[0].lines, ["C2H6O"], "{key}: the formula only");
-        let v: Value = serde_json::from_str(&e.props_json()).unwrap();
-        let b = &v["structures"][0];
-        assert_eq!((&b["error"], &b["propsError"]), (&json!(key), &json!(key)));
-        assert_eq!(b["values"]["exact"], json!([]));
-        assert_eq!(b["values"]["logp"], json!([]));
-        assert!(e
-            .copy_values("text")
-            .unwrap()
-            .contains(&format!("note: {key}")));
-        // the SVG and the CDXML say the same
-        assert!(
-            !e.save("svg").unwrap().contains("Exact mass")
-                && !e.save("cdxml").unwrap().contains("HBD")
-        );
-    }
-    // the same on the values of the panel (arch-web-17): the zero is an error there too, not "0.0000"
-    let d = doc_of("CCO");
-    let out = values::document_json(&d, &[], None, Some(zero));
+    let key = "error.grafo.element";
+    let mut e = editor("CCO");
+    e.session
+        .run(&[cap(1, &["formula", "mw", "exact", "mz", "logp", "hbd"])])
+        .unwrap();
+    e.measurer = Some(refuse);
+    e.refresh_values();
+    let c = values::captions(
+        e.doc(),
+        values::Mode::Off,
+        &keys(&["[M+H]+"]),
+        e.measured_entries(),
+    );
+    assert_eq!(c[0].lines, ["C2H6O"], "the formula only");
+    let v: Value = serde_json::from_str(&e.props_json()).unwrap();
+    let b = &v["structures"][0];
+    assert_eq!((&b["error"], &b["propsError"]), (&json!(key), &json!(key)));
+    assert_eq!(b["values"]["exact"], json!([]));
+    assert_eq!(b["values"]["logp"], json!([]));
+    assert!(e
+        .copy_values("text")
+        .unwrap()
+        .contains(&format!("note: {key}")));
+    // the SVG and the CDXML say the same
     assert!(
-        out.contains("error.draw2.valuesZero") && !out.contains("0.0000"),
-        "{out}"
+        !e.save("svg").unwrap().contains("Exact mass") && !e.save("cdxml").unwrap().contains("HBD")
     );
 }
 

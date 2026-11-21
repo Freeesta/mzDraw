@@ -110,6 +110,11 @@ pub fn measure(
         serde_json::from_str(&answer).map_err(|_| "error.draw2.valuesEngine")?;
     let label = &v["label"];
     let mass = label["mass"].as_f64().ok_or("error.draw2.valuesEngine")?;
+    // a mass of zero is no measure: `sel` reads the V2000 molfile, and a structure of 1000 atoms or more is written as V3000, which it
+    // reads as nothing (mass 0.0000, no error). Said as a key, so that no number is written from it.
+    if mass == 0.0 {
+        return Err("error.draw2.valuesZero");
+    }
     let charge = label["charge"].as_i64().unwrap_or(0);
     let mz = adducts
         .iter()

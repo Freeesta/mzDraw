@@ -234,15 +234,6 @@ fn covered(c: &[(String, u32)]) -> bool {
         .all(|(el, _)| crate::props::DESCRIPTOR_ELEMENTS.contains(&el.as_str()))
 }
 
-/// A mass of zero for a structure that has atoms is not a measure (the engine gives it for a structure above its own limit): the result
-/// is `error.draw2.valuesZero` and no number is written from it.
-fn guard(r: Result<Measured, &'static str>, formula: &str) -> Result<Measured, &'static str> {
-    match r {
-        Ok(m) if m.mass == 0.0 && !formula.is_empty() => Err("error.draw2.valuesZero"),
-        other => other,
-    }
-}
-
 /// Splits the drawing into its connected structures, in the order of their first atom: one pass.
 pub fn scan(doc: &Document) -> Scan {
     let m = doc.to_mol();
@@ -406,12 +397,9 @@ impl Scan {
                     result: if s.open {
                         Err("error.draw2.valuesOpen")
                     } else {
-                        guard(
-                            engine(
-                                &molfile(&self.record, &s.members, &self.bonds_of[k], &[]),
-                                adducts,
-                            ),
-                            &s.formula,
+                        engine(
+                            &molfile(&self.record, &s.members, &self.bonds_of[k], &[]),
+                            adducts,
                         )
                     },
                 }
@@ -519,7 +507,7 @@ impl Selected {
         if self.open {
             return Err("error.draw2.valuesOpen");
         }
-        guard(engine(&self.molfile, adducts), &self.formula)
+        engine(&self.molfile, adducts)
     }
 }
 
