@@ -313,7 +313,8 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
     }
     out.push_str("],\"objects\":[");
     // objects: arrows by their ends, a plus by its glyph, a text by its width (as the SVG makes room for it)
-    let f = style.metrics(1.0, false).font;
+    let metrics = style.metrics(1.0, false);
+    let f = metrics.font;
     for (shown, o) in doc.objects.iter().take(MAX_LISTED).enumerate() {
         let r: Rect = match o.t {
             ObjKind::Arrow => [o.x.min(o.x2), o.y.min(o.y2), o.x.max(o.x2), o.y.max(o.y2)],
@@ -325,8 +326,14 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
             ],
             ObjKind::Text => [
                 o.x,
-                o.y - f * 0.5,
-                o.x + crate::scene::width(&o.text, f),
+                // the lines below the first one
+                o.y - f * 0.5 - o.runs.iter().filter(|r| r.br).count() as f64 * 1.25 * f,
+                o.x + if o.runs.is_empty() {
+                    crate::scene::width(&o.text, f)
+                } else {
+                    // a formatted text: the widest line (the line breaks are not characters)
+                    crate::runs::layout(&o.runs, f, metrics.small / f).width()
+                },
                 o.y + f * 0.5,
             ],
         };

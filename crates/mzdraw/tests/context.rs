@@ -23,6 +23,7 @@ fn drawing() -> Editor {
         x2: 0.0,
         y2: 0.0,
         text: text.into(),
+        runs: Vec::new(),
         from: 0,
         to: 0,
     };

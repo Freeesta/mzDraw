@@ -58,7 +58,12 @@ fn obj_add(o: &Obj) -> Op {
         y: o.y,
         x2: o.x2,
         y2: o.y2,
-        text: o.text.clone(),
+        text: if o.runs.is_empty() {
+            o.text.clone()
+        } else {
+            String::new()
+        },
+        runs: o.runs.clone(),
         from: o.from,
         to: o.to,
     }
@@ -285,11 +290,14 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
             (o.from != p.from).then_some(p.from),
             (o.to != p.to).then_some(p.to),
         );
-        let text = (o.text != p.text).then(|| p.text.clone());
-        if x2.is_some() || y2.is_some() || from.is_some() || to.is_some() || text.is_some() {
+        let changed = o.text != p.text || o.runs != p.runs;
+        let runs = (changed && !p.runs.is_empty()).then(|| p.runs.clone());
+        let text = (changed && p.runs.is_empty()).then(|| p.text.clone());
+        if x2.is_some() || y2.is_some() || from.is_some() || to.is_some() || changed {
             out.push(Op::ObjSet {
                 id: p.id,
                 text,
+                runs,
                 x2,
                 y2,
                 from,

@@ -48,6 +48,11 @@ pub struct Imported {
     pub props_skipped: usize,
     /// A TP table (tp-09) was read as a list: its computed columns (`tp_list::DERIVED`), not read; they are calculated again.
     pub table_ignored: usize,
+    /// Text runs a file holds that a text cannot (a size outside 0.25 to 8 times the font, a colour or font name that is not one, a
+    /// text too long): clamped or left out, counted.
+    pub runs_adjusted: usize,
+    /// Plain texts of a file longer than the 200 characters of a text line: cut, counted.
+    pub text_cut: usize,
     /// SDF records that carry the name of a TP (`TP_ID`): an SDF has no arrows, so they were read without a pathway.
     pub no_pathway: usize,
 }
@@ -66,6 +71,8 @@ impl Imported {
             ("draw2.import.queryBonds", self.query_bonds),
             ("draw2.import.sgroups", self.sgroups),
             ("draw2.import.stereoGroups", self.stereo_groups),
+            ("draw2.import.runsAdjusted", self.runs_adjusted),
+            ("draw2.import.textCut", self.text_cut),
             ("draw2.import.other", self.other),
             ("draw2.import.dataLeft", self.data_left),
             ("draw2.import.mapsLeft", self.maps_left),

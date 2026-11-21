@@ -96,6 +96,7 @@ impl Editor {
             self.session.run(&[Op::ObjSet {
                 id,
                 text: None,
+                runs: None,
                 x2: None,
                 y2: None,
                 from: Some(0),

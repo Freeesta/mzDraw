@@ -239,7 +239,10 @@ pub struct Obj {
     pub y: f64,
     pub x2: f64,
     pub y2: f64,
+    /// The plain text; with `runs` it is the text of the runs (a line break as `\n`), kept in step by every operation.
     pub text: String,
+    /// The formatted text (`runs.rs`); empty for a plain one-line `text`.
+    pub runs: Vec<crate::runs::Run>,
     /// Arrows only: the id of one atom of the structure the arrow leaves, and of the one it reaches (the structure is the connected
     /// piece that holds the atom). `0` is a free end. An id that no atom carries any more is kept as written and used as a free end.
     pub from: u32,
@@ -276,7 +279,11 @@ impl Obj {
 
     /// An arrow has a length, a text has a text of one line, a plus has neither a second point nor a text.
     pub fn valid(&self) -> bool {
-        let one_line = !self.text.contains(['\n', '\r']) && self.text.chars().count() <= 200;
+        let one_line = if self.runs.is_empty() {
+            !self.text.contains(['\n', '\r']) && self.text.chars().count() <= 200
+        } else {
+            crate::runs::valid(&self.runs) && self.text == crate::runs::plain(&self.runs)
+        };
         let no_end = self.x2 == 0.0 && self.y2 == 0.0;
         let anchors_ok = self.t == ObjKind::Arrow || (self.from == 0 && self.to == 0);
         one_line
@@ -395,6 +402,9 @@ impl Document {
                     if !o.text.is_empty() {
                         w.text("text", &o.text);
                     }
+                    if !o.runs.is_empty() {
+                        w.raw("runs", &crate::runs::to_json(&o.runs));
+                    }
                     for (k, v) in [("from", o.from), ("to", o.to)] {
                         if v != 0 {
                             w.int(k, v as i64);
@@ -482,6 +492,7 @@ impl Document {
                 })
             })?,
             objects: list(v, "objects", false, |o| {
+                let runs = o.runs("runs")?.unwrap_or_default();
                 Ok(Obj {
                     id: o.u("id")?.ok_or(())?,
                     t: ObjKind::read(o)?,
@@ -489,12 +500,19 @@ impl Document {
                     y: num(o.f("y")?)?,
                     x2: o.f("x2")?.unwrap_or(0.0),
                     y2: o.f("y2")?.unwrap_or(0.0),
-                    text: o.s("text")?.unwrap_or_default(),
+                    text: if runs.is_empty() {
+                        o.s("text")?.unwrap_or_default()
+                    } else {
+                        crate::runs::plain(&runs)
+                    },
+                    runs,
                     from: o.u("from")?.unwrap_or(0),
                     to: o.u("to")?.unwrap_or(0),
                     more: more_of(
                         o.0,
-                        &["id", "t", "x", "y", "x2", "y2", "text", "from", "to"],
+                        &[
+                            "id", "t", "x", "y", "x2", "y2", "text", "runs", "from", "to",
+                        ],
                     ),
                 })
             })?,

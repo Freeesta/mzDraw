@@ -19,13 +19,47 @@ fn location(x: f64, y: f64) -> String {
     format!("[{},{},0]", Value::from(x), Value::from(y))
 }
 
-/// A KET text node: the content is the raw content of the rich-text editor Ketcher keeps its texts in, one unstyled block per line.
-fn text_node(s: &str, x: f64, y: f64) -> String {
-    let blocks: Vec<String> = (s.lines())
-        .map(|l| {
+/// The Draft.js style names of KET's rich text for the styles a run can carry (underline, fonts, sizes and colours have no name here).
+const STYLES: [&str; 4] = ["BOLD", "ITALIC", "SUBSCRIPT", "SUPERSCRIPT"];
+
+fn style_flags(r: &crate::runs::Run) -> [bool; 4] {
+    [r.b, r.i, r.sub, r.sup]
+}
+
+/// A KET text node: the content is the raw content of the rich-text editor Ketcher keeps its texts in, one block per line, the
+/// bold, italic, subscript and superscript parts as `inlineStyleRanges` (offsets in UTF-16 units, as that editor counts).
+fn text_node(s: &str, runs: &[crate::runs::Run], x: f64, y: f64) -> String {
+    type Line<'a> = (String, Vec<(usize, usize, &'a str)>);
+    let lines: Vec<Line> = if runs.is_empty() {
+        s.lines().map(|l| (l.to_string(), Vec::new())).collect()
+    } else {
+        runs.split(|r| r.br)
+            .map(|line| {
+                let (mut text, mut ranges) = (String::new(), Vec::new());
+                for r in line {
+                    let at = text.encode_utf16().count();
+                    text.push_str(&r.t);
+                    let len = r.t.encode_utf16().count();
+                    for (k, on) in style_flags(r).into_iter().enumerate() {
+                        if on {
+                            ranges.push((at, len, STYLES[k]));
+                        }
+                    }
+                }
+                (text, ranges)
+            })
+            .collect()
+    };
+    let blocks: Vec<String> = (lines.iter())
+        .map(|(l, ranges)| {
+            let ranges: Vec<String> = ranges
+                .iter()
+                .map(|(o, n, st)| format!(r#"{{"offset":{o},"length":{n},"style":"{st}"}}"#))
+                .collect();
             format!(
-                r#"{{"text":{},"type":"unstyled","depth":0,"inlineStyleRanges":[],"entityRanges":[],"data":{{}}}}"#,
-                Value::from(l)
+                r#"{{"text":{},"type":"unstyled","depth":0,"inlineStyleRanges":[{}],"entityRanges":[],"data":{{}}}}"#,
+                Value::from(l.as_str()),
+                ranges.join(",")
             )
         })
         .collect();
@@ -119,14 +153,14 @@ impl Document {
                     if !o.text.is_empty() {
                         // KET has no text on an arrow: it is written as a text above its middle
                         let (x, y) = ((o.x + o.x2) / 2.0, (o.y + o.y2) / 2.0 + 0.5);
-                        nodes.push(text_node(&o.text, round4(x), round4(y)));
+                        nodes.push(text_node(&o.text, &o.runs, round4(x), round4(y)));
                     }
                 }
                 ObjKind::Plus => nodes.push(format!(
                     r#"{{"type":"plus","location":{}}}"#,
                     location(o.x, o.y)
                 )),
-                ObjKind::Text => nodes.push(text_node(&o.text, o.x, o.y)),
+                ObjKind::Text => nodes.push(text_node(&o.text, &o.runs, o.x, o.y)),
             }
         }
         format!(r#"{{"root":{{"nodes":[{}]}}{molecule}}}"#, nodes.join(","))
@@ -141,16 +175,75 @@ fn coord(p: &Value, name: &str, place: usize) -> f64 {
         .unwrap_or(0.0)
 }
 
-/// The text of a KET text node: the lines of its rich-text content, or the content as it is.
-fn content(data: &Value) -> String {
+/// The text of a KET text node (the lines of its rich-text content, or the content as it is), its runs (the bold, italic, subscript
+/// and superscript ranges of its blocks, a line break between blocks; none for a text with no such range) and how many ranges
+/// were left out. The counts are checked before any work: a text with more characters or lines than a text can hold keeps its
+/// plain text and loses its ranges (counted), and the ranges of a block are swept once (a difference array), so the time is
+/// linear in the size of the text and of its ranges.
+fn content(data: &Value) -> (String, Vec<crate::runs::Run>, usize) {
     let raw = data["content"].as_str().unwrap_or_default();
     let rich: Option<Value> = serde_json::from_str(raw).ok();
-    match rich.as_ref().and_then(|r| r["blocks"].as_array()) {
-        Some(blocks) => {
-            let lines: Vec<&str> = blocks.iter().filter_map(|b| b["text"].as_str()).collect();
-            lines.join("\n")
+    let Some(blocks) = rich.as_ref().and_then(|r| r["blocks"].as_array()) else {
+        return (raw.into(), Vec::new(), 0);
+    };
+    let texts: Vec<&str> = blocks.iter().filter_map(|b| b["text"].as_str()).collect();
+    let text = texts.join("\n");
+    let ranges = |b: &Value| b["inlineStyleRanges"].as_array().map_or(0, Vec::len);
+    let all: usize = blocks.iter().map(ranges).sum();
+    let chars: usize = texts.iter().map(|t| t.chars().count()).sum();
+    if chars > crate::runs::MAX_CHARS || texts.len() > crate::runs::MAX_LINES {
+        return (text, Vec::new(), usize::from(all > 0));
+    }
+    let mut runs = Vec::new();
+    for (n, block) in blocks.iter().enumerate() {
+        let Some(line) = block["text"].as_str() else {
+            continue;
+        };
+        if n > 0 {
+            runs.push(crate::runs::Run::line());
         }
-        None => raw.into(),
+        // per style, the ranges that start and end at each UTF-16 position of the block
+        let units = line.encode_utf16().count();
+        let mut diff = vec![[0i32; 4]; units + 1];
+        for r in block["inlineStyleRanges"].as_array().into_iter().flatten() {
+            let k = match r["style"].as_str() {
+                Some("BOLD") => 0,
+                Some("ITALIC") => 1,
+                Some("SUBSCRIPT") => 2,
+                Some("SUPERSCRIPT") => 3,
+                _ => continue,
+            };
+            let start = (r["offset"].as_u64().unwrap_or(0) as usize).min(units);
+            let end = start
+                .saturating_add(r["length"].as_u64().unwrap_or(0) as usize)
+                .min(units);
+            diff[start][k] += 1;
+            diff[end][k] -= 1;
+        }
+        let (mut depth, mut at) = ([0i32; 4], 0usize);
+        for c in line.chars() {
+            for k in 0..4 {
+                depth[k] += diff[at][k];
+            }
+            let mut run = crate::runs::Run::plain(&c.to_string());
+            (run.b, run.i, run.sub, run.sup) =
+                (depth[0] > 0, depth[1] > 0, depth[2] > 0, depth[3] > 0);
+            run.sup &= !run.sub;
+            runs.push(run);
+            // every UTF-16 unit passed brings the ranges that start there (a character above U+FFFF is two units)
+            at += c.len_utf16();
+            if c.len_utf16() == 2 {
+                for k in 0..4 {
+                    depth[k] += diff[at - 1][k];
+                }
+            }
+        }
+    }
+    let runs = crate::runs::canon(runs);
+    if runs.iter().any(crate::runs::Run::styled) {
+        (crate::runs::plain(&runs), runs, 0)
+    } else {
+        (text, Vec::new(), 0)
     }
 }
 
@@ -237,13 +330,13 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
             info.sgroups += mol["sgroups"].as_array().map_or(0, Vec::len);
         } else if kind == "arrow" || kind == "plus" || kind == "text" {
             let p = &data["pos"];
-            let (t, from, to, text) = match kind {
-                "arrow" => (ObjKind::Arrow, &p[0], &p[1], String::new()),
+            let (t, from, to, (text, runs, adjusted)) = match kind {
+                "arrow" => (ObjKind::Arrow, &p[0], &p[1], (String::new(), Vec::new(), 0)),
                 "plus" => (
                     ObjKind::Plus,
                     &node["location"],
                     &Value::Null,
-                    String::new(),
+                    (String::new(), Vec::new(), 0),
                 ),
                 _ => (
                     ObjKind::Text,
@@ -252,6 +345,7 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
                     content(data),
                 ),
             };
+            info.runs_adjusted += adjusted;
             objects.push((
                 t,
                 [
@@ -261,6 +355,7 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
                     coord(to, "y", 1),
                 ],
                 text,
+                runs,
             ));
         } else {
             // an R-group definition, a shape, an image, a multi-tailed arrow

@@ -106,6 +106,12 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("object.plus", [N, N, N, N, Y, Y, N, P, Y, Y]),
     ("object.text", [N, N, N, N, Y, Y, N, N, Y, Y]),
     ("rlabel", [Y, Y, Y, Y, Y, Y, Y, Y, Y, Y]),
+    ("text.colour", [N, N, N, N, N, Y, N, N, Y, Y]),
+    ("text.font", [N, N, N, N, N, Y, N, N, Y, Y]),
+    ("text.lines", [N, N, N, N, Y, Y, N, N, Y, Y]),
+    ("text.script", [N, N, N, N, Y, Y, N, N, Y, Y]),
+    ("text.style", [N, N, N, N, Y, Y, N, N, Y, Y]),
+    ("text.underline", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("unknown", [N, N, N, N, N, N, N, N, Y, Y]),
     ("wedge.hashed", [P, P, P, P, P, P, P, P, Y, Y]),
     ("wedge.solid", [P, P, P, P, P, P, P, P, Y, Y]),
@@ -216,6 +222,55 @@ pub fn instances(d: &Document) -> Vec<Instance> {
             }
             ObjKind::Plus => push("object.plus", String::new(), 0, 0, o.id),
             ObjKind::Text => push("object.text", o.text.clone(), 0, 0, o.id),
+        }
+        if !o.runs.is_empty() {
+            // what the runs of a text carry, each kind with the text it is on
+            let of = |keep: &dyn Fn(&crate::runs::Run) -> bool,
+                      tag: &dyn Fn(&crate::runs::Run) -> String| {
+                (o.runs.iter().filter(|r| !r.br && keep(r)))
+                    .map(|r| format!("{}{}", tag(r), r.t))
+                    .collect::<Vec<_>>()
+                    .join("|")
+            };
+            let lines = o.runs.iter().filter(|r| r.br).count();
+            let rows = [
+                (
+                    "text.lines",
+                    if lines > 0 {
+                        (lines + 1).to_string()
+                    } else {
+                        String::new()
+                    },
+                ),
+                (
+                    "text.script",
+                    of(&|r| r.sub || r.sup, &|r| {
+                        (if r.sub { "_" } else { "^" }).to_string()
+                    }),
+                ),
+                (
+                    "text.style",
+                    of(&|r| r.b || r.i, &|r| {
+                        format!("{}{}:", u8::from(r.b), u8::from(r.i))
+                    }),
+                ),
+                ("text.underline", of(&|r| r.u, &|_| String::new())),
+                (
+                    "text.font",
+                    of(&|r| !r.font.is_empty() || r.sz != 0.0, &|r| {
+                        format!("{}@{}:", r.font, r.sz)
+                    }),
+                ),
+                (
+                    "text.colour",
+                    of(&|r| !r.color.is_empty(), &|r| format!("{}:", r.color)),
+                ),
+            ];
+            for (what, value) in rows {
+                if !value.is_empty() {
+                    push(what, value, 0, 0, o.id);
+                }
+            }
         }
         if !o.col().is_empty() {
             push("colour.object", o.col(), 0, 0, o.id);

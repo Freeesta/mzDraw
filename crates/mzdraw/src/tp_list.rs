@@ -893,6 +893,7 @@ pub fn import_ops(doc: &Document, style: &Style, input: &Input) -> Result<Vec<Op
                 x2: 1.0,
                 y2: 0.0,
                 text: String::new(),
+                runs: Vec::new(),
                 from: first[j],
                 to: first[i],
             });

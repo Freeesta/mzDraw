@@ -833,6 +833,7 @@ fn a_note_belongs_to_the_drawing_it_was_made_for() {
         .run(&[mzdraw::ops::Op::ObjSet {
             id,
             text: Some("my own".into()),
+            runs: None,
             x2: None,
             y2: None,
             from: None,

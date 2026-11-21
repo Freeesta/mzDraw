@@ -293,7 +293,12 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             y: o.y + dy,
             x2: if arrow { o.x2 + dx } else { 0.0 },
             y2: if arrow { o.y2 + dy } else { 0.0 },
-            text: o.text.clone(),
+            text: if o.runs.is_empty() {
+                o.text.clone()
+            } else {
+                String::new()
+            },
+            runs: o.runs.clone(),
             from: if o.from == 0 { 0 } else { base + o.from },
             to: if o.to == 0 { 0 } else { base + o.to },
         });

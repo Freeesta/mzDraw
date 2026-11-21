@@ -471,6 +471,7 @@ pub fn row(doc: &Document, style: &Style, o: &Opts) -> Result<Vec<Op>, &'static 
                             ops.push(Op::ObjSet {
                                 id: *id,
                                 text: None,
+                                runs: None,
                                 x2: Some(hx),
                                 y2: Some(hy),
                                 from: None,

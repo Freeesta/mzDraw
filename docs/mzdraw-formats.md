@@ -117,6 +117,12 @@ Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms 
 | `object.plus` | no | no | no | no | yes | yes | no | drawing | yes | yes |
 | `object.text` | no | no | no | no | yes | yes | no | no | yes | yes |
 | `rlabel` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `text.colour` | no | no | no | no | no | yes | no | no | yes | yes |
+| `text.font` | no | no | no | no | no | yes | no | no | yes | yes |
+| `text.lines` | no | no | no | no | yes | yes | no | no | yes | yes |
+| `text.script` | no | no | no | no | yes | yes | no | no | yes | yes |
+| `text.style` | no | no | no | no | yes | yes | no | no | yes | yes |
+| `text.underline` | no | no | no | no | no | yes | no | no | yes | yes |
 | `unknown` | no | no | no | no | no | no | no | no | yes | yes |
 | `wedge.hashed` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |
 | `wedge.solid` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |

@@ -389,6 +389,7 @@ pub fn derive_expecting(
         x2: pc.0 + dx,
         y2: pc.1 + dy,
         text: String::new(),
+        runs: Vec::new(),
         from,
         to: anchor,
     };

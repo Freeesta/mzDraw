@@ -2,6 +2,9 @@
 //! without knowing chemistry. The page paints it on a canvas; `svg` writes the same list as a file.
 //!
 //! Layout of `data` (f32): `LINE x1 y1 x2 y2 width colour` · `TEXT x y size colour string anchor` (anchor 0 middle, 1 start) ·
+//! `TEXTX x y size colour string anchor face rgb font ul ulw w` (a text of one style: face 1 bold + 2 italic + 4 underline, rgb `0xrrggbb` or -1
+//! for `colour`, font the index of a family name in the strings, empty for the font of the surface; `ul` the distance of the underline
+//! below the centre line, `ulw` its thickness and `w` the width of the text, all in pixels, `ul` 0 for none; formatted texts only) ·
 //! `RECT x y w h colour` · `DISC x y r colour` · `RING x y r colour` · `TRI x1 y1 x2 y2 x3 y3 colour` (a filled triangle).
 //! Coordinates are in output pixels, y down.
 
@@ -15,6 +18,7 @@ pub const RECT: f32 = 3.0;
 pub const DISC: f32 = 4.0;
 pub const RING: f32 = 5.0;
 pub const TRI: f32 = 6.0;
+pub const TEXTX: f32 = 7.0;
 
 /// Colour indices; the surface owns the actual colours (CSS variables on the page, the style palette in a file).
 pub mod colour {
@@ -213,6 +217,41 @@ impl Painter<'_> {
         let i = self.out.strings.len();
         self.out.strings.push(s.to_string());
         self.push(&[TEXT as f64, x, y, size, c as f64, i as f64, anchor]);
+    }
+
+    /// One run of a formatted text: a plain `TEXT` when it has no style, else a `TEXTX`.
+    fn piece(&mut self, x: f64, y: f64, p: &crate::runs::Piece, ink: f32) {
+        if p.face == 0 && p.font.is_empty() && p.rgb < 0 {
+            self.text(x, y, p.size, ink, &p.text, 1.0);
+            return;
+        }
+        let i = self.out.strings.len();
+        self.out.strings.push(p.text.clone());
+        self.out.strings.push(p.font.clone());
+        self.push(&[
+            TEXTX as f64,
+            x,
+            y,
+            p.size,
+            f64::from(ink),
+            i as f64,
+            1.0,
+            f64::from(p.face),
+            f64::from(p.rgb),
+            (i + 1) as f64,
+            if p.face & 4 != 0 { p.size * 0.45 } else { 0.0 },
+            (p.size / 14.0).max(1.0),
+            p.width,
+        ]);
+    }
+
+    /// The size of a script relative to its run.
+    fn script(&self) -> f64 {
+        if self.m.font > 0.0 {
+            self.m.small / self.m.font
+        } else {
+            0.7
+        }
     }
 
     fn bond(&mut self, b: &crate::doc::Bond) {
@@ -580,7 +619,24 @@ impl Painter<'_> {
                     neck.1 - ny,
                     ink as f64,
                 ]);
-                if !o.text.is_empty() {
+                if !o.runs.is_empty() {
+                    let up = if ux >= 0.0 { 1.0 } else { -1.0 };
+                    let (mx, my) = (
+                        (x + e.0) / 2.0 + uy * f * 0.8 * up,
+                        (y + e.1) / 2.0 - ux * f * 0.8 * up,
+                    );
+                    let base = f * 0.85;
+                    let laid = crate::runs::layout(&o.runs, base, self.script());
+                    let lift = (laid.widths.len() - 1) as f64 * base * 1.25;
+                    for p in &laid.pieces {
+                        self.piece(
+                            mx - laid.widths[p.line] / 2.0 + p.x,
+                            my + p.dy - lift,
+                            p,
+                            ink,
+                        );
+                    }
+                } else if !o.text.is_empty() {
                     // above the middle of the shaft, on the side that is up on the screen
                     let up = if ux >= 0.0 { 1.0 } else { -1.0 };
                     let (mx, my) = ((x + e.0) / 2.0, (y + e.1) / 2.0);
@@ -602,11 +658,22 @@ impl Painter<'_> {
                 self.text(x, y, f * 1.3, ink, "+", 0.0);
             }
             ObjKind::Text => {
-                if let Some(c) = mark {
-                    let tw = width(&o.text, f);
-                    self.line((x, y + f * 0.75), (x + tw, y + f * 0.75), w * 3.0, c);
+                if o.runs.is_empty() {
+                    if let Some(c) = mark {
+                        let tw = width(&o.text, f);
+                        self.line((x, y + f * 0.75), (x + tw, y + f * 0.75), w * 3.0, c);
+                    }
+                    self.text(x, y, f, ink, &o.text, 1.0);
+                } else {
+                    let laid = crate::runs::layout(&o.runs, f, self.script());
+                    if let Some(c) = mark {
+                        let bottom = y + f * 0.75 + (laid.widths.len() - 1) as f64 * f * 1.25;
+                        self.line((x, bottom), (x + laid.width(), bottom), w * 3.0, c);
+                    }
+                    for p in &laid.pieces {
+                        self.piece(x + p.x, y + p.dy, p, ink);
+                    }
                 }
-                self.text(x, y, f, ink, &o.text, 1.0);
             }
         }
     }

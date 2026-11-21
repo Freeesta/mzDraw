@@ -168,7 +168,15 @@ pub(crate) fn laid_out_with(
     }
     // a text runs to the right of its anchor
     for o in doc.objects.iter().filter(|o| o.t == ObjKind::Text) {
-        x1 = x1.max(o.x + scene::width(&o.text, m.font) / scale);
+        let w = if o.runs.is_empty() {
+            scene::width(&o.text, m.font)
+        } else {
+            crate::runs::layout(&o.runs, m.font, m.small / m.font).width()
+        };
+        x1 = x1.max(o.x + w / scale);
+        // the lines below the first one
+        let below = o.runs.iter().filter(|r| r.br).count() as f64 * m.font * 1.25;
+        y0 = y0.min(o.y - below / scale);
     }
     // labels can stick out by about two characters on each side
     let pad = scale * 0.5 + m.font * 1.6;
@@ -227,6 +235,33 @@ pub(crate) fn drawn_with(
                 num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), paint(d[i + 4]), crate::xml::escape(&sc.strings[d[i + 5] as usize])
             ));
             i += 7;
+        } else if op == scene::TEXTX {
+            let face = d[i + 7] as u8;
+            let mut style = String::new();
+            for (bit, attr) in [
+                (1, " font-weight=\"bold\""),
+                (2, " font-style=\"italic\""),
+                (4, " text-decoration=\"underline\""),
+            ] {
+                if face & bit != 0 {
+                    style.push_str(attr);
+                }
+            }
+            let font = &sc.strings[d[i + 9] as usize];
+            if !font.is_empty() {
+                style.push_str(&format!(" font-family=\"{}\"", crate::xml::escape(font)));
+            }
+            let fill = if d[i + 8] < 0.0 {
+                paint(d[i + 4])
+            } else {
+                format!("#{:06x}", d[i + 8] as u32)
+            };
+            let anchor = if d[i + 6] == 0.0 { "middle" } else { "start" };
+            s.push_str(&format!(
+                "<text x=\"{}\" y=\"{}\" font-size=\"{}\" fill=\"{fill}\" text-anchor=\"{anchor}\" dominant-baseline=\"central\"{style}>{}</text>\n",
+                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), crate::xml::escape(&sc.strings[d[i + 5] as usize])
+            ));
+            i += 13;
         } else if op == scene::TRI {
             s.push_str(&format!(
                 "<polygon points=\"{},{} {},{} {},{}\" fill=\"{}\"/>\n",

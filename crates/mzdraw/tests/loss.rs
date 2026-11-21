@@ -137,6 +137,7 @@ fn random_doc(seed: u64, rich: bool) -> Document {
                 } else {
                     String::new()
                 },
+                runs: Vec::new(),
                 from: if r.next(2) == 0 { first } else { 0 },
                 to: 0,
                 more: vec![],
@@ -152,6 +153,45 @@ fn random_doc(seed: u64, rich: bool) -> Document {
                 x2: 0.0,
                 y2: 0.0,
                 text: String::new(),
+                runs: Vec::new(),
+                from: 0,
+                to: 0,
+                more: vec![],
+            });
+            oid += 1;
+        }
+        if r.next(2) == 0 {
+            // a formatted text: every kind of run the table has a row for
+            use mzdraw::Run;
+            let runs = vec![
+                Run {
+                    b: true,
+                    ..Run::plain("B")
+                },
+                Run::sub("2"),
+                Run {
+                    i: true,
+                    u: true,
+                    ..Run::plain("iu")
+                },
+                Run::line(),
+                Run {
+                    color: "#cc3300".into(),
+                    font: "Courier New".into(),
+                    sz: 1.5,
+                    ..Run::plain("big")
+                },
+                Run::sup("+"),
+            ];
+            d.objects.push(Obj {
+                id: oid,
+                t: ObjKind::Text,
+                x: 44.0,
+                y: 12.0,
+                x2: 0.0,
+                y2: 0.0,
+                text: mzdraw::runs::plain(&runs),
+                runs,
                 from: 0,
                 to: 0,
                 more: vec![],
@@ -167,6 +207,7 @@ fn random_doc(seed: u64, rich: bool) -> Document {
                 x2: 0.0,
                 y2: 0.0,
                 text: "note".into(),
+                runs: Vec::new(),
                 from: 0,
                 to: 0,
                 more: vec![],
@@ -355,6 +396,12 @@ fn every_feature_the_document_can_hold_has_a_row_and_every_format_a_column() {
         "object.plus",
         "object.text",
         "rlabel",
+        "text.colour",
+        "text.font",
+        "text.lines",
+        "text.script",
+        "text.style",
+        "text.underline",
         "unknown",
         "wedge.hashed",
         "wedge.solid",
@@ -364,7 +411,7 @@ fn every_feature_the_document_can_hold_has_a_row_and_every_format_a_column() {
             assert!(mzdraw::loss::carry(what, f).is_some(), "{what} {f}");
         }
     }
-    assert_eq!(mzdraw::loss::TABLE.len(), 20);
+    assert_eq!(mzdraw::loss::TABLE.len(), 26);
 }
 
 #[test]
@@ -647,6 +694,7 @@ fn the_shape_limits_are_keyed_not_silent() {
             x2: 702.0,
             y2: 0.0,
             text: String::new(),
+            runs: Vec::new(),
             from: 0,
             to: 0,
             more: vec![],

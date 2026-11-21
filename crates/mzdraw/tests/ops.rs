@@ -341,6 +341,21 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 } else {
                     String::new()
                 },
+                // a formatted text (some are refused: a plus has no text, a text with only a line break is blank)
+                runs: if r.next(3) == 0 {
+                    vec![
+                        mzdraw::Run::plain("H"),
+                        mzdraw::Run::sub("2"),
+                        mzdraw::Run::line(),
+                        mzdraw::Run {
+                            color: "#0033cc".into(),
+                            b: true,
+                            ..mzdraw::Run::sup("+")
+                        },
+                    ]
+                } else {
+                    Vec::new()
+                },
                 // anchors on arrows: an atom of the document, or none; a wild one is anchored on a plus or a text (refused whole)
                 from: if (arrow || wild) && r.next(2) == 1 {
                     atom(r)
@@ -354,15 +369,36 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 },
             }]
         }
-        15 => vec![Op::ObjSet {
-            id: obj_id(r),
-            text: (r.next(2) == 1).then(|| ["Pd/C", "", "Δ"][r.next(3)].to_string()),
-            x2: (r.next(3) == 1).then(|| xy(r).0),
-            y2: None,
-            // set, change and clear (0) the anchors; a set on a plus or a text is refused whole
-            from: (r.next(3) == 1).then(|| if r.next(2) == 1 { atom(r) } else { 0 }),
-            to: (r.next(3) == 1).then(|| if r.next(2) == 1 { atom(r) } else { 0 }),
-        }],
+        15 => {
+            let text = (r.next(2) == 1).then(|| ["Pd/C", "", "Δ"][r.next(3)].to_string());
+            // runs with a text too are refused whole; runs alone replace the text, an empty list leaves none
+            let runs = (r.next(3) == 0).then(|| match r.next(3) {
+                0 => vec![],
+                1 => vec![
+                    mzdraw::Run::plain("a"),
+                    mzdraw::Run::line(),
+                    mzdraw::Run::sub("b"),
+                ],
+                _ => vec![
+                    mzdraw::Run {
+                        i: true,
+                        sz: 1.5,
+                        ..mzdraw::Run::plain("Pd")
+                    },
+                    mzdraw::Run::sup("2+"),
+                ],
+            });
+            vec![Op::ObjSet {
+                id: obj_id(r),
+                text,
+                runs,
+                x2: (r.next(3) == 1).then(|| xy(r).0),
+                y2: None,
+                // set, change and clear (0) the anchors; a set on a plus or a text is refused whole
+                from: (r.next(3) == 1).then(|| if r.next(2) == 1 { atom(r) } else { 0 }),
+                to: (r.next(3) == 1).then(|| if r.next(2) == 1 { atom(r) } else { 0 }),
+            }]
+        }
         8 => {
             // colour of atoms and bonds: set (short and long hex, any case), changed, cleared (automatic), and refused ones
             // (not a colour, an id the document lacks) that must leave the document as it was
@@ -799,6 +835,7 @@ fn hostile_input_is_refused_without_a_panic() {
             x2: f64::INFINITY,
             y2: 0.0,
             text: String::new(),
+            runs: Vec::new(),
             from: 0,
             to: 0,
         },
@@ -1145,6 +1182,7 @@ fn the_diff_says_what_changed_with_the_operations_that_say_it() {
         x2: 6.0,
         y2: 0.0,
         text: String::new(),
+        runs: Vec::new(),
         from: 0,
         to: 0,
     }])
@@ -1160,6 +1198,7 @@ fn the_diff_says_what_changed_with_the_operations_that_say_it() {
     s.run(&[Op::ObjSet {
         id: 6,
         text: None,
+        runs: None,
         x2: Some(9.0),
         y2: None,
         from: None,
@@ -1201,6 +1240,7 @@ fn a_patch_with_an_operation_that_names_no_id_is_one_hunk_and_never_panics() {
         x2: 6.0,
         y2: 0.0,
         text: String::new(),
+        runs: Vec::new(),
         from: 0,
         to: 0,
     };

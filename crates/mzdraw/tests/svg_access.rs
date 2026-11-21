@@ -63,6 +63,7 @@ fn two_structures_and_an_arrow() {
         x2: 2.0,
         y2: 3.0,
         text: String::new(),
+        runs: Vec::new(),
         from: 0,
         to: 0,
         more: Default::default(),
@@ -212,7 +213,7 @@ fn escaping_of_the_outline_text_is_deterministic() {
 const ELEMENTS: [&str; 7] = [
     "svg", "title", "desc", "metadata", "line", "text", "polygon",
 ];
-const ATTRIBUTES: [&str; 23] = [
+const ATTRIBUTES: &[&str] = &[
     "xmlns",
     "width",
     "height",
@@ -236,6 +237,11 @@ const ATTRIBUTES: [&str; 23] = [
     "text-anchor",
     "dominant-baseline",
     "points",
+    // the presentation attributes of a styled run of a formatted text (all SVG 1.1)
+    "font-weight",
+    "font-style",
+    "text-decoration",
+    "font-family",
 ];
 
 #[test]

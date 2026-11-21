@@ -29,6 +29,16 @@ fn rgb(index: f32) -> String {
     format!("{} {} {}", part(0), part(1), part(2))
 }
 
+/// `r g b` (0 to 1) of a colour `0xrrggbb`.
+fn rgb_of(c: u32) -> String {
+    let part = |shift: u32| {
+        let s = fixed(f64::from((c >> shift) & 255) / 255.0, 3);
+        let s = s.trim_end_matches('0').trim_end_matches('.');
+        if s.is_empty() { "0" } else { s }.to_string()
+    };
+    format!("{} {} {}", part(16), part(8), part(0))
+}
+
 /// The byte of a character in WinAnsiEncoding (Windows-1252), `?` for a character the encoding does not have.
 fn win_ansi(c: char) -> u8 {
     match c {
@@ -101,6 +111,32 @@ fn content(sc: &scene::Scene, h: f32) -> String {
                 string(text)
             ));
             i += 7;
+        } else if op == scene::TEXTX {
+            let (text, size, face) = (&sc.strings[d[i + 5] as usize], d[i + 3], d[i + 7] as u8);
+            let colour = if d[i + 8] < 0.0 {
+                rgb(d[i + 4])
+            } else {
+                rgb_of(d[i + 8] as u32)
+            };
+            let (x, y0) = (d[i + 1], y(d[i + 2] + BASELINE * size));
+            s.push_str(&format!(
+                "BT /F{} {} Tf {colour} rg {} {} Td {} Tj ET\n",
+                1 + (face & 3),
+                num(size),
+                num(x),
+                y0,
+                string(text)
+            ));
+            if d[i + 10] > 0.0 {
+                let at = y(d[i + 2] + d[i + 10]);
+                s.push_str(&format!(
+                    "{colour} RG {} w {} {at} m {} {at} l S\n",
+                    num(d[i + 11]),
+                    num(x),
+                    num(x + d[i + 12])
+                ));
+            }
+            i += 13;
         } else if op == scene::TRI {
             s.push_str(&format!(
                 "{} rg {} {} m {} {} l {} {} l h f\n",
@@ -210,8 +246,22 @@ pub fn to_pdf_with(doc: &Document, style: &Style, measured: &[crate::values::Ent
         names.join(" ")
     ));
     f.object("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+    // the other faces of Helvetica are named only when a styled text uses them
+    let faces: String = [
+        (2, "Helvetica-Bold"),
+        (3, "Helvetica-Oblique"),
+        (4, "Helvetica-BoldOblique"),
+    ]
+    .iter()
+    .filter(|(n, _)| body.contains(&format!("/F{n} ")))
+    .map(|(n, name)| {
+        format!(
+            " /F{n} << /Type /Font /Subtype /Type1 /BaseFont /{name} /Encoding /WinAnsiEncoding >>"
+        )
+    })
+    .collect();
     f.object(&format!(
-        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {} {}] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {} {}] /Resources << /Font << /F1 4 0 R{faces} >> >> /Contents 5 0 R >>",
         num(w),
         num(h)
     ));

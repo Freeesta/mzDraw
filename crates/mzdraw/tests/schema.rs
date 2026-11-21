@@ -88,12 +88,15 @@ fn full_ops() -> Vec<Op> {
             x2: 3.0,
             y2: 1.0,
             text: "hv".into(),
+            runs: vec![mzdraw::Run::plain("hv")],
             from: 1,
             to: 2,
         },
         Op::ObjSet {
             id: 7,
+            // both keys are written here to hold every field of the row; an applied operation with both is refused
             text: Some("Pd/C".into()),
+            runs: Some(vec![mzdraw::Run::sub("2")]),
             x2: Some(4.0),
             y2: Some(2.0),
             from: Some(2),
@@ -153,6 +156,7 @@ fn sample(f: &schema::FieldSpec) -> Value {
         (_, "uint[]") => json!([1]),
         (_, "string[][2]") => json!([["k", "v"]]),
         (_, "json[]") => json!([]),
+        (_, "array") => json!([{"t": "a", "sub": true}]),
         _ => panic!("{} {}", f.key, f.ty),
     }
 }
