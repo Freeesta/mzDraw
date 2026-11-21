@@ -6,5 +6,5 @@
 # 2026-11-20: raised from 512000 to 540000 by the owner's decision, for the 2D layout of mzlab-mol (the module measured 536722 B
 # with it linked, 500659 B without).
 cap = 4000000
-# 2026-11-21: 553625 B with the drawing checks std/1 (stereo family, +16903 B).
-measured = 553625
+# 2026-11-21: 555715 B with the drawing checks std/1 (stereo family, +16903 B over 538812 B).
+measured = 555715
