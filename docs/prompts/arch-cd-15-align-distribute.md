@@ -1,6 +1,6 @@
 # arch-cd-15: Align, distribute, rotate by an angle, scale and nudge the selection
 
-Study rows: I06, I07, I08, I09 of `docs/study/arch-cd.md`. Priority MUST (I06), SHOULD (I07-I09). Size guess S. Depends on: prompt 01 (`place`) for scaling.
+Study rows: I06, I07, I08, I09 of `docs/study/arch-cd.md`. Priority MUST (I06), SHOULD (I07-I09). Size guess S. Depends on: arch-web-10 (op `place`) for scaling.
 
 ## Confirm message
 
@@ -15,7 +15,7 @@ You are a DEV chat of mzDraw (repository `Freeesta/mzDraw`, site https://freeest
 In:
 - align the selected structures and objects (left, centre, right, top, middle, bottom) on their boxes; distribute three or more horizontally or vertically with equal gaps; centre on the view
 - rotate the selection by a typed angle and by 1° / 15° steps from the keyboard (`Alt+arrow`, `Shift+Alt+arrow`)
-- scale the selection by a factor (atoms through `place`, so the bond length changes only if the user asks)
+- scale the selection by a factor (atoms through arch-web-10's `place`, so the bond length changes only if the user asks)
 - arrow keys nudge the selection when something is selected and the keyboard focus is not on an atom
 
 Out (do not build here, say so in the PR if you meet it):
@@ -29,7 +29,7 @@ Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Bui
 - `ops.rs` `Move`, `Rotate`, `Flip`; `Document::bounds`; `layout::pieces`; the command list of `crates/mzdraw-wasm/src/lib.rs` `command`.
 - Study facts: ChemDraw aligns to the highest selected object, distributes three or more (CD-UG17); the new Marvin rotates 1° with Alt+arrow and 15° with Shift+Alt+arrow (M/marvin_shortcuts-and-tricks.html).
 
-Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
+Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); rule 15 (CLI-native, agent-first): the feature is first a Rust command with a machine-readable form — `draw_edit/1` JSON ops, or a setting `--set <section>.<key>=<value>` of `mzlab-cli mol draw` — with stable JSON keys and error keys, deterministic bytes and no browser in the path; the page is one client of it, and a feature without a CLI route and a native replay test is incomplete; Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
 
 ## Work
 
@@ -45,7 +45,9 @@ UI: an Arrange group (align and distribute buttons); e2e: select two pieces with
 
 Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
-Size: the owner lifted the wasm size limit for now, but rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` of `tools/wasm-cap.toml` and the delta in the PR. If the module passes `cap`, send COO-MZDRAW the numbers and raise `cap` only when it answers, with the reason in the PR.
+CLI route and native replay (rule 15): every command produces existing ops (`move`, `rotate`, `place`), so the log replays natively; also accept the commands in the replay request (`"commands": ["align:left", ...]`, run on the selection given by `"select"`) so an agent can align without computing offsets; parity entry.
+
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
 
 ## Acceptance
 

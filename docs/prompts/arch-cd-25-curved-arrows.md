@@ -1,6 +1,6 @@
 # arch-cd-25: Electron-pushing curved arrows anchored to atoms, bonds and lone pairs
 
-Study rows: G05, B11 of `docs/study/arch-cd.md`. Priority SHOULD. Size guess M. Depends on: prompt 06 (arrow heads) if merged.
+Study rows: G05, B11 of `docs/study/arch-cd.md`. Priority SHOULD. Size guess M. Depends on: arch-web-13 (arrow kinds) if merged.
 
 ## Confirm message
 
@@ -27,7 +27,7 @@ Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Bui
 - `doc.rs` `Obj` (points only today), `scene.rs` (arrow painting), `ops.rs` `Remove` (what happens to objects bound to removed atoms).
 - Study facts: MarvinSketch snaps ends to radicals, lone pairs, charges and bonds and limits arrows per source (MS/marvin_electron-flow-arrows.html); Marvin JS removes an arrow when its source or target changes (MJ/marvin-js_reaction-mechanism.html); ChemDoodle lays pushers out automatically (CDD-G §10.13).
 
-Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
+Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); rule 15 (CLI-native, agent-first): the feature is first a Rust command with a machine-readable form — `draw_edit/1` JSON ops, or a setting `--set <section>.<key>=<value>` of `mzlab-cli mol draw` — with stable JSON keys and error keys, deterministic bytes and no browser in the path; the page is one client of it, and a feature without a CLI route and a native replay test is incomplete; Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
 
 ## Work
 
@@ -43,7 +43,9 @@ UI: lone-pair and curved-arrow tools; e2e: draw a pair arrow from a lone pair to
 
 Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
-Size: the owner lifted the wasm size limit for now, but rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` of `tools/wasm-cap.toml` and the delta in the PR. If the module passes `cap`, send COO-MZDRAW the numbers and raise `cap` only when it answers, with the reason in the PR.
+CLI route and native replay (rule 15): lone pairs and curves are `draw_edit/1` ops (`atom.set lp`, `obj.add t:"curve"`, `obj.set bend`), replayed natively; anchors are ids, so a replayed move of an anchored atom moves the curve in the native SVG too (parity entry with a move after the curve).
+
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
 
 ## Acceptance
 

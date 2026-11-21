@@ -1,6 +1,6 @@
-# arch-cd-04: Double-bond position (centre, left, right) and bold / dashed bond display
+# arch-cd-04: Double-bond position (centre, left, right) and dashed bond displays
 
-Study rows: A03, A04 of `docs/study/arch-cd.md`. Priority MUST (A03), SHOULD (A04). Size guess S. Depends on: nothing.
+Study rows: A03, A04 of `docs/study/arch-cd.md`. Priority MUST (A03), SHOULD (A04). Size guess S. Depends on: arch-web-20 (bond kinds, field `k`) if it is on `main`: use its field instead of a new one.
 
 ## Confirm message
 
@@ -13,13 +13,15 @@ You are a DEV chat of mzDraw (repository `Freeesta/mzDraw`, site https://freeest
 ## Scope
 
 In:
-- bond field `pos` (`auto` default, `c`, `l`, `r`: where the second line of a double bond goes, seen from atom `a` to `b`) and `d` (display: none, `bold`, `dash`, `bdash`, `hash`), both in `bond.set` with exact inverse
+- bond field `pos` (`auto` default, `c`, `l`, `r`: where the second line of a double bond goes, seen from atom `a` to `b`), in `bond.set` with exact inverse
 - auto: ring doubles inside the ring, terminal doubles centred, chain doubles on the side of more substituents (write the rule down)
+- dashed displays `dash`, `bdash` (bold dashed) and `hash` (plain hashed, not stereo) as values of arch-web-20's bond kind field `k` (it brings `bold`, `dative`, `hbond`); if arch-web-20 is not on `main`, ask COO-MZDRAW before adding a field of your own
 - painted on screen and in the SVG; written to CDXML and KET where they have a place, otherwise listed as not written
 
 Out (do not build here, say so in the PR if you meet it):
+- `bold`, `dative`, `hbond` (arch-web-20)
+- the double bond of unknown geometry (arch-std-11)
 - stereo wedges (built)
-- dative and hydrogen bonds (prompt 23)
 
 ## Context
 
@@ -28,26 +30,28 @@ Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Bui
 - `crates/mzdraw/src/doc.rs` `Bond` (`o`, `s`, `more`) and its hand-written JSON; `ops.rs` `BondSet`; `scene.rs` (how doubles are drawn now).
 - Study facts: ChemDraw sets left/right/centre per bond with keys (CD-UG17); Marvin JS offers middle/left/right/auto (MJ/marvin-js_bond.html); MarvinSketch treats bold as a display style (MS/marvin_draw-bonds.html); ChemDoodle has bold, bold dashed, dashed doubles (CDD-G §2.2.4.3).
 
-Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
+Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); rule 15 (CLI-native, agent-first): the feature is first a Rust command with a machine-readable form — `draw_edit/1` JSON ops, or a setting `--set <section>.<key>=<value>` of `mzlab-cli mol draw` — with stable JSON keys and error keys, deterministic bytes and no browser in the path; the page is one client of it, and a feature without a CLI route and a native replay test is incomplete; Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
 
 ## Work
 
 Branch `claude/cd-04-bond-display` from `origin/main`.
 
-1. Add `pos` and `d` to `Bond` (optional in `mzdraw/1`, left out when default: same document = same bytes) and to `BondSet` (log `{"op":"bond.set","id":5,"pos":"l"}`); a new order other than 2 drops `pos`. Write the op by hand like the others: `Op::write` (writer) and `Op::read` / `Op::from_value` (reader) in `crates/mzdraw/src/ops.rs`, defaults left out; the reader refuses a malformed op with its error key and changes nothing.
-2. Scene: the offset line of a double on the chosen side, shortened at ring atoms as now; bold = the style's bold width; dash = the hash spacing as dash pattern.
-3. Click on a double bond with the double-bond tool cycles `auto → l → c → r → auto` (as MarvinSketch cycles alignment); hover keys `L`, `C`... only if prompt 03 has merged (else leave a note).
+1. Add `pos` to `Bond` (optional in `mzdraw/1`, left out when default: same document = same bytes) and to `BondSet` (log `{"op":"bond.set","id":5,"pos":"l"}`); the dashed values go into `k`; a new order other than 2 drops `pos`. Write the op by hand like the others: `Op::write` (writer) and `Op::read` / `Op::from_value` (reader) in `crates/mzdraw/src/ops.rs`, defaults left out; the reader refuses a malformed op with its error key and changes nothing.
+2. Scene: the offset line of a double on the chosen side, shortened at ring atoms as now; dash = the hash spacing as dash pattern.
+3. Click on a double bond with the double-bond tool cycles `auto → l → c → r → auto` (as MarvinSketch cycles alignment); hover keys `L`, `C`... only if arch-cd-03 has merged (else leave a note).
 4. CDXML out: `DoublePosition` and `Display` where the public CDX SDK pages define them; KET: leave out and list. Never guess an attribute: if a page does not say it, write the gap in the PR.
 
 Tests to add (synthetic data, small):
-- property test with `pos` and `d`; JSON round trip; a document with defaults is byte-identical to before
+- property test with `pos` and the dashed kinds; JSON round trip; a document with defaults is byte-identical to before
 - SVG of a synthetic cyclohexene with `l` and `r` differs only in the second line; the golden SVGs of existing documents do not move
 
 UI: a small bond-style group in the bond palette (bold, dashed); e2e: cycle a double bond by clicks and check `save("mzdraw")`; touch: the same with a tap. Screenshots at deviceScaleFactor 2 (`MZDRAW_SHOTS=<dir> node tests/e2e.mjs`), attached to the PR description; keep the touch/pen and keyboard steps of `tests/e2e.mjs` green and add yours.
 
 Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
-Size: the owner lifted the wasm size limit for now, but rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` of `tools/wasm-cap.toml` and the delta in the PR. If the module passes `cap`, send COO-MZDRAW the numbers and raise `cap` only when it answers, with the reason in the PR.
+CLI route and native replay (rule 15): `bond.set pos` and the bond kind of arch-web-20 are `draw_edit/1` ops; the parity log gets a step with both; `mzlab-cli mol draw --set edit=<log>` gives the same SVG.
+
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
 
 ## Acceptance
 

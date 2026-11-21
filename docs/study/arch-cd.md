@@ -232,17 +232,17 @@ Rows grouped by area; the ID is used by the prompts (§6). Source keys refer to 
 (Palettes in detail: §4.)
 | ID | feature | who has it | how it works (short) | priority for mzDraw | scriptable twin | size |
 |---|---|---|---|---|---|---|
-| K01 | tool groups with sub-palettes; the last tool picked becomes the face of the group | CD-UG17, CDD-G §2.2.4 | press a group, pick a variant | MUST | `ui.*` settings (§4) | M |
+| K01 | tool groups with sub-palettes; the last tool picked becomes the face of the group | CD-UG17, CDD-G §2.2.4 | press a group, pick a variant | MUST · R1 (PR #35) builds it | `layout` (§4) | M |
 | K02 | rebindable shortcuts with conflict report and a printable table | CD-UG17 (Hotkeys.xml per object type), MS-IOD/customizing-marvinsketch-gui.html (keymap schemes, conflicts warned), CDD-G §4.2 (Edit Shortcuts, Summarize to HTML) | key → command, per object type | MUST: settings `shortcuts` planned in `docs/mzdraw-formats.md` §4 | settings `shortcuts`; `--set shortcuts=FILE` | M |
-| K03 | context menu on an atom, a bond, the selection, the canvas | BD-DS24, MS/marvin_atom-menu.html, CD-UG17 | the right commands where the pointer is | MUST: right-click and long press | menu model from Rust | M |
+| K03 | context menu on an atom, a bond, the selection, the canvas | BD-DS24, MS/marvin_atom-menu.html, CD-UG17 | the right commands where the pointer is | MUST: right-click and long press; the model is PR #37, refinement in §7 and arch-cd-20 | `context:<x>,<y>` replay output (PR #37) | M |
 | K04 | floating context toolbar next to the selection | CD-26.0*, CD-DC26 (web) | | SHOULD | - | S |
 | K05 | keyboard navigation of the toolbars (Tab between groups, arrows inside, Enter opens, Escape closes) | M/marvin_shortcuts-and-tricks.html | | MUST: WCAG 2.2; real buttons are built | part of §4 | S |
 | K06 | WCAG 2.2 AA conformance statement and screen reader support | M-PP* (partial 2.2 A/AA), CD-26.0* (2.1 AA work) | | MUST: European Accessibility Act; the outline is built, a real screen-reader pass is not | - | M |
 | K07 | text description of a figure | CDD-VH (12.11.0) | | MUST · built (outline "What is drawn"); SHOULD: write it into the SVG as `<desc>` | `save svg` | S |
-| K08 | interface colours for colour vision deficiency, font size, left-handed mode | CDD-G §2.4 | | SHOULD | settings `ui.*` | S |
+| K08 | interface colours for colour vision deficiency, font size, left-handed mode | CDD-G §2.4 | | SHOULD | settings (e.g. `display.*`) | S |
 | K09 | sharp icons at any display scale | complaint CD-KB/4408233178004* | | MUST: SVG icons only | - | S |
 | K10 | status line with what a click will do | BD-T65 (status bar) | | SHOULD: the live line exists | - | S |
-| K11 | toolbar presets for embedders (one molecule, reaction, teaching) | MJ (presets*), CDW/tutorial/2d-structure-canvases/sketcher-canvas (`oneMolecule`, `includeToolbar`, `useServices`) | the host picks the tools | SHOULD: the mzLab page embeds mzDraw | setting `ui.preset` | S |
+| K11 | toolbar presets for embedders (one molecule, reaction, teaching) | MJ (presets*), CDW/tutorial/2d-structure-canvases/sketcher-canvas (`oneMolecule`, `includeToolbar`, `useServices`) | the host picks the tools | SHOULD: the mzLab page embeds mzDraw | element attribute and `layout.preset` | S |
 
 ### L. Platform, embedding, scripting
 | ID | feature | who has it | how it works (short) | priority for mzDraw | scriptable twin | size |
@@ -280,57 +280,60 @@ Rows grouped by area; the ID is used by the prompts (§6). Source keys refer to 
 - ChemDoodle Web: toolbars cut off at the screen edge (fixed 4.5.0), trays opening behind the canvas in Safari (fixed 4.3.1), page CSS stretching the toolbars (fixed 5.2.3) (CDW/installation/changelog).
 
 ### What mzDraw should do
-The layout is a model in Rust (`ui` section of `mzdraw-settings/1`: for each palette its group, docked edge and order or floating rectangle, visibility; clamped to the window), not part of the document and no undo step, kept in the browser (OPFS, like the style) and in the settings file of the desktop app. JavaScript renders the DOM from the model and forwards the drags (CLAUDE.md rule 2).
+The model is the one of `docs/mzdraw-ui.md` §4-§5, built as R1 (PR #35, `crates/mzdraw/src/palettes.rs`): the object `layout` of `mzdraw-settings/1` (preset, snap, and per palette `dock`, `order`, `x`, `y`, `orient`, `collapsed`, `hidden`; only what differs from the preset), decided in Rust, painted by the page, not part of the document and no undo step. The table below says which requirements R1 already meets and what the arch-cd prompts 18-19 add on top of it.
 | ID | requirement | taken from | priority | twin |
 |---|---|---|---|---|
-| P01 | tool groups with sub-palettes; the last variant becomes the face of the group | CD-UG17, CDD-G §2.2.4 | MUST | `ui.group.<id>.face` |
-| P02 | tear-off: a sub-palette dragged by its title becomes a floating palette above the canvas, with a close box | CD-UG17 | MUST | `ui.palette.<id>.float=x,y` |
-| P03 | dock and undock toolbars on the four edges; a double-click on a palette's title returns it to its home | CD-UG17, MS-IOD/customizing-marvinsketch-gui.html (landing preview) | MUST | `ui.palette.<id>.dock=left\|right\|top\|bottom` |
-| P04 | show / hide every palette from one menu with check marks, and by a key | CD-UG17, MS-IOD/customizing-marvinsketch-gui.html, CDD-K | MUST | `ui.palette.<id>.visible` |
-| P05 | the layout survives a reload and an upgrade, per user, without administrator rights | CDD-G §2.2.7; complaints CD-KB/4408233143188* | MUST | settings file `ui` section |
-| P06 | Reset layout command, always reachable (also when every palette is hidden) | CDD-G §2.2.7 (Default Workspace); complaint CD-KB/4408232681876* | MUST | command `ui-reset` |
-| P07 | a palette never ends outside the window: clamped after a resize, a zoom change or a monitor change | complaints CD-KB/14100226145172*, MS 20.15, CDW 4.5.0 | MUST | in the model |
-| P08 | keyboard: Tab to a palette, arrows inside, Enter opens a group, Escape closes, focus visible | M/marvin_shortcuts-and-tricks.html | MUST | - |
-| P09 | named layouts (save, revert, export, import) | CDD-G §2.2.7, MS-IOD/configurations-of-marvinsketch.html | SHOULD | settings file |
-| P10 | customise palettes: add, remove, reorder tools, user palettes, a user-templates palette | MS-IOD/customizing-marvinsketch-gui.html, CD-UG17 (XML), BD-DS24 (drag onto toolbar) | SHOULD | `ui.palette.<id>.tools` |
-| P11 | icon size small / large; sharp at any scale | MS-IOD/customizing-marvinsketch-gui.html; complaint CD-KB/4408233178004* | SHOULD | `ui.icons` |
-| P12 | narrow screens and touch: palettes become a bottom bar, no floating windows | CDW/tutorial/2d-structure-canvases/sketcher-canvas (`isMobile`) | SHOULD | `ui.preset` |
+| P01 | tool groups with sub-palettes; the last variant becomes the face of the group | CD-UG17, CDD-G §2.2.4 | MUST · R1 (flyouts with the kind in use, `docs/mzdraw-ui.md` §4) | `layout` |
+| P02 | tear-off: a sub-palette dragged by its title becomes a floating palette above the canvas, with a close box | CD-UG17 | MUST (arch-cd-18) | `layout` entry with `from` |
+| P03 | dock and undock toolbars on the four edges; a double-click on a palette's title returns it to its home | CD-UG17, MS-IOD/customizing-marvinsketch-gui.html (landing preview) | MUST · R1 docks and snaps; home on double-click: arch-cd-18 | `layout.palettes[].dock` |
+| P04 | show / hide every palette from one menu with check marks, and by a key | CD-UG17, MS-IOD/customizing-marvinsketch-gui.html, CDD-K | MUST · R1 (Palettes menu, `\` hides all); check marks: arch-cd-18 | `layout.palettes[].hidden` |
+| P05 | the layout survives a reload and an upgrade, per user, without administrator rights | CDD-G §2.2.7; complaints CD-KB/4408233143188* | MUST · R1 (settings file; unknown keys kept) | `layout` |
+| P06 | Reset layout command, always reachable (also when every palette is hidden) | CDD-G §2.2.7 (Default Workspace); complaint CD-KB/4408232681876* | MUST · R1 (Reset layout) | `layout.reset` |
+| P07 | a palette never ends outside the window: clamped after a resize, a zoom change or a monitor change | complaints CD-KB/14100226145172*, MS 20.15, CDW 4.5.0 | MUST · R1 (clamped on every resize, property test) | - |
+| P08 | keyboard: Tab to a palette, arrows inside, Enter opens a group, Escape closes, focus visible | M/marvin_shortcuts-and-tricks.html | MUST · R1 (`docs/mzdraw-ui.md` §4 keyboard and flyouts) | - |
+| P09 | named layouts (save, revert, export, import) | CDD-G §2.2.7, MS-IOD/configurations-of-marvinsketch.html | SHOULD (arch-cd-19) | `layout.save`, `layout.use` |
+| P10 | customise palettes: add, remove, reorder tools, user palettes, a user-templates palette | MS-IOD/customizing-marvinsketch-gui.html, CD-UG17 (XML), BD-DS24 (drag onto toolbar) | SHOULD (later) | `layout.palettes[].tools` |
+| P11 | icon size small / large; sharp at any scale | MS-IOD/customizing-marvinsketch-gui.html; complaint CD-KB/4408233178004* | SHOULD (arch-cd-19) | `layout.icons` |
+| P12 | narrow screens and touch: palettes become a bottom bar, no floating windows | CDW/tutorial/2d-structure-canvases/sketcher-canvas (`isMobile`) | SHOULD · R1 (tablet and phone presets) | `layout.preset` |
 | P13 | palettes on a second monitor (desktop app) | complaint CD-KB/4408239540884* | LATER | - |
 | P14 | interface layout stored inside drawing files | MS/marvin_history-of-changes.html 15.3.2.0 (GUI options in MRV) | OUT: the document holds chemistry and drawing, not the user's interface | - |
 
 ## 5. Counts
 - 156 rows (A-M and P): **MUST 56** (17 of them built, so 39 to build), **SHOULD 59**, LATER 26, OUT 15. A row whose priority has a parenthesis ("SHOULD (MUST for medicinal chemists)") is counted by its first word.
-- Every MUST row not built maps to one of the prompts 01-22 (§6), except K06; prompts 23-26 take the SHOULD rows with the best value for cost. The rest of the SHOULD rows are left for a later study round.
+- Every MUST row not built maps to a prompt to run (§6: an arch-cd prompt, or the arch-web / arch-std prompt that covers it), except K06; prompts 23-26 take the SHOULD rows with the best value for cost. The rest of the SHOULD rows are left for a later study round.
 - Where mzDraw is already ahead of all four (from the rows above): one Rust path for page, CLI and desktop with the same bytes (L07, `CLAUDE.md` rule 10); no server for any feature (L07, against MJ and CDW); pictures that reopen as chemistry (J09 is built for SVG and PNG; CDD does it for PDF/EPS/SVG); an import that lists what it could not read; per-structure identification annotations (no competitor has a slot for them); a text description of the figure for screen readers (only CDD 12.11 has one).
 
-## 6. Proposed DEV slices (one prompt each, `docs/prompts/`)
-Order = suggested order of work; a prompt names what it depends on.
-| NN | slug | rows | priority |
-|---|---|---|---|
-| 01 | clean-up | D01, D04 | MUST |
-| 02 | cip-labels | C02 | MUST |
-| 03 | hover-hotkeys | B02, B03 | MUST |
-| 04 | bond-display | A03, A04 | MUST (A03) + SHOULD (A04) |
-| 05 | chain-tool | A13 | MUST |
-| 06 | arrow-kinds | G02, G03, G04 | MUST |
-| 07 | rich-text | H02, H10 | MUST |
-| 08 | radical-isotope-table | B10, B18 | MUST |
-| 09 | atom-popover | B13 | MUST |
-| 10 | abbrev-expand | B07 | MUST |
-| 11 | user-abbreviations | B06, B04 (composed labels: first part) | MUST |
-| 12 | templates | A14, A17, A12 | MUST |
-| 13 | user-templates | A15 | MUST |
-| 14 | analysis-panel | F01 | MUST |
-| 15 | align-distribute | I06, I07, I08, I09 | MUST + SHOULD |
-| 16 | smart-paste-copy-as | J04, J06 | MUST |
-| 17 | shortcuts | K02 | MUST |
-| 18 | palette-model | K01, K05, K09, P01, P04-P08 | MUST |
-| 19 | palette-tear-off | P02, P03 | MUST |
-| 20 | context-menu | K03 | MUST |
-| 21 | embed-api | L04 | MUST |
-| 22 | desktop-shell | L01, L02 | MUST |
-| 23 | dative-hbond | A05, A06 | SHOULD |
-| 24 | enhanced-stereo | C04 | SHOULD |
-| 25 | curved-arrows | G05, B11 | SHOULD |
-| 26 | history-panel | A21 | SHOULD |
-Not given a prompt here although MUST: K06 (a WCAG 2.2 audit with a real screen reader is a review task for the coordinator, not a code slice), and the built rows.
+## 6. Proposed DEV slices, and which prompt to run
+One prompt per slice in `docs/prompts/arch-cd-NN-slug.md`. The studies arch-std (`docs/study/arch-std.md`, on `main`) and arch-web (branch `claude/arch-web`) propose some of the same slices. Where theirs covers the same scope, **theirs is the one to run**, and the arch-cd file is a short "superseded" note that lists what the desktop editors add (to paste into that prompt or its review). Context menu and palettes are being built (PR #37 context menu model, PR #35 palettes R1): the arch-cd prompts 18-20 refine on top of them and add no second model.
+| NN | slug | rows | priority | run |
+|---|---|---|---|---|
+| 01 | clean-up | D01, D04 | MUST | **arch-web-10**; arch-cd-01 = additions |
+| 02 | cip-labels | C02 | MUST | **arch-web-16**; arch-cd-02 = additions |
+| 03 | hover-hotkeys | B02, B03 | MUST | **arch-cd-03** (keys into arch-std-06's command table when merged) |
+| 04 | bond-display | A03, A04 | MUST (A03) + SHOULD (A04) | **arch-cd-04** (double-bond position; dashed kinds on arch-web-20's field) |
+| 05 | chain-tool | A13 | MUST | **arch-web-08**; arch-cd-05 = additions |
+| 06 | arrow-kinds | G02, G03, G04 | MUST | **arch-web-13**; arch-cd-06 = additions (heads, arc) |
+| 07 | rich-text | H02, H10 | MUST | **arch-web-14**; arch-cd-07 = additions (formula mode, symbols) |
+| 08 | radical-isotope-table | B10, B18 | MUST | **arch-cd-08** (periodic table and keys; the popover is arch-web-11) |
+| 09 | atom-popover | B13 | MUST | **arch-web-11**; arch-cd-09 = additions |
+| 10 | abbrev-expand | B07 | MUST | **arch-web-18**; arch-cd-10 = additions |
+| 11 | user-abbreviations | B06, B04 | MUST | **arch-web-18**; arch-cd-11 points to arch-cd-10's additions |
+| 12 | templates | A14, A17, A12 | MUST | **arch-web-19**; arch-cd-12 = additions |
+| 13 | user-templates | A15 | MUST | **arch-web-19**; arch-cd-13 = additions |
+| 14 | analysis-panel | F01 | MUST | **arch-web-17**; arch-cd-14 = additions (where the numbers come from, parity) |
+| 15 | align-distribute | I06, I07, I08, I09 | MUST + SHOULD | **arch-cd-15** (needs arch-web-10's `place` for scaling) |
+| 16 | smart-paste | J04 | MUST | **arch-cd-16** (Copy as is arch-web-21 and PR #37) |
+| 17 | shortcuts | K02 | MUST | **arch-std-06**; arch-cd-17 = additions |
+| 18 | palette-tear-off | P02, P03, P04, K01 | MUST | **arch-cd-18**, on top of PR #35 (R1) |
+| 19 | named-layouts | P09, P11 | SHOULD | **arch-cd-19**, on top of PR #35 (R1) |
+| 20 | context-menu-refine | K03, §7 | MUST | **arch-cd-20**, on top of PR #37 (the model) and its page PR; arch-web-12 is the same first slice as PR #37 |
+| 21 | embed-api | L04 | MUST | **arch-web-01, -02, -03**; arch-cd-21 = additions |
+| 22 | desktop-shell | L01, L02 | MUST | **arch-cd-22** (asks the owner's choice of shell first) |
+| 23 | dative-hbond | A05, A06 | SHOULD | **arch-web-20**; arch-cd-23 = additions |
+| 24 | enhanced-stereo | C04 | SHOULD | **arch-std-12**; arch-cd-24 = additions |
+| 25 | curved-arrows | G05, B11 | SHOULD | **arch-cd-25** |
+| 26 | history-panel | A21 | SHOULD | **arch-cd-26** |
+
+Other rows of this study that the other studies already carry as prompts: A08 (either double bond) = arch-std-11, B08 (label reversal) = arch-std-08, B16 (hydrogen and carbon label display) = arch-std-10, I11 and I10 (lasso, select a piece) = arch-web-07.
+Not given a prompt although MUST: K06 (the WCAG 2.2 audit with a real screen reader; arch-std-07 is the page audit).
+Every prompt that is run cites `CLAUDE.md` rule 15: the feature is a `draw_edit/1` op or a `--set` setting first, with a CLI route and a native replay test, and the page is one client of it.

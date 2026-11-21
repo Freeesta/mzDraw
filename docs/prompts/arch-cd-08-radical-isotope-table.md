@@ -1,6 +1,6 @@
-# arch-cd-08: Radicals, isotopes and the periodic table
+# arch-cd-08: Periodic table picker, and keys for radicals and isotopes
 
-Study rows: B10, B18 of `docs/study/arch-cd.md`. Priority MUST. Size guess S. Depends on: nothing.
+Study rows: B10, B18 of `docs/study/arch-cd.md`. Priority MUST. Size guess S. Depends on: nothing; uses arch-web-11's popover when it is on `main`.
 
 ## Confirm message
 
@@ -13,13 +13,13 @@ You are a DEV chat of mzDraw (repository `Freeesta/mzDraw`, site https://freeest
 ## Scope
 
 In:
-- key `.` over a hovered or focused atom cycles the radical (none → monovalent → divalent → none); `Shift+I` asks for a mass number (field in the page, validated in Rust)
-- a periodic table picker: the page draws the grid Rust gives (symbol, row, column, group colour); a click picks `atom:<el>`
-- radical dots and the mass number painted as now in the scene (already supported by `atom.set rad` / `iso`)
+- a periodic table picker: the page draws the grid Rust gives (symbol, row, column, block); a click or Enter picks `atom:<el>`
+- key `.` over a hovered or focused atom cycles the radical (none → doublet → singlet → none); `Shift+I` opens the isotope field of the atom popover (arch-web-11) or, until it exists, a field validated in Rust
+- radical dots and the mass number painted as now (already supported by `atom.set rad` / `iso`)
 
 Out (do not build here, say so in the PR if you meet it):
-- lone pairs (prompt 25)
-- the atom popover (prompt 09)
+- the atom popover itself (arch-web-11)
+- lone pairs (arch-cd-25)
 
 ## Context
 
@@ -28,13 +28,13 @@ Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Bui
 - `ops.rs` `AtomSet` (`iso`, `rad` exist), `editor_tools.rs` `key`, `mzlab_mol::is_element` and the element table of `mzlab-mol` (`elements.rs`).
 - Study facts: MarvinSketch opens the periodic table with Ctrl+E (MS/marvin_shortcuts-in-marvinsketch.html); ChemDoodle warns about a mass number not in its isotope table (CDD-G §14.6.3); ChemDoodle Web added an isotope popover in 9.2.0 (CDW/installation/changelog).
 
-Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
+Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); rule 15 (CLI-native, agent-first): the feature is first a Rust command with a machine-readable form — `draw_edit/1` JSON ops, or a setting `--set <section>.<key>=<value>` of `mzlab-cli mol draw` — with stable JSON keys and error keys, deterministic bytes and no browser in the path; the page is one client of it, and a feature without a CLI route and a native replay test is incomplete; Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
 
 ## Work
 
 Branch `claude/cd-08-radical-isotope-table` from `origin/main`.
 
-1. Keys in the hotkey path (with prompt 03's table if merged, else next to `element_key`); `iso` validated against a known range for the element (refuse with `error.draw2.isotope`), 0 takes it away.
+1. Keys in the hotkey path (with arch-cd-03's table if merged, else next to `element_key`); `iso` validated against a known range for the element (refuse with `error.draw2.isotope`), 0 takes it away.
 2. `periodic_table()` export: a JSON list from the `mzlab-mol` element table (no new data in JS); the page renders buttons with `aria-label` names from i18n.
 3. A mass number unknown for the element is allowed but warned (geometry-free warning in `state`).
 
@@ -46,7 +46,9 @@ UI: a periodic table button and dialog-free picker (popover); e2e: open the tabl
 
 Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
-Size: the owner lifted the wasm size limit for now, but rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` of `tools/wasm-cap.toml` and the delta in the PR. If the module passes `cap`, send COO-MZDRAW the numbers and raise `cap` only when it answers, with the reason in the PR.
+CLI route and native replay (rule 15): elements, radicals and isotopes are `atom.set el|rad|iso` ops (replayed natively); the periodic table is a pure function `periodic_table()` of `crates/mzdraw` whose JSON is also a replay output (`out: "elements"`) compared by `tests/parity.mjs`.
+
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
 
 ## Acceptance
 

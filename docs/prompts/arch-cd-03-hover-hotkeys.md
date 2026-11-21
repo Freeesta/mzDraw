@@ -1,6 +1,6 @@
 # arch-cd-03: Hotkeys over the hovered bond and group hotkeys over an atom
 
-Study rows: B02, B03 of `docs/study/arch-cd.md`. Priority MUST. Size guess S. Depends on: nothing.
+Study rows: B02, B03 of `docs/study/arch-cd.md`. Priority MUST. Size guess S. Depends on: arch-std-06 (the command table of shortcuts) if it is on `main`: put the hover keys into that table.
 
 ## Confirm message
 
@@ -15,11 +15,11 @@ You are a DEV chat of mzDraw (repository `Freeesta/mzDraw`, site https://freeest
 In:
 - over a hovered (or keyboard-walked) bond: `1` `2` `3` set the order, `W` / `Shift+W` / `Y` make it solid, hashed or wavy, a second press of the same wedge key turns it around
 - over a hovered or focused atom: `M` Me, `E` Et, `Shift+F` CF3, `Shift+O` OH (letters already used for elements keep their meaning: pick group keys that do not clash and list them), a digit `n` with `Alt` sprouts a chain of n carbons, `Shift+n` (3-8) fuses a ring of n on the atom
-- one undo step per key, announced; the key table lives in one Rust table (so prompt 17 can make it rebindable)
+- one undo step per key, announced; the key table lives in one Rust table (arch-std-06's command table when it is on `main`)
 
 Out (do not build here, say so in the PR if you meet it):
-- rebinding (prompt 17)
-- new bond kinds (prompts 04, 23)
+- rebinding (arch-std-06)
+- new bond kinds (arch-cd-04, arch-web-20)
 - keys when the pointer is over nothing: they keep picking tools as today
 
 ## Context
@@ -30,7 +30,7 @@ Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Bui
 - `Overlay::hover_atom`, `hover_bond` in `scene.rs`; ring placement in `build.rs` (`ring`, `sprout_angle`).
 - Study facts: ChemDraw hover keys 1/2/3, b, w, h, y, d on a bond, m, e, Shift+f on an atom (CD-UG17); ChemDoodle digits for chains and Shift+digit for rings, F turns a bond (CDD-K); the new Marvin has atom-context ring and acyl keys (M/marvin_shortcuts-and-tricks.html). Do not copy their key tables: choose ours so that nothing built changes meaning, and write the table in the help.
 
-Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
+Rules that bite in this slice: all logic in Rust, JavaScript only forwards events and paints (rule 2); no new crate or npm package without a reason in the PR (rule 3); synthetic data only (rule 4); never skip or loosen a test (rule 5); every new operation has an exact inverse and joins the property test "apply then undo returns the identical document" (`random_step` in `crates/mzdraw/tests/ops.rs`, rule 11); every page function is producible from the CLI route and replays natively to the same bytes (rule 10, `tests/parity.mjs`); rule 15 (CLI-native, agent-first): the feature is first a Rust command with a machine-readable form — `draw_edit/1` JSON ops, or a setting `--set <section>.<key>=<value>` of `mzlab-cli mol draw` — with stable JSON keys and error keys, deterministic bytes and no browser in the path; the page is one client of it, and a feature without a CLI route and a native replay test is incomplete; Rust returns i18n keys, never sentences (`web/lang/mzdraw.js`, keys `draw2.*`). Never copy text, icons or artwork of another product; ideas from the study only.
 
 ## Work
 
@@ -48,7 +48,9 @@ UI: no new controls; e2e: hover a bond with the mouse and press `2`, `W`, `W`; h
 
 Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
-Size: the owner lifted the wasm size limit for now, but rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` of `tools/wasm-cap.toml` and the delta in the PR. If the module passes `cap`, send COO-MZDRAW the numbers and raise `cap` only when it answers, with the reason in the PR.
+CLI route and native replay (rule 15): the hover keys produce existing `draw_edit/1` ops (`bond.set`, `atom.add`, `bond.add`, `ring`, `atom.set`), so the log of a session replays natively; add a replay request field `keys` (a list of `{key, mods, hover: atom or bond id}` applied through `Editor::key` before `out`) so that the key handling itself has a native test and a CLI route (`mzlab-cli mol draw --set edit=` replays the ops; agents can also send `keys`). Add an entry to `tests/data/mzdraw_log.json` that uses `keys`.
+
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
 
 ## Acceptance
 
