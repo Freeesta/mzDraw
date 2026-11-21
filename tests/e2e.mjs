@@ -154,6 +154,7 @@ try {
     const ket = JSON.parse(got.ket);
     assert(ket.root.nodes[0].$ref === "mol0" && ket.mol0.type === "molecule" && ket.mol0.atoms.length === 4 && ket.mol0.bonds.length === 3, "a KET file");
     assert(got.svg.startsWith("<svg") && got.svg.includes("<line") && got.svg.replaceAll("OH", "O").includes(">O<"), "an SVG with lines and labels");
+    assert(got.svg.includes('role="img"') && /<title id="t-[0-9a-f]{8}">C2H4O2<\/title>/.test(got.svg) && got.svg.includes('xml:lang="en"'), "the SVG has a text alternative: the formula as its title");
     // pictures that open again: the SVG and the PNG carry the document; a PNG is 300 dpi of the SVG, drawn by the browser
     const [p] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-png")]);
     eq(p.suggestedFilename(), "drawing.png");
