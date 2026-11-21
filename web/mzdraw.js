@@ -12,7 +12,7 @@ const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT 
 const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["drawing.mol", "chemical/x-mdl-molfile"], "molfile-v3000": ["drawing-v3000.mol", "chemical/x-mdl-molfile"],
   sdf: ["drawing.sdf", "chemical/x-mdl-sdfile"], smiles: ["drawing.smi", "chemical/x-daylight-smiles"], ket: ["drawing.ket", "application/json"], cdxml: ["drawing.cdxml", "chemical/x-cdxml"],
   cml: ["drawing.cml", "chemical/x-cml"], rxn: ["drawing.rxn", "chemical/x-mdl-rxnfile"], trasf: ["drawing.trasf.json", "application/json"], svg: ["drawing.svg", "image/svg+xml"], [NAMES.slug]: [NAMES.doc, "application/json"], log: ["drawing.log.json", "application/json"] });
-const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus", "--d2-accent"];
+const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus", "--d2-accent", "--d2-muted"];
 
 /** @type {any} */ let ed = null;
 /** the context menu of the canvas (context.js) @type {ReturnType<typeof contextMenu>} */ let menu;
@@ -156,11 +156,14 @@ function refresh() {
   }
   $("d2-outline").replaceChildren(...st.outline.map((/** @type {any} */ s, /** @type {number} */ i) => {
     const li = document.createElement("li");
-    li.textContent = t("draw2.outline.piece", { n: i + 1, formula: s.formula, atoms: s.atoms, bonds: s.bonds }) + (s.ann ? " " + t("draw2.outline.level", { level: s.ann.level }) : "");
+    li.textContent = t("draw2.outline.piece", { n: i + 1, formula: s.formula, atoms: s.atoms, bonds: s.bonds }) + (s.ann ? " " + t("draw2.outline.level", { level: s.ann.level }) : "")
+      + (s.lens ? " " + t(s.lens.delta ? "draw2.outline.lens" : "draw2.outline.lens.same", s.lens) : "");
     return li;
   }));
   if (!st.outline.length) { const li = document.createElement("li"); li.textContent = t("draw2.outline.empty"); $("d2-outline").append(li); }
   dataFields(st.outline); annFields(st.outline);
+  { const lens = /** @type {HTMLSelectElement | null} */ (document.getElementById("d2-style-display.lens")); if (lens && lens.value !== st.lens) lens.value = st.lens; }
+  $("d2-lens-note").textContent = st.lensNote ? t(st.lensNote.key, { n: st.lensNote.n }) : "";
   $("d2-focus").textContent = st.focus ? focusText(st.focus) : "";
   for (const [id, kind] of [["d2-element", "atom:"], ["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
     const input = /** @type {HTMLInputElement} */ ($(id)), on = st.tool.startsWith(kind);
@@ -532,6 +535,11 @@ async function styles() {
     words[c.key] = true;
     row(c.key, input, "", c.key);
   }
+  // the display words of the module (the diff lens): a choice like the two above, its words from the schema's `display`
+  { const input = document.createElement("select");
+    for (const v of schema.display.lens) { const o = document.createElement("option"); o.value = v; o.textContent = t(`draw2.style.choice.display.lens.${v}`); input.append(o); }
+    words["display.lens"] = true;
+    row("display.lens", input, "", "display.lens"); }
   const colour = document.createElement("select");
   for (const c of schema.colours) { const o = document.createElement("option"); o.value = c; o.textContent = t(`draw2.style.colour.${c}`); colour.append(o); }
   row("colour", colour, "");

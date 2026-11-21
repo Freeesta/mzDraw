@@ -1,0 +1,236 @@
+{
+ "format": "fidelity-lens/1",
+ "date": "2026-11-21",
+ "programs": {
+  "rdkit": "2026.09.2"
+ },
+ "success": "10/10",
+ "results": [
+  {
+   "case": "identical copy",
+   "rdkit": {
+    "added": [],
+    "changed": [],
+    "added_bonds": [],
+    "changed_bonds": [],
+    "cleaved": [],
+    "lost": [],
+    "delta": {}
+   },
+   "ok": true
+  },
+  {
+   "case": "hydroxylation (atom and bond added, carbon changed)",
+   "rdkit": {
+    "added": [
+     9
+    ],
+    "changed": [
+     5
+    ],
+    "added_bonds": [
+     [
+      5,
+      9
+     ]
+    ],
+    "changed_bonds": [],
+    "cleaved": [],
+    "lost": [],
+    "delta": {
+     "O": 1
+    }
+   },
+   "ok": true
+  },
+  {
+   "case": "demethylation (atom lost, nitrogen changed)",
+   "rdkit": {
+    "added": [],
+    "changed": [
+     1
+    ],
+    "added_bonds": [],
+    "changed_bonds": [],
+    "cleaved": [],
+    "lost": [
+     7
+    ],
+    "delta": {
+     "C": -1,
+     "H": -2
+    }
+   },
+   "ok": true
+  },
+  {
+   "case": "ring opening by hydrolysis (bond cleaved, oxygen added)",
+   "rdkit": {
+    "added": [
+     9
+    ],
+    "changed": [
+     1
+    ],
+    "added_bonds": [
+     [
+      2,
+      9
+     ]
+    ],
+    "changed_bonds": [],
+    "cleaved": [
+     [
+      1,
+      2
+     ]
+    ],
+    "lost": [],
+    "delta": {
+     "O": 1,
+     "H": 2
+    }
+   },
+   "ok": true
+  },
+  {
+   "case": "C=O reduced to C-O (bond order changed)",
+   "rdkit": {
+    "added": [],
+    "changed": [
+     2,
+     8
+    ],
+    "added_bonds": [],
+    "changed_bonds": [
+     [
+      2,
+      8
+     ]
+    ],
+    "cleaved": [],
+    "lost": [],
+    "delta": {
+     "H": 2
+    }
+   },
+   "ok": true
+  },
+  {
+   "case": "ring closure across the ring (bond formed between existing atoms)",
+   "rdkit": {
+    "added": [],
+    "changed": [
+     3,
+     6
+    ],
+    "added_bonds": [
+     [
+      3,
+      6
+     ]
+    ],
+    "changed_bonds": [],
+    "cleaved": [],
+    "lost": [],
+    "delta": {
+     "H": -2
+    }
+   },
+   "ok": true
+  },
+  {
+   "case": "carbon replaced by nitrogen (element changed)",
+   "rdkit": {
+    "added": [],
+    "changed": [
+     5
+    ],
+    "added_bonds": [],
+    "changed_bonds": [],
+    "cleaved": [],
+    "lost": [],
+    "delta": {
+     "N": 1,
+     "C": -1,
+     "H": -1
+    }
+   },
+   "ok": true
+  },
+  {
+   "case": "isotope label (isotope changed)",
+   "rdkit": {
+    "added": [],
+    "changed": [
+     7
+    ],
+    "added_bonds": [],
+    "changed_bonds": [],
+    "cleaved": [],
+    "lost": [],
+    "delta": {}
+   },
+   "ok": true
+  },
+  {
+   "case": "N-oxide (charge changed, atom added)",
+   "rdkit": {
+    "added": [
+     9
+    ],
+    "changed": [
+     1
+    ],
+    "added_bonds": [
+     [
+      1,
+      9
+     ]
+    ],
+    "changed_bonds": [],
+    "cleaved": [],
+    "lost": [],
+    "delta": {
+     "O": 1
+    }
+   },
+   "ok": true
+  },
+  {
+   "case": "chain of three carbons grown on a ring carbon",
+   "rdkit": {
+    "added": [
+     9,
+     10,
+     11
+    ],
+    "changed": [
+     4
+    ],
+    "added_bonds": [
+     [
+      4,
+      9
+     ],
+     [
+      9,
+      10
+     ],
+     [
+      10,
+      11
+     ]
+    ],
+    "changed_bonds": [],
+    "cleaved": [],
+    "lost": [],
+    "delta": {
+     "C": 3,
+     "H": 6
+    }
+   },
+   "ok": true
+  }
+ ]
+}
