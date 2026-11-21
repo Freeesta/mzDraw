@@ -83,6 +83,9 @@ pub enum Check {
     Pieces(u32),
     /// `{"smiles":"..."}`: the SMILES of the whole drawing (`Editor::save("smiles")`) is this text.
     Smiles(String),
+    /// `{"anchored":{"arrow":ID,"from":A,"to":B}}` (tp-02): the arrow `ID` is anchored to the structures of the atoms `A` and `B` (0, or left
+    /// out: that end is free). The ids are the smallest atom ids a command or the arrow tool writes.
+    Anchored { arrow: u32, from: u32, to: u32 },
     /// `{"stereo":"kept"}`: no piece has another stereo signature than at the start of the request (after `import`).
     StereoKept,
 }
@@ -120,6 +123,25 @@ pub fn read_expect(v: &Value) -> Result<Vec<Expectation>, &'static str> {
                     .ok_or(BAD_EXPECT)?,
             ),
             "smiles" => Check::Smiles(val.as_str().ok_or(BAD_EXPECT)?.to_string()),
+            "anchored" => {
+                let o = val.as_object().ok_or(BAD_EXPECT)?;
+                let id = |k: &str, need: bool| match o.get(k) {
+                    None if !need => Some(0),
+                    v => v
+                        .and_then(Value::as_u64)
+                        .and_then(|n| u32::try_from(n).ok()),
+                };
+                if o.keys()
+                    .any(|k| !["arrow", "from", "to"].contains(&k.as_str()))
+                {
+                    return Err(BAD_EXPECT);
+                }
+                Check::Anchored {
+                    arrow: id("arrow", true).filter(|&n| n > 0).ok_or(BAD_EXPECT)?,
+                    from: id("from", false).ok_or(BAD_EXPECT)?,
+                    to: id("to", false).ok_or(BAD_EXPECT)?,
+                }
+            }
             "stereo" if val.as_str() == Some("kept") => Check::StereoKept,
             _ => return Err(BAD_EXPECT),
         };
@@ -199,6 +221,19 @@ impl Check {
                     (false, format!("the drawing has {got} pieces"))
                 }
             }
+            Check::Anchored { arrow, from, to } => match doc.object(*arrow) {
+                Some(o) if o.t == crate::doc::ObjKind::Arrow => {
+                    if (o.from, o.to) == (*from, *to) {
+                        (true, String::new())
+                    } else {
+                        (
+                            false,
+                            format!("the arrow is anchored {} to {} (0: free)", o.from, o.to),
+                        )
+                    }
+                }
+                _ => (false, format!("the drawing has no arrow {arrow}")),
+            },
             Check::Smiles(want) => match doc.to_smiles() {
                 Ok(got) if got == *want => (true, String::new()),
                 Ok(got) => (false, format!("the SMILES of the drawing is {got}")),

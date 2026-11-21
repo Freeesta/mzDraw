@@ -102,6 +102,24 @@
    "pointer": "mouse",
    "actions": 13,
    "ok": true
+  },
+  {
+   "task": "two-step-chain",
+   "pointer": "mouse",
+   "actions": 6,
+   "ok": true
+  },
+  {
+   "task": "star-of-four",
+   "pointer": "mouse",
+   "actions": 10,
+   "ok": true
+  },
+  {
+   "task": "parent-three-tps",
+   "pointer": "mouse",
+   "actions": 8,
+   "ok": true
   }
  ]
 }
