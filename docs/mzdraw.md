@@ -98,7 +98,7 @@ Generated from `schema::json()` (`"out":"schema"`); the test `crates/mzdraw/test
 |---|---|---|---|---|---|
 | `atom.add` | mzdraw/1 | true | true | DropAtom, Next | `id` uint (from the document counter when absent)<br>`el` string* (an element symbol)<br>`x` number* (bond length)<br>`y` number* (bond length) |
 | `bond.add` | mzdraw/1 | true | true | DropBond, Next | `id` uint (from the document counter when absent)<br>`a` uint*<br>`b` uint*<br>`o` uint (0..=255, default 1)<br>`s` uint (0..=255, default 0) |
-| `atom.set` | mzdraw/1 | true | true | SetAtom | `id` uint*<br>`el` string (an element symbol)<br>`chg` int (-128..=127)<br>`iso` uint (0..=65535)<br>`rad` uint (0..=255)<br>`h` uint (0..=255)<br>`lab` string (the empty text takes the label away) |
+| `atom.set` | mzdraw/1 | true | true | SetAtom | `id` uint*<br>`el` string (an element symbol)<br>`chg` int (-128..=127)<br>`iso` uint (0..=65535)<br>`rad` uint (0..=255)<br>`h` uint (0..=255)<br>`lab` string (the empty text takes the label away)<br>`map` uint (atom-to-atom map number 1..=999; 0 takes it away) |
 | `atom.data` | mzdraw/1 | true | false | SetAtom | `id` uint*<br>`data` string[][2]* (the empty list takes the data away) |
 | `atom.ann` | mzdraw/1 | true | false | SetAtom | `id` uint*<br>`ann` json[]* (the empty list takes the annotation away) |
 | `bond.set` | mzdraw/1 | true | true | SetBond | `id` uint*<br>`o` uint (0..=255)<br>`s` uint (0..=255)<br>`rev` bool (default false) |

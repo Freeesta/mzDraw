@@ -247,6 +247,7 @@ impl Editor {
                 Hit::Atom(a) => {
                     let now = self.session.doc.atom(a).map_or(0, |x| x.chg);
                     let set = Op::AtomSet {
+                        map: None,
                         id: a,
                         el: None,
                         chg: Some(now + c),
@@ -339,6 +340,7 @@ impl Editor {
             Hit::Atom(a) if p.moved => self.sprout(a, el, (1, 0), px, py, p.kind),
             Hit::Atom(a) => {
                 let set = Op::AtomSet {
+                    map: None,
                     id: a,
                     el: Some(el.into()),
                     chg: None,
@@ -369,6 +371,7 @@ impl Editor {
     /// The label tool: on an atom it sets the label, on an empty spot it adds a labelled atom.
     fn label_release(&mut self, p: &Press, label: &str, px: f64, py: f64) -> u32 {
         let set = |id| Op::AtomSet {
+            map: None,
             id,
             el: None,
             chg: None,
@@ -691,6 +694,7 @@ impl Editor {
         let f = match self.over.focus.or(self.over.hover_atom) {
             Some(a) => {
                 let set = Op::AtomSet {
+                    map: None,
                     id: a,
                     el: Some(el.into()),
                     chg: None,

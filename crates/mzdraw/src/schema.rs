@@ -113,6 +113,13 @@ pub const OPS: &[OpSpec] = &[
                 "",
                 "the empty text takes the label away",
             ),
+            f(
+                "map",
+                "uint",
+                false,
+                "",
+                "atom-to-atom map number 1..=999; 0 takes it away",
+            ),
         ],
         inverse: "SetAtom",
         since: "mzdraw/1",

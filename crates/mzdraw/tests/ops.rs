@@ -113,6 +113,7 @@ fn refused_operations_change_nothing() {
 fn set_move_and_remove() {
     let mut s = ethanol();
     s.run(&[Op::AtomSet {
+        map: None,
         id: 3,
         el: Some("N".into()),
         chg: Some(1),
@@ -164,6 +165,7 @@ fn hydrogens_follow_the_valence_rules() {
     assert_eq!((h(&s, 2), h(&s, 3)), (1, 0));
     s.run(&[
         Op::AtomSet {
+            map: None,
             id: 3,
             el: None,
             chg: Some(-1),
@@ -253,6 +255,8 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
         }
         2 => vec![bond(atom(r), atom(r), 1 + r.next(3) as u8)],
         3 => vec![Op::AtomSet {
+            // atom-to-atom maps: set, changed, taken away (0) and refused (above 999)
+            map: [None, Some(0), Some(1), Some(7), Some(999), Some(1000)][r.next(6)],
             id: atom(r),
             el: Some(els[r.next(els.len())].into()),
             chg: Some(r.next(5) as i8 - 2),
@@ -360,6 +364,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             at: xy(r).0,
         }],
         13 => vec![Op::AtomSet {
+            map: None,
             id: atom(r),
             el: None,
             chg: None,
@@ -837,6 +842,7 @@ fn unknown_fields_of_a_document_survive_reading_editing_and_writing() {
         },
         set_order(3, 2),
         Op::AtomSet {
+            map: None,
             id: 1,
             el: Some("N".into()),
             chg: None,

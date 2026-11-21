@@ -33,6 +33,7 @@ impl Document {
             let close = rest[open..].find(']').map_or(rest.len(), |k| open + k + 1);
             let token = &rest[open..close];
             let i = written.next().unwrap_or(usize::MAX);
+            let map = self.atoms.get(i).map_or(0, |a| a.map);
             out.push_str(&rest[..open]);
             match (
                 self.atoms.get(i).and_then(|a| label::kind(&a.lab)),
@@ -40,7 +41,13 @@ impl Document {
             ) {
                 (Some(Kind::R(0)), _) => out.push_str("[*]"),
                 (Some(Kind::R(n)), _) => out.push_str(&format!("[*:{n}]")),
-                (_, Some(a)) if !token.contains('@') && bare(a, used[i]) => out.push_str(&a.el),
+                (_, Some(a)) if !token.contains('@') && bare(a, used[i]) && map == 0 => {
+                    out.push_str(&a.el)
+                }
+                // the atom class of a bracket atom is its map
+                _ if map != 0 && token.ends_with(']') => {
+                    out.push_str(&format!("{}:{map}]", &token[..token.len() - 1]))
+                }
                 _ => out.push_str(token),
             }
             rest = &rest[close..];
@@ -78,6 +85,7 @@ impl Document {
                 ("END ATOM" | "END BOND", _) => block = ' ',
                 (_, 'a') => {
                     let r = self.atoms.get(k).and_then(|a| label::kind(&a.lab));
+                    let map = self.atoms.get(k).map_or(0, |a| a.map);
                     if let Some(Kind::R(n)) = r {
                         // index, stand-in, x, y, z: the symbol is replaced, what follows the coordinates is not about an R group
                         let f: Vec<&str> = body.split(' ').collect();
@@ -88,6 +96,16 @@ impl Document {
                         };
                         if let [i, _, x, y, z, ..] = f[..] {
                             marked = Some(format!("M  V30 {i} {symbol} {x} {y} {z} 0{number}"));
+                        }
+                    }
+                    // the fifth field after the symbol is the atom-to-atom map
+                    if map != 0 {
+                        let line = marked.as_deref().unwrap_or(line);
+                        let mut f: Vec<&str> = line.split(' ').collect();
+                        let map = map.to_string();
+                        if f.len() > 8 {
+                            f[8] = &map;
+                            marked = Some(f.join(" "));
                         }
                     }
                     k += 1;
@@ -344,6 +362,7 @@ pub(crate) fn assemble(
         let (clean, labels) = prepare(&text, info);
         let m = Mol::from_molfile(&clean).map_err(|_| key)?;
         d = crate::io::labelled(&m, labels, info).0;
+        d.set_maps(&crate::maps::of_molfile(&clean));
         if let Some(a) = d.atoms.get(far.1).filter(|_| far.0.abs() > 1e-9) {
             k = if far.2 { a.y } else { a.x } / far.0;
         }

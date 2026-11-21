@@ -169,6 +169,7 @@ impl Document {
                 rad: a.rad,
                 h: None,
                 lab: String::new(),
+                map: 0,
                 more: Vec::new(),
             });
         }
@@ -314,7 +315,7 @@ impl Document {
             return self.v3000(m, r_as_query);
         }
         let text = self.mark_wedges(m.to_molfile(crate::NAME), m.atoms.len());
-        self.mark_r_groups(text, r_as_query)
+        self.mark_maps(self.mark_r_groups(text, r_as_query))
     }
 
     /// Writes the R groups on the atom lines of a V2000 molfile of this document (the stand-in element becomes `R#`, or `A` for
@@ -475,7 +476,8 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     }
     let (clean, labels) = formats::r_atoms(&all);
     let m = Mol::from_smiles(&clean).map_err(|_| "error.draw2.smiles")?;
-    let (d, placeholder) = labelled(&m, labels, &mut info);
+    let (mut d, placeholder) = labelled(&m, labels, &mut info);
+    d.set_maps(&crate::maps::of_smiles(&all));
     info.placeholder = placeholder;
     Ok((d, info))
 }
@@ -488,7 +490,9 @@ pub(crate) fn record_of(
 ) -> Result<(Document, bool), &'static str> {
     let (clean, labels) = formats::prepare(record, info);
     let m = Mol::from_molfile(&clean).map_err(|_| "error.draw2.molfile")?;
-    Ok(labelled(&m, labels, info))
+    let (mut d, placeholder) = labelled(&m, labels, info);
+    d.set_maps(&crate::maps::of_molfile(&clean));
+    Ok((d, placeholder))
 }
 
 /// A file may hold what a document does not (a coordinate far outside the bound): it is refused with `key`, not half kept.

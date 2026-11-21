@@ -206,6 +206,7 @@ fn data_is_set_by_an_operation_with_an_exact_inverse() {
     }])
     .unwrap();
     s.run(&[Op::AtomSet {
+        map: None,
         id: 1,
         el: Some("N".into()),
         chg: None,

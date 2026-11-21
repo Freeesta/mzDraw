@@ -763,6 +763,39 @@ try {
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
   });
 
+  await step("atom map by touch: tap the atom, tap the field, type, tap Set; the number is drawn and written to SMILES and RXN files", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "select"); await pg.touchscreen.tap(cx, cy); await want(pg, { selected: 1 });
+    const tapOn = async sel => { await pg.locator(sel).scrollIntoViewIfNeeded(); const b = await pg.locator(sel).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+    await tapOn("#d2-map"); await pg.keyboard.type("4"); await tapOn("#d2-map-set");
+    await until(pg, "document.querySelector('#d2-map-note').textContent === I18N.t('draw2.map.done', { n: 4 })");
+    assert((await pg.evaluate("window.MZDRAW.save('mzdraw')")).includes('"map":4'), "the document keeps the map");
+    assert((await pg.evaluate("window.MZDRAW.save('smiles')")).includes(":4]"), "SMILES carries the class");
+    assert((await pg.evaluate("window.MZDRAW.save('svg')")).includes(">4</text>"), "the number is drawn");
+    await pg.locator("#d2-canvas").scrollIntoViewIfNeeded(); await shot(pg, "atom-map");
+    await tool(pg, "undo"); assert(!(await pg.evaluate("window.MZDRAW.save('mzdraw')")).includes('"map"'), "undo takes it away");
+    // a number out of range is refused in words and changes nothing
+    await tool(pg, "select"); await pg.touchscreen.tap(cx, cy); await want(pg, { selected: 1 });
+    await pg.fill("#d2-map", "1000"); await tapOn("#d2-map-set");
+    await until(pg, "document.querySelector('#d2-map-note').textContent === I18N.t('error.draw2.map')");
+    assert(!(await pg.evaluate("window.MZDRAW.save('mzdraw')")).includes('"map"'), "refused");
+  });
+
+  await step("atom map by keyboard: focus an atom with Home, Tab to the field, type, Enter; display.maps turns the number off", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "select");
+    await pg.locator("#d2-canvas").focus(); await pg.keyboard.press("Home"); await until(pg, "!!" + STATE + ".focus");
+    await pg.fill("#d2-map", ""); await pg.locator("#d2-map").focus(); await pg.keyboard.type("12"); await pg.keyboard.press("Enter");
+    await until(pg, "document.querySelector('#d2-map-note').textContent === I18N.t('draw2.map.done', { n: 12 })");
+    assert((await pg.evaluate("window.MZDRAW.save('molfile')")).includes("  0 12  0  0"), "the molfile atom line carries the number");
+    assert((await pg.evaluate("window.MZDRAW.save('svg')")).includes(">12</text>"), "the number is drawn");
+    await pg.evaluate("window.MZDRAW.set('display.maps=off')");
+    assert(!(await pg.evaluate("window.MZDRAW.save('svg')")).includes(">12</text>"), "off: not drawn");
+    assert((await pg.evaluate("window.MZDRAW.save('molfile')")).includes("  0 12  0  0"), "off: still written");
+  });
+
   await step("tablet with touch: the PFAS scale and level 2c of the annotation, set by tapping", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await tool(pg, "bond:down"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });

@@ -18,6 +18,7 @@ fn px(e: &Editor, id: u32) -> (f64, f64) {
 
 fn set_label(id: u32, lab: &str) -> Op {
     Op::AtomSet {
+        map: None,
         id,
         el: None,
         chg: None,
@@ -177,6 +178,7 @@ fn labels_are_set_refused_cleared_and_undone() {
     assert_eq!(s.doc.to_json(), plain);
     s.undo();
     s.run(&[Op::AtomSet {
+        map: None,
         id: 1,
         el: Some("N".into()),
         chg: None,

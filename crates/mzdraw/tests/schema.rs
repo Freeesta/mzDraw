@@ -28,6 +28,7 @@ fn full_ops() -> Vec<Op> {
             s: 1,
         },
         Op::AtomSet {
+            map: Some(4),
             id: 1,
             el: Some("N".into()),
             chg: Some(-1),

@@ -72,6 +72,17 @@ function dataFields(outline) {
   }));
 }
 
+/** the atom-to-atom map field: what is typed is given to the module, which picks the atom (the focused or the only selected one) and judges the number */
+function mapField() {
+  const input = /** @type {HTMLInputElement} */ ($("d2-map")), note = $("d2-map-note");
+  const apply = () => {
+    const f = after(ed.set_map(Number(input.value) || 0)), st = JSON.parse(ed.state());
+    note.textContent = f & CHANGED ? t("draw2.map.done", { n: Number(input.value) || 0 }) : t(st.error || "error.draw2.map");
+  };
+  $("d2-map-set").addEventListener("click", apply);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(); } });
+}
+
 /** the annotation of each structure: level, identifier, evidence, note; what is typed is given to the module, which decides @param {any[]} outline */
 function annFields(outline) {
   const box = $("d2-ann"), active = document.activeElement;
@@ -454,6 +465,7 @@ I.apply(document);
 document.title = t("draw2.name");
 try {
   ed = await load();
+  mapField();
   /** @type {any} */ (window).MZDRAW = ed;
   toolbar(); events(); clipboardEvents(); panels(); await styles(); size(); refresh();
   document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });

@@ -72,6 +72,7 @@ impl Editor {
                 let now = self.doc().atom(a).map_or(0, |x| x.chg);
                 let chg = now + if key == "+" { 1 } else { -1 };
                 let set = Op::AtomSet {
+                    map: None,
                     id: a,
                     el: None,
                     chg: Some(chg),

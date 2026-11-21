@@ -39,6 +39,8 @@ pub enum Op {
         h: Option<u8>,
         /// A label (an abbreviation or an R group); the empty text takes the label away.
         lab: Option<String>,
+        /// The atom-to-atom map number, 1..=999; 0 takes it away.
+        map: Option<u16>,
     },
     /// Replaces the data kept on an atom (the data fields of its structure: name and value pairs, `doc::data_valid`); an empty
     /// list takes them away.
@@ -179,6 +181,7 @@ impl Op {
                 rad,
                 h,
                 lab,
+                map,
             } => {
                 w.text("op", "atom.set");
                 w.int("id", i64::from(*i));
@@ -192,6 +195,7 @@ impl Op {
                 if let Some(lab) = lab {
                     w.text("lab", lab);
                 }
+                int(&mut w, "map", map.map(i64::from));
             }
             Op::AtomData { id: i, data } => {
                 w.text("op", "atom.data");
@@ -413,6 +417,7 @@ impl Op {
                 rad: g.u("rad")?,
                 h: g.u("h")?,
                 lab: g.s("lab")?,
+                map: g.u("map")?,
             },
             "atom.data" => Op::AtomData {
                 id: g.u("id")?.ok_or(())?,
@@ -592,6 +597,7 @@ impl Document {
             chg: 0,
             iso: 0,
             rad: 0,
+            map: 0,
             h: None,
             lab: String::new(),
             more: Vec::new(),
@@ -654,6 +660,7 @@ impl Document {
             rad,
             h,
             lab,
+            map,
         } = op
         else {
             return Ok(());
@@ -663,6 +670,9 @@ impl Document {
         };
         if el.as_ref().is_some_and(|e| !mzlab_mol::is_element(e)) {
             return err("error.draw2.element", *id);
+        }
+        if map.is_some_and(|m| m > crate::doc::MAX_MAP) {
+            return err("error.draw2.map", *id);
         }
         if lab
             .as_ref()
@@ -684,6 +694,7 @@ impl Document {
         a.iso = iso.unwrap_or(a.iso);
         a.rad = rad.unwrap_or(a.rad).min(3);
         a.h = h.or(a.h);
+        a.map = map.unwrap_or(a.map);
         Ok(())
     }
 

@@ -458,7 +458,13 @@ impl Editor {
                 x: a.x + dx,
                 y: a.y + dy,
             });
-            if a.chg != 0 || a.iso != 0 || a.rad != 0 || a.h.is_some() || !a.lab.is_empty() {
+            if a.chg != 0
+                || a.iso != 0
+                || a.rad != 0
+                || a.map != 0
+                || a.h.is_some()
+                || !a.lab.is_empty()
+            {
                 let some = |v: bool| v.then_some(());
                 ops.push(Op::AtomSet {
                     id: base + a.id,
@@ -468,6 +474,7 @@ impl Editor {
                     rad: some(a.rad != 0).map(|_| a.rad),
                     h: a.h,
                     lab: (!a.lab.is_empty()).then(|| a.lab.clone()),
+                    map: (a.map != 0).then_some(a.map),
                 });
             }
             // the data of a structure (the fields of an SDF record) comes along with the atom that keeps it
@@ -591,6 +598,32 @@ impl Editor {
         s.to_json()
     }
 
+    /// Sets the atom-to-atom map of the atom that has the focus, or else of the only selected atom, as one undo step; 0 takes it
+    /// away. A number above `doc::MAX_MAP`, or no atom to act on, changes nothing (`error.draw2.map` in `error`).
+    pub fn set_map(&mut self, map: u16) -> u32 {
+        let target = (self.over.focus)
+            .or_else(|| match self.over.sel_atoms[..] {
+                [only] => Some(only),
+                _ => None,
+            })
+            .filter(|&a| self.doc().atom(a).is_some());
+        let Some(id) = target.filter(|_| map <= crate::doc::MAX_MAP) else {
+            self.error = "error.draw2.map";
+            return REPAINT;
+        };
+        let set = Op::AtomSet {
+            id,
+            el: None,
+            chg: None,
+            iso: None,
+            rad: None,
+            h: None,
+            lab: None,
+            map: Some(map),
+        };
+        self.run(&[set], "draw2.say.map", &map.to_string())
+    }
+
     /// Sets the data of the structure the atom `anchor` belongs to (the data fields of its SDF record), as one undo step: the
     /// list is kept on `anchor` and taken off the other atoms of the structure. A list an SDF could not hold is refused
     /// (`error.draw2.data` in `error`) and changes nothing.
@@ -682,6 +715,7 @@ impl Editor {
                 self.said = ("draw2.say.style", self.style.name.clone());
                 Ok(REPAINT)
             }
+            "display" => self.style.set_display(key, value).map(|_| REPAINT),
             "export" => self.export.set(key, value).map(|_| 0),
             "layout" => self.layout.set(key, value).map(|_| PALETTES),
             _ => Err("error.draw2.set"),

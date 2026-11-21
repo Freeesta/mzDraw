@@ -521,6 +521,7 @@ fn the_charge_items_are_disabled_at_the_limit_of_the_charge() {
     let (mut e, at) = scenario("atom");
     for (chg, plus, minus) in [(3, true, true), (4, false, true), (-4, true, false)] {
         let set = Op::AtomSet {
+            map: None,
             id: 1,
             el: None,
             chg: Some(chg),

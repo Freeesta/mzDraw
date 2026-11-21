@@ -279,6 +279,7 @@ impl Editor {
         {
             let same = self.doc().atom(a).is_some_and(|x| x.el == el);
             let set = Op::AtomSet {
+                map: None,
                 id: a,
                 el: Some(el.into()),
                 chg: None,
@@ -342,6 +343,7 @@ impl Editor {
     fn add_charge(&mut self, atom: u32, by: i8) -> u32 {
         let chg = self.doc().atom(atom).map_or(0, |a| a.chg) + by;
         let set = Op::AtomSet {
+            map: None,
             id: atom,
             el: None,
             chg: Some(chg),
