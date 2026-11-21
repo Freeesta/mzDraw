@@ -3,20 +3,20 @@
    The prefix is NAMES.tokens of web/names.js; CSS cannot read it, so it is written out here only. The canvas reads the --d2-*
    names, the rules the short names below, both made of tokens. Contrast of the token pairs is measured in tests/e2e.mjs. */
 :root, :root[data-theme="light"] { color-scheme: light;
-  --mzd-surface: #f3f2ee; --mzd-surface-raised: #fbfaf8; --mzd-paper: #fefefc; --mzd-border: rgb(43 40 34 / .13); --mzd-control: #8a857b;
+  --mzd-surface: #f3f2ee; --mzd-surface-raised: #fbfaf8; --mzd-paper: #fefefc; --mzd-border: rgb(43 40 34 / .13); --mzd-control: #7a756b;
   --mzd-ink: #2a2925; --mzd-ink-muted: #5c5850; --mzd-accent: #2d5d8c; --mzd-accent-soft: #dce6ef; --mzd-hover: #e7e5df;
-  --mzd-selection: #b8cfe4; --mzd-focus: #2f6aa6; --mzd-danger: #b0281f; --mzd-shadow: rgb(43 40 34 / .16);
-  --mzd-atom-n: #2d47b5; --mzd-atom-o: #b9302a; --mzd-atom-s: #806300; --mzd-atom-x: #2b7230; --mzd-atom-p: #a95300; --mzd-preview: #62809f; }
+  --mzd-selection: #c5d8ea; --mzd-focus: #2f6aa6; --mzd-danger: #a3231b; --mzd-shadow: rgb(43 40 34 / .16);
+  --mzd-atom-n: #2d47b5; --mzd-atom-o: #a92b25; --mzd-atom-s: #6b5300; --mzd-atom-x: #25652a; --mzd-atom-p: #8c4600; --mzd-preview: #62809f; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark;
   --mzd-surface: #22221f; --mzd-surface-raised: #2b2a27; --mzd-paper: #1b1b19; --mzd-border: rgb(240 234 222 / .12); --mzd-control: #8b867d;
-  --mzd-ink: #e2dfd8; --mzd-ink-muted: #aaa59b; --mzd-accent: #93b9e0; --mzd-accent-soft: #2f3e4f; --mzd-hover: #353430;
-  --mzd-selection: #35506c; --mzd-focus: #8db6e2; --mzd-danger: #ef8b80; --mzd-shadow: rgb(0 0 0 / .45);
-  --mzd-atom-n: #9fb1ff; --mzd-atom-o: #f88e85; --mzd-atom-s: #dcbf55; --mzd-atom-x: #86cd86; --mzd-atom-p: #f2a964; --mzd-preview: #9ab3cf; } }
+  --mzd-ink: #e2dfd8; --mzd-ink-muted: #b4afa5; --mzd-accent: #93b9e0; --mzd-accent-soft: #2f3e4f; --mzd-hover: #353430;
+  --mzd-selection: #2a3f54; --mzd-focus: #8db6e2; --mzd-danger: #f59b91; --mzd-shadow: rgb(0 0 0 / .45);
+  --mzd-atom-n: #aab9ff; --mzd-atom-o: #ff9a90; --mzd-atom-s: #e3c862; --mzd-atom-x: #8ed38e; --mzd-atom-p: #f7b070; --mzd-preview: #9ab3cf; } }
 :root[data-theme="dark"] { color-scheme: dark;
   --mzd-surface: #22221f; --mzd-surface-raised: #2b2a27; --mzd-paper: #1b1b19; --mzd-border: rgb(240 234 222 / .12); --mzd-control: #8b867d;
-  --mzd-ink: #e2dfd8; --mzd-ink-muted: #aaa59b; --mzd-accent: #93b9e0; --mzd-accent-soft: #2f3e4f; --mzd-hover: #353430;
-  --mzd-selection: #35506c; --mzd-focus: #8db6e2; --mzd-danger: #ef8b80; --mzd-shadow: rgb(0 0 0 / .45);
-  --mzd-atom-n: #9fb1ff; --mzd-atom-o: #f88e85; --mzd-atom-s: #dcbf55; --mzd-atom-x: #86cd86; --mzd-atom-p: #f2a964; --mzd-preview: #9ab3cf; }
+  --mzd-ink: #e2dfd8; --mzd-ink-muted: #b4afa5; --mzd-accent: #93b9e0; --mzd-accent-soft: #2f3e4f; --mzd-hover: #353430;
+  --mzd-selection: #2a3f54; --mzd-focus: #8db6e2; --mzd-danger: #f59b91; --mzd-shadow: rgb(0 0 0 / .45);
+  --mzd-atom-n: #aab9ff; --mzd-atom-o: #ff9a90; --mzd-atom-s: #e3c862; --mzd-atom-x: #8ed38e; --mzd-atom-p: #f7b070; --mzd-preview: #9ab3cf; }
 /* the names the canvas reads (web/mzdraw.js COLOURS) */
 :root { --d2-ink: var(--mzd-ink); --d2-select: var(--mzd-selection); --d2-hover: var(--mzd-hover); --d2-warn: var(--mzd-danger); --d2-preview: var(--mzd-preview);
   --d2-n: var(--mzd-atom-n); --d2-o: var(--mzd-atom-o); --d2-s: var(--mzd-atom-s); --d2-x: var(--mzd-atom-x); --d2-p: var(--mzd-atom-p); --d2-focus: var(--mzd-focus); }
