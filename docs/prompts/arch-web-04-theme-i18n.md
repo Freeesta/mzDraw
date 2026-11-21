@@ -1,4 +1,4 @@
-# arch-web-04: Host text and colours: the `t` hook, the palette in Rust, forced colours, reduced motion
+# arch-web-04: Host text and colours: the `t` hook, host theme tokens into the palette, reduced motion
 
 Prompt for one DEV chat of mzDraw (`Freeesta/mzDraw`), proposed by the study `docs/study/arch-web.md` (§7, slice 04).
 
@@ -10,13 +10,13 @@ Your first message, to COO-MZDRAW (the coordinator; its session id is in your la
 You are DEV-THEME-I18N, a development chat. You build one small slice, open one PR ready for review, and report. The coordinator merges with the full head SHA; you never merge.
 
 ## Scope
-- In: `configure({t, theme})`: the page resolves every key through `t` (default: the bundled English table of `web/lang/en`); colours come in as tokens and are handed to Rust as a palette that the display list and the SVG use (element colours stay a style choice); under `forced-colors: active` the canvas uses system colours (CanvasText, Canvas, Highlight, LinkText) given by the page as resolved values; under `prefers-reduced-motion` no animated zoom or pan.
-- Out: the design of light and dark tokens (UI slice, PR 3 of `docs/mzdraw-ui.md`): consume its token names if they are on `main`, else use the names of today's CSS and tell COO-MZDRAW.
+- In: `configure({t, theme})`: the page resolves every key through `t` (default: the bundled English table of `web/lang/en`); the host's theme tokens (selection, hover, focus, mark and background colours of the screen) come in through `theme` and are handed to Rust as the screen palette next to the element palettes of `arch-std-03`; saved files keep the document palette; under `prefers-reduced-motion` no animated zoom or pan.
+- Out: forced colours (`arch-std-07`), element palettes and their contrast (`arch-std-03`), the design of light and dark tokens (UI slice, PR 3 of `docs/mzdraw-ui.md`): consume its token names if they are on `main`, else use the names of today's CSS and tell COO-MZDRAW.
 - Anything else you notice: one line to COO-MZDRAW, not in this PR.
 
 ## Context (read first)
-- `CLAUDE.md` (rules 1-14), `docs/mzdraw.md` (the section "Built state" is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 04, and §5 for the API).
-- Forced colours repaint CSS, not canvas pixels (CSS Color Adjustment 1, CRS 2025-12-16; inferred), so the renderer must take system colours; nobody among the editors read does it (`docs/study/arch-web.md` §4.6).
+- `CLAUDE.md` (rules 1-15), `docs/mzdraw.md` (the section "Built state" is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 04, and §5 for the API).
+- `arch-std-03` (palettes) and `arch-std-07` (forced colours) may be on `main` before you start: build on them, do not duplicate; if they are not, keep your screen palette separate so they can plug in.
 - WCAG 2.2: 1.4.11 non-text contrast 3:1, 1.4.1 colour never the only signal (the valence marks must stay marked by shape too).
 - Rust returns keys and parameters, never sentences (`docs/mzdraw.md` Architecture, i18n).
 
@@ -26,15 +26,15 @@ You are DEV-THEME-I18N, a development chat. You build one small slice, open one 
 - No bundler, no framework, no new crate or npm package unless the PR states the reason.
 - Synthetic data only in tests and examples (molecules you write yourself as SMILES or by hand).
 - Every new edit operation has an exact inverse and is added to the random sequence of the property test (`random_step` in `crates/mzdraw/tests/ops.rs`: apply then undo gives the identical document bytes, redo the identical result), and to the log reader and writer tests of the same file.
-- Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to `tests/data/mzdraw_log.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
+- CLI first (CLAUDE.md rule 15): a feature without a CLI route and a test that replays it natively is incomplete. Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to `tests/data/mzdraw_log.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
 - Never skip, disable or loosen a test. Never push to `main`, never rebase, never force-push; merge `main` into the branch only on a real conflict. The PR is opened ready for review and is never merged by you.
 - Keep the size cap of `tools/wasm-cap.toml` as it is on `main` when you start; update `measured` with the size you measure and report the change in bytes in the PR.
 - Keep the section "Built state" of `docs/mzdraw.md` true (one bullet for this slice, what is built and what is not), and mark the rows of `docs/study/arch-web.md` §4 that you build as `B`.
 
 ## Work
-1. Rust: a `Palette` (named colours for bonds, labels, selection, hover, focus, marks, background) passed to the scene; the SVG writer uses the document palette (black on white by default) so saved files do not change unless asked; a setting `theme.forced=on|off` only for tests and the CLI.
+1. Rust: a screen palette (selection, hover, focus, marks, background) passed to the scene; the SVG writer uses the document palette so saved files do not change.
 2. JS: read the tokens once and on `matchMedia` changes, call Rust; `t` used for every text of the page.
-3. Tests: Rust unit test that the palette reaches the display list and that the SVG bytes are unchanged by a screen palette; e2e with `forcedColors: 'active'` and `reducedMotion: 'reduce'` emulation (Playwright `emulateMedia`): the canvas pixels of a bond use the system text colour; a host `t` that prefixes every string shows only prefixed strings.
+3. Tests: Rust unit test that the palette reaches the display list and that the SVG bytes are unchanged by a screen palette; e2e with `reducedMotion: 'reduce'` emulation (Playwright `emulateMedia`): no animated zoom; a host theme changes the selection colour on the canvas pixels; a host `t` that prefixes every string shows only prefixed strings.
 
 ## Tests
 - As in Work; golden SVGs unchanged.

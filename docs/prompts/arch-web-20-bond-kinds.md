@@ -1,4 +1,4 @@
-# arch-web-20: Bond kinds: bold, dative, hydrogen bond, crossed double
+# arch-web-20: Bond kinds: bold, dative, hydrogen bond
 
 Prompt for one DEV chat of mzDraw (`Freeesta/mzDraw`), proposed by the study `docs/study/arch-web.md` (§7, slice 20).
 
@@ -10,12 +10,12 @@ Your first message, to COO-MZDRAW (the coordinator; its session id is in your la
 You are DEV-BOND-KINDS, a development chat. You build one small slice, open one PR ready for review, and report. The coordinator merges with the full head SHA; you never merge.
 
 ## Scope
-- In: a `k` (kind) on bonds: `bold`, `dative` (arrow from donor to acceptor), `hbond` (dotted), `either` (crossed double bond, E/Z unknown); `bond.set k`; drawn on screen and in SVG; mapped to MOL (V2000 stereo 3 for crossed double; V3000 dative and hydrogen bond types where the CTfile has them), KET (bond types 9 and 10 and `stereo` 3 as the schema defines), CDXML; a kind a format cannot hold is listed in the export notes.
-- Out: query bonds (out of scope), haptic bonds.
+- In: a `k` (kind) on bonds: `bold`, `dative` (arrow from donor to acceptor), `hbond` (dotted); `bond.set k`; drawn on screen and in SVG; mapped to MOL (V3000 dative and hydrogen bond types where the CTfile has them), KET (its dative and hydrogen bond types as the schema defines), CDXML; a kind a format cannot hold is listed in the export notes.
+- Out: the double bond of unknown geometry (`arch-std-11`), query bonds (out of scope), haptic bonds.
 - Anything else you notice: one line to COO-MZDRAW, not in this PR.
 
 ## Context (read first)
-- `CLAUDE.md` (rules 1-14), `docs/mzdraw.md` (the section "Built state" is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 20, and §5 for the API).
+- `CLAUDE.md` (rules 1-15), `docs/mzdraw.md` (the section "Built state" is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 20, and §5 for the API).
 - Ketcher has 14 bond types; the new Marvin binds `x` to cis/trans unknown; PubChem has either and dotted bonds (`docs/study/arch-web.md` §4.1).
 - Check the bond type numbers in the KET schema of Ketcher 3.21.0 (`packages/ketcher-core/src/domain/serializers/ket/schema.json`) and the CTfile documentation before you map; cite both in the PR.
 
@@ -25,7 +25,7 @@ You are DEV-BOND-KINDS, a development chat. You build one small slice, open one 
 - No bundler, no framework, no new crate or npm package unless the PR states the reason.
 - Synthetic data only in tests and examples (molecules you write yourself as SMILES or by hand).
 - Every new edit operation has an exact inverse and is added to the random sequence of the property test (`random_step` in `crates/mzdraw/tests/ops.rs`: apply then undo gives the identical document bytes, redo the identical result), and to the log reader and writer tests of the same file.
-- Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to `tests/data/mzdraw_log.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
+- CLI first (CLAUDE.md rule 15): a feature without a CLI route and a test that replays it natively is incomplete. Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to `tests/data/mzdraw_log.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
 - Never skip, disable or loosen a test. Never push to `main`, never rebase, never force-push; merge `main` into the branch only on a real conflict. The PR is opened ready for review and is never merged by you.
 - Keep the size cap of `tools/wasm-cap.toml` as it is on `main` when you start; update `measured` with the size you measure and report the change in bytes in the PR.
 - Keep the section "Built state" of `docs/mzdraw.md` true (one bullet for this slice, what is built and what is not), and mark the rows of `docs/study/arch-web.md` §4 that you build as `B`.

@@ -1,4 +1,4 @@
-# arch-web-07: Lasso, fragment selection, selection without dragging, keyboard nudge, focus on bonds and objects
+# arch-web-07: Lasso, fragment selection, a band without dragging, focus on bonds and objects
 
 Prompt for one DEV chat of mzDraw (`Freeesta/mzDraw`), proposed by the study `docs/study/arch-web.md` (§7, slice 07).
 
@@ -10,12 +10,12 @@ Your first message, to COO-MZDRAW (the coordinator; its session id is in your la
 You are DEV-SELECTION, a development chat. You build one small slice, open one PR ready for review, and report. The coordinator merges with the full head SHA; you never merge.
 
 ## Scope
-- In: lasso selection, a click that selects the connected piece, a band made by two clicks (WCAG 2.5.7), Shift+click adds, arrow keys move the selection (a tenth of a bond; Shift: one bond) as one `move` step, the keyboard focus on a bond or an object (Tab never taken).
-- Out: rotate handle, context menu (slice 12).
+- In: lasso selection, a click that selects the connected piece, a band made by two clicks (WCAG 2.5.7), Shift+click adds, the keyboard focus on a bond or an object (Tab never taken).
+- Out: moving and rotating by keys and the "Move here" mode (`arch-std-05`), rotate handle, context menu (slice 12).
 - Anything else you notice: one line to COO-MZDRAW, not in this PR.
 
 ## Context (read first)
-- `CLAUDE.md` (rules 1-14), `docs/mzdraw.md` (the section "Built state" is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 07, and §5 for the API).
+- `CLAUDE.md` (rules 1-15), `docs/mzdraw.md` (the section "Built state" is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 07, and §5 for the API).
 - Ketcher cycles rectangle, lasso, fragment selection with Esc (Ketcher 3.21.0 help); WCAG 2.2 SC 2.5.7 needs a non-drag alternative for every drag (the Understanding page's own example is a selection box by two corner clicks); the new Marvin documents objects cycled from the keyboard.
 - The band selection and the atom focus exist (`editor_tools.rs`, `editor_keys.rs`); hit-testing is in Rust.
 
@@ -25,13 +25,13 @@ You are DEV-SELECTION, a development chat. You build one small slice, open one P
 - No bundler, no framework, no new crate or npm package unless the PR states the reason.
 - Synthetic data only in tests and examples (molecules you write yourself as SMILES or by hand).
 - Every new edit operation has an exact inverse and is added to the random sequence of the property test (`random_step` in `crates/mzdraw/tests/ops.rs`: apply then undo gives the identical document bytes, redo the identical result), and to the log reader and writer tests of the same file.
-- Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to `tests/data/mzdraw_log.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
+- CLI first (CLAUDE.md rule 15): a feature without a CLI route and a test that replays it natively is incomplete. Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to `tests/data/mzdraw_log.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
 - Never skip, disable or loosen a test. Never push to `main`, never rebase, never force-push; merge `main` into the branch only on a real conflict. The PR is opened ready for review and is never merged by you.
 - Keep the size cap of `tools/wasm-cap.toml` as it is on `main` when you start; update `measured` with the size you measure and report the change in bytes in the PR.
 - Keep the section "Built state" of `docs/mzdraw.md` true (one bullet for this slice, what is built and what is not), and mark the rows of `docs/study/arch-web.md` §4 that you build as `B`.
 
 ## Work
-1. Rust: tools `select:lasso`, `select:piece`; the two-click band in the select tool (first click on empty space and release without moving arms it, the second click closes it; Esc cancels); nudge on arrow keys when a selection exists and the focus is not on an atom; bond and object focus with announcements by key.
+1. Rust: tools `select:lasso`, `select:piece`; the two-click band in the select tool (first click on empty space and release without moving arms it, the second click closes it; Esc cancels); bond and object focus with announcements by key.
 2. Tests: Rust unit tests for each; e2e with mouse, touch (lasso by finger) and keyboard (two-click band by Enter at two focus points is not needed; keyboard users select with Space on the focus).
 
 ## Tests

@@ -118,7 +118,7 @@ Columns: **who** = editors that have it (source keys of §0, `*` = not read at t
 | any element (periodic table, typed symbol) | KH, MNC, JH | table dialog or typed symbol | MUST (heteroatoms beyond the 12 keys) | `atom.set el` | S | p (`atom:<symbol>` exists, no table) → slice 11 |
 | single, double, triple; click a bond to cycle the order | KH, MJK, MNS, JH | tool or key, click on a bond cycles | MUST | `bond.add o`, `bond.set o` | S | B |
 | solid, hashed, wavy wedges; turn a wedge around | KH, MJK, MNS, KK | second click reverses | MUST | `bond.set s rev` | S | B |
-| bond kinds: bold, dative / coordinate, hydrogen bond, crossed double (E/Z unknown), aromatic display | KH (14 kinds), MNS (`x` cis/trans), PC (either, dotted) | more values of the bond kind, written to MOL / KET / CDXML where they have a place | SHOULD (inorganic and supramolecular drawings, unknown E/Z) | *new* `bond.set k` | M | - → slice 20 |
+| bond kinds: bold, dative / coordinate, hydrogen bond (the crossed or wavy double bond of unknown E/Z is `arch-std-11`) | KH (14 kinds), MNS (`x` cis/trans), PC (either, dotted) | more values of the bond kind, written to MOL / KET / CDXML where they have a place | SHOULD (inorganic and supramolecular drawings) | *new* `bond.set k` | M | - → slice 20 |
 | aromatic rings drawn as a circle or as Kekulé bonds | KH (aromatize / dearomatize), JD | a display choice, the record keeps Kekulé | SHOULD (journal habit differs) | setting `display.aromatic=kekule\|circle` | M | - |
 | chain tool (drag a zigzag, live count) | KH, MV, PC (alkyl groups) | drag from an atom, 120° zigzag, count shown | MUST (aliphatic chains are slow bond by bond) | *new* `chain` (shorthand that expands to atoms and bonds, as `ring`) | S | - → slice 08 |
 | rings 3-8 and benzene, fused on a bond, spiro on an atom | KH, MJK, MNS, JH, PC | click on empty space, an atom or a bond | MUST | `ring` | S | B (keys `R` + digit not bound: UI study Q2) |
@@ -135,12 +135,12 @@ Columns: **who** = editors that have it (source keys of §0, `*` = not read at t
 | query atoms, atom lists, query bonds, SMARTS | KH, MJK, JD, PC, OT | query layer | OUT (scope; read and listed already) | - | L | listed |
 | S-groups other than abbreviations (SRU, multiple, data, copolymer) | KH, MNC | brackets with properties | OUT (scope) | - | L | listed |
 | macromolecules (sequence, HELM, monomer library, antisense) | KH (macromolecule mode, about 550 of the regression issues) | a second editor mode | OUT (scope; a KET or HELM file says so in the import report) | - | L | listed |
-| enhanced stereo groups ABS / AND / OR | KH, MNC, BD | groups of centres with a label | SHOULD (V3000 users; now the grouping is dropped and said) | *new* `stereo.group` | M | - |
+| enhanced stereo groups ABS / AND / OR | KH, MNC, BD | groups of centres with a label | SHOULD (V3000 users; now the grouping is dropped and said) | *new* `stereo.group` | M | - → `arch-std-12` |
 | CIP labels R / S / E / Z drawn next to the centres | KH (`Mod+P`, Indigo), MJW (server) | computed from the record, placed by geometry | MUST (Ketcher shows them; checking stereo by eye) | setting `display.cip=true` | M | - → slice 16 |
 | atom-to-atom maps in reactions, auto map | KH, MJW (server) | a number per atom; auto map needs an engine | SHOULD for manual maps (RXN), LATER for auto map | `atom.set map` *new field* | M / L | - |
 | atom and bond highlight colours (kept in the document) | KH (8 colours), JA (background colours), OT (highlight) | a colour index on atoms and bonds | MUST (figures, mzLab substructure and fragment views) | *new* `atom.set hl`, `bond.set hl` | M | - → slice 15 |
 | atom numbers shown | KA (debug ids), JD (`number`) | the atom index or id next to the atom | SHOULD (fragmentation discussions, NMR assignment) | setting `display.numbers=none\|index\|id` | S | - |
-| terminal carbons, hetero hydrogens shown (label modes) | KA (render options), Indigo (`mzdraw-competitors.md`) | label policy | SHOULD | setting `display.carbons=none\|terminal\|all` | S | - |
+| terminal carbons, hetero hydrogens shown (label modes) | KA (render options), Indigo (`mzdraw-competitors.md`) | label policy | SHOULD | setting `display.carbons=none\|terminal\|all` | S | - → `arch-std-10` |
 
 ### 4.2 Editing and selection
 | feature | who | how | P (reason) | twin | size | state |
@@ -149,7 +149,7 @@ Columns: **who** = editors that have it (source keys of §0, `*` = not read at t
 | lasso selection | KH, MV | free polygon | MUST (crowded drawings) | none | S | - → slice 07 |
 | fragment selection (one click picks the connected piece) | KH (Esc cycles selection kinds) | flood over bonds | MUST | none | S | - → slice 07 |
 | select without dragging (click two corners; Shift+click adds) | WCAG 2.5.7 | two clicks span the band | MUST (WCAG 2.5.7) | none | S | - → slice 07 |
-| move the selection with the keyboard | MNS (Alt+arrows rotate) | arrows nudge the selection by a tenth of a bond, Shift by one bond | MUST (WCAG 2.5.7, keyboard only) | `move` | S | - → slice 07 |
+| move the selection with the keyboard | MNS (Alt+arrows rotate) | arrows nudge the selection by a tenth of a bond, Shift by one bond | MUST (WCAG 2.5.7, keyboard only) | `move` | S | - → `arch-std-05` |
 | move, rotate in steps, flip | KH (`Alt+R`, `Alt+H/V`), CJ (flip keeping stereo) | commands on the selection | MUST | `move`, `rotate`, `flip` | S | B |
 | free rotation by a handle with 15° snapping | KH (rotation step setting 15°) | drag a handle around the centre | SHOULD | `rotate` | S | - |
 | merge atoms on drop; join two pieces | KH, PC (merges overlapping atoms), CJ (join atoms) | an atom dropped on an atom fuses with it | MUST (closing rings, joining fragments) | *new* `merge` | M | - → slice 09 |
@@ -208,12 +208,12 @@ Columns: **who** = editors that have it (source keys of §0, `*` = not read at t
 | zoom to the selection, 100 % key | KH (`Mod+Shift+0`) | - | SHOULD | none | S | - |
 | drawing style with journal presets, physical units | KO (ACS style), ChemDraw* | `mzdraw-settings/1` | MUST | `style.*` | S | B |
 | light and dark theme tokens | BU (themes), SD (themes) | CSS custom properties read once and handed to Rust as a palette | MUST (owner feedback) | setting `theme.*` (page only) | S | UI slice PR 3 (not repeated here) |
-| forced colours and high contrast on the canvas | MQ; nobody does it | system colours read from CSS and given to the renderer | MUST (WCAG 1.4.11 under forced colours; `docs/mzdraw.md` "still to build") | setting `theme.forced` | S | - → slice 04 |
+| forced colours and high contrast on the canvas | MQ; nobody does it | system colours read from CSS and given to the renderer | MUST (WCAG 1.4.11 under forced colours; `docs/mzdraw.md` "still to build") | setting `theme.forced` | S | - → `arch-std-07` (palettes `arch-std-03`) |
 | reduced motion | MQ | no animated zoom or pan | SHOULD | none | S | - → slice 04 |
 | UI languages through keys | KA (en, zh, es at build time*), KK (en, zh) | Rust returns keys, the host resolves them | MUST (mzLab rule: every user text through lang keys) | host `t` hook | S | p (keys in `web/lang/en`) → slice 04 |
 | hide or add toolbar buttons | KR (`buttons`, `customButtons`), MJE (`setDisplaySettings`), JD (options) | a token list of tools | SHOULD (a host that wants a small editor) | attribute `tools` | S | - → slice 02 |
 | read-only viewer of the same component | JD (`depict`), OT (`readOnly`), KI #5581 | no tool, hover and selection off, still focusable and described | MUST (mzLab tables and reports reuse the renderer) | attribute `readonly` | S | - → slice 05 |
-| shortcut remapping and switching single keys off | KK (configurable hot keys), WCAG 2.1.4 | a `shortcuts` section of the settings file; single keys work only while the editor has focus | MUST (WCAG 2.1.4; settings study already reserved the section) | setting section `shortcuts` | S | - → slice 06 |
+| shortcut remapping and switching single keys off | KK (configurable hot keys), WCAG 2.1.4 | a `shortcuts` section of the settings file; single keys work only while the editor has focus | MUST (WCAG 2.1.4; settings study already reserved the section) | setting section `shortcuts` | S | - → `arch-std-06` |
 | key in every tooltip, help list of the keys | KH (tooltips show keys) | from the same table | MUST | - | S | p (help list built; tooltips: UI slice) |
 | 3D view | KR (Miew), MV | separate viewer | LATER (desktop app; not a 2D editing need) | - | L | - |
 | full-screen toggle | KH | host concern | LATER | host | S | - |
@@ -357,16 +357,16 @@ mzDraw ships in two ways from one component: (a) a standalone desktop app for ma
 9. Identification annotations and m/z values for the mass spectrometrist, which no editor has.
 
 ## 7. DEV slices (one prompt each in `docs/prompts/`)
-Order = dependency order; each is one small PR. Slices 01-05 make the component; 06-21 are the MUST features not yet built (and a few SHOULD that ride along). The UI slice (toolbar, icons, light and dark tokens, PR #32) and the desktop shell are not repeated here.
+Order = dependency order; each is one small PR. The sibling study `docs/study/arch-std.md` (merged while this one was written) owns the standards slices `arch-std-01`..`14`; where both studies need the same thing, its prompt is the one to run and this list points to it (slice 06 has no prompt here; 04, 07 and 20 were narrowed). Slices 01-05 make the component; 06-21 are the MUST features not yet built (and a few SHOULD that ride along). The UI slice (toolbar, icons, light and dark tokens, PR #32) and the desktop shell are not repeated here.
 | NN | slug | content | rows of §4 | size |
 |---|---|---|---|---|
 | 01 | `instances` | editor instances in `mzdraw-wasm` instead of one global | several editors | M |
 | 02 | `element` | `<mzdraw-editor>`: ready, load, save, apply, change / selection / tool / importreport events, lazy module, `tools`, no-network test; the page uses it | custom element, ready, change ops, apply, selection, import report, lazy loading, no network | M |
 | 03 | `host-adapter` | `configure({files, storage, load})`: file open / save and autosave delegated; OPFS written per call | files, storage | S |
-| 04 | `theme-i18n` | `t` hook, palette into Rust, forced colours, reduced motion | forced colours, reduced motion, languages | S |
+| 04 | `theme-i18n` | `t` hook, host theme tokens into the palettes of `arch-std-03`, reduced motion (forced colours: `arch-std-07`) | reduced motion, languages | S |
 | 05 | `viewer-form` | `readonly` viewer and form association | read-only, form | S |
-| 06 | `shortcuts` | `shortcuts` section of the settings file, remap and switch off, keys only on focus | shortcut remapping | S |
-| 07 | `selection` | lasso, fragment selection, click-two-corners band, keyboard nudge, focus on bonds and objects | lasso, fragment, 2.5.7, nudge, focus on bonds | M |
+| 06 | - | no prompt here: the `shortcuts` section, remap and switch-off is `arch-std-06` (same need, written first); the number is kept so the slugs below stay stable | shortcut remapping | - |
+| 07 | `selection` | lasso, fragment selection, click-two-corners band, focus on bonds and objects (keyboard move and rotate: `arch-std-05`) | lasso, fragment, 2.5.7 band, focus on bonds | M |
 | 08 | `chain` | chain tool and op `chain` | chain | S |
 | 09 | `merge` | merge on drop, op `merge` | merge | M |
 | 10 | `clean-up` | clean up of the drawing or selection with `Mol::layout_2d`, op `place` | clean up | M |
@@ -379,6 +379,6 @@ Order = dependency order; each is one small PR. Slices 01-05 make the component;
 | 17 | `values` | formula, masses, m/z of adducts per structure and selection | calculated values | S |
 | 18 | `abbreviations` | expand and contract in place, user abbreviations | functional groups, user abbreviations | M |
 | 19 | `templates` | template library and user templates, op `tmpl` | template library | M |
-| 20 | `bond-kinds` | bold, dative, hydrogen, crossed double | bond kinds | M |
+| 20 | `bond-kinds` | bold, dative, hydrogen bond (unknown double bond: `arch-std-11`) | bond kinds | M |
 | 21 | `drop-copy-as` | drop a file, copy as MOL / KET / SMILES / PNG keys, PNG and HTML on the clipboard | drop, copy as, PNG clipboard | S |
 Not given a prompt yet (SHOULD or LATER, after these): aromatic circles, D / T, explicit H, free-text labels, enhanced stereo, atom maps, numbers and carbon labels, free rotation handle, check panel, universal input bar, curved arrows, shapes, images, CXSMILES / RXN V3000 / RDF out, CDX read, PDF, image options, zoom to selection, finger-pans setting, iframe protocol, capability discovery.
