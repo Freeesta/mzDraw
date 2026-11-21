@@ -370,6 +370,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("diff", "hunks", "object[]", "answer: the patch grouped into hunks (`diff::hunks(a, ops)`), in the order of their first operation; any subset of them applies in order to a valid document"),
     r("hunk", "ids", "uint[]", "the ids (atoms, bonds, objects) the hunk touches, ascending"),
     r("hunk", "ops", "json[]", "the operations of the hunk, in the order of the patch: a self-contained patch of `a`"),
+    r("out", "loss:FORMAT", "string", "`loss/1`: what the format would drop or change of this drawing, `{\"format\":\"loss/1\",\"target\":FORMAT,\"items\":[{\"what\",\"atoms\",\"bonds\",\"objects\"}]}`, one item per thing, ordered by `what` then smallest id, the lists ascending; the kinds are the rows of the table \"What a format loses\" of the formats document; a drawing the writer refuses is its key, one above 100000 things is `error.draw2.lossSize`"),
     r("out", "boxes", "string", "`boxes/1`: the label-inclusive box of every structure (by its smallest atom id) and every arrow with the structures it joins, in bond lengths at 4 decimals, ordered by id: the boxes the pathway layout uses"),
     r("std", "std.scheme.gapRaised", "info", "a gap between two columns of a pathway was widened (`pathway:tree`); `atoms`: the first root of the component, `objects`: the primary arrows between the two layers"),
     r("std", "std.scheme.free", "info", "arrows without two structures, plus signs and texts, which `pathway:tree` does not move (`objects`)"),
@@ -377,6 +378,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("expect", "std", "string", "`\"none\"`: the drawing has no `std/1` finding"),
     r("expect", "std_absent", "string[]", "none of these `std/1` keys is found"),
     r("expect", "pieces", "uint", "the atoms form exactly this many connected pieces"),
+    r("expect", "lossless", "string", "the format (`molfile`, `molfile-v3000`, `smiles`, `sdf`, `ket`, `cdxml`, `cml`, `rxn`, `svg` or `{slug}`) drops and changes nothing of the drawing (`out` `loss:FORMAT` lists what it would); `detail` names the kinds lost, and a drawing the format cannot write is false"),
     r("expect", "smiles", "string", "the SMILES of the whole drawing equals this text"),
 ];
 

@@ -77,6 +77,31 @@ The 14 that fail in the last column and in the RDKit "with a title" columns are 
 
 `lost` in the reference names the InChI layers that differ (`f` formula, `h` hydrogens, `c` connectivity, `q`/`p` charge, `b`/`t`/`m`/`s` stereo, `i`/`r` isotopes). The numbered list of what to fix is in the PR of the slice; nothing here changed a reader or a writer. Optional run on public structures: `python3 tools/fidelity/run.py --replay ... --corpus` fetches a fixed list of PubChem ids at run time and prints rates only; It was run once by hand on 20 ids to see that it works; its rates are not committed (E19 asked for them: a deviation, to be decided).
 
+### 1c. What a format loses, listed before the file is written (plan-22)
+`loss(doc, format)` (`crates/mzdraw/src/loss.rs`; `"out":"loss:FORMAT"`, the arm `{"lossless":"FORMAT"}` of `expect`) names, with their ids, the things of one drawing that a format drops or changes: one item `{what, atoms, bonds, objects}` per thing, ordered by `what` then smallest id, as the document `loss/1`. The table says per feature whether the writer carries it: `yes` it is written and read back as it was, `no` it is dropped or changed (an abbreviation is written as its atoms, the text of an arrow as a text of its own), `drawing` it depends on the drawing and is decided by writing the file and reading it back (a wedge mark is derived again from the stereo of the record; a SMILES has no coordinates; an SDF puts its records side by side; a reaction file places the structures about its arrow and makes its own plus signs; a radical is kept in a SMILES for some atoms and not for others). The table is generated from the code and compared with it by `crates/mzdraw/tests/loss.rs`, which also writes random drawings in every format, reads them back and holds `loss` to the differences it finds (every difference is listed, nothing listed is invented). Not in the table: the element, the order of a bond, the position of an atom (carried by every writer; the readers scale a molfile or CDXML to a bond length of 1) and the explicit hydrogen count of an atom.
+<!-- loss-table:begin -->
+| feature | molfile | molfile-v3000 | smiles | sdf | ket | cdxml | cml | rxn | svg | mzdraw |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `abbreviation` | no | no | no | no | no | no | no | no | yes | yes |
+| `annotation` | no | no | no | yes | no | no | no | no | yes | yes |
+| `arrow.anchor` | no | no | no | no | no | no | no | no | yes | yes |
+| `arrow.text` | no | no | no | no | no | no | no | no | yes | yes |
+| `atom.charge` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `atom.isotope` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `atom.map` | yes | yes | yes | yes | yes | no | no | yes | yes | yes |
+| `atom.radical` | yes | yes | drawing | yes | yes | yes | yes | yes | yes | yes |
+| `data` | no | no | no | yes | no | no | no | no | yes | yes |
+| `geometry` | yes | yes | drawing | drawing | yes | yes | yes | drawing | yes | yes |
+| `object.arrow` | no | no | no | no | yes | yes | no | yes | yes | yes |
+| `object.plus` | no | no | no | no | yes | yes | no | drawing | yes | yes |
+| `object.text` | no | no | no | no | yes | yes | no | no | yes | yes |
+| `rlabel` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `unknown` | no | no | no | no | no | no | no | no | yes | yes |
+| `wedge.hashed` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |
+| `wedge.solid` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |
+| `wedge.wavy` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |
+<!-- loss-table:end -->
+
 ## 2. Images that carry their molecule, clipboard
 - **SVG**: `<metadata>` holds `<mzdraw:doc xmlns:mzdraw="https://freeesta.github.io/mzlab/ns/mzdraw/1">` with the `mzdraw/1` JSON in CDATA, plus `<mzdraw:molfile>` with the V3000 molfile of each molecule for other programs. Opening an SVG reads the document; an SVG without it is refused ("not a structure file"), never traced. Idea from RDKit (`<rdkit:mol>` in metadata) and Open Babel (`-e`, CML in the SVG).
 - **PNG**: `iTXt` chunks, keyword `mzdraw` (the document, zlib-compressed, UTF-8) and `molfile` (V3000 text); idea from RDKit's PNG metadata (`tEXt`/`zTXt`, its key prefix*). Writing an RDKit-readable chunk as well is cheap and is decision-free (one extra chunk), done when the prefix is confirmed by a test against RDKit in `tools/`.

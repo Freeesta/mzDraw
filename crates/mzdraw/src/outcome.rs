@@ -77,6 +77,8 @@ pub enum Check {
     Pieces(u32),
     /// `{"smiles":"..."}`: the SMILES of the whole drawing (`Editor::save("smiles")`) is this text.
     Smiles(String),
+    /// `{"lossless":"FORMAT"}`: the format drops and changes nothing of the drawing (`loss::loss` is empty).
+    Lossless(String),
 }
 
 /// A postcondition with the request object it came from (written back as `check`).
@@ -112,6 +114,12 @@ pub fn read_expect(v: &Value) -> Result<Vec<Expectation>, &'static str> {
                     .ok_or(BAD_EXPECT)?,
             ),
             "smiles" => Check::Smiles(val.as_str().ok_or(BAD_EXPECT)?.to_string()),
+            "lossless" => Check::Lossless(
+                val.as_str()
+                    .filter(|f| crate::loss::FORMATS.contains(f))
+                    .ok_or(BAD_EXPECT)?
+                    .to_string(),
+            ),
             _ => return Err(BAD_EXPECT),
         };
         out.push(Expectation {
@@ -175,6 +183,15 @@ impl Check {
                 Ok(got) if got == *want => (true, String::new()),
                 Ok(got) => (false, format!("the SMILES of the drawing is {got}")),
                 Err(_) => (false, "the drawing has no SMILES".to_string()),
+            },
+            Check::Lossless(format) => match crate::loss::loss(doc, format) {
+                Ok(items) if items.is_empty() => (true, String::new()),
+                Ok(items) => {
+                    let mut kinds: Vec<&str> = items.iter().map(|l| l.what).collect();
+                    kinds.dedup();
+                    (false, format!("{format} loses {}", kinds.join(", ")))
+                }
+                Err(_) => (false, format!("the drawing has no {format} file")),
             },
         }
     }

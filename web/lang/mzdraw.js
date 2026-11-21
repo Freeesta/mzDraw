@@ -303,6 +303,7 @@ I18N.add("en", {
   "error.draw2.schemeEmpty": "There is no arrow between two structures to lay out.",
   "error.draw2.requestField": "The drawing request has a field that it does not take.",
   "error.draw2.diffAlone": "A diff request takes only the two documents, nothing else.",
+  "error.draw2.lossSize": "This drawing is too large to list what a format would lose.",
   "error.draw2.expect": "A postcondition of the drawing request is not one this editor knows.",
   "error.draw2.opField": "An operation has a field that its kind does not take.",
   "error.draw2.molfile": "The molfile could not be read.",

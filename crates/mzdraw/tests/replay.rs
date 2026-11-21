@@ -121,6 +121,22 @@ fn every_case_replays_to_the_recorded_bytes() {
             assert_eq!(case["out"], json!(got), "{}", case["name"]);
             assert!(got.starts_with("JVBERi0xLjc"), "{}: %PDF-1.7", case["name"]);
         }
+        // what a format would drop of the drawing (`out: loss:FORMAT`, `loss/1`): the same bytes on both sides, the target named by the request
+        for case in section_mut(fx, "losses") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            let v: Value = serde_json::from_str(&got).unwrap();
+            let target = case["request"]["out"]
+                .as_str()
+                .unwrap()
+                .strip_prefix("loss:");
+            assert_eq!(v["format"], "loss/1");
+            assert_eq!(v["target"].as_str(), target, "{}", case["name"]);
+            assert!(v["items"].is_array());
+        }
         // a drawn parent and product as `trasf/1` with its two records (`out: trasf`): the same bytes on both sides; the record is read back
         // by `mzlab-mol` and its `delta` is the one written in the case
         for case in section_mut(fx, "trasf") {
