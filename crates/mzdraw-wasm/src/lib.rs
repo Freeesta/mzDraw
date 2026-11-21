@@ -841,7 +841,7 @@ pub fn state() -> String {
             format!("[{}]", l.iter().map(|k| q(k)).collect::<Vec<_>>().join(","))
         });
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"lines":{lines},"text":{},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"lines":{lines},"text":{},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{},"labels":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -869,6 +869,7 @@ pub fn state() -> String {
             if p.std.is_empty() { "[]" } else { &p.std },
             e.proposal_json(),
             e.values_json(),
+            e.labels_json(),
         )
     })
 }

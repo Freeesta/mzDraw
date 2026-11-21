@@ -114,6 +114,7 @@ Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms 
 | `colour.object` | no | no | no | no | no | no | no | no | yes | yes |
 | `data` | no | no | no | yes | no | no | no | no | yes | yes |
 | `geometry` | yes | yes | drawing | drawing | yes | yes | yes | drawing | yes | yes |
+| `labels` | no | no | no | no | no | no | no | no | yes | yes |
 | `object.arrow` | no | no | no | no | yes | yes | no | yes | yes | yes |
 | `object.plus` | no | no | no | no | yes | yes | no | drawing | yes | yes |
 | `object.text` | no | no | no | no | yes | yes | no | no | yes | yes |

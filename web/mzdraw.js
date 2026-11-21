@@ -258,6 +258,8 @@ function refresh() {
     if (c === "redo") /** @type {HTMLButtonElement} */ (b).disabled = !st.redo;
     if (c === "copy" || c === "cut" || c === "duplicate") /** @type {HTMLButtonElement} */ (b).disabled = !st.selected;
     if (c === "paste") /** @type {HTMLButtonElement} */ (b).disabled = !st.clip;
+    // what "Label arrows" writes now, and what that means, as the module says (the choice is the scheme's, else the Preferences'); the tooltip stays the catalog's
+    if (c === "pathway-label") b.setAttribute("aria-description", t(st.labels.now, { adduct: st.labels.adduct }));
   }
   $("d2-outline").replaceChildren(...st.outline.map((/** @type {any} */ s, /** @type {number} */ i) => {
     const li = document.createElement("li");

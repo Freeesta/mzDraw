@@ -112,13 +112,87 @@ impl Editor {
         Ok(changed)
     }
 
+    /// The mode and the options a `pathway:label` runs with: an argument of the command first, then the choice kept in the document
+    /// (`labels`), then the styles `pathway.label` and `pathway.adduct` (the defaults of a scheme with no choice). A default adduct
+    /// is taken only by a mode that writes numbers.
+    pub(crate) fn label_choice(
+        &self,
+        doc: &crate::doc::Document,
+        opts: &crate::steplabel::Opts,
+    ) -> (crate::steplabel::Mode, crate::steplabel::Opts) {
+        let (dm, da) = doc.labels();
+        let mode = crate::steplabel::Mode::parse(&dm).unwrap_or(self.style.pathway_label);
+        let mut opts = opts.clone();
+        if opts.adduct.is_none() && mode.wants_mass() {
+            let adduct = if dm.is_empty() {
+                self.style.pathway_adduct.clone()
+            } else {
+                da
+            };
+            opts.adduct = Some(adduct).filter(|a| !a.is_empty());
+        }
+        (mode, opts)
+    }
+
+    /// The mass-label choice for the page, as JSON: what is in force (`mode`, `adduct`), whether the scheme holds its own (`own`: else
+    /// the defaults of the Preferences apply), the text key of what the mode means, the words of the modes and the adducts.
+    pub fn labels_json(&self) -> String {
+        let (mode, opts) = self.label_choice(self.doc(), &crate::steplabel::Opts::default());
+        serde_json::json!({
+            "mode": mode.name(),
+            "adduct": opts.adduct.clone().unwrap_or_default(),
+            "own": !self.doc().labels().0.is_empty(),
+            "meaning": format!("draw2.labels.meaning.{}", mode.name()),
+            // the finished sentence for the button: its key says the mode, the adduct is its one parameter
+            "now": format!(
+                "draw2.labels.{}.{}",
+                if opts.adduct.is_some() { "nowAdduct" } else { "now" },
+                mode.name()
+            ),
+            "modes": crate::doc::LABEL_MODES,
+            "adducts": crate::values::ADDUCTS,
+        })
+        .to_string()
+    }
+
+    /// The page's choice of the mass-label mode (the menu items `labelmode.*` and `labeladduct.*`): sets the document field `labels`
+    /// (`doc.labels`) and writes the labels of that mode on the anchored arrows (`pathway:label`), all in one undo step. A choice the
+    /// field refuses, or a mode that needs the engine where there is none, is an error key and changes nothing. An empty `mode` gives
+    /// the choice back to the Preferences.
+    pub fn set_label_choice(&mut self, mode: &str, adduct: &str) -> u32 {
+        self.label_notes.clear();
+        let r = (|| -> Result<bool, OpError> {
+            let Some((mode, adduct)) = crate::doc::labels_canon(mode, adduct) else {
+                return Err(OpError {
+                    key: "error.draw2.labels",
+                    id: 0,
+                });
+            };
+            let mut doc = self.doc().clone();
+            doc.set_labels(&mode, &adduct);
+            let (m, opts) = self.label_choice(&doc, &crate::steplabel::Opts::default());
+            let plan = crate::steplabel::plan(&doc, m, &opts, self.measurer)?;
+            let mut ops = vec![Op::DocLabels { mode, adduct }];
+            ops.extend(plan.ops.iter().cloned());
+            self.session.run(&ops)?;
+            self.error = "";
+            self.said = ("draw2.say.labelMode", String::new());
+            self.said_params = vec![];
+            self.prune();
+            self.label_notes = plan.notes;
+            self.label_notes_doc = self.doc().to_json();
+            Ok(true)
+        })();
+        self.pathway_flags(r)
+    }
+
     /// `pathway:label`: writes the computed label (`steplabel::plan`, the mode `pathway.label`) on every anchored arrow whose text is
     /// empty or its own, one undo step; none when nothing changes. The counts for the live line are kept in `said_params`.
     pub(crate) fn pathway_label(&mut self, opts: &crate::steplabel::Opts) -> Result<bool, OpError> {
         // a run that fails reports nothing from the run before
         self.label_notes.clear();
-        let plan =
-            crate::steplabel::plan(self.doc(), self.style.pathway_label, opts, self.measurer)?;
+        let (mode, opts) = self.label_choice(self.doc(), opts);
+        let plan = crate::steplabel::plan(self.doc(), mode, &opts, self.measurer)?;
         let changed = !plan.ops.is_empty();
         if changed {
             self.session.run(&plan.ops)?;

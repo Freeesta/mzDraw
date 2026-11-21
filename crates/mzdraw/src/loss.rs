@@ -103,6 +103,7 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("colour.object", [N, N, N, N, N, N, N, N, Y, Y]),
     ("data", [N, N, N, Y, N, N, N, N, Y, Y]),
     ("geometry", [Y, Y, P, P, Y, Y, Y, P, Y, Y]),
+    ("labels", [N, N, N, N, N, N, N, N, Y, Y]),
     ("object.arrow", [N, N, N, N, Y, Y, N, Y, Y, Y]),
     ("object.plus", [N, N, N, N, Y, Y, N, P, Y, Y]),
     ("object.text", [N, N, N, N, Y, Y, N, N, Y, Y]),
@@ -285,7 +286,12 @@ pub fn instances(d: &Document) -> Vec<Instance> {
             push("unknown", format!("object.{key}"), 0, 0, o.id);
         }
     }
-    for (key, _) in &d.more {
+    // the mass-label choice of the scheme: a field this version reads is its own row, any other shape of `labels` is unknown
+    let (mode, adduct) = d.labels();
+    if !mode.is_empty() {
+        push("labels", format!("{mode}|{adduct}"), 0, 0, 0);
+    }
+    for (key, _) in (d.more.iter()).filter(|m| m.0 != "labels" || mode.is_empty()) {
         push("unknown", format!("document.{key}"), 0, 0, 0);
     }
     out

@@ -46,6 +46,10 @@ fn full_ops() -> Vec<Op> {
             id: 1,
             ann: r#"[{"level":"2b"}]"#.into(),
         },
+        Op::DocLabels {
+            mode: "mass".into(),
+            adduct: "[M+H]+".into(),
+        },
         Op::AtomCap {
             id: 1,
             lines: vec!["formula".into(), "logp".into()],
@@ -137,7 +141,7 @@ fn every_operation_of_the_writer_is_a_row_with_exactly_its_fields() {
         .map(|o| o.name.to_string())
         .collect();
     assert_eq!(names, read);
-    assert_eq!(read.len(), 15);
+    assert_eq!(read.len(), 16);
     for op in ops {
         let v: Value = serde_json::from_str(&op.to_json()).unwrap();
         let spec = schema::spec(v["op"].as_str().unwrap()).unwrap();
