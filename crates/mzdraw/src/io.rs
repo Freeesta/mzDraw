@@ -434,6 +434,11 @@ pub fn import_bytes(bytes: &[u8]) -> Result<(Document, Imported), &'static str> 
 pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     let t = text.trim();
     let mut info = Imported::default();
+    // a transformation: the record `trasf/1` with its two records, one JSON text per line
+    if t.starts_with('{') && t.contains("\"trasf/1\"") && t.lines().count() > 1 {
+        let d = crate::trasf::from_trasf(t, &mut info)?;
+        return checked(d, info, crate::trasf::READ);
+    }
     if t.starts_with('{') {
         // a JSON text with a `root` and no `format` is a KET file
         let ket = serde_json::from_str::<serde_json::Value>(t).ok();

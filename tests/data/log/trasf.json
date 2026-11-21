@@ -1,0 +1,168 @@
+{
+  "refused": [
+    {
+      "error_key": "error.draw2.trasfShape",
+      "name": "a structure without an arrow is not a transformation",
+      "request": {
+        "import": "synthetic\n  mzdraw\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\nM  END\n",
+        "out": "trasf"
+      }
+    },
+    {
+      "error_key": "error.draw2.trasfMap",
+      "name": "no map at all: every atom is named",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n",
+        "out": "trasf"
+      }
+    },
+    {
+      "error_key": "error.draw2.trasfMap",
+      "name": "a map number only on the parent side",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n  1  2  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n",
+        "out": "trasf"
+      }
+    },
+    {
+      "error_key": "error.draw2.trasfLabel",
+      "name": "a group label has no map: the record is refused",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\n  3  4  1  0\nM  END\n",
+        "log": [
+          {
+            "id": 1,
+            "lab": "Ph",
+            "op": "atom.set"
+          }
+        ],
+        "out": "trasf"
+      }
+    },
+    {
+      "error_key": "error.draw2.trasfShape",
+      "name": "a plus sign is not in the record: refused, not left out",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\n  3  4  1  0\nM  END\n",
+        "log": [
+          {
+            "id": 900,
+            "op": "obj.add",
+            "t": "plus",
+            "x": 0.0,
+            "y": 3.0
+          }
+        ],
+        "out": "trasf"
+      }
+    },
+    {
+      "error_key": "error.draw2.trasfShape",
+      "name": "a text is not in the record: refused, not left out",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\n  3  4  1  0\nM  END\n",
+        "log": [
+          {
+            "id": 900,
+            "op": "obj.add",
+            "t": "text",
+            "text": "note",
+            "x": 0.0,
+            "y": 3.0
+          }
+        ],
+        "out": "trasf"
+      }
+    },
+    {
+      "error_key": "error.draw2.trasfRecord",
+      "name": "a stereo centre of the change drawn as defined, no stereo_rule",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n   -0.7000    0.7000    0.0000 O   0  0  0  0  0  0  0  0  0  3  0  0\n   -0.7000   -0.7000    0.0000 F   0  0  0  0  0  0  0  0  0  4  0  0\n  1  2  1  0\n  1  3  1  1\n  1  4  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  6  5  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n   -0.7000    0.7000    0.0000 O   0  0  0  0  0  0  0  0  0  3  0  0\n   -0.7000   -0.7000    0.0000 F   0  0  0  0  0  0  0  0  0  4  0  0\n    0.2000   -1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.2000   -1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  1  3  1  1\n  1  4  1  0\n  1  5  1  0\n  5  6  1  0\nM  END\n",
+        "out": "trasf"
+      }
+    },
+    {
+      "error_key": "error.draw2.trasfShape",
+      "name": "report asks for a record the drawing cannot give: the keyed error, not a verdict",
+      "request": {
+        "import": "synthetic\n  mzdraw\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\nM  END\n",
+        "out": "trasf",
+        "report": true
+      }
+    },
+    {
+      "name": "the product stands on the arrow: refused",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\n  3  4  1  0\nM  END\n",
+        "log": [
+          {
+            "op": "obj.set",
+            "id": 6,
+            "x2": 105.0
+          }
+        ],
+        "out": "trasf"
+      },
+      "error_key": "error.draw2.trasfShape"
+    }
+  ],
+  "results": [
+    {
+      "name": "report: the record is in out",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"trasf/1\\\",\\\"parent\\\":\\\"84645d21b1ba21d5d46dca1bc8fcfbcd19d9c612cb974d2bb37e2532c7db3f13\\\",\\\"product\\\":\\\"a6b8a909462726d9906e599bf0876a267003089d4879bda5af80efb3493b5cad\\\",\\\"delta\\\":\\\"+O\\\",\\\"rule\\\":\\\"\\\",\\\"rule_set\\\":\\\"\\\",\\\"rule_version\\\":\\\"\\\",\\\"map\\\":[[0,0],[1,2],[2,1]],\\\"added\\\":[3],\\\"centre\\\":[2],\\\"sites\\\":[],\\\"evidence\\\":[]}\\n{\\\"format\\\":\\\"mol/1\\\",\\\"atoms\\\":[{\\\"el\\\":\\\"C\\\",\\\"iso\\\":0,\\\"chg\\\":0,\\\"rad\\\":0,\\\"h\\\":2},{\\\"el\\\":\\\"C\\\",\\\"iso\\\":0,\\\"chg\\\":0,\\\"rad\\\":0,\\\"h\\\":3},{\\\"el\\\":\\\"C\\\",\\\"iso\\\":0,\\\"chg\\\":0,\\\"rad\\\":0,\\\"h\\\":3}],\\\"bonds\\\":[{\\\"a\\\":0,\\\"b\\\":1,\\\"o\\\":1},{\\\"a\\\":0,\\\"b\\\":2,\\\"o\\\":1}],\\\"stereo\\\":[],\\\"groups\\\":[],\\\"coords\\\":{\\\"dim\\\":2,\\\"xy\\\":[[1.0,0.0],[0.0,0.0],[2.0,0.0]],\\\"from\\\":\\\"molfile\\\"}}\\n{\\\"format\\\":\\\"mol/1\\\",\\\"atoms\\\":[{\\\"el\\\":\\\"C\\\",\\\"iso\\\":0,\\\"chg\\\":0,\\\"rad\\\":0,\\\"h\\\":2},{\\\"el\\\":\\\"C\\\",\\\"iso\\\":0,\\\"chg\\\":0,\\\"rad\\\":0,\\\"h\\\":2},{\\\"el\\\":\\\"C\\\",\\\"iso\\\":0,\\\"chg\\\":0,\\\"rad\\\":0,\\\"h\\\":3},{\\\"el\\\":\\\"O\\\",\\\"iso\\\":0,\\\"chg\\\":0,\\\"rad\\\":0,\\\"h\\\":1}],\\\"bonds\\\":[{\\\"a\\\":0,\\\"b\\\":1,\\\"o\\\":1},{\\\"a\\\":0,\\\"b\\\":2,\\\"o\\\":1},{\\\"a\\\":1,\\\"b\\\":3,\\\"o\\\":1}],\\\"stereo\\\":[],\\\"groups\\\":[],\\\"coords\\\":{\\\"dim\\\":2,\\\"xy\\\":[[7.0,0.0],[8.0,0.0],[6.0,0.0],[9.0,0.0]],\\\"from\\\":\\\"molfile\\\"}}\\n\",\"created\":{},\"removed\":{}}",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\n  3  4  1  0\nM  END\n",
+        "out": "trasf",
+        "report": true
+      }
+    },
+    {
+      "name": "dry run: the record is absent, the run is good",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{},\"removed\":{}}",
+      "request": {
+        "dry_run": true,
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\n  3  4  1  0\nM  END\n",
+        "out": "trasf"
+      }
+    }
+  ],
+  "trasf": [
+    {
+      "delta": "+O",
+      "name": "hydroxylation: propane to propan-1-ol, the oxygen is added",
+      "out": "{\"format\":\"trasf/1\",\"parent\":\"84645d21b1ba21d5d46dca1bc8fcfbcd19d9c612cb974d2bb37e2532c7db3f13\",\"product\":\"a6b8a909462726d9906e599bf0876a267003089d4879bda5af80efb3493b5cad\",\"delta\":\"+O\",\"rule\":\"\",\"rule_set\":\"\",\"rule_version\":\"\",\"map\":[[0,0],[1,2],[2,1]],\"added\":[3],\"centre\":[2],\"sites\":[],\"evidence\":[]}\n{\"format\":\"mol/1\",\"atoms\":[{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":2},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3}],\"bonds\":[{\"a\":0,\"b\":1,\"o\":1},{\"a\":0,\"b\":2,\"o\":1}],\"stereo\":[],\"groups\":[],\"coords\":{\"dim\":2,\"xy\":[[1.0,0.0],[0.0,0.0],[2.0,0.0]],\"from\":\"molfile\"}}\n{\"format\":\"mol/1\",\"atoms\":[{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":2},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":2},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"O\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":1}],\"bonds\":[{\"a\":0,\"b\":1,\"o\":1},{\"a\":0,\"b\":2,\"o\":1},{\"a\":1,\"b\":3,\"o\":1}],\"stereo\":[],\"groups\":[],\"coords\":{\"dim\":2,\"xy\":[[7.0,0.0],[8.0,0.0],[6.0,0.0],[9.0,0.0]],\"from\":\"molfile\"}}\n",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\n  3  4  1  0\nM  END\n",
+        "out": "trasf"
+      }
+    },
+    {
+      "delta": "-CH2",
+      "name": "N-demethylation: N-methylethylamine to ethylamine, the methyl is lost",
+      "out": "{\"format\":\"trasf/1\",\"parent\":\"5bd99735a1e0cf75c5bf429b37c275462e581f57291618284024012d8aa2e7de\",\"product\":\"888fb35fc7e5664b3059a86c6256c124095f8eda71bc5aaac5d48da9d936eeef\",\"delta\":\"-CH2\",\"rule\":\"\",\"rule_set\":\"\",\"rule_version\":\"\",\"map\":[[0,0],[1,1],[2,null],[3,2]],\"added\":[],\"centre\":[3],\"sites\":[],\"evidence\":[]}\n{\"format\":\"mol/1\",\"atoms\":[{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":2},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"N\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":1}],\"bonds\":[{\"a\":0,\"b\":1,\"o\":1},{\"a\":0,\"b\":3,\"o\":1},{\"a\":2,\"b\":3,\"o\":1}],\"stereo\":[],\"groups\":[],\"coords\":{\"dim\":2,\"xy\":[[1.0,0.0],[0.0,0.0],[3.0,0.0],[2.0,0.0]],\"from\":\"molfile\"}}\n{\"format\":\"mol/1\",\"atoms\":[{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":2},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"N\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":2}],\"bonds\":[{\"a\":0,\"b\":1,\"o\":1},{\"a\":0,\"b\":2,\"o\":1}],\"stereo\":[],\"groups\":[],\"coords\":{\"dim\":2,\"xy\":[[8.0,0.0],[7.0,0.0],[9.0,0.0]],\"from\":\"molfile\"}}\n",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 N   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\n  3  4  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 N   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n",
+        "out": "trasf"
+      }
+    },
+    {
+      "delta": "-CH2",
+      "name": "ester hydrolysis: methyl acetate to acetic acid, the methanol is lost",
+      "out": "{\"format\":\"trasf/1\",\"parent\":\"da3ba16e67337d74b38a8e0d8a20556496e99cf3ae8f952f37a23fc7705bccc3\",\"product\":\"1ea6eeeed5888f1e3683e1aa7ad4fe018df57f67c114dc2a4cc9749b9a35ffd7\",\"delta\":\"-CH2\",\"rule\":\"\",\"rule_set\":\"\",\"rule_version\":\"\",\"map\":[[0,0],[1,1],[2,null],[3,2],[4,3]],\"added\":[],\"centre\":[4],\"sites\":[],\"evidence\":[]}\n{\"format\":\"mol/1\",\"atoms\":[{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":0},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"O\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":0},{\"el\":\"O\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":0}],\"bonds\":[{\"a\":0,\"b\":1,\"o\":1},{\"a\":0,\"b\":3,\"o\":2},{\"a\":0,\"b\":4,\"o\":1},{\"a\":2,\"b\":4,\"o\":1}],\"stereo\":[],\"groups\":[],\"coords\":{\"dim\":2,\"xy\":[[1.0,0.0],[0.0,0.0],[4.0,0.0],[2.0,0.0],[3.0,0.0]],\"from\":\"molfile\"}}\n{\"format\":\"mol/1\",\"atoms\":[{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":0},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"O\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":0},{\"el\":\"O\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":1}],\"bonds\":[{\"a\":0,\"b\":1,\"o\":1},{\"a\":0,\"b\":2,\"o\":2},{\"a\":0,\"b\":3,\"o\":1}],\"stereo\":[],\"groups\":[],\"coords\":{\"dim\":2,\"xy\":[[9.0,0.0],[8.0,0.0],[10.0,0.0],[11.0,0.0]],\"from\":\"molfile\"}}\n",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  5  4  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  4  0  0\n    6.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  2  0\n  2  4  1  0\n  4  5  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  4  0  0\n  1  2  1  0\n  2  3  2  0\n  2  4  1  0\nM  END\n",
+        "out": "trasf"
+      }
+    },
+    {
+      "delta": "+HO-Cl",
+      "name": "substitution: chloroethane to ethanol, the chlorine and the oxygen share a map",
+      "out": "{\"format\":\"trasf/1\",\"parent\":\"1a2d293643bd589095ca0de1d2b573c14e9807f69d25af0e7585c0efd4724f4e\",\"product\":\"0d4292ce737f218ab2f2c8b5fa87850bf2babe91f5e7da2da7e5cad795e5d01d\",\"delta\":\"+HO-Cl\",\"rule\":\"\",\"rule_set\":\"\",\"rule_version\":\"\",\"map\":[[0,0],[1,1],[2,2]],\"added\":[],\"centre\":[2],\"sites\":[],\"evidence\":[]}\n{\"format\":\"mol/1\",\"atoms\":[{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":2},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"Cl\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":0}],\"bonds\":[{\"a\":0,\"b\":1,\"o\":1},{\"a\":0,\"b\":2,\"o\":1}],\"stereo\":[],\"groups\":[],\"coords\":{\"dim\":2,\"xy\":[[1.0,0.0],[0.0,0.0],[2.0,0.0]],\"from\":\"molfile\"}}\n{\"format\":\"mol/1\",\"atoms\":[{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":2},{\"el\":\"C\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":3},{\"el\":\"O\",\"iso\":0,\"chg\":0,\"rad\":0,\"h\":1}],\"bonds\":[{\"a\":0,\"b\":1,\"o\":1},{\"a\":0,\"b\":2,\"o\":1}],\"stereo\":[],\"groups\":[],\"coords\":{\"dim\":2,\"xy\":[[7.0,0.0],[6.0,0.0],[8.0,0.0]],\"from\":\"molfile\"}}\n",
+      "request": {
+        "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 Cl  0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n",
+        "out": "trasf"
+      }
+    }
+  ]
+}
