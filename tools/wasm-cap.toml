@@ -6,4 +6,4 @@
 # 2026-11-20: raised from 512000 to 540000 by the owner's decision, for the 2D layout of mzlab-mol (the module measured 536722 B
 # with it linked, 500659 B without).
 cap = 4000000
-measured = 563238
+measured = 565336
