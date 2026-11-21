@@ -170,9 +170,6 @@ fn text_is_escaped_and_never_invalid_xml() {
         let s = svg::carrying(svg::to_svg(&d), &d);
         assert!(!s.chars().any(bad_xml_char), "{text:?}");
         // the text element holds the text with its markup characters escaped, never raw
-        let shown = text_of(&s, "text");
-        let first = s.find("<text ").unwrap();
-        let _ = (first, &shown);
         for t in s.split("<text ").skip(1) {
             let body = &t[t.find('>').unwrap() + 1..t.find("</text>").unwrap()];
             assert!(!body.contains('<') && !body.contains('>'), "{body}");
