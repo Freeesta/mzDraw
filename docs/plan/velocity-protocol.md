@@ -29,3 +29,11 @@ One JSON object per task in the same shape as the harness, with `"measured_by": 
 
 ## Reading the results
 Compare `actions` first (it does not depend on the machine or on the person's speed), then `ms_median`. A larger count in mzDraw on a task is a finding for the plan (the harness lists the three largest gaps); a larger time with the same count is the person's practice. Never average the tasks into one score: they test different things (templates, element changes, labels, stereo, objects).
+
+## Review of an agent's proposal (plan-16)
+A person's experiment, not a measurement the build makes: is reviewing a patch hunk by hunk faster, or more accurate, than looking at the result and undoing what is wrong? Nothing here is claimed until a person has run it.
+
+1. Prepare five drawings (synthetic structures only) and, for each, a patch of `draw_edit/1` with four to six hunks, two of which are wrong on purpose (a wrong element, a bond moved the wrong way). Write the patches as files; they are the same for both ways.
+2. Way A (proposal): load the patch with "Show as a proposal", walk the hunks with `]` and `[`, accept with Enter and reject with Delete. Way B (apply and undo): apply the whole patch as a log (`Open a file` or the CLI), look at the result and undo each wrong change by hand. Alternate which way comes first from drawing to drawing.
+3. Record per run: the time from the first keystroke to the drawing the person calls right, the number of actions (keys and clicks), and whether the final drawing equals the intended one byte for byte (`save('mzdraw')` against the reference). Use the row of the section above with `"task": "review-A"` and `"review-B"`.
+4. Compare `ok` first (a wrong drawing left in place is worse than a slow one), then `actions`, then `ms_median`. Five timed runs per way and drawing, after two practice runs.

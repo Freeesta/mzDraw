@@ -26,6 +26,8 @@ pub const ASK: u32 = 256;
 /// The page should open the context menu: a finger or a pen held still, the secondary button of a mouse or the barrel button of a
 /// pen, the Menu key or Shift+F10. The page calls `context_menu` at the point of the event, or at `context_anchor` for a key.
 pub const MENU: u32 = 512;
+/// A proposal (`proposal`) appeared, changed or went: the page should show its panel and say where the current hunk is.
+pub const PROPOSAL: u32 = 1024;
 
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
@@ -177,6 +179,9 @@ pub struct Editor {
     pub move_here: bool,
     /// The open context menu and what the page was asked to do after its last item (`context`).
     pub(crate) ctx: crate::context::Context,
+    /// An agent's patch held apart from the drawing (`proposal`), and whether a press on a hunk number is being swallowed.
+    pub(crate) proposal: Option<crate::proposal::Proposal>,
+    pub eat: Option<u32>,
 }
 
 impl Default for Editor {
@@ -206,6 +211,8 @@ impl Default for Editor {
             move_here: false,
             orient_steps: Vec::new(),
             ctx: Default::default(),
+            proposal: None,
+            eat: None,
         }
     }
 }
@@ -330,7 +337,7 @@ impl Editor {
     }
 
     /// Reach of the pointer in pixels.
-    fn reach(kind: u32) -> f64 {
+    pub(crate) fn reach(kind: u32) -> f64 {
         match kind {
             TOUCH => 22.0,
             PEN => 16.0,
@@ -854,11 +861,14 @@ impl Editor {
     }
 
     pub fn scene(&self) -> Scene {
-        scene::build(
-            self.doc(),
-            self.view,
-            &self.over,
-            self.style.metrics(self.view.scale, true),
-        )
+        let metrics = self.style.metrics(self.view.scale, true);
+        if self.live_proposal().is_some() {
+            let over = Overlay {
+                marks: self.proposal_marks(),
+                ..self.over.clone()
+            };
+            return scene::build(self.doc(), self.view, &over, metrics);
+        }
+        scene::build(self.doc(), self.view, &self.over, metrics)
     }
 }

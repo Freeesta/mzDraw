@@ -1242,3 +1242,53 @@ fn the_editor_gives_the_patch_to_another_document() {
     assert_eq!(s.doc.to_json(), other.to_json());
     assert!(e.diff_with(e.doc()).is_empty());
 }
+
+#[test]
+fn a_proposal_accepted_hunk_by_hunk_has_the_bytes_of_apply_of_the_same_hunks_and_each_accept_is_one_undo_step(
+) {
+    // plan-16: the editor holds the patch of `diff` as a proposal; any order of any subset of its hunks, accepted one by one, gives
+    // what `Session::run` of those hunks gives on its own (the reference reads no output of the proposal), and undo returns `a`
+    let (mut accepted, mut proposals) = (0, 0);
+    for (n, (a, b, mut r)) in pairs().into_iter().enumerate() {
+        let ops = mzdraw::diff::diff(&a, &b);
+        if ops.is_empty() {
+            continue;
+        }
+        let hunks = mzdraw::diff::hunks(&a, &ops);
+        let mut e = mzdraw::Editor::default();
+        e.session = Session::new(a.clone());
+        assert_eq!(e.propose(ops.clone()).unwrap(), hunks.len(), "pair {n}");
+        proposals += 1;
+        assert_eq!(e.doc().to_json(), a.to_json(), "pair {n}: held apart");
+        let mut order: Vec<usize> = (1..=hunks.len()).filter(|_| r.next(3) != 0).collect();
+        // a random order
+        for i in (1..order.len()).rev() {
+            order.swap(i, r.next(i + 1));
+        }
+        let mut want = Session::new(a.clone());
+        for &h in &order {
+            e.accept_hunk(h)
+                .unwrap_or_else(|x| panic!("pair {n}: hunk {h}: {}", x.key));
+            want.run(&hunks[h - 1].ops).unwrap();
+            assert_eq!(
+                e.doc().to_json(),
+                want.doc.to_json(),
+                "pair {n}: after hunk {h}"
+            );
+        }
+        accepted += order.len();
+        assert_eq!(
+            e.session.steps(),
+            order.len(),
+            "pair {n}: one undo step per accept"
+        );
+        for _ in &order {
+            assert!(e.undo() != 0);
+        }
+        assert_eq!(e.doc().to_json(), a.to_json(), "pair {n}: undone");
+    }
+    assert!(
+        proposals >= 50 && accepted > 60,
+        "{proposals} proposals, {accepted} accepts"
+    );
+}

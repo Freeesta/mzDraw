@@ -37,6 +37,7 @@ pub mod palettes;
 pub mod pathway;
 pub mod pdf;
 pub mod png;
+pub mod proposal;
 pub mod replay;
 pub mod route;
 pub mod rxn;

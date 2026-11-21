@@ -42,6 +42,8 @@ fn js_err(key: &str) -> JsValue {
 fn act(f: impl FnOnce(&mut Editor) -> u32) -> u32 {
     with(|p| {
         let flags = f(&mut p.editor);
+        // an open proposal that an edit, an undo or a redo made stale is ended and said at once
+        let flags = flags | p.editor.settle_proposal();
         if flags & CHANGED != 0 {
             recheck(p);
         }
@@ -597,7 +599,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -621,8 +623,34 @@ pub fn state() -> String {
             if p.check.is_empty() { "null" } else { &p.check },
             p.std_none,
             if p.std.is_empty() { "[]" } else { &p.std },
+            e.proposal_json(),
         )
     })
+}
+
+/// Holds a patch (a JSON list of `draw_edit/1` operations, from an agent or a file) as a proposal over the drawing: it is not in the
+/// drawing and not in the log until a hunk is accepted. A text that is not a list of operations is `error.draw2.proposalPatch`; the
+/// other refusals are the keys of `Editor::propose`. Returns flags (repaint, proposal). `state().proposal` lists the hunks.
+#[wasm_bindgen]
+pub fn propose(patch: &str) -> Result<u32, JsValue> {
+    let bad = || js_err("error.draw2.proposalPatch");
+    let v: serde_json::Value = serde_json::from_str(patch).map_err(|_| bad())?;
+    let ops = (v.as_array().ok_or_else(bad)?.iter())
+        .map(mzdraw::Op::parse)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| bad())?;
+    with(|p| {
+        p.editor.propose(ops).map_err(|e| js_err(e.key))?;
+        Ok(mzdraw::editor::REPAINT | mzdraw::editor::PROPOSAL)
+    })
+}
+
+/// An action on the proposal: `accept`, `reject` (the hunk with the keyboard), `accept-all`, `reject-all`, `next`, `prev`, `accept:N`,
+/// `reject:N`, `select:N` (hunk numbers from 1). Flags as `command` (an accept is a change), plus 1024 for the proposal; a refusal is
+/// in `state().error`.
+#[wasm_bindgen]
+pub fn proposal(what: &str) -> u32 {
+    act(|e| e.proposal_action(what))
 }
 
 /// Headless with engines: a replay request plus `"engines": [{"engine", "args"?}]` gives `{"engines": [...]}` (`glue::replay`), the same bytes
