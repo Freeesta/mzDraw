@@ -114,7 +114,7 @@ pub struct Plan {
     pub labelled: usize,
     /// Arrows whose text is the person's and was kept.
     pub kept: usize,
-    /// Arrows left alone because an end holds an R group or a charge (a delta has no charges).
+    /// Arrows left alone because the two structures have the same atoms and a different net charge (a delta has no charges).
     pub skipped: usize,
 }
 
@@ -173,9 +173,13 @@ pub fn display(text: &str) -> Cow<'_, str> {
     Cow::Owned(out)
 }
 
-/// The Hill counts of one structure: the elements with the implicit hydrogens, as the outline counts them. `None` when it holds an
-/// R group or has a net charge (the delta has neither).
-type Counts = Option<Vec<(String, i64)>>;
+/// The Hill counts of one structure and its net charge, as the outline counts them (every atom of the record, so an abbreviation counts
+/// as the atoms it stands for; an R group is the element `R`).
+#[derive(Default, Clone)]
+struct Acc {
+    counts: Vec<(String, i64)>,
+    charge: i64,
+}
 
 fn bump(c: &mut Vec<(String, i64)>, el: &str, n: i64) {
     if n == 0 {
@@ -201,33 +205,45 @@ fn delta_text(from: &[(String, i64)], to: &[(String, i64)]) -> String {
     delta::print(&sum)
 }
 
-/// The label of every anchored arrow whose text may be rewritten, as `obj.set` operations of `text`, in one pass over the document:
-/// the structures (`layout::pieces`) and the record (`Document::to_mol`) are built once, and the counts of a structure once, however
-/// many arrows end in it.
+/// The most atoms a drawing may have for `pathway:label` (a hostile document is refused before any work).
+pub const MAX_ATOMS: usize = 100_000;
+
+fn root(p: &mut [usize], mut i: usize) -> usize {
+    while p[i] != i {
+        p[i] = p[p[i]];
+        i = p[i];
+    }
+    i
+}
+
+/// The label of every anchored arrow whose text may be rewritten, as `obj.set` operations of `text`, in one linear pass: the record
+/// (`Document::to_mol`, with the atoms that abbreviations expand to) is built once, its structures are the connected pieces of its
+/// bonds (union-find), and the counts of a structure are summed once however many arrows end in it. The charge is not part of a delta
+/// (`delta::parse` reads elements only): the delta of `CC(=O)O` to `CC(=O)[O-]` is `-H`; two structures with the same counts and a
+/// different net charge are left alone and counted as skipped.
 pub fn plan(doc: &Document, mode: Mode, opts: &Opts) -> Result<Plan, OpError> {
     if let Some(key) = mode.refusal() {
         return Err(OpError { key, id: 0 });
     }
-    let arrows: Vec<(u32, u32, u32)> = (doc.objects.iter())
-        .filter(|o| o.t == ObjKind::Arrow && o.from != 0 && o.to != 0)
-        .map(|o| (o.id, o.from, o.to))
-        .collect();
-    if arrows.len() > crate::pathway::MAX_ARROWS {
-        return Err(OpError {
-            key: "error.draw2.schemeSize",
-            id: 0,
-        });
+    let size = OpError {
+        key: "error.draw2.schemeSize",
+        id: 0,
+    };
+    if doc.atoms.len() > MAX_ATOMS {
+        return Err(size);
+    }
+    let mut arrows: Vec<(u32, u32, u32, &str)> = Vec::new();
+    for o in &doc.objects {
+        if o.t == ObjKind::Arrow && o.from != 0 && o.to != 0 {
+            if arrows.len() == crate::pathway::MAX_ARROWS {
+                return Err(size);
+            }
+            arrows.push((o.id, o.from, o.to, o.text.as_str()));
+        }
     }
     let mut out = Plan::default();
     if arrows.is_empty() {
         return Ok(out);
-    }
-    let pieces = crate::layout::pieces(doc);
-    let mut piece_of: HashMap<u32, usize> = HashMap::new();
-    for (i, p) in pieces.iter().enumerate() {
-        for &a in p {
-            piece_of.insert(a, i);
-        }
     }
     let index: HashMap<u32, usize> = doc
         .atoms
@@ -236,44 +252,53 @@ pub fn plan(doc: &Document, mode: Mode, opts: &Opts) -> Result<Plan, OpError> {
         .map(|(i, a)| (a.id, i))
         .collect();
     let mol = doc.to_mol();
-    let mut memo: HashMap<usize, Counts> = HashMap::new();
-    let mut counts_of = |p: usize| -> Counts {
-        memo.entry(p)
-            .or_insert_with(|| {
-                let (mut c, mut charge) = (Vec::new(), 0i64);
-                for id in &pieces[p] {
-                    let i = *index.get(id)?;
-                    let a = mol.atoms.get(i)?;
-                    if matches!(
-                        doc.atoms.get(i).map(|x| label::kind(&x.lab)),
-                        Some(Some(label::Kind::R(_)))
-                    ) {
-                        return None;
-                    }
-                    bump(&mut c, &a.el, 1);
-                    bump(&mut c, "H", i64::from(a.h));
-                    charge += i64::from(a.chg);
-                }
-                (charge == 0).then_some(c)
-            })
-            .clone()
-    };
-    for (id, from, to) in arrows {
-        let (Some(&pf), Some(&pt)) = (piece_of.get(&from), piece_of.get(&to)) else {
+    let n = mol.atoms.len();
+    let mut up: Vec<usize> = (0..n).collect();
+    for b in &mol.bonds {
+        let (x, z) = (root(&mut up, b.a as usize), root(&mut up, b.b as usize));
+        up[x.max(z)] = x.min(z);
+    }
+    // the two ends of each arrow as roots of structures; the roots that are needed
+    let mut ends: Vec<(u32, usize, usize, &str)> = Vec::new();
+    let mut acc: HashMap<usize, Acc> = HashMap::new();
+    for &(id, from, to, text) in &arrows {
+        let (Some(&f), Some(&t)) = (index.get(&from), index.get(&to)) else {
             continue;
         };
-        if pf == pt {
+        let (rf, rt) = (root(&mut up, f), root(&mut up, t));
+        if rf == rt {
             continue;
         }
-        let (Some(a), Some(b)) = (counts_of(pf), counts_of(pt)) else {
+        acc.entry(rf).or_default();
+        acc.entry(rt).or_default();
+        ends.push((id, rf, rt, text));
+    }
+    for i in 0..n {
+        let r = root(&mut up, i);
+        let Some(a) = acc.get_mut(&r) else {
+            continue;
+        };
+        let is_r = matches!(
+            doc.atoms.get(i).map(|x| label::kind(&x.lab)),
+            Some(Some(label::Kind::R(_)))
+        );
+        if is_r {
+            bump(&mut a.counts, "R", 1);
+        } else {
+            let m = &mol.atoms[i];
+            bump(&mut a.counts, &m.el, 1);
+            bump(&mut a.counts, "H", i64::from(m.h));
+            a.charge += i64::from(m.chg);
+        }
+    }
+    for (id, rf, rt, now) in ends {
+        let (a, b) = (&acc[&rf], &acc[&rt]);
+        let d = delta_text(&a.counts, &b.counts);
+        if d.is_empty() && a.charge != b.charge {
             out.skipped += 1;
             continue;
-        };
-        let d = delta_text(&a, &b);
+        }
         let text = if d.is_empty() { opts.isomer.clone() } else { d };
-        let Some(now) = doc.object(id).map(|o| o.text.as_str()) else {
-            continue;
-        };
         if now == text {
             out.labelled += 1;
         } else if opts.force || owned(now, &opts.isomer) {

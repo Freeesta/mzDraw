@@ -58,6 +58,17 @@
    "agree": true
   },
   {
+   "case": "pathway:label writes the delta on empty arrows and on its own labels, keeps the person's text",
+   "arrow": 5005,
+   "label": "-O",
+   "ours": true,
+   "rdkit_delta": {
+    "O": -1
+   },
+   "rdkit_mass_shift": -15.9949,
+   "agree": true
+  },
+  {
    "case": "pathway:label with force rewrites every label, the isomer word of the caller",
    "arrow": 5000,
    "label": "+O",
@@ -134,6 +145,77 @@
     "O": -1
    },
    "rdkit_mass_shift": -1.9793,
+   "agree": true
+  },
+  {
+   "case": "pathway:label on abbreviations (Ph, OMe, Boc), a ring with a heteroatom and a charged pair",
+   "arrow": 5000,
+   "label": "+CH2",
+   "ours": true,
+   "rdkit_delta": {
+    "C": 1,
+    "H": 2
+   },
+   "rdkit_mass_shift": 14.0157,
+   "agree": true
+  },
+  {
+   "case": "pathway:label on abbreviations (Ph, OMe, Boc), a ring with a heteroatom and a charged pair",
+   "arrow": 5001,
+   "label": "+C2-H3NO",
+   "ours": true,
+   "rdkit_delta": {
+    "C": 2,
+    "H": -3,
+    "N": -1,
+    "O": -1
+   },
+   "rdkit_mass_shift": -9.0215,
+   "agree": true
+  },
+  {
+   "case": "pathway:label on abbreviations (Ph, OMe, Boc), a ring with a heteroatom and a charged pair",
+   "arrow": 5002,
+   "label": "+O2",
+   "ours": true,
+   "rdkit_delta": {
+    "O": 2
+   },
+   "rdkit_mass_shift": 31.9898,
+   "agree": true
+  },
+  {
+   "case": "pathway:label on abbreviations (Ph, OMe, Boc), a ring with a heteroatom and a charged pair",
+   "arrow": 5003,
+   "label": "-H",
+   "ours": true,
+   "rdkit_delta": {
+    "H": -1
+   },
+   "rdkit_mass_shift": -1.0073,
+   "agree": true
+  },
+  {
+   "case": "pathway:label on abbreviations (Ph, OMe, Boc), a ring with a heteroatom and a charged pair",
+   "arrow": 5004,
+   "label": "+H",
+   "ours": true,
+   "rdkit_delta": {
+    "H": 1
+   },
+   "rdkit_mass_shift": 1.0073,
+   "agree": true
+  },
+  {
+   "case": "pathway:label on abbreviations (Ph, OMe, Boc), a ring with a heteroatom and a charged pair",
+   "arrow": 5005,
+   "label": "-CH2",
+   "ours": true,
+   "rdkit_delta": {
+    "C": -1,
+    "H": -2
+   },
+   "rdkit_mass_shift": -14.0157,
    "agree": true
   }
  ]

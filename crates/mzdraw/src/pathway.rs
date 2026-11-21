@@ -272,6 +272,11 @@ pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
             comp: 0,
         })
         .collect();
+    // the width of the text of each arrow, from one pass over the objects (not a lookup per edge)
+    let label_of: HashMap<u32, f64> = (doc.objects.iter())
+        .filter(|o| !o.text.is_empty())
+        .map(|o| (o.id, label_width(&o.text, style)))
+        .collect();
     let mut edges: Vec<Edge> = raw
         .iter()
         .map(|&(arrow, u, v)| Edge {
@@ -279,9 +284,7 @@ pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
             from: index[&u],
             to: index[&v],
             primary: false,
-            label: doc
-                .object(arrow)
-                .map_or(0.0, |o| label_width(&o.text, style)),
+            label: label_of.get(&arrow).copied().unwrap_or(0.0),
         })
         .collect();
     // refusals: a pair joined twice, a directed cycle

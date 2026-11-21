@@ -84,4 +84,7 @@ if "--write" in sys.argv:
     open(REF, "w").write(text)
 checked = sum(1 for r in rows if r["ours"])
 print(f"delta: {checked - bad}/{checked} of our labels agree with RDKit's formula difference ({len(rows) - checked} are the person's text, not compared)")
-sys.exit(1 if bad else 0)
+MIN_OURS = 15        # fewer compared labels than this is a failure: 0 of 0 is not a pass
+if checked < MIN_OURS:
+    print(f"delta: only {checked} labels compared, at least {MIN_OURS} expected", file=sys.stderr)
+sys.exit(1 if bad or checked < MIN_OURS else 0)

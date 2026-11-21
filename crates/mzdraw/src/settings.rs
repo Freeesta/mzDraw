@@ -205,8 +205,8 @@ fn known(key: &str) -> bool {
 }
 
 /// The keys of the settings that take a word: the key, the words (the first is the default) as `--set` and the settings file read
-/// them. `pathway.order` has `id`, `mz` and `rt` here; `reverse-id` is for the tests of the layout and is not offered.
-const CHOICES: &str = r#"{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"},{"key":"pathway.label","values":["delta","mass","delta+mass","name+delta"],"default":"delta"}"#;
+/// them (`pathway.label` is not offered here: only `delta` can run, and a select of words that always fail is not shown). `pathway.order` has `id`, `mz` and `rt` here; `reverse-id` is for the tests of the layout and is not offered.
+const CHOICES: &str = r#"{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"}"#;
 
 /// The schema of the settings file as JSON, for the surfaces that show or document it (the fields of the page, the help of the
 /// CLI): `{"format", "presets", "colours", "fields": [{"key", "unit", "min", "max", "default"}]}`, the defaults being the ones of

@@ -911,7 +911,7 @@ try {
     await pg.click("#d2-style-more summary");                                  // folded again, as it was found
   });
 
-  await step("pathway: the button Label arrows writes the formula differences by mouse, keyboard and the canvas menu; the SVG equals the golden; the person's text is kept; modes without masses or names are refused with their text; one undo step (tp-07)", async () => {
+  await step("pathway: the button Label arrows writes the formula differences by mouse, keyboard and the canvas menu; the SVG equals the golden; the person's text is kept and painted as typed; the minus is painted as U+2212 and stored as ASCII; one undo step (tp-07)", async () => {
     const lg = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway-label.json"), "utf8"));
     const g = lg.cases[0], PL = '[data-testid="d2-pathway-label"]';
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
@@ -922,8 +922,11 @@ try {
     await shot(pg, "tp-07-labels-before");
     await tool(pg, "pathway-label"); await frames(pg);                          // mouse
     eq(await saved(pg), g.out.mzdraw); eq(await saved(pg, "svg"), g.out.svg);
-    assert((await saved(pg, "svg")).includes("\u2212O") === false && (await saved(pg, "svg")).includes("+CH2"), "the labels are painted");
-    eq(await pg.innerText("#d2-live"), "Arrows labelled: 3 arrows, 2 kept with your text, none skipped.");
+    // the data keeps the ASCII minus (the document and its log), the painted text has the true one (U+2212), and the person's texts are painted as typed
+    const svg = await saved(pg, "svg");
+    assert(svg.includes(">\u2212O<") && !svg.includes(">-O<") && svg.includes(">+CH2<") && svg.includes(">hydroxylation (CYP)<"), "the labels are painted, the minus is the true one");
+    assert(JSON.parse(await saved(pg)).objects.some(o => o.text === "-O"), "the data holds the ASCII minus");
+    eq(await pg.innerText("#d2-live"), "Arrows labelled: 4 arrows, 2 kept with your text, none skipped.");
     const log = JSON.parse(await saved(pg, "log")), native = JSON.parse(g.out.log);
     assert(log.length > 0 && log.every(o => o.op === "obj.set"), "the log holds obj.set operations only");
     eq(log, native.slice(native.length - log.length));
@@ -941,18 +944,9 @@ try {
     await pg.focus(item); await pg.keyboard.press("Enter"); await frames(pg);
     eq(await saved(pg), g.out.mzdraw);
     await tool(pg, "undo"); eq(await saved(pg), before);
-    // the setting: a mode that needs masses or names is refused with its text and nothing changes
+    // `pathway.label` offers no select: its other words always fail until the mass callback exists (the refusals are in the golden results)
     await pg.click("#d2-style-more summary");
-    eq(await pg.locator('[id="d2-style-pathway.label"] option').allInnerTexts(), await pg.evaluate("['delta', 'mass', 'delta+mass', 'name+delta'].map(v => I18N.t('draw2.style.choice.pathway.label.' + v))"));
-    for (const [mode, key] of [["delta+mass", "error.draw2.labelMass"], ["name+delta", "error.draw2.labelSteps"]]) {
-      await pg.selectOption('[id="d2-style-pathway.label"]', mode);
-      await until(pg, `JSON.parse(window.MZDRAW.style()).style['pathway.label'] === ${JSON.stringify(mode)}`);
-      await tool(pg, "pathway-label"); await frames(pg);
-      eq(await pg.innerText("#d2-live"), await pg.evaluate(`I18N.t(${JSON.stringify(key)})`));
-      eq(await saved(pg), before);
-    }
-    await pg.selectOption('[id="d2-style-pathway.label"]', "delta");
-    await until(pg, "!('pathway.label' in JSON.parse(window.MZDRAW.style()).style)");
+    eq(await pg.locator('[id="d2-style-pathway.label"]').count(), 0);
     await tool(pg, "clear");
     await pg.click("#d2-style-more summary");
   });

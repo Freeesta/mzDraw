@@ -161,8 +161,7 @@ fn the_two_words_of_the_layout_are_in_the_schema_and_set_the_layout() {
         schema["choices"],
         json!([
             {"key": "pathway.dir", "values": ["right", "down"], "default": "right"},
-            {"key": "pathway.order", "values": ["id", "mz", "rt"], "default": "id"},
-            {"key": "pathway.label", "values": ["delta", "mass", "delta+mass", "name+delta"], "default": "delta"}
+            {"key": "pathway.order", "values": ["id", "mz", "rt"], "default": "id"}
         ])
     );
     // every word of the schema is accepted by `set`, and a word outside it is refused with its key
