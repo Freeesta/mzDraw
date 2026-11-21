@@ -103,8 +103,10 @@ pub fn name() -> String {
 }
 
 /// A pointer event: `phase` 0 down, 1 move, 2 up, 3 cancel; `kind` 0 mouse, 1 pen, 2 finger; `mods` bit 1 Shift, bit 2 Ctrl/Cmd,
-/// bit 4 the eraser end of a pen; `id` the pointer id and `t` its time stamp in milliseconds (several fingers, a resting palm and a
-/// long press are told apart in Rust). Returns flags (1 repaint, 2 changed, 4 tool changed, 8 handled).
+/// bit 4 the eraser end of a pen, bit 8 Alt, bit 16 the secondary button (right button of a mouse, barrel button of a pen), bit 32 the middle
+/// button; `id` the pointer id and `t` its time stamp in milliseconds (several fingers, a resting palm and a
+/// long press are told apart in Rust). Returns flags (1 repaint, 2 changed, 4 tool changed, 8 handled, 512 open the context menu: a finger or a pen held still, the secondary button released without a drag, the barrel button of a pen; a drag with the
+/// secondary or the middle button pans the view in Rust).
 #[wasm_bindgen]
 pub fn pointer(phase: u32, x: f64, y: f64, kind: u32, mods: u32, id: u32, t: f64) -> u32 {
     act(|e| e.pointer_event(phase, id, x, y, kind, mods, t))
@@ -220,11 +222,28 @@ pub fn context_menu(x: f64, y: f64, kind: u32) -> String {
     with(|p| p.editor.context_menu_at(x, y, kind))
 }
 
-/// Runs an item of the open menu (one undo step) and closes the menu. Flags as `command`, plus 128 when the page has to finish the
+/// Runs an item of the open menu (one undo step) and closes the menu. Flags as `command`, plus 256 when the page has to finish the
 /// job: read `context_ask`. A menu older than the last change refuses (`error.draw2.contextStale` in `state().error`).
 #[wasm_bindgen]
 pub fn context_run(id: &str) -> u32 {
     act(|e| e.context_run(id))
+}
+
+/// Whether the open menu still describes the state: false when none is open or when the document, the selection, the clipboard
+/// or the view changed since it was built. The page closes its menu when this turns false.
+#[wasm_bindgen]
+pub fn context_valid() -> bool {
+    with(|p| p.editor.context_valid())
+}
+
+/// Where a menu opened from the keyboard (flag 512 of `key`: the Menu key or Shift+F10) goes in a canvas `w` x `h`: `[x, y]` in
+/// pixels, on the atom with the keyboard focus, else on the first selected atom or object, else in the middle.
+#[wasm_bindgen]
+pub fn context_anchor(w: f64, h: f64) -> Vec<f64> {
+    with(|p| {
+        let (x, y) = p.editor.context_anchor(w, h);
+        vec![x, y]
+    })
 }
 
 /// Closes the menu without running anything.
@@ -233,7 +252,7 @@ pub fn context_close() {
     with(|p| p.editor.context_close())
 }
 
-/// What the page has to do after `context_run` answered 128: `element:<atom>`, `label:<atom>`, `data:<atom>`, `annotation:<atom>`,
+/// What the page has to do after `context_run` answered 256: `element:<atom>`, `label:<atom>`, `data:<anchor>`, `annotation:<anchor>`,
 /// `text:<object>`, `import`, `fit`, `save-image`, `clipboard` or `copy-as:<molfile|smiles|svg|png>`; read once.
 #[wasm_bindgen]
 pub fn context_ask() -> String {
@@ -280,6 +299,12 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| p.editor.save(kind).map_err(js_err))
+}
+
+/// The drawing as a PDF file (vector, text as text, the document inside so that it opens again).
+#[wasm_bindgen]
+pub fn save_pdf() -> Vec<u8> {
+    with(|p| p.editor.pdf())
 }
 
 /// What the page draws to save a PNG: `{"svg", "width", "height", "paper"}` (pixels; the SVG is rasterised on a canvas of that

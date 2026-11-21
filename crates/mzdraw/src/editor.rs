@@ -21,12 +21,21 @@ pub const ASK_TEXT: u32 = 32;
 pub const FOCUS: u32 = 64;
 /// The layout of the palettes changed (`Layout`): the page should lay them out again.
 pub const PALETTES: u32 = 128;
+/// An item of the context menu needs the page to finish it: read `context_ask` (`context`).
+pub const ASK: u32 = 256;
+/// The page should open the context menu: a finger or a pen held still, the secondary button of a mouse or the barrel button of a
+/// pen, the Menu key or Shift+F10. The page calls `context_menu` at the point of the event, or at `context_anchor` for a key.
+pub const MENU: u32 = 512;
 
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
 pub const CTRL: u32 = 2;
 /// Bit 4 of a pointer event is the eraser end of a pen; bit 8 is Alt (Option) on a key.
 pub const ALT: u32 = 8;
+/// The secondary button of a mouse (right) or the barrel button of a pen: the context menu, not the tool.
+pub const SECONDARY: u32 = 16;
+/// The middle button of a mouse: it pans the view, with the secondary one when it is dragged.
+pub const MIDDLE: u32 = 32;
 
 /// Pointer kinds: mouse, pen, finger. A finger needs a wider reach.
 pub const MOUSE: u32 = 0;
@@ -391,7 +400,7 @@ impl Editor {
     }
 
     /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `sdf` (one record per structure, with its data),
-    /// `svg` (in the style of the editor), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
+    /// `svg` (in the style of the editor), `pdf` (base64 of the PDF file), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
             "mzdraw" => self.doc().to_json(),
@@ -404,6 +413,7 @@ impl Editor {
             "rxn" => self.doc().to_rxn()?,
             "sdf" => self.doc().to_sdf(),
             "svg" => self.svg(),
+            "pdf" => crate::pdf::base64(&self.pdf()),
             "log" => self.session.log_json(),
             // the settings file: the style, the layout of the palettes and the export defaults
             "settings" => self.settings_json(),
@@ -763,6 +773,11 @@ impl Editor {
             crate::svg::to_svg_styled(self.doc(), &self.style),
             self.doc(),
         )
+    }
+
+    /// The drawing as a PDF file in the editor's style, carrying its document (`pdf::to_pdf`).
+    pub fn pdf(&self) -> Vec<u8> {
+        crate::pdf::to_pdf(self.doc(), &self.style)
     }
 
     /// Marks the atoms a check flagged (ids), replacing the previous marks.

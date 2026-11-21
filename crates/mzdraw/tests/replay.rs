@@ -62,15 +62,24 @@ fn every_case_replays_to_the_recorded_bytes() {
                 }
             }
         }
-        // the context menu of a right-click on each kind of target, as the `.wasm` gives it (tests/parity.mjs)
+        // the context menu of a right-click on each kind of target and what pointer and key events leave of it (the flags, the selection, the
+        // anchor, the validity), as the `.wasm` gives them (tests/parity.mjs)
         for case in section_mut(fx, "contexts") {
             let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
             if bless {
                 case["out"] = json!(got);
             }
             assert_eq!(case["out"], json!(got), "{}", case["name"]);
-            let menu: Value = serde_json::from_str(&got).unwrap();
-            assert!(menu["target"].is_string() && menu["items"].is_array());
+            let v: Value = serde_json::from_str(&got).unwrap();
+            if case["request"]["out"]
+                .as_str()
+                .unwrap()
+                .starts_with("context-state:")
+            {
+                assert!(v["flags"].is_array() && v["valid"].is_array() && v["anchor"].is_array());
+            } else {
+                assert!(v["target"].is_string() && v["items"].is_array());
+            }
         }
         // the verdict of a request that asks for one (`draw-result/1`): recorded text and `ok`, the request being number `n` of its batch
         for case in section_mut(fx, "results") {
@@ -102,6 +111,15 @@ fn every_case_replays_to_the_recorded_bytes() {
             assert_eq!(case["out"], json!(got), "{}", case["name"]);
             let file: Value = serde_json::from_str(&got).unwrap();
             assert!(file["layout"].is_object() && file["export"].is_object());
+        }
+        // the PDF file as base64 (`out: pdf`): the same bytes on both sides, a PDF that opens again as the same drawing
+        for case in section_mut(fx, "pdf") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            assert!(got.starts_with("JVBERi0xLjc"), "{}: %PDF-1.7", case["name"]);
         }
         if bless {
             std::fs::write(&*path, serde_json::to_string_pretty(&*fx).unwrap() + "\n").unwrap();
