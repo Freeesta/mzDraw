@@ -65,12 +65,13 @@ if (flag("guard-test")) {
   const { tmpdir } = await import("node:os");
   const dir = mkdtempSync(path.join(tmpdir(), "velocity-"));
   const real = JSON.parse(readFileSync(path.join(data, "baseline.json"), "utf8"));
-  const doctored = { ...real, rows: real.rows.map(r => (r.task === "anthracene" && !r.variant ? { ...r, actions: r.actions - 1 } : r)) };
+  const GUARD = "anthracene", have = real.rows.find(r => r.task === GUARD && !r.variant).actions;
+  const doctored = { ...real, rows: real.rows.map(r => (r.task === GUARD && !r.variant ? { ...r, actions: have - 1 } : r)) };
   writeFileSync(path.join(dir, "low.json"), JSON.stringify(doctored)); writeFileSync(path.join(dir, "true.json"), JSON.stringify(real));
   const go = file => spawnSync(process.execPath, [fileURLToPath(import.meta.url), "--check", "--runs", "1", "--agent-runs", "1", "--only", "anthracene", "--baseline", path.join(dir, file)], { encoding: "utf8" });
   const low = go("low.json"), ok = go("true.json");
   rmSync(dir, { recursive: true, force: true });
-  const good = low.status === 1 && low.stderr.includes("regression: anthracene: 4 actions, baseline 3") && ok.status === 0;
+  const good = low.status === 1 && low.stderr.includes(`regression: ${GUARD}: ${have} actions, baseline ${have - 1}`) && ok.status === 0;
   console.error(good ? "guard-test: ok (a baseline one action lower fails, the true baseline passes)" : `guard-test: FAILED (low ${low.status} ${low.stderr}; true ${ok.status} ${ok.stderr})`);
   process.exit(good ? 0 : 1);
 }
