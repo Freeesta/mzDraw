@@ -69,7 +69,8 @@ sedf=$(mktemp)
   echo "s#((Freeesta/|freeesta\\.github\\.io/)${old_slug:0:2})(${old_slug:2})#\\1\\x01\\3#Ig"
   echo "s#/${old_name:0:1}(${old_name:1}/)#/${old_name:0:1}\\x01\\1#g"
   echo "s#COO-${old_app:0:1}(${old_app:1})#COO-${old_app:0:1}\\x01\\1#g"
-  echo "s#(\"since\":\")${first:0:1}(${first:1}\")#\\1${first:0:1}\\x01\\2#g"
+  # (`"since":"` plain, and `\"since\":\"` as JSON inside a JSON golden)
+  echo "s#(\"since\\\\?\":\\\\?\")${first:0:1}(${first:1}\\\\?\")#\\1${first:0:1}\\x01\\2#g"
   echo "s#^(\\| \`[^\`]+\` \\| )${first:0:1}(${first:1} \\|)#\\1${first:0:1}\\x01\\2#"
   echo "s#${old_name}#${new}#g"; echo "s#${old_slug}#${slug}#g"; echo "s#${old_app}#${app}#g"; echo "s#${old_pascal}#${pascal}#g"
   echo "s#--${old_css}-#--${css}-#g"
@@ -86,6 +87,11 @@ rm -f "$sedf"
 list="\"$old_slug\""; [ -z "$legacy" ] || list="$legacy, $list"
 sed -i -E "s/^(legacy_ids = \\[).*(\\].*)\$/\\1$list\\2/; s/^(css_prefix = \")[^\"]*/\\1$css/" brand.toml
 sed -i -E "s/^(pub const LEGACY_IDS: &\\[&str\\] = &\\[).*(\\];.*rename-legacy.*)\$/\\1$list\\2/; s/^(pub const CSS_PREFIX: &str = \")[^\"]*/\\1$css/" crates/*/src/brand.rs
+# web/names.js is written from brand.rs: its lists of earlier names follow legacy_ids
+if [ -f web/names.js ]; then
+  olds() { local out="" s; for s in $(echo "$list" | tr -d '" ' | tr ',' ' '); do out="$out${out:+, }\"${1//@/$s}\""; done; echo "[$out]"; }
+  sed -i -E "s#^(  autosaveOld: ).*,\$#\\1$(olds '@-autosave.json'),#; s#^(  settingsOld: ).*,\$#\\1$(olds '@-settings.json'),#; s#^(  clipOld: ).*,\$#\\1$(olds 'application/x-@+json'),#" web/names.js
+fi
 mv_list=$(find . \( "${skip[@]}" \) -prune -o -name "*$old_slug*" -print | sort -r)
 renamed=0
 while IFS= read -r p; do

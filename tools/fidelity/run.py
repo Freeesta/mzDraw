@@ -54,8 +54,8 @@ def mask(text: str) -> str:
     """Our file with the product name and slug masked (as `mask` of crates/mzdraw/tests/fidelity.rs): the writers put the name in the
     headers, and a rename of the product must not change the hash, only a change of the writer does."""
     toml = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "brand.toml")).read()
-    name, slug = (re.search(rf'^{k} = "([^"]*)"', toml, re.M).group(1) for k in ("name", "slug"))
-    return text.replace(name, "\x01").replace(slug, "\x02")
+    name, slug, url = (re.search(rf'^{k} = "([^"]*)"', toml, re.M).group(1) for k in ("name", "slug", "pages_url"))
+    return text.replace(url, "\x03").replace(name, "\x01").replace(slug, "\x02")
 
 
 def stable(text: str) -> str:

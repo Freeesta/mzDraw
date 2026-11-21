@@ -25,6 +25,7 @@ fn data(name: &str) -> String {
 /// name and the slug are masked, and renaming the product does not change a hash (only a change of a writer does).
 fn fnv1a(text: &str) -> String {
     let text = text
+        .replace(mzdraw::brand::PAGES_URL, "\u{3}")
         .replace(mzdraw::brand::NAME, "\u{1}")
         .replace(mzdraw::brand::SLUG, "\u{2}");
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;

@@ -311,9 +311,12 @@ fn the_files_of_the_page_list_the_earlier_names_when_there_are_some() {
     }
     // the current names are written once, from the slug in use, and none of the earlier ones leaks into them
     assert!(js.contains(&format!("autosave: \"{}-autosave.json\"", brand::SLUG)));
-    // with no earlier name the lists are empty, as in the file of the page
-    assert_eq!(names_js_with(&[]), names_js());
-    assert!(names_js().contains("autosaveOld: [],"));
+    // with no earlier name the lists are empty; the file of the page has the lists of the earlier names there are
+    assert!(names_js_with(&[]).contains("  autosaveOld: [],\n"));
+    assert_eq!(
+        names_js().contains("  autosaveOld: [],\n"),
+        brand::LEGACY_IDS.is_empty()
+    );
 }
 
 // ---- brand_no_literals

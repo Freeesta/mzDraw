@@ -22,8 +22,8 @@ def fnv1a(text):
     """The same hash as `fnv1a(mask(..))` of run.py (not imported: run.py needs Open Babel at import time, this check does not): the
     product name and slug of brand.toml are masked, so that a rename of the product does not change it."""
     toml = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "brand.toml")).read()
-    name, slug = (re.search(rf'^{k} = "([^"]*)"', toml, re.M).group(1) for k in ("name", "slug"))
-    text = text.replace(name, "\x01").replace(slug, "\x02")
+    name, slug, url = (re.search(rf'^{k} = "([^"]*)"', toml, re.M).group(1) for k in ("name", "slug", "pages_url"))
+    text = text.replace(url, "\x03").replace(name, "\x01").replace(slug, "\x02")
     h = 0xCBF29CE484222325
     for b in text.encode("utf-8"):
         h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF

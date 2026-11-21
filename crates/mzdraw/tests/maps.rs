@@ -376,6 +376,7 @@ fn atom_add_takes_a_map_and_the_writers_never_skip_a_number() {
 /// The same hash as `fnv1a` of `tools/fidelity/maps.py`: the product name and slug are masked (see `tests/fidelity.rs`).
 fn fnv1a(text: &str) -> String {
     let text = text
+        .replace(mzdraw::brand::PAGES_URL, "\u{3}")
         .replace(mzdraw::brand::NAME, "\u{1}")
         .replace(mzdraw::brand::SLUG, "\u{2}");
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
