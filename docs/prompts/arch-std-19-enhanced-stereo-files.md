@@ -13,6 +13,7 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 In:
 - Read the V3000 collections `MDLV30/STEABS`, `MDLV30/STERELn`, `MDLV30/STERACn` into the `stg` field of arch-std-12 (through what `mzlab-mol` already parses: it reads these groups for its record; do not write a second V3000 parser) and write them back; V2000 has only the chiral flag: written as absolute when every centre is `abs`, else the groups are listed as lost on write.
 - KET: the enhanced-stereo flags of the schema on atoms, read and written.
+- No group is ever assumed on read (D19, edit E20 of `docs/plan/backlog.md` §10.5). A V2000 chiral flag (0 or 1) and a V3000 wedged centre outside every collection leave the centre without a group (`undefined`). The import notes list those centres, the flag value and what CTfile 2026 says it means (flag on = absolute at every wedged centre; flag off = the drawn isomer and its enantiomer). The write rule above is unchanged.
 - The import note "enhanced-stereo groups not kept" disappears for what is now kept; anything still lost is listed.
 
 Out (do not do here):
@@ -20,7 +21,7 @@ Out (do not do here):
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2, §2.4 molfile and KET rows).
-- The CTfile V3000 collection blocks (BIOVIA CTfile Formats: behind a request form, not read by the study; implement from what `mzlab-mol` reads and writes and say so in the PR).
+- The CTfile V3000 collection blocks: BIOVIA CTfile Formats, Chemistry 2026, public copy at https://www.3ds.com/assets/invest/2026-01/biovia_chemistry_2026_ctfile_formats.pdf (read by ARCH PLAN-2 on 2026-11-21: STEABS, STERACn, STERELn and the chiral flag; see `docs/plan/backlog.md` §10.1). Implement from what `mzlab-mol` reads and writes, and apply edit E20 (§10.5: no group is set from a default).
 - KET schema (https://raw.githubusercontent.com/epam/ketcher/master/packages/ketcher-core/src/domain/serializers/ket/schema.json).
 - `crates/mzdraw/src/io.rs`, `crates/mzdraw/src/ket.rs`.
 
