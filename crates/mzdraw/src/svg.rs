@@ -43,14 +43,21 @@ fn access(id: &str) -> String {
 
 /// A short deterministic name for the ids of the two elements: FNV-1a (32 bits) of the text alternative and the document, in
 /// hex, so two saved SVGs inlined in one page do not share ids unless they are the same drawing (then their texts are the same).
+/// The document is hashed under the id of its first version, so that renaming the product does not change the ids.
 fn short_hash(doc: &Document, title: &str, desc: &str) -> String {
+    use crate::brand::{DOCUMENT_ID, FIRST_DOCUMENT_ID};
+    let json = doc.to_json().replacen(
+        &format!("\"format\":\"{DOCUMENT_ID}\""),
+        &format!("\"format\":\"{FIRST_DOCUMENT_ID}\""),
+        1,
+    );
     let mut h: u32 = 0x811c_9dc5;
     for b in title
         .bytes()
         .chain([0])
         .chain(desc.bytes())
         .chain([0])
-        .chain(doc.to_json().bytes())
+        .chain(json.bytes())
     {
         h = (h ^ b as u32).wrapping_mul(0x0100_0193);
     }

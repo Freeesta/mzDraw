@@ -226,24 +226,38 @@ fn names_js_with(legacy: &[&str]) -> String {
 const NAMES_JS: &str = r#"// GENERATED from brand.toml by crates/mzdraw/tests/brand.rs (MZDRAW_BLESS=1 cargo test -p mzdraw --test brand): do not edit.
 // Every name of the product the page uses, in one place: the name will change. The ids of the page carry the prefix `d2-`
 // (HTML, CSS and tests), the i18n keys `draw2.`; what the scripts write or store is named here only. The `*Old` lists are the
-// names of earlier products: read when the current one is not there, never written.
+// names of earlier products: read when the current one is not there, never written. (The comments are above the lines, not after
+// them, so that the file does not depend on the length of a name.)
 export const NAMES = Object.freeze({
-  name: "@NAME@",                             // the visible name (the texts say {app}, see appname.js)
-  slug: "@SLUG@",                             // the `out` kind of the document
-  version: "@DOC@",                           // the document format of the day
-  bridge: "@BRIDGE@",                         // what the module must speak to this page
-  global: "@APP@",                            // the editor module on window, for hosts and the tests
-  tag: "@TAG@",                               // the custom element
-  wasm: "@WASM@",                             // the module of pkg/
-  autosave: "@SLUG@-autosave.json",           // the drawing kept in the browser's private file system (OPFS)
+  // the visible name (the texts say {app}, see appname.js)
+  name: "@NAME@",
+  // the `out` kind of the document
+  slug: "@SLUG@",
+  // the document format of the day
+  version: "@DOC@",
+  // what the module must speak to this page
+  bridge: "@BRIDGE@",
+  // the editor module on window, for hosts and the tests
+  global: "@APP@",
+  // the custom element
+  tag: "@TAG@",
+  // the module of pkg/
+  wasm: "@WASM@",
+  // the drawing kept in the browser's private file system (OPFS), then the names of earlier products
+  autosave: "@SLUG@-autosave.json",
   autosaveOld: @AUTOSAVE_OLD@,
-  settings: "@SLUG@-settings.json",           // the settings file kept there, and its download name
+  // the settings file kept there, and its download name
+  settings: "@SLUG@-settings.json",
   settingsOld: @SETTINGS_OLD@,
-  clip: "application/x-@SLUG@+json",          // our own clipboard type: the document
+  // our own clipboard type: the document
+  clip: "application/x-@SLUG@+json",
   clipOld: @CLIP_OLD@,
-  doc: "drawing.@SLUG@.json",                 // the download name of the document
-  id: "d2-",                                  // the prefix of the ids the scripts make
-  tokens: "@TOKENS@",                           // the prefix of the colour tokens (web/mzdraw.css), which a host may set
+  // the download name of the document
+  doc: "drawing.@SLUG@.json",
+  // the prefix of the ids the scripts make
+  id: "d2-",
+  // the prefix of the colour tokens (web/mzdraw.css), which a host may set
+  tokens: "@TOKENS@",
 });
 "#;
 
