@@ -1,0 +1,825 @@
+{
+ "format": "stereo-reference/1",
+ "date": "2026-11-21",
+ "programs": {
+  "rdkit": "2026.09.2"
+ },
+ "cases": 116,
+ "agree": 116,
+ "flips_changed": 31,
+ "drags_changed": 48,
+ "results": [
+  {
+   "name": "s095-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s095-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s096-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s096-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s097-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s097-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s098-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s098-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s099-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s099-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s100-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s100-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s101-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s101-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s102-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s102-stereo",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s103-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s103-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s104-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s104-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s105-stereo",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s105-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s106-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s106-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s107-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s107-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s108-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s108-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s109-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s109-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s110-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s110-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s111-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s111-stereo",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s112-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s112-stereo",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s113-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s113-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s114-stereo",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s114-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s115-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s115-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s116-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s116-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s117-stereo",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s117-stereo",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s118-stereo",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s118-stereo",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s119-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s119-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s120-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s120-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s121-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s121-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s122-stereo",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s122-stereo",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s123-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s123-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s124-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s124-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s125-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s125-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s126-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s126-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s127-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s127-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s128-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s128-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s129-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s129-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s130-stereo",
+   "edit": "flip",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s130-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s131-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s131-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s132-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s132-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s133-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s133-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s134-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s134-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s135-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s135-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s136-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s136-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s137-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s137-ez",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s138-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s138-ez",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s139-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s139-ez",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s140-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s140-ez",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s141-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s141-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s142-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s142-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s143-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s143-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s144-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s144-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s145-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s145-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s146-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s146-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s147-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s147-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s148-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s148-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s149-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s149-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s150-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s150-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s151-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s151-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s152-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s152-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  }
+ ]
+}

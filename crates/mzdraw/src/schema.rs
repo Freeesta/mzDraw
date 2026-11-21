@@ -378,6 +378,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("expect", "std_absent", "string[]", "none of these `std/1` keys is found"),
     r("expect", "pieces", "uint", "the atoms form exactly this many connected pieces"),
     r("expect", "smiles", "string", "the SMILES of the whole drawing equals this text"),
+    r("expect", "stereo", "string", "`\"kept\"`: every stereocentre and double bond of the drawing after `import` is arranged as at the end; `detail` names the atoms"),
 ];
 
 /// The row of an operation by name.

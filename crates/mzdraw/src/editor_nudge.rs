@@ -130,6 +130,7 @@ impl Editor {
         what: &str,
     ) -> u32 {
         let join = self.joins(&atoms, &objects, turn, t).is_some();
+        let guard = crate::stereo_guard::before(self.doc(), std::slice::from_ref(&op));
         let ops = self.following(&[op]);
         let done = if join {
             self.session.run_into_last(&ops)
@@ -139,6 +140,7 @@ impl Editor {
         match done {
             Ok(()) => {
                 self.said = (say, what.to_string());
+                self.say_stereo(guard);
                 self.error = "";
                 self.nudge = Some(Nudge {
                     at: t,

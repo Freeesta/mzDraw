@@ -6,6 +6,7 @@
 //! same request gives the same bytes on every surface; `docs/schemas/draw-result-1.json` describes it.
 
 use crate::doc::Document;
+use crate::stereo_guard::{self, Snapshot};
 use serde_json::Value;
 use std::collections::BTreeSet;
 
@@ -82,6 +83,8 @@ pub enum Check {
     Pieces(u32),
     /// `{"smiles":"..."}`: the SMILES of the whole drawing (`Editor::save("smiles")`) is this text.
     Smiles(String),
+    /// `{"stereo":"kept"}`: no piece has another stereo signature than at the start of the request (after `import`).
+    StereoKept,
 }
 
 /// A postcondition with the request object it came from (written back as `check`).
@@ -117,6 +120,7 @@ pub fn read_expect(v: &Value) -> Result<Vec<Expectation>, &'static str> {
                     .ok_or(BAD_EXPECT)?,
             ),
             "smiles" => Check::Smiles(val.as_str().ok_or(BAD_EXPECT)?.to_string()),
+            "stereo" if val.as_str() == Some("kept") => Check::StereoKept,
             _ => return Err(BAD_EXPECT),
         };
         out.push(Expectation {
@@ -150,8 +154,27 @@ pub fn pieces(doc: &Document) -> u32 {
 
 impl Check {
     /// Whether the drawing satisfies it, and when it does not, why (English text for a reader; empty when it holds).
-    pub fn run(&self, doc: &Document, style: &crate::settings::Style) -> (bool, String) {
+    /// `start` is every stereo element of the drawing at the start of the request (`Snapshot::all`), for `stereo`.
+    pub fn run(
+        &self,
+        doc: &Document,
+        start: Option<&Snapshot>,
+        style: &crate::settings::Style,
+    ) -> (bool, String) {
         match self {
+            Check::StereoKept => {
+                let atoms =
+                    start.map_or_else(Vec::new, |then| stereo_guard::changed(doc, then, true));
+                if atoms.is_empty() {
+                    (true, String::new())
+                } else {
+                    let ids: Vec<String> = atoms.iter().map(u32::to_string).collect();
+                    (
+                        false,
+                        format!("the configuration changed at atoms {}", ids.join(", ")),
+                    )
+                }
+            }
             Check::StdNone => {
                 let keys = found(doc, style, None);
                 if keys.is_empty() {

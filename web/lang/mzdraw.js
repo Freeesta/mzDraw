@@ -286,6 +286,7 @@ I18N.add("en", {
   "draw2.say.orientedPart": "{what} structures oriented; the others are too large or share no core.",
   "draw2.say.oriented": "{what} structure(s) oriented on the one before the arrow.",
   "draw2.say.flipped": "Mirrored.",
+  "draw2.say.stereoChanged": "Configuration changed at atoms {what}.",
   "draw2.say.schemeRow": "Scheme laid out on one line.",
   "draw2.say.schemeRowDone": "The scheme is already laid out.",
   "draw2.announce.moved": "Moved {what} bond length.",

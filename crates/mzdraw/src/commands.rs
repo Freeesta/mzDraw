@@ -72,7 +72,7 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
         let opts = crate::scheme::Opts::parse(args).map_err(bad)?;
         let ops = crate::scheme::row(e.doc(), &e.style, &opts).map_err(bad)?;
         let ops = e.following(&ops);
-        return e.session.run(&ops);
+        return e.run_guarded(&ops);
     }
     if name == "pathway:tree" {
         let ops = crate::pathway::command(e.doc(), &e.style).map_err(|r| OpError {
@@ -113,7 +113,7 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     }
     let op = Op::parse(&v).map_err(bad)?;
     let ops = e.following(&[op]);
-    e.session.run(&ops)
+    e.run_guarded(&ops)
 }
 
 /// `scheme:orient`: one undo step with the turns of `orient::plan` (and the route of the arrows that follow). Nothing is changed, and
