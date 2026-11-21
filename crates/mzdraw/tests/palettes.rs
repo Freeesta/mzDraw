@@ -336,3 +336,162 @@ fn property_no_sequence_of_moves_takes_a_palette_out_of_view_or_loses_the_settin
         );
     }
 }
+
+/// The sizes the page measures at 1280x720: the side groups as tall as they are drawn, the history group as a column.
+fn page_sizes() -> Vec<(String, f64, f64)> {
+    let side = [
+        ("structure", 165.0),
+        ("style", 162.0),
+        ("data", 68.0),
+        ("annotation", 68.0),
+        ("check", 133.0),
+        ("keys", 56.0),
+    ];
+    let mut s = sizes();
+    for e in s.iter_mut() {
+        if let Some(h) = side.iter().find(|x| x.0 == e.0) {
+            (e.1, e.2) = (280.0, h.1);
+        }
+    }
+    s
+}
+
+fn read_back(l: &Layout) -> Layout {
+    let text = l.to_text().unwrap_or_else(|| "{}".into());
+    Layout::read(&serde_json::from_str(&text).unwrap()).expect("the layout reads its own text")
+}
+
+#[test]
+fn page_input_that_is_not_a_finite_number_is_refused_and_the_settings_read_back() {
+    let mut l = Layout::default();
+    l.arrange(1280.0, 720.0, &sizes());
+    assert!(!l.press("edit", f64::NAN, 10.0));
+    assert!(l.press("edit", 400.0, 10.0));
+    assert!(!l.drag(f64::NAN, 300.0) && !l.drag(f64::INFINITY, 300.0));
+    // a release at no point ends the grab where the palette was
+    let before = l.palettes();
+    assert!(l.release(f64::NAN, 0.0));
+    assert_eq!(l.palettes(), before);
+    // a viewport that is not a number keeps the last one; a huge one is kept within 100,000 px
+    let (_, area) = l.arrange(f64::NAN, f64::INFINITY, &[]);
+    assert!(area[2] + area[0] <= 1280.0);
+    let json = l.arranged_json(1e300, 1e300, &[]);
+    assert!(!json.contains("null") && !json.contains("e+"), "{json}");
+    // a palette dragged far out is written at a place the reader takes
+    assert!(l.press("edit", 400.0, 10.0) && l.release(1e9, 1e9));
+    let read = read_back(&l);
+    assert_eq!(read, l);
+    let edit = l.palettes().into_iter().find(|p| p.id == "edit").unwrap();
+    assert!(edit.x.is_finite() && edit.x <= 1e6 && edit.y <= 1e6);
+}
+
+#[test]
+fn unknown_keys_inside_a_palette_entry_are_kept() {
+    let text =
+        r#"{"palettes":[{"id":"edit","dock":"float","x":10,"y":20,"tint":"red","pin":{"a":1}}]}"#;
+    let mut l = Layout::read(&serde_json::from_str(text).unwrap()).unwrap();
+    let out = l.to_text().unwrap();
+    assert!(
+        out.contains(r#""tint":"red""#) && out.contains(r#""pin":{"a":1}"#),
+        "{out}"
+    );
+    // a change of the palette keeps them too
+    l.arrange(1280.0, 720.0, &sizes());
+    assert!(l.toggle("edit", "collapsed"));
+    let out = l.to_text().unwrap();
+    assert!(
+        out.contains(r#""tint":"red""#) && out.contains(r#""collapsed":false"#),
+        "{out}"
+    );
+    assert_eq!(read_back(&l), l);
+}
+
+#[test]
+fn a_viewport_smaller_than_its_palettes_leaves_an_empty_area_inside_it() {
+    let mut l = Layout::default();
+    for (w, h) in [(10.0, 10.0), (1.0, 1.0), (50.0, 300.0), (300.0, 40.0)] {
+        let (rects, [x, y, aw, ah]) = l.arrange(w, h, &sizes());
+        assert!(
+            x >= 0.0 && y >= 0.0 && x <= w && y <= h && aw >= 0.0 && ah >= 0.0,
+            "{w}x{h}: {x} {y} {aw} {ah}"
+        );
+        assert!(x + aw <= w && y + ah <= h, "{w}x{h}: {x} {y} {aw} {ah}");
+        for r in rects.iter().filter(|r| !r.hidden) {
+            assert!(
+                r.x >= 0.0 && r.y >= 0.0 && r.x + r.w <= w + 1e-9 && r.y + r.h <= h + 1e-9,
+                "{w}x{h}: {r:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_key_during_a_pointer_grab_is_ignored() {
+    let mut l = Layout::default();
+    let (r, _) = l.arrange(1280.0, 720.0, &sizes());
+    let t = rect(&r, "tools").clone();
+    assert!(l.press("tools", t.x + 10.0, t.y + 5.0));
+    assert!(!l.key("tools", "arrowright", false) && !l.key("bonds", "enter", false));
+    assert!(l.drag(500.0, 300.0) && l.release(500.0, 300.0));
+    let p = l.palettes().into_iter().find(|p| p.id == "tools").unwrap();
+    // where the pointer let it go, give or take the snap to a neighbour
+    assert!(
+        p.dock == Dock::Float && (p.x - 490.0).abs() < 12.0 && (p.y - 295.0).abs() < 12.0,
+        "{p:?}"
+    );
+    // once let go, the keyboard moves it again
+    assert!(l.key("tools", "arrowright", false));
+}
+
+#[test]
+fn docking_on_a_full_column_keeps_its_columns_apart_and_numbers_hidden_palettes_last() {
+    let mut l = Layout::default();
+    let sizes = page_sizes();
+    l.arrange(1280.0, 720.0, &sizes);
+    assert!(l.toggle("keys", "hidden"));
+    let (r, _) = l.arrange(1280.0, 720.0, &[]);
+    let h = rect(&r, "history").clone();
+    assert!(l.press("history", h.x + 10.0, h.y + 10.0));
+    assert!(l.drag(1279.0, 300.0) && l.release(1279.0, 300.0));
+    let (r, _) = l.arrange(1280.0, 720.0, &[]);
+    let right: Vec<&Rect> = r
+        .iter()
+        .filter(|r| r.dock == Dock::Right && !r.hidden)
+        .collect();
+    assert!(right.iter().any(|r| r.id == "history"));
+    // the column at the edge is numbered first, from the top down, then the column beside it: never interleaved
+    let order = |id: &str| l.palettes().into_iter().find(|p| p.id == id).unwrap().order;
+    let mut by_order = right.clone();
+    by_order.sort_by_key(|r| order(&r.id));
+    for w in by_order.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let (ca, cb) = (1280.0 - a.x - a.w, 1280.0 - b.x - b.w);
+        assert!(
+            ca < cb || (ca == cb && a.y < b.y),
+            "{} before {}",
+            a.id,
+            b.id
+        );
+    }
+    // the side groups keep their order among themselves
+    let side = ["structure", "style", "data", "annotation", "check"].map(order);
+    assert!(side.windows(2).all(|w| w[0] < w[1]), "{side:?}");
+    // the hidden palette of the edge comes after the shown ones, and no two share a number
+    let mut all: Vec<u32> = l
+        .palettes()
+        .into_iter()
+        .filter(|p| p.dock == Dock::Right)
+        .map(|p| p.order)
+        .collect();
+    assert!(order("keys") > *all.iter().filter(|&&o| o != order("keys")).max().unwrap());
+    all.sort();
+    all.dedup();
+    assert_eq!(all.len(), 7);
+    for (i, a) in right.iter().enumerate() {
+        for b in &right[i + 1..] {
+            let apart =
+                a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+            assert!(apart, "{} over {}", a.id, b.id);
+        }
+    }
+}

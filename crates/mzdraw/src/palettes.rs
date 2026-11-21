@@ -87,16 +87,31 @@ impl Preset {
     }
 }
 
-/// `v` kept between `lo` and `hi` (`lo <= hi`). Not `f64::clamp`, whose check of its bounds would link the formatting of
-/// floats into the module (about 45 kB of `.wasm`).
+/// `v` kept between `lo` and `hi` (`lo <= hi`); NaN gives `lo`. Not `f64::clamp`, whose check of its bounds links the
+/// formatting of floats into the module: 22,762 B of `.wasm`, measured on 2026-11-21 (620,312 B with it, 597,550 B without).
 fn within(v: f64, lo: f64, hi: f64) -> f64 {
-    if v < lo {
+    // a NaN compares false both ways: it is taken as the low bound, never passed on
+    if v.is_nan() || v < lo {
         lo
     } else if v > hi {
         hi
     } else {
         v
     }
+}
+
+/// The largest viewport side, in pixels: what the page sends is kept within it, so every position written stays within what
+/// `Layout::read` takes (1e6).
+const MAX_VIEW: f64 = 100_000.0;
+
+/// A point of the page, or none when a coordinate is not a finite number.
+fn point(x: f64, y: f64) -> Option<(f64, f64)> {
+    (x.is_finite() && y.is_finite()).then(|| {
+        (
+            within(x, -MAX_VIEW, MAX_VIEW),
+            within(y, -MAX_VIEW, MAX_VIEW),
+        )
+    })
 }
 
 /// The palettes of the page in their desktop place: id, edge, order along it, collapsed to its head.
@@ -170,6 +185,8 @@ struct Change {
     horizontal: Option<bool>,
     collapsed: Option<bool>,
     hidden: Option<bool>,
+    /// Keys of the entry this version does not know, as JSON text, written back as read.
+    unknown: Vec<(String, String)>,
 }
 
 impl Change {
@@ -208,6 +225,8 @@ struct Grab {
     dx: f64,
     dy: f64,
     start: Palette,
+    /// Held by a pointer (not a keyboard move): a key does not take it over.
+    pointer: bool,
 }
 
 /// The layout: a preset (`None`: chosen by the width of the viewport) and the user's changes, by palette.
@@ -300,6 +319,8 @@ impl Layout {
             horizontal: float.then_some(p.horizontal),
             collapsed: differs(p.collapsed != b.collapsed).map(|_| p.collapsed),
             hidden: differs(p.hidden != b.hidden).map(|_| p.hidden),
+            unknown: (self.changed.iter().find(|x| x.id == p.id))
+                .map_or(Vec::new(), |x| x.unknown.clone()),
         };
         self.changed.retain(|x| x.id != p.id);
         if c != (Change {
@@ -364,7 +385,8 @@ impl Layout {
                                 }
                                 "collapsed" => c.collapsed = Some(v.as_bool().ok_or(ERR)?),
                                 "hidden" => c.hidden = Some(v.as_bool().ok_or(ERR)?),
-                                _ => {}
+                                "id" => {}
+                                _ => c.unknown.push((f.clone(), v.to_string())),
                             }
                         }
                         if c.dock == Some(Dock::Float) {
@@ -422,6 +444,9 @@ impl Layout {
             if let Some(b) = c.hidden {
                 e.raw("hidden", if b { "true" } else { "false" });
             }
+            for (k, v) in &c.unknown {
+                e.raw(k, v);
+            }
             list.push(e.0 + "}");
         }
         list.extend(self.unknown_entries.iter().cloned());
@@ -469,7 +494,11 @@ impl Layout {
         h: f64,
         sizes: &[(String, f64, f64)],
     ) -> (Vec<Rect>, [f64; 4]) {
-        let (w, h) = (w.max(1.0), h.max(1.0));
+        // a viewport that is not a finite number keeps the last one; any other is kept between 1 and MAX_VIEW pixels
+        let (w, h) = match point(w, h) {
+            Some((w, h)) => (within(w, 1.0, MAX_VIEW), within(h, 1.0, MAX_VIEW)),
+            None => self.view,
+        };
         self.view = (w, h);
         if !sizes.is_empty() {
             self.sizes = sizes.to_vec();
@@ -553,9 +582,10 @@ impl Layout {
         for p in all.iter().filter(|p| !shown(p)) {
             out.push(rect(p, 0.0, 0.0, size(&p.id)));
         }
+        // on a viewport smaller than its palettes the free area is empty, and it starts inside the viewport
         let area = [
-            left,
-            top,
+            left.min(w),
+            top.min(h),
             (w - left - right).max(0.0),
             (h - top - bottom).max(0.0),
         ];
@@ -573,7 +603,8 @@ impl Layout {
 
     /// The pointer lands on the handle of a palette at (`x`, `y`) page pixels. False when there is no such palette shown.
     pub fn press(&mut self, id: &str, x: f64, y: f64) -> bool {
-        let (Some(r), Some(p)) = (self.rect_of(id), self.palette(id)) else {
+        let (Some((x, y)), Some(r), Some(p)) = (point(x, y), self.rect_of(id), self.palette(id))
+        else {
             return false;
         };
         self.grab = Some(Grab {
@@ -581,13 +612,14 @@ impl Layout {
             dx: x - r.x,
             dy: y - r.y,
             start: p,
+            pointer: true,
         });
         true
     }
 
     /// The held palette follows the pointer, floating, snapped to the edges and lined up with the palettes it comes near.
     pub fn drag(&mut self, x: f64, y: f64) -> bool {
-        let Some(g) = self.grab.clone() else {
+        let (Some((x, y)), Some(g)) = (point(x, y), self.grab.clone()) else {
             return false;
         };
         let Some(mut p) = self.palette(&g.id) else {
@@ -632,8 +664,9 @@ impl Layout {
     /// The pointer lets go: a palette within the snap distance of an edge docks there, in the place along the edge that its
     /// position gives; else it stays where it floats.
     pub fn release(&mut self, x: f64, y: f64) -> bool {
+        // a release at a point that is not a number ends the grab where the palette was
         if !self.drag(x, y) {
-            return false;
+            return self.cancel();
         }
         let g = self.grab.take();
         if let Some(g) = g {
@@ -681,23 +714,33 @@ impl Layout {
         let Some(here) = self.rect_of(id) else { return };
         let (w, h) = self.view;
         let (rects, _) = self.arrange(w, h, &[]);
-        let along = |r: &Rect| {
-            if edge.horizontal() == Some(true) {
-                r.x
-            } else {
-                r.y
-            }
+        // a full edge wraps into rows or columns: the place along the edge is (which row or column, from the edge out; where
+        // along it), so the palettes of two columns are never interleaved
+        let place = |r: &Rect| match edge {
+            Dock::Left => (r.x, r.y),
+            Dock::Right => (w - r.x - r.w, r.y),
+            Dock::Top => (r.y, r.x),
+            _ => (h - r.y - r.h, r.x),
         };
-        let mut line: Vec<(f64, String)> = rects
+        let mut line: Vec<((f64, f64), String)> = rects
             .iter()
             .filter(|r| r.dock == edge && r.id != id && !r.hidden)
-            .map(|r| (along(r), r.id.clone()))
+            .map(|r| (place(r), r.id.clone()))
             .collect();
-        line.push((along(&here) - 0.5, id.to_string()));
-        crate::m::sort_by(&mut line, |a, b| a.0 < b.0);
-        // the hidden palettes of the edge keep their numbers after the shown ones
+        let (cross, along) = place(&here);
+        line.push(((cross.max(0.0), along - 0.5), id.to_string()));
+        crate::m::sort_by(&mut line, |a, b| {
+            let (ca, cb) = ((a.0 .0).round(), (b.0 .0).round());
+            ca < cb || (ca == cb && a.0 .1 < b.0 .1)
+        });
+        // the hidden palettes of the edge are numbered after the shown ones, in their old order, so no two share a number
+        let mut hidden: Vec<(u32, String)> = (self.palettes().into_iter())
+            .filter(|p| p.dock == edge && p.id != id && (p.hidden || self.all_hidden))
+            .map(|p| (p.order, p.id))
+            .collect();
+        crate::m::sort_by(&mut hidden, |a, b| a.0 < b.0);
         let mut n = 0;
-        for (_, pid) in &line {
+        for pid in line.iter().map(|l| &l.1).chain(hidden.iter().map(|h| &h.1)) {
             n += 1;
             if let Some(mut p) = self.palette(pid) {
                 p.dock = edge;
@@ -712,6 +755,10 @@ impl Layout {
     /// the nearest edge, or floats a docked one where it is; `escape` puts it back where the keyboard move began. False for
     /// any other key.
     pub fn key(&mut self, id: &str, key: &str, shift: bool) -> bool {
+        // a palette held by the pointer is the pointer's until it is let go
+        if self.grab.as_ref().is_some_and(|g| g.pointer) {
+            return false;
+        }
         let step = if shift { 32.0 } else { 8.0 };
         let (dx, dy) = match key {
             "arrowleft" => (-step, 0.0),
@@ -760,6 +807,7 @@ impl Layout {
                 dx: 0.0,
                 dy: 0.0,
                 start: p.clone(),
+                pointer: false,
             });
         }
         // a keyboard step is smaller than the snap distance: it is only kept inside the viewport

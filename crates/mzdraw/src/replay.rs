@@ -70,5 +70,14 @@ pub fn replay(request: &str) -> Result<String, OpError> {
     for op in &r.log {
         e.session.run(std::slice::from_ref(op))?;
     }
-    e.save(r.out.as_deref().unwrap_or("mzdraw")).map_err(fail)
+    let out = r.out.as_deref().unwrap_or("mzdraw");
+    // `context:<x>,<y>`: the context menu (JSON) of a right-click at that pixel of the default view, for the golden parity of the menu
+    if let Some(at) = out.strip_prefix("context:") {
+        let xy = at
+            .split_once(',')
+            .and_then(|(x, y)| Some((x.trim().parse().ok()?, y.trim().parse().ok()?)));
+        let (x, y) = xy.ok_or_else(|| fail("error.draw2.request"))?;
+        return Ok(e.context_menu(x, y));
+    }
+    e.save(out).map_err(fail)
 }

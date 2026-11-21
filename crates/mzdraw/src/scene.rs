@@ -321,13 +321,34 @@ impl Painter<'_> {
         lean > 0.01
     }
 
-    /// An abbreviation or an R group: the text with its digits lowered, its first character on the atom, or its last one when the
-    /// bonds leave to the right.
+    /// A group label (an abbreviation or an R group) as it is drawn: the text of `label::arrange` for the side the bonds leave on,
+    /// and the widths in pixels of what stands before its attachment atom, of the attachment atom and of what stands after it (the
+    /// digits of a count are lowered, hence narrower).
+    fn group_box(&self, a: &Atom) -> (String, [f64; 3]) {
+        let (f, small) = (self.font, self.m.small);
+        let arranged = crate::label::arrange(&a.lab, self.grows_left(a));
+        let mut w = [0.0; 3];
+        for (i, c) in arranged.text.chars().enumerate() {
+            let k = if i < arranged.at.0 {
+                0
+            } else if i < arranged.at.1 {
+                1
+            } else {
+                2
+            };
+            w[k] += width(&c.to_string(), if c.is_ascii_digit() { small } else { f });
+        }
+        (arranged.text, w)
+    }
+
+    /// An abbreviation or an R group, written with its digits lowered and its units reversed when the bonds leave to the right
+    /// (`label::arrange`), so that its attachment atom is the one centred on the atom of the drawing.
     fn group_label(&mut self, a: &Atom) {
         let (x, y) = self.pos(a);
         let (f, small) = (self.font, self.m.small);
+        let (text, [before, mid, _]) = self.group_box(a);
         let mut runs: Vec<(String, bool)> = Vec::new();
-        for c in a.lab.chars() {
+        for c in text.chars() {
             let digit = c.is_ascii_digit();
             match runs.last_mut() {
                 Some((s, d)) if *d == digit => s.push(c),
@@ -335,13 +356,7 @@ impl Painter<'_> {
             }
         }
         let size = |digit: bool| if digit { small } else { f };
-        let total: f64 = runs.iter().map(|(s, d)| width(s, size(*d))).sum();
-        let edge = |c: Option<char>| c.map_or(0.0, |c| width(&c.to_string(), f) / 2.0);
-        let mut tx = if self.grows_left(a) {
-            x - total + edge(a.lab.chars().last())
-        } else {
-            x - edge(a.lab.chars().next())
-        };
+        let mut tx = x - before - mid / 2.0;
         for (s, digit) in runs {
             let dy = if digit { f * 0.3 } else { 0.0 };
             self.text(tx, y + dy, size(digit), colour::INK, &s, 1.0);
@@ -442,8 +457,15 @@ impl Painter<'_> {
     /// How far a bond leaving the atom along (`ux`, `uy`) (pixels, y down) stops short of it beyond the usual gap, so that it
     /// does not run into the hydrogens, the mass number or the charge that stand on its side of the symbol.
     fn clear(&self, a: &Atom, ux: f64, uy: f64) -> f64 {
-        if !a.lab.is_empty() || !has_label(self.doc, a) || ux.abs() < 1e-6 {
+        if ux.abs() < 1e-6 || !has_label(self.doc, a) {
             return 0.0;
+        }
+        if !a.lab.is_empty() {
+            // a group label: a bond stops short of what is drawn on its side of the attachment atom (the count of `R1`, the units
+            // of a label that grows towards the bond)
+            let [before, _, after] = self.group_box(a).1;
+            let row = self.font * 0.6 / uy.abs().max(1e-6);
+            return ((if ux > 0.0 { after } else { before }) / ux.abs()).min(row);
         }
         let p = self.parts(a);
         let marks = width(&p.mark, self.m.small);
