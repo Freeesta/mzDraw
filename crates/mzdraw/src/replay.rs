@@ -1,19 +1,23 @@
 //! The headless door: a request with a starting document or text, a command log and the output wanted gives the output text. The
 //! `.wasm`, the app and the CLI call this one function, so a session of the editor replays to the same bytes anywhere.
 
+use crate::doc::Document;
 use crate::editor::Editor;
 use crate::ops::{Op, OpError};
 use crate::outcome::{read_expect, Expectation, Failed, IdSets, Outcome};
 
 /// The request, read by hand from its JSON value (as the operations and the document are).
+#[derive(Default)]
 struct Request {
+    /// `diff`: two documents; the answer is the patch from the first to the second and its hunks (`diff::json`). The request stands alone.
+    diff: Option<(crate::doc::Document, crate::doc::Document)>,
     /// A structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES.
     import: Option<String>,
     /// The bytes of a file to start from, in base64 (RFC 4648, padding optional, blanks ignored): a binary CDX file, or a PNG or a PDF
     /// saved by mzDraw. Read after `import` when both are given.
     import_base64: Option<Vec<u8>>,
     log: Vec<Op>,
-    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `pdf` (the PDF file as base64; the CLI `--raw` writes the file), `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
+    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `trasf` (the record `trasf/1` and its two records, one per line), `sdf`, `svg`, `pdf` (the PDF file as base64; the CLI `--raw` writes the file), `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
     out: Option<String>,
     /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
     style: Option<String>,
@@ -42,7 +46,8 @@ enum Event {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 14] = [
+const FIELDS: [&str; 15] = [
+    "diff",
     "import",
     "import_base64",
     "style",
@@ -86,6 +91,25 @@ impl Request {
         let obj = v.as_object().ok_or(BAD)?;
         if obj.keys().any(|k| !FIELDS.contains(&k.as_str())) {
             return Err("error.draw2.requestField");
+        }
+        if let Some(d) = v.get("diff") {
+            // alone: no other field, not even `report`, `dry_run`, `expect` or `id` (the answer is not a `draw-result/1`)
+            if obj.len() > 1 {
+                return Err("error.draw2.diffAlone");
+            }
+            let pair = d.as_object().filter(|o| o.len() == 2).ok_or(BAD)?;
+            // a document is an `mzdraw/1` object or its JSON text
+            let read = |k: &str| {
+                let doc = pair.get(k).ok_or(BAD)?;
+                match doc.as_str() {
+                    Some(text) => Document::from_json(text),
+                    None => Document::from_json(&doc.to_string()),
+                }
+            };
+            return Ok(Request {
+                diff: Some((read("a")?, read("b")?)),
+                ..Request::default()
+            });
         }
         let one = |c: &serde_json::Value, args: Option<&serde_json::Value>| {
             let name = c.as_str().ok_or(BAD)?;
@@ -149,6 +173,7 @@ impl Request {
                 .collect::<Result<Vec<Event>, _>>()?,
         };
         Ok(Request {
+            diff: None,
             events,
             commands,
             report: flag("report")?,
@@ -261,6 +286,11 @@ pub fn replay(request: &str) -> Result<String, OpError> {
 pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
     let fail = |key| OpError { key, id: 0 };
     let r = Request::read(request).map_err(fail)?;
+    // the diff of two documents stands alone and answers its own document (not `draw-result/1`)
+    if let Some((a, b)) = &r.diff {
+        let text = crate::diff::json(a, &crate::diff::diff(a, b));
+        return Ok(Reply { text, ok: true });
+    }
     let mut e = Editor::default();
     if let Some(text) = &r.import {
         e.import(text).map_err(fail)?;
@@ -291,6 +321,12 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             break;
         }
     }
+    let orients = r.commands.iter().any(|c| c.0 == "scheme:orient");
+    let reports = r
+        .commands
+        .iter()
+        .any(|c| crate::commands::reports_change(&c.0));
+    let before_commands = (r.envelope() && reports).then(|| e.doc().to_json());
     if failed.is_none() {
         for (i, (name, args)) in r.commands.iter().enumerate() {
             if let Err(err) = crate::commands::run(&mut e, name, args) {
@@ -311,10 +347,23 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             Event::Key(key, mods, t) => e.key_at(key, *mods, *t),
         })
         .collect();
-    let kind = r.out.as_deref().unwrap_or("mzdraw");
+    let kind = r.out.as_deref().unwrap_or(crate::brand::SLUG);
     let written = produce(&mut e, kind, &flags);
+    // a refused transformation names its first atom, as a refused operation does
+    let fail_out = |key| OpError {
+        key,
+        id: if kind == "trasf" {
+            (e.trasf_problem())
+                .and_then(|p| p.1.first().copied())
+                .unwrap_or(0)
+        } else {
+            0
+        },
+    };
     if !r.envelope() {
-        return written.map_err(fail).map(|text| Reply { text, ok: true });
+        return written
+            .map_err(fail_out)
+            .map(|text| Reply { text, ok: true });
     }
     // an `out` the request cannot mean is an invalid request whatever the verdict; a refusal of the drawing (no arrow, no SMILES) only counts when it is written
     if matches!(written, Err("error.draw2.request")) {
@@ -330,7 +379,7 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
                     "not checked: the log failed".to_string(),
                 ),
                 None => {
-                    let (ok, detail) = x.check.run(e.doc(), stereo_start.as_ref());
+                    let (ok, detail) = x.check.run(e.doc(), stereo_start.as_ref(), &e.style);
                     (x.request.clone(), ok, detail)
                 }
             })
@@ -347,11 +396,13 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         removed: before.minus(&after),
         lost: Vec::new(),
         failed,
+        changed: before_commands.map(|b| b != e.doc().to_json()),
+        orient: orients.then(|| e.orient_steps.clone()),
         expect,
     };
     if outcome.ok() {
-        outcome.lost = e.lost_on_save(r.out.as_deref().unwrap_or("mzdraw"));
-        let text = written.map_err(fail)?;
+        outcome.lost = e.lost_on_save(r.out.as_deref().unwrap_or(crate::brand::SLUG));
+        let text = written.map_err(fail_out)?;
         outcome.out = (!r.dry_run).then_some(text);
     }
     Ok(Reply {

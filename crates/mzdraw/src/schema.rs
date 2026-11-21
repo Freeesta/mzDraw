@@ -91,7 +91,7 @@ pub const OPS: &[OpSpec] = &[
             nf("map", "uint", false, "", "atom-to-atom map number 1..=999"),
         ],
         inverse: "DropAtom, Next",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: true,
     },
@@ -111,7 +111,7 @@ pub const OPS: &[OpSpec] = &[
             f("s", "uint", false, "", "0..=255, default 0"),
         ],
         inverse: "DropBond, Next",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: true,
     },
@@ -140,7 +140,7 @@ pub const OPS: &[OpSpec] = &[
             ),
         ],
         inverse: "SetAtom",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: true,
     },
@@ -157,7 +157,7 @@ pub const OPS: &[OpSpec] = &[
             ),
         ],
         inverse: "SetAtom",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: false,
     },
@@ -174,7 +174,7 @@ pub const OPS: &[OpSpec] = &[
             ),
         ],
         inverse: "SetAtom",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: false,
     },
@@ -187,7 +187,7 @@ pub const OPS: &[OpSpec] = &[
             f("rev", "bool", false, "", "default false"),
         ],
         inverse: "SetBond",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: true,
     },
@@ -200,7 +200,7 @@ pub const OPS: &[OpSpec] = &[
             f("y", "number", true, BL, ""),
         ],
         inverse: "SetAtom per atom",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: false,
     },
@@ -212,7 +212,7 @@ pub const OPS: &[OpSpec] = &[
             f("at", "number", true, BL, ""),
         ],
         inverse: "SetAtom per atom",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: false,
     },
@@ -225,7 +225,7 @@ pub const OPS: &[OpSpec] = &[
             f("dy", "number", true, BL, ""),
         ],
         inverse: "SetAtom per atom, SetObj per object",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: true,
     },
@@ -237,7 +237,7 @@ pub const OPS: &[OpSpec] = &[
             f("objects", "uint[]", false, "", "default empty"),
         ],
         inverse: "PutAtom, PutBond, PutObj, each back in place",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: true,
     },
@@ -273,7 +273,7 @@ pub const OPS: &[OpSpec] = &[
             ),
         ],
         inverse: "DropObj, Next",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: false,
     },
@@ -288,7 +288,7 @@ pub const OPS: &[OpSpec] = &[
             f("to", "uint", false, "", "an atom id; 0 frees the end"),
         ],
         inverse: "SetObj",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: false,
     },
@@ -303,7 +303,7 @@ pub const OPS: &[OpSpec] = &[
             f("y", "number", false, BL, "the centre, default 0"),
         ],
         inverse: "DropAtom and DropBond per new item, Next",
-        since: "mzdraw/1",
+        since: crate::brand::FIRST_DOCUMENT_ID,
         mzdraw: true,
         mzlab: false,
     },
@@ -348,14 +348,16 @@ const fn r(
 /// The fields of the replay request, then the arms of `expect`: what `replay::replay` reads. A field outside the table is an invalid
 /// request (`error.draw2.requestField`), an arm outside it too (`error.draw2.expect`).
 pub const REQUEST: &[RequestSpec] = &[
-    r("request", "import", "string", "a structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES"),
-    r("request", "import_base64", "string", "the bytes of a file to start from in base64 (a binary CDX, or a PNG or PDF saved by mzDraw), read after `import`"),
+    r("request", "import", "string", "a structure text to start from: `{doc}` JSON, a molfile or a SMILES"),
+    r("request", "import_base64", "string", "the bytes of a file to start from in base64 (a binary CDX, or a PNG or PDF saved by {name}), read after `import`"),
     r("request", "style", "string|object", "the style of the SVG: a preset name or a settings file"),
     r("request", "set", "string[]", "settings applied after `style`, each `<section>.<key>=<value>`"),
     r("set", "display.maps", "on|off", "draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file)"),
+    r("command", "pathway:tree", "object", "lay out the whole pathway of the anchored arrows (layers, tidy tree across them, columns, routed arrows) as one undo step, with no `args`; a directed cycle, two arrows between the same structures or no anchored arrow is `error.draw2.schemeCycle`, `error.draw2.schemeDuplicate`, `error.draw2.schemeEmpty` (exit 1, `failed.stage` `command`)"),
+    r("set", "pathway.*", "string|number", "the pathway layout: `dir` (`right`|`down`), `col_gap` (2.5), `row_gap` (1), `max_angle` (40 degrees), `min_arrow` (1.2), `order` (`id`|`mz`|`rt`) and `margin` (0.35), in bond lengths"),
     r("request", "log", "json[]", "the command log, operations of `draw_edit/1`"),
-    r("request", "out", "string", "the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings`"),
-    r("request", "commands", "object[]", "editor commands `[{\"command\":NAME,\"args\":{...}}]` (move, rotate, flip, scheme:row), run after `log` and before `out`; the route of the anchored arrows follows; not with `command`"),
+    r("request", "out", "string", "the output wanted (`{slug}` by default): a format name, `log`, `std`, `schema` or `settings`"),
+    r("request", "commands", "object[]", "editor commands `[{\"command\":NAME,\"args\":{...}}]` (move, rotate, flip, scheme:row, pathway:tree, `scheme:orient`: every structure after an arrow turned onto the one before it, no `args`; a scheme oriented already is a no-op, `changed` false), run after `log` and before `out`; the route of the anchored arrows follows; not with `command`"),
     r("request", "command", "string", "one editor command, with `args`: the same as a `commands` list of length one; not with `commands`"),
     r("request", "args", "object", "the fields of the operation of the same name as `command` (a rotate without x, y or a flip without at works about the centre of its atoms); `scheme:row` takes `gap` (bond lengths between neighbours, default 1.0, above 0), `wrap` (a width in bond lengths that breaks the row after an arrow, default 0: never) and `atoms`, `objects` (the selection, default: everything) and writes `move` and `obj.set` operations"),
     r("request", "events", "array[]", "pointer and key events the page forwards, run after `commands` and before `out`: `[\"pointer\",phase,id,x,y,kind,mods,t]` and `[\"key\",key,mods,t]`; their flags and what they leave are read with `out` `context-state:<w>,<h>` (the context menu of a point is `context:<x>,<y>`)"),
@@ -363,6 +365,15 @@ pub const REQUEST: &[RequestSpec] = &[
     r("request", "dry_run", "bool", "run and report everything, write nothing: the document has no `out`; implies `report`"),
     r("request", "expect", "object[]", "postconditions on the final drawing, one arm each; a non-empty list implies `report`"),
     r("request", "id", "string|uint", "echoed as the `id` of the document (default: the index of the request in its batch)"),
+    r("request", "diff", "object", "two documents `{\"a\":DOC,\"b\":DOC}` (each a document object or its JSON text): answers the patch from `a` to `b` and its hunks (section `diff`), not a `draw-result/1`; the request stands alone: any other field, `report`, `dry_run`, `expect` and `id` included, is `error.draw2.diffAlone`; an unreadable document is `error.draw2.document`"),
+    r("diff", "ops", "json[]", "answer: the patch, operations of `draw_edit/1` (`diff::diff(a, b)`): removes, adds, sets, moves, in that order; empty when the drawings are the same"),
+    r("diff", "hunks", "object[]", "answer: the patch grouped into hunks (`diff::hunks(a, ops)`), in the order of their first operation; any subset of them applies in order to a valid document"),
+    r("hunk", "ids", "uint[]", "the ids (atoms, bonds, objects) the hunk touches, ascending"),
+    r("hunk", "ops", "json[]", "the operations of the hunk, in the order of the patch: a self-contained patch of `a`"),
+    r("out", "boxes", "string", "`boxes/1`: the label-inclusive box of every structure (by its smallest atom id) and every arrow with the structures it joins, in bond lengths at 4 decimals, ordered by id: the boxes the pathway layout uses"),
+    r("std", "std.scheme.gapRaised", "info", "a gap between two columns of a pathway was widened (`pathway:tree`); `atoms`: the first root of the component, `objects`: the primary arrows between the two layers"),
+    r("std", "std.scheme.free", "info", "arrows without two structures, plus signs and texts, which `pathway:tree` does not move (`objects`)"),
+    r("std", "std.scheme.crossing", "warn", "an arrow whose visible segment meets the route box of a structure other than its two ends (`objects`: the arrow, `atoms`: the structures it meets)"),
     r("expect", "std", "string", "`\"none\"`: the drawing has no `std/1` finding"),
     r("expect", "std_absent", "string[]", "none of these `std/1` keys is found"),
     r("expect", "pieces", "uint", "the atoms form exactly this many connected pieces"),
@@ -377,6 +388,14 @@ pub fn spec(name: &str) -> Option<&'static OpSpec> {
 
 fn q(s: &str) -> String {
     serde_json::Value::from(s).to_string()
+}
+
+/// A meaning with the names of the product written in: `{doc}` the document id, `{name}` the product name, `{slug}` its slug.
+fn meaning(text: &str) -> String {
+    use crate::brand::{DOCUMENT_ID, NAME, SLUG};
+    text.replace("{doc}", DOCUMENT_ID)
+        .replace("{name}", NAME)
+        .replace("{slug}", SLUG)
 }
 
 /// The table as `draw-edit-schema/1`, written by hand with the keys in a fixed order (the same bytes on every build).
@@ -421,7 +440,7 @@ pub fn json() -> String {
             q(x.section),
             q(x.key),
             q(x.ty),
-            q(x.meaning)
+            q(&meaning(x.meaning))
         ));
     }
     out.push_str("]}");

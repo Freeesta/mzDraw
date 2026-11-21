@@ -136,7 +136,7 @@ impl Editor {
     pub fn clipboard(&self, kind: &str) -> String {
         match (kind, Document::from_json(&self.clip)) {
             ("molfile", Ok(d)) => d.to_molfile(),
-            ("mzdraw", Ok(_)) => self.clip.clone(),
+            (k, Ok(_)) if crate::brand::is_doc_kind(k) => self.clip.clone(),
             _ => String::new(),
         }
     }
@@ -147,6 +147,27 @@ impl Editor {
             return 0;
         }
         self.delete_selection()
+    }
+
+    /// `scheme:orient` from the page: each structure after an arrow is turned onto the one before it, in one undo step. A refusal
+    /// (no common core, too large, would overlap) is kept in `error` and changes nothing; a scheme that is oriented already is said and not changed.
+    pub fn scheme_orient(&mut self) -> u32 {
+        match crate::commands::run(self, "scheme:orient", &serde_json::json!({})) {
+            Ok(()) => {
+                self.error = "";
+                let turned =
+                    (self.orient_steps.iter()).any(|s| s.status == crate::orient::Status::Oriented);
+                if turned {
+                    REPAINT | CHANGED
+                } else {
+                    REPAINT
+                }
+            }
+            Err(e) => {
+                self.error = e.key;
+                REPAINT
+            }
+        }
     }
 
     /// Pastes a structure text (`None`: the editor's own clipboard) as one undo step. What comes from this editor lands next to its

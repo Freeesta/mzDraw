@@ -56,6 +56,7 @@ A collapsed palette shows only its head. The head shows the kind last used from 
 | undo, redo | P | `Ctrl+Z`; `Ctrl+Y`, `Ctrl+Shift+Z` | | `undo`, `redo` | none: the log holds only the ops still applied |
 | cut, copy, paste | S | `Ctrl+X`, `Ctrl+C`, `Ctrl+V` | | `cut`, `copy`, `paste` | `remove` (cut); `atom.add`, `bond.add`, `obj.add` (paste) |
 | duplicate | S | `Ctrl+D` | | `duplicate` | as paste |
+| orient a scheme: each structure after an arrow turned onto the one before it | S | — (button) | — (Tab to the button, Enter) | `scheme-orient` | `scheme:orient` |
 | rotate 15° left or right | S | — (button) | `[`, `]` | `rotate-l`, `rotate-r` | `rotate` |
 | flip ↔ / ↕ | S | — (button) | `Alt+H`, `Alt+V` (once `key` reads Alt first) | `flip-h`, `flip-v` | `flip` |
 | select all | S | `Ctrl+A` | | `all` | none |
@@ -136,6 +137,7 @@ The page sends the measured size of each palette and the pointer or key events o
 | cut, copy, paste, duplicate | scissors; two offset sheets; clipboard; sheet with `+` |
 | rotate-l, rotate-r | arc of 270° with a head |
 | flip-h, flip-v | two triangles mirrored over a dashed axis |
+| scheme-orient | a triangle and a short turning arrow |
 | zoom-in, zoom-out, fit | lens with `+` or `−`; four corner brackets |
 | open, save, clear | folder; tray with a down arrow; blank sheet |
 | panel, more | rectangle with a right third ruled off; three dots |

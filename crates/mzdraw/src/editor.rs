@@ -145,6 +145,8 @@ pub(crate) struct Press {
 
 pub struct Editor {
     pub session: Session,
+    /// The steps of the last `scheme:orient` command (for the result document), empty before the first.
+    pub(crate) orient_steps: Vec<crate::orient::Step>,
     pub view: View,
     pub tool: Tool,
     pub over: Overlay,
@@ -199,6 +201,7 @@ impl Default for Editor {
             pasted: 0,
             nudge: None,
             move_here: false,
+            orient_steps: Vec::new(),
             ctx: Default::default(),
         }
     }
@@ -207,6 +210,21 @@ impl Default for Editor {
 impl Editor {
     pub fn doc(&self) -> &Document {
         &self.session.doc
+    }
+
+    /// Runs an editor command of a request (`commands::run`: `move`, `rotate`, `flip`, `pathway:tree`) as one undo step; the refusal is
+    /// returned and changes nothing.
+    pub fn run_command(
+        &mut self,
+        name: &str,
+        args: &serde_json::Value,
+    ) -> Result<(), crate::ops::OpError> {
+        crate::commands::run(self, name, args)
+    }
+
+    /// The patch (`draw_edit/1`) that turns the drawing in the editor into `other`; see `diff::diff`.
+    pub fn diff_with(&self, other: &Document) -> Vec<crate::ops::Op> {
+        crate::diff::diff(self.doc(), other)
     }
 
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
@@ -429,11 +447,11 @@ impl Editor {
         REPAINT
     }
 
-    /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `sdf` (one record per structure, with its data),
+    /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `trasf` (the record `trasf/1` of one structure before and one after the arrow, with its two `mol/1` records), `sdf` (one record per structure, with its data),
     /// `svg` (in the style of the editor), `pdf` (base64 of the PDF file), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
-            "mzdraw" => self.doc().to_json(),
+            k if crate::brand::is_doc_kind(k) => self.doc().to_json(),
             "molfile" => self.doc().to_molfile(),
             "molfile-v3000" => self.doc().to_molfile_v3000(),
             "smiles" => self.doc().to_smiles()?,
@@ -441,16 +459,24 @@ impl Editor {
             "cdxml" => self.doc().to_cdxml(),
             "cml" => self.doc().to_cml(),
             "rxn" => self.doc().to_rxn()?,
+            "trasf" => self.doc().to_trasf().map_err(|e| e.key)?,
             "sdf" => self.doc().to_sdf(),
             "svg" => self.svg(),
             "pdf" => crate::pdf::base64(&self.pdf()),
             "log" => self.session.log_json(),
             // the settings file: the style, the layout of the palettes and the export defaults
             "settings" => self.settings_json(),
-            "std" => crate::conform::report(self.doc()).to_json(),
+            "std" => crate::pathway::report_with(self.doc(), &self.style).to_json(),
+            "boxes" => crate::pathway::boxes_json(self.doc(), &self.style),
             "schema" => crate::schema::json(),
             _ => return Err("error.draw2.request"),
         })
+    }
+
+    /// Why `save("trasf")` refuses the drawing, if it does: the i18n key and the ids of the atoms it is about (the unmapped ones for
+    /// `error.draw2.trasfMap`).
+    pub fn trasf_problem(&self) -> Option<(&'static str, Vec<u32>)> {
+        self.doc().trasf().err().map(|e| (e.key, e.atoms))
     }
 
     /// What `save(kind)` leaves out because the format has no place for it, as (i18n key, count): atom maps for CDXML and CML.
@@ -793,6 +819,7 @@ impl Editor {
                 Ok(REPAINT)
             }
             "display" => self.style.set_display(key, value).map(|_| REPAINT),
+            "pathway" => self.style.set_pathway(key, value).map(|_| 0),
             "export" => self.export.set(key, value).map(|_| 0),
             "layout" => self.layout.set(key, value).map(|_| PALETTES),
             _ => Err("error.draw2.set"),

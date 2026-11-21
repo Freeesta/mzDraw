@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 
 /// Stable version of the bridge: the page checks that the loaded `.wasm` is the one it was built with.
-const BRIDGE: &str = "mzdraw/1";
+const BRIDGE: &str = mzdraw::brand::BRIDGE_ID;
 
 #[derive(Default)]
 struct Page {
@@ -49,7 +49,8 @@ fn act(f: impl FnOnce(&mut Editor) -> u32) -> u32 {
     })
 }
 
-/// After a change: the drawing checks `std/1` and, with the `mzlab` feature, the structure check.
+/// After a change: the drawing checks `std/1` (not the pathway findings: a full layout of 1000 nodes takes 73 ms in release, more than a
+/// live check should; they are in `out: std`, `report` and `expect`) and, with the `mzlab` feature, the structure check.
 fn recheck(p: &mut Page) {
     let report = mzdraw::conform::report(p.editor.doc());
     p.std = report.counts_json();
@@ -120,7 +121,7 @@ pub fn key(key: &str, mods: u32, t: f64) -> u32 {
 }
 
 /// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
-/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
+/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `scheme-orient` (each structure after an arrow turned onto the one before it), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
 /// `bond:up`, `label:Ph`, `arrow`, `plus`, `text:<one line>`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
@@ -139,6 +140,7 @@ pub fn command(what: &str) -> u32 {
         "flip-h" => e.flip(Axis::H),
         "flip-v" => e.flip(Axis::V),
         "scheme-row" => e.scheme_row(),
+        "scheme-orient" => e.scheme_orient(),
         "move-here" => e.set_move_here(!e.move_here),
         tool => e.set_tool(tool),
     })
@@ -296,10 +298,22 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log` (the command log), `std` (the drawing checks) or `settings`.
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `trasf`, `sdf`, `svg`, `log` (the command log), `std` (the drawing checks) or `settings`.
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
-    with(|p| p.editor.save(kind).map_err(js_err))
+    with(|p| {
+        p.editor.save(kind).map_err(|key| {
+            // a refused transformation names its atoms (the ids of the drawing) for the message
+            match p.editor.trasf_problem().filter(|_| kind == "trasf") {
+                Some((_, atoms)) if !atoms.is_empty() => {
+                    let ids: Vec<String> = atoms.iter().map(u32::to_string).collect();
+                    let params = serde_json::json!({ "atoms": ids.join(", ") });
+                    JsValue::from_str(&format!(r#"{{"error_key":"{key}","params":{params}}}"#))
+                }
+                _ => js_err(key),
+            }
+        })
+    })
 }
 
 /// The drawing as a PDF file (vector, text as text, the document inside so that it opens again).
@@ -586,7 +600,7 @@ pub fn state() -> String {
             e.session.can_undo(),
             e.session.can_redo(),
             e.move_here,
-            !e.clipboard("mzdraw").is_empty(),
+            !e.clipboard(mzdraw::brand::SLUG).is_empty(),
             q(e.said.0),
             q(&e.said.1),
             q(e.notice.0),

@@ -913,3 +913,332 @@ fn unknown_fields_of_a_document_survive_reading_editing_and_writing() {
     .unwrap();
     assert!(plain.more.is_empty() && plain.atoms[0].more.is_empty());
 }
+
+// ---- the semantic diff (`diff.rs`): the random sessions above, compared in pairs ----
+
+/// A random session of `steps` more random steps after `from`.
+fn evolve(from: &Session, steps: usize, r: &mut Rng) -> Session {
+    let mut s = Session::new(from.doc.clone());
+    for _ in 0..steps {
+        let ops = random_step(&s, r);
+        let _ = s.run(&ops);
+    }
+    s
+}
+
+/// The document as the bytes `mzdraw/1`, with the counter `next` taken from `like`: no operation sets the counter.
+fn bytes_like(d: &Document, like: &Document) -> String {
+    let mut d = d.clone();
+    d.next = like.next;
+    d.to_json()
+}
+
+/// The document with its pools sorted by id and the counter of `like`.
+fn by_id(d: &Document, like: &Document) -> String {
+    let mut d = d.clone();
+    d.next = like.next;
+    d.atoms.sort_by_key(|a| a.id);
+    d.bonds.sort_by_key(|b| b.id);
+    d.objects.sort_by_key(|o| o.id);
+    d.to_json()
+}
+
+fn pairs() -> Vec<(Document, Document, Rng)> {
+    let mut out = Vec::new();
+    for seed in 1..=60u64 {
+        let mut r = Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15));
+        let a = evolve(&Session::default(), 5 + r.next(40), &mut r);
+        let b = evolve(&a, 1 + r.next(25), &mut r);
+        out.push((a.doc, b.doc, r));
+    }
+    out
+}
+
+#[test]
+fn applying_the_diff_gives_the_second_document_and_a_diff_of_equals_is_empty() {
+    let mut nonempty = 0;
+    for (n, (a, b, _)) in pairs().into_iter().enumerate() {
+        assert!(mzdraw::diff::diff(&a, &a).is_empty(), "pair {n}");
+        let ops = mzdraw::diff::diff(&a, &b);
+        nonempty += usize::from(!ops.is_empty());
+        let mut s = Session::new(a.clone());
+        s.run(&ops)
+            .unwrap_or_else(|e| panic!("pair {n}: {} {}", e.key, mzdraw::ops::log_text(&ops)));
+        assert_eq!(
+            bytes_like(&s.doc, &b),
+            b.to_json(),
+            "pair {n}: {}",
+            mzdraw::ops::log_text(&ops)
+        );
+        // the patch is the same text twice, and its log parses back to the same operations
+        assert_eq!(ops, mzdraw::diff::diff(&a, &b));
+        let text = mzdraw::ops::log_text(&ops);
+        let mut again = Session::new(a);
+        again.replay(&text).unwrap();
+        assert_eq!(again.doc.to_json(), s.doc.to_json(), "pair {n}");
+        // the SMILES the same, as `mzlab-mol` writes it
+        assert_eq!(s.doc.to_smiles(), b.to_smiles(), "pair {n}");
+    }
+    assert!(nonempty >= 50, "the pairs differ: {nonempty}");
+}
+
+#[test]
+fn the_patch_is_in_the_fixed_order() {
+    let rank = |op: &Op| match op {
+        Op::Remove {
+            atoms,
+            bonds,
+            objects,
+        } => {
+            if !bonds.is_empty() {
+                0
+            } else if !atoms.is_empty() {
+                1
+            } else {
+                assert!(!objects.is_empty());
+                2
+            }
+        }
+        Op::AtomAdd { .. } => 3,
+        Op::BondAdd { .. } => 4,
+        Op::ObjAdd { .. } => 5,
+        Op::AtomSet { .. } | Op::AtomData { .. } | Op::AtomAnn { .. } => 6,
+        Op::BondSet { .. } => 7,
+        Op::ObjSet { .. } => 8,
+        Op::Move { .. } => 9,
+        other => panic!("not an operation of a diff: {other:?}"),
+    };
+    for (n, (a, b, _)) in pairs().into_iter().enumerate() {
+        let ranks: Vec<i32> = mzdraw::diff::diff(&a, &b).iter().map(rank).collect();
+        assert!(
+            ranks.windows(2).all(|w| w[0] <= w[1]),
+            "pair {n}: {ranks:?}"
+        );
+    }
+}
+
+#[test]
+fn any_subset_of_hunks_applies_in_order_to_a_valid_document() {
+    let (mut many, mut total) = (0, 0);
+    for (n, (a, b, mut r)) in pairs().into_iter().enumerate() {
+        let ops = mzdraw::diff::diff(&a, &b);
+        let hunks = mzdraw::diff::hunks(&a, &ops);
+        // the hunks hold the operations of the patch, split: all of them in order give the second document
+        let mut all = Session::new(a.clone());
+        for h in &hunks {
+            all.run(&h.ops)
+                .unwrap_or_else(|e| panic!("pair {n}: {}", e.key));
+        }
+        // (a hunk adds its things at the end of the pools: the order of two pieces may differ from the patch's)
+        assert_eq!(by_id(&all.doc, &b), by_id(&b, &b), "pair {n}: every hunk");
+        // each hunk alone, and random subsets
+        let mut masks: Vec<Vec<bool>> = (0..hunks.len())
+            .map(|i| (0..hunks.len()).map(|j| i == j).collect())
+            .collect();
+        for _ in 0..6 {
+            masks.push((0..hunks.len()).map(|_| r.next(2) == 1).collect());
+        }
+        for mask in masks {
+            let mut s = Session::new(a.clone());
+            for (h, _) in hunks.iter().zip(&mask).filter(|&(_, &on)| on) {
+                s.run(&h.ops)
+                    .unwrap_or_else(|e| panic!("pair {n}: a hunk of a subset: {} {:?}", e.key, h));
+            }
+            assert!(
+                Document::from_json(&s.doc.to_json()).is_ok(),
+                "pair {n}: a valid document"
+            );
+            total += 1;
+        }
+        many += usize::from(hunks.len() > 1);
+    }
+    assert!(many >= 20 && total > 200, "{many} pairs with several hunks");
+}
+
+#[test]
+fn the_diff_says_what_changed_with_the_operations_that_say_it() {
+    let mut s = ethanol();
+    s.run(&[Op::AtomSet {
+        id: 1,
+        el: None,
+        chg: None,
+        iso: None,
+        rad: None,
+        h: Some(3),
+        lab: None,
+        map: None,
+    }])
+    .unwrap();
+    let a = s.doc.clone();
+    // a count of hydrogens taken away, a new element, a label, a wedge turned around, an atom moved, a new carbon
+    s.run(&[
+        Op::AtomSet {
+            id: 1,
+            el: Some("C".into()),
+            chg: None,
+            iso: None,
+            rad: None,
+            h: None,
+            lab: None,
+            map: None,
+        },
+        Op::AtomSet {
+            id: 3,
+            el: Some("N".into()),
+            chg: Some(1),
+            iso: None,
+            rad: None,
+            h: None,
+            lab: None,
+            map: Some(4),
+        },
+        Op::BondSet {
+            id: 4,
+            o: None,
+            s: Some(1),
+            rev: true,
+        },
+        Op::Move {
+            atoms: vec![2],
+            objects: vec![],
+            dx: 0.25,
+            dy: -0.5,
+        },
+        add("Cl", 3.0, 1.0),
+        bond(3, 6, 1),
+    ])
+    .unwrap();
+    let b = s.doc.clone();
+    let ops = mzdraw::diff::diff(&a, &b);
+    let names: Vec<String> = (ops.iter())
+        .map(|o| serde_json::from_str::<serde_json::Value>(&o.to_json()).unwrap()["op"].to_string())
+        .collect();
+    let names: Vec<&str> = names.iter().map(|n| n.trim_matches('"')).collect();
+    assert_eq!(
+        names,
+        ["atom.add", "bond.add", "atom.set", "atom.set", "bond.set", "move"]
+    );
+    let mut check = Session::new(a);
+    check.run(&ops).unwrap();
+    assert_eq!(bytes_like(&check.doc, &b), b.to_json());
+    // atoms moved by the same displacement are one move; an arrow moved with its ends is one move too
+    let mut s = ethanol();
+    s.run(&[Op::ObjAdd {
+        id: None,
+        t: ObjKind::Arrow,
+        x: 4.0,
+        y: 0.0,
+        x2: 6.0,
+        y2: 0.0,
+        text: String::new(),
+        from: 0,
+        to: 0,
+    }])
+    .unwrap();
+    let a = s.doc.clone();
+    s.run(&[Op::Move {
+        atoms: vec![1, 2, 3],
+        objects: vec![6],
+        dx: 1.0,
+        dy: 2.0,
+    }])
+    .unwrap();
+    s.run(&[Op::ObjSet {
+        id: 6,
+        text: None,
+        x2: Some(9.0),
+        y2: None,
+        from: None,
+        to: None,
+    }])
+    .unwrap();
+    let ops = mzdraw::diff::diff(&a, &s.doc);
+    assert!(
+        matches!(ops.last(), Some(Op::Move { atoms, objects, .. }) if atoms.len() == 3 && objects == &[6])
+    );
+    let mut check = Session::new(a);
+    check.run(&ops).unwrap();
+    assert_eq!(bytes_like(&check.doc, &s.doc), s.doc.to_json());
+}
+
+#[test]
+fn an_id_that_changes_kind_is_removed_and_added() {
+    let a = Document::from_json(r#"{"format":"mzdraw/1","next":4,"atoms":[{"id":1,"el":"C","x":0,"y":0},{"id":2,"el":"C","x":1,"y":0}],"bonds":[{"id":3,"a":1,"b":2,"o":1}]}"#).unwrap();
+    // the id 3 was the bond and is an atom now; two new bonds
+    let b = Document::from_json(r#"{"format":"mzdraw/1","next":6,"atoms":[{"id":1,"el":"C","x":0,"y":0},{"id":2,"el":"C","x":1,"y":0},{"id":3,"el":"O","x":2,"y":0}],"bonds":[{"id":4,"a":2,"b":3,"o":2},{"id":5,"a":1,"b":3,"o":1}]}"#).unwrap();
+    let ops = mzdraw::diff::diff(&a, &b);
+    let mut s = Session::new(a.clone());
+    s.run(&ops).unwrap();
+    assert_eq!(s.doc.to_json(), b.to_json());
+    // one hunk: the three things are joined by the bonds
+    let hunks = mzdraw::diff::hunks(&a, &ops);
+    assert_eq!(hunks.len(), 1);
+    assert_eq!(hunks[0].ids, [1, 2, 3, 4, 5]);
+}
+
+#[test]
+fn a_patch_with_an_operation_that_names_no_id_is_one_hunk_and_never_panics() {
+    let a = ethanol().doc;
+    let arrow = Op::ObjAdd {
+        id: None,
+        t: ObjKind::Arrow,
+        x: 4.0,
+        y: 0.0,
+        x2: 6.0,
+        y2: 0.0,
+        text: String::new(),
+        from: 0,
+        to: 0,
+    };
+    let patches: Vec<Vec<Op>> = vec![
+        vec![add("N", 3.0, 3.0)],
+        vec![arrow],
+        vec![bond(1, 3, 1)],
+        vec![Op::Move {
+            atoms: vec![],
+            objects: vec![],
+            dx: 1.0,
+            dy: 0.0,
+        }],
+        vec![Op::Remove {
+            atoms: vec![],
+            bonds: vec![],
+            objects: vec![],
+        }],
+        // a named op beside one that names nothing: still one hunk, nothing dropped
+        vec![
+            Op::AtomSet {
+                id: 1,
+                el: None,
+                chg: Some(1),
+                iso: None,
+                rad: None,
+                h: None,
+                lab: None,
+                map: None,
+            },
+            add("N", 3.0, 3.0),
+        ],
+    ];
+    for ops in patches {
+        let hunks = mzdraw::diff::hunks(&a, &ops);
+        assert_eq!(hunks.len(), 1, "{}", mzdraw::ops::log_text(&ops));
+        assert_eq!(hunks[0].ops, ops);
+    }
+    assert!(mzdraw::diff::hunks(&a, &[]).is_empty());
+}
+
+#[test]
+fn the_editor_gives_the_patch_to_another_document() {
+    let mut e = mzdraw::Editor::default();
+    e.import(r#"{"format":"mzdraw/1","next":3,"atoms":[{"id":1,"el":"C","x":0,"y":0},{"id":2,"el":"C","x":1,"y":0}],"bonds":[]}"#)
+        .unwrap();
+    let other = Document::from_json(r#"{"format":"mzdraw/1","next":4,"atoms":[{"id":1,"el":"C","x":0,"y":0},{"id":2,"el":"O","x":1,"y":0},{"id":3,"el":"N","x":2,"y":0}],"bonds":[]}"#).unwrap();
+    let ops = e.diff_with(&other);
+    assert_eq!(ops, mzdraw::diff::diff(e.doc(), &other));
+    assert_eq!(ops.len(), 2);
+    let mut s = Session::new(e.doc().clone());
+    s.run(&ops).unwrap();
+    assert_eq!(s.doc.to_json(), other.to_json());
+    assert!(e.diff_with(e.doc()).is_empty());
+}

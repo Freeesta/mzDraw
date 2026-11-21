@@ -5,16 +5,20 @@
 //! `out` text only when the run is good and not a dry run. The document is written by hand, keys in the order of `KEYS`, so the
 //! same request gives the same bytes on every surface; `docs/schemas/draw-result-1.json` describes it.
 
-use crate::conform;
 use crate::doc::Document;
 use crate::stereo_guard::{self, Snapshot};
 use serde_json::Value;
 use std::collections::BTreeSet;
 
 /// The keys of the envelope, in the order they are written. A key that does not apply is left out.
-pub const KEYS: [&str; 11] = [
+pub const KEYS: [&str; 13] = [
     "format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed",
-    "expect",
+    "changed", "orient", "expect",
+];
+
+/// The keys of an item of `orient`, in the order they are written (`at` only for status `overlap`).
+pub const ORIENT_KEYS: [&str; 10] = [
+    "arrow", "from", "to", "status", "core", "flip", "deg", "before", "after", "at",
 ];
 
 /// The keys of `failed`, in the order they are written.
@@ -151,7 +155,12 @@ pub fn pieces(doc: &Document) -> u32 {
 impl Check {
     /// Whether the drawing satisfies it, and when it does not, why (English text for a reader; empty when it holds).
     /// `start` is every stereo element of the drawing at the start of the request (`Snapshot::all`), for `stereo`.
-    pub fn run(&self, doc: &Document, start: Option<&Snapshot>) -> (bool, String) {
+    pub fn run(
+        &self,
+        doc: &Document,
+        start: Option<&Snapshot>,
+        style: &crate::settings::Style,
+    ) -> (bool, String) {
         match self {
             Check::StereoKept => {
                 let atoms =
@@ -167,7 +176,7 @@ impl Check {
                 }
             }
             Check::StdNone => {
-                let keys = found(doc, None);
+                let keys = found(doc, style, None);
                 if keys.is_empty() {
                     (true, String::new())
                 } else {
@@ -175,7 +184,7 @@ impl Check {
                 }
             }
             Check::StdAbsent(wanted) => {
-                let keys = found(doc, Some(wanted));
+                let keys = found(doc, style, Some(wanted));
                 if keys.is_empty() {
                     (true, String::new())
                 } else {
@@ -200,9 +209,13 @@ impl Check {
 }
 
 /// The distinct `std/1` keys the drawing is reported for (all of them, or only those in `only`), in report order.
-fn found(doc: &Document, only: Option<&Vec<String>>) -> Vec<String> {
+fn found(
+    doc: &Document,
+    style: &crate::settings::Style,
+    only: Option<&Vec<String>>,
+) -> Vec<String> {
     let mut keys: Vec<String> = Vec::new();
-    for f in &conform::report(doc).checks {
+    for f in &crate::pathway::report_with(doc, style).checks {
         let wanted = only.is_none_or(|l| l.iter().any(|k| k == f.key));
         if wanted && !keys.iter().any(|k| k == f.key) {
             keys.push(f.key.to_string());
@@ -293,6 +306,11 @@ pub struct Outcome {
     /// What the output format `out` cannot hold, as (i18n key, count): `draw2.export.mapsLost` for atom maps. Empty: nothing lost.
     pub lost: Vec<(&'static str, usize)>,
     pub failed: Option<Failed>,
+    /// Only when a command of the request reports whether it changed the drawing (`commands::reports_change`): whether the commands
+    /// changed it.
+    pub changed: Option<bool>,
+    /// Only when a command was `scheme:orient`: the result of each product structure of its last run (`orient::Step`).
+    pub orient: Option<Vec<crate::orient::Step>>,
     /// `(request object, ok, detail)` per expectation, in request order; `None` when the request had no `expect`.
     pub expect: Option<Vec<(Value, bool, String)>>,
 }
@@ -330,6 +348,13 @@ impl Outcome {
         if let Some(f) = &self.failed {
             s.push_str(&format!(",\"failed\":{}", f.json()));
         }
+        if let Some(c) = self.changed {
+            s.push_str(&format!(",\"changed\":{c}"));
+        }
+        if let Some(steps) = &self.orient {
+            let items: Vec<String> = steps.iter().map(orient_json).collect();
+            s.push_str(&format!(",\"orient\":[{}]", items.join(",")));
+        }
         if let Some(list) = &self.expect {
             let items: Vec<String> = (list.iter())
                 .map(|(check, ok, detail)| {
@@ -344,4 +369,26 @@ impl Outcome {
         s.push('}');
         s
     }
+}
+
+/// One item of `orient`: keys in the order of `ORIENT_KEYS`; numbers are the shortest text of the value, as everywhere else.
+fn orient_json(s: &crate::orient::Step) -> String {
+    let n = |v: f64| Value::from(crate::doc::round4(v)).to_string();
+    let mut out = format!(
+        "{{\"arrow\":{},\"from\":{},\"to\":{},\"status\":\"{}\",\"core\":{},\"flip\":{},\"deg\":{},\"before\":{},\"after\":{}",
+        s.arrow,
+        s.from,
+        s.to,
+        s.status.name(),
+        s.core,
+        s.flip,
+        n(s.deg),
+        n(s.before),
+        n(s.after)
+    );
+    if s.status == crate::orient::Status::Overlap {
+        out.push_str(&format!(",\"at\":{}", s.at));
+    }
+    out.push('}');
+    out
 }
