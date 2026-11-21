@@ -324,6 +324,12 @@ pub fn set_style(text: &str) -> Result<u32, JsValue> {
     with(|p| p.editor.set_style(text).map_err(js_err))
 }
 
+/// How many atom maps `save(kind)` leaves out of the file because the format has none (0 for the formats that hold them).
+#[wasm_bindgen]
+pub fn maps_lost(kind: &str) -> u32 {
+    with(|p| p.editor.doc().maps_lost(kind) as u32)
+}
+
 /// Sets the atom-to-atom map (1..=999, 0 for none) of the focused atom, or of the only selected one; a refusal changes nothing
 /// (`error` in `state`).
 #[wasm_bindgen]

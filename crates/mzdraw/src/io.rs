@@ -37,6 +37,10 @@ pub struct Imported {
     pub other: usize,
     /// Enhanced-stereo groups "and" / "or": the centres are drawn with their wedges, the grouping is not kept.
     pub stereo_groups: usize,
+    /// Fields that should hold an atom-to-atom map and hold no whole number 1..=999 (negative, above 999, not a number): read as no map.
+    pub maps_left: usize,
+    /// Structures with one map number on more than one atom: kept as read.
+    pub maps_duplicate: usize,
 }
 
 impl Imported {
@@ -55,6 +59,8 @@ impl Imported {
             ("draw2.import.stereoGroups", self.stereo_groups),
             ("draw2.import.other", self.other),
             ("draw2.import.dataLeft", self.data_left),
+            ("draw2.import.mapsLeft", self.maps_left),
+            ("draw2.import.mapsDuplicate", self.maps_duplicate),
         ]
         .into_iter()
         .filter(|n| n.1 > 0)
@@ -477,7 +483,7 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     let (clean, labels) = formats::r_atoms(&all);
     let m = Mol::from_smiles(&clean).map_err(|_| "error.draw2.smiles")?;
     let (mut d, placeholder) = labelled(&m, labels, &mut info);
-    d.set_maps(&crate::maps::of_smiles(&all));
+    d.set_maps(crate::maps::of_smiles(&all), &mut info);
     info.placeholder = placeholder;
     Ok((d, info))
 }
@@ -491,7 +497,7 @@ pub(crate) fn record_of(
     let (clean, labels) = formats::prepare(record, info);
     let m = Mol::from_molfile(&clean).map_err(|_| "error.draw2.molfile")?;
     let (mut d, placeholder) = labelled(&m, labels, info);
-    d.set_maps(&crate::maps::of_molfile(&clean));
+    d.set_maps(crate::maps::of_molfile(&clean), info);
     Ok((d, placeholder))
 }
 

@@ -21,6 +21,8 @@ pub struct FieldSpec {
     pub unit: &'static str,
     /// What the reader accepts besides the type (the range of the integer, the values of an enum), or `""`.
     pub bounds: &'static str,
+    /// The reader of mzLab accepts this field (false: a field of mzDraw that mzLab does not read yet).
+    pub mzlab: bool,
 }
 
 /// One operation of the log.
@@ -50,6 +52,21 @@ const fn f(
         required,
         unit,
         bounds,
+        mzlab: true,
+    }
+}
+
+/// A field that only mzDraw reads yet (`FieldSpec::mzlab` false).
+const fn nf(
+    key: &'static str,
+    ty: &'static str,
+    required: bool,
+    unit: &'static str,
+    bounds: &'static str,
+) -> FieldSpec {
+    FieldSpec {
+        mzlab: false,
+        ..f(key, ty, required, unit, bounds)
     }
 }
 
@@ -71,6 +88,7 @@ pub const OPS: &[OpSpec] = &[
             f("el", "string", true, "", "an element symbol"),
             f("x", "number", true, BL, ""),
             f("y", "number", true, BL, ""),
+            nf("map", "uint", false, "", "atom-to-atom map number 1..=999"),
         ],
         inverse: "DropAtom, Next",
         since: "mzdraw/1",
@@ -113,7 +131,7 @@ pub const OPS: &[OpSpec] = &[
                 "",
                 "the empty text takes the label away",
             ),
-            f(
+            nf(
                 "map",
                 "uint",
                 false,
@@ -239,6 +257,20 @@ pub const OPS: &[OpSpec] = &[
             f("x2", "number", false, BL, "default 0"),
             f("y2", "number", false, BL, "default 0"),
             f("text", "string", false, "", "default empty"),
+            f(
+                "from",
+                "uint",
+                false,
+                "",
+                "arrows: an atom of the structure the arrow leaves; 0 or absent is a free end",
+            ),
+            f(
+                "to",
+                "uint",
+                false,
+                "",
+                "arrows: an atom of the structure the arrow reaches; 0 or absent is a free end",
+            ),
         ],
         inverse: "DropObj, Next",
         since: "mzdraw/1",
@@ -252,6 +284,8 @@ pub const OPS: &[OpSpec] = &[
             f("text", "string", false, "", ""),
             f("x2", "number", false, BL, ""),
             f("y2", "number", false, BL, ""),
+            f("from", "uint", false, "", "an atom id; 0 frees the end"),
+            f("to", "uint", false, "", "an atom id; 0 frees the end"),
         ],
         inverse: "SetObj",
         since: "mzdraw/1",
@@ -317,8 +351,12 @@ pub const REQUEST: &[RequestSpec] = &[
     r("request", "import", "string", "a structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES"),
     r("request", "style", "string|object", "the style of the SVG: a preset name or a settings file"),
     r("request", "set", "string[]", "settings applied after `style`, each `<section>.<key>=<value>`"),
+    r("set", "display.maps", "on|off", "draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file)"),
     r("request", "log", "json[]", "the command log, operations of `draw_edit/1`"),
     r("request", "out", "string", "the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings`"),
+    r("request", "commands", "object[]", "editor commands `[{\"command\":NAME,\"args\":{...}}]` (move, rotate, flip), run after `log` and before `out`; the route of the anchored arrows follows; not with `command`"),
+    r("request", "command", "string", "one editor command, with `args`: the same as a `commands` list of length one; not with `commands`"),
+    r("request", "args", "object", "the fields of the operation of the same name as `command` (a rotate without x, y or a flip without at works about the centre of its atoms)"),
     r("request", "report", "bool", "answer with one `draw-result/1` document instead of the bare output"),
     r("request", "dry_run", "bool", "run and report everything, write nothing: the document has no `out`; implies `report`"),
     r("request", "expect", "object[]", "postconditions on the final drawing, one arm each; a non-empty list implies `report`"),
@@ -359,12 +397,13 @@ pub fn json() -> String {
             }
             let opt = |s: &str| if s.is_empty() { "null".into() } else { q(s) };
             out.push_str(&format!(
-                r#"{{"key":{},"type":{},"required":{},"unit":{},"bounds":{}}}"#,
+                r#"{{"key":{},"type":{},"required":{},"unit":{},"bounds":{}{}}}"#,
                 q(fl.key),
                 q(fl.ty),
                 fl.required,
                 opt(fl.unit),
-                opt(fl.bounds)
+                opt(fl.bounds),
+                if fl.mzlab { "" } else { r#","mzlab":false"# }
             ));
         }
         out.push_str("]}");

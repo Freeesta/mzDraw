@@ -23,6 +23,8 @@ fn drawing() -> Editor {
         x2: 0.0,
         y2: 0.0,
         text: text.into(),
+        from: 0,
+        to: 0,
     };
     e.session.run(&[add(ObjKind::Text, 6.0, "note")]).unwrap();
     e.session.run(&[add(ObjKind::Plus, 8.0, "")]).unwrap();
@@ -402,6 +404,7 @@ fn a_menu_older_than_the_last_change_is_refused() {
         // the document changes under the open menu
         e.session
             .run(&[Op::AtomAdd {
+                map: None,
                 id: None,
                 el: "N".into(),
                 x: 9.0,

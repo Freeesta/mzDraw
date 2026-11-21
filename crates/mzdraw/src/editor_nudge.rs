@@ -130,10 +130,11 @@ impl Editor {
         what: &str,
     ) -> u32 {
         let join = self.joins(&atoms, &objects, turn, t).is_some();
+        let ops = self.following(&[op]);
         let done = if join {
-            self.session.run_into_last(&[op])
+            self.session.run_into_last(&ops)
         } else {
-            self.session.run(&[op])
+            self.session.run(&ops)
         };
         match done {
             Ok(()) => {

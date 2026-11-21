@@ -199,7 +199,8 @@ impl Editor {
 
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
     pub(crate) fn run(&mut self, ops: &[Op], say: &'static str, what: &str) -> u32 {
-        match self.session.run(ops) {
+        let ops = self.following(ops);
+        match self.session.run(&ops) {
             Ok(()) => {
                 self.said = (say, what.to_string());
                 self.error = "";
@@ -211,6 +212,16 @@ impl Editor {
                 REPAINT
             }
         }
+    }
+
+    /// The operations of a command and, after them, the route operations of the anchored arrows whose structures they change
+    /// (`route::follow`): the one place where a command makes the arrows follow. The log carries the route operations, so a
+    /// replay of the log gives the same bytes; an operation sent bare never follows.
+    pub(crate) fn following(&self, ops: &[Op]) -> Vec<Op> {
+        let s = &self.session.doc;
+        let mut all = ops.to_vec();
+        all.extend(crate::route::follow(s, ops, &self.style));
+        all
     }
 
     /// Drops selection, hover and flags that point at things that no longer exist.
@@ -402,6 +413,14 @@ impl Editor {
         })
     }
 
+    /// What `save(kind)` leaves out because the format has no place for it, as (i18n key, count): atom maps for CDXML and CML.
+    pub fn lost_on_save(&self, kind: &str) -> Vec<(&'static str, usize)> {
+        Some(("draw2.export.mapsLost", self.doc().maps_lost(kind)))
+            .filter(|l| l.1 > 0)
+            .into_iter()
+            .collect()
+    }
+
     /// Adds the structure of a text (SMILES, molfile or SDF, `mzdraw/1`) to the right of the drawing, as one undo step.
     pub fn import(&mut self, text: &str) -> Result<io::Imported, &'static str> {
         self.import_placed(text).map(|r| r.0)
@@ -453,6 +472,7 @@ impl Editor {
         let mut ops = Vec::new();
         for a in &new.atoms {
             ops.push(Op::AtomAdd {
+                map: None,
                 id: Some(base + a.id),
                 el: a.el.clone(),
                 x: a.x + dx,
@@ -512,6 +532,8 @@ impl Editor {
                 x2: if arrow { o.x2 + dx } else { 0.0 },
                 y2: if arrow { o.y2 + dy } else { 0.0 },
                 text: o.text.clone(),
+                from: if o.from == 0 { 0 } else { base + o.from },
+                to: if o.to == 0 { 0 } else { base + o.to },
             });
         }
         self.session.run(&ops).map_err(|e| e.key)?;

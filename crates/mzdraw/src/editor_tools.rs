@@ -201,6 +201,8 @@ impl Editor {
                     x2,
                     y2,
                     text: String::new(),
+                    from: 0,
+                    to: 0,
                 };
                 self.run(&[add], "draw2.say.arrow", "")
             }
@@ -214,6 +216,8 @@ impl Editor {
                     x2: 0.0,
                     y2: 0.0,
                     text: String::new(),
+                    from: 0,
+                    to: 0,
                 };
                 self.run(&[add], "draw2.say.plus", "")
             }
@@ -226,6 +230,8 @@ impl Editor {
                             text: Some(text.clone()),
                             x2: None,
                             y2: None,
+                            from: None,
+                            to: None,
                         }
                     }
                     _ => {
@@ -238,6 +244,8 @@ impl Editor {
                             x2: 0.0,
                             y2: 0.0,
                             text: text.clone(),
+                            from: 0,
+                            to: 0,
                         }
                     }
                 };
@@ -356,6 +364,7 @@ impl Editor {
                 let (x, y) = self.view.to_doc(px, py);
                 self.run(
                     &[Op::AtomAdd {
+                        map: None,
                         id: None,
                         el: el.into(),
                         x,
@@ -387,6 +396,7 @@ impl Editor {
                 let (x, y) = self.view.to_doc(px, py);
                 let id = self.session.doc.next;
                 let add = Op::AtomAdd {
+                    map: None,
                     id: Some(id),
                     el: "C".into(),
                     x,
@@ -434,6 +444,7 @@ impl Editor {
                 let id = d.next;
                 vec![
                     Op::AtomAdd {
+                        map: None,
                         id: Some(id),
                         el: el.into(),
                         x: to.0,
@@ -496,12 +507,14 @@ impl Editor {
                 let (cx, sy) = (m::cos(PI / 6.0), m::sin(PI / 6.0));
                 let ops = [
                     Op::AtomAdd {
+                        map: None,
                         id: Some(id),
                         el: "C".into(),
                         x,
                         y,
                     },
                     Op::AtomAdd {
+                        map: None,
                         id: Some(id + 1),
                         el: "C".into(),
                         x: x + cx,

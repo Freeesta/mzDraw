@@ -228,6 +228,10 @@ pub struct Obj {
     pub x2: f64,
     pub y2: f64,
     pub text: String,
+    /// Arrows only: the id of one atom of the structure the arrow leaves, and of the one it reaches (the structure is the connected
+    /// piece that holds the atom). `0` is a free end. An id that no atom carries any more is kept as written and used as a free end.
+    pub from: u32,
+    pub to: u32,
     pub more: More,
 }
 
@@ -257,7 +261,9 @@ impl Obj {
     pub fn valid(&self) -> bool {
         let one_line = !self.text.contains(['\n', '\r']) && self.text.chars().count() <= 200;
         let no_end = self.x2 == 0.0 && self.y2 == 0.0;
+        let anchors_ok = self.t == ObjKind::Arrow || (self.from == 0 && self.to == 0);
         one_line
+            && anchors_ok
             && match self.t {
                 ObjKind::Arrow => (self.x2 - self.x).abs() + (self.y2 - self.y).abs() > 1e-3,
                 ObjKind::Plus => no_end && self.text.is_empty(),
@@ -372,6 +378,11 @@ impl Document {
                     if !o.text.is_empty() {
                         w.text("text", &o.text);
                     }
+                    for (k, v) in [("from", o.from), ("to", o.to)] {
+                        if v != 0 {
+                            w.int(k, v as i64);
+                        }
+                    }
                     w.more(&o.more);
                     w.0 + "}"
                 })
@@ -460,7 +471,12 @@ impl Document {
                     x2: o.f("x2")?.unwrap_or(0.0),
                     y2: o.f("y2")?.unwrap_or(0.0),
                     text: o.s("text")?.unwrap_or_default(),
-                    more: more_of(o.0, &["id", "t", "x", "y", "x2", "y2", "text"]),
+                    from: o.u("from")?.unwrap_or(0),
+                    to: o.u("to")?.unwrap_or(0),
+                    more: more_of(
+                        o.0,
+                        &["id", "t", "x", "y", "x2", "y2", "text", "from", "to"],
+                    ),
                 })
             })?,
         })

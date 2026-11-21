@@ -16,6 +16,8 @@ struct Request {
     style: Option<String>,
     /// Settings applied after `style`, each `<section>.<key>=<value>` (`Editor::set`): the `--set` of the CLI.
     set: Vec<String>,
+    /// Editor commands run after `log` and before `out`: `(name, args)`. The singular `"command"` + `"args"` is a list of one.
+    commands: Vec<(String, serde_json::Value)>,
     /// `report`: answer with one `draw-result/1` document (see `outcome`).
     report: bool,
     /// `dry_run`: everything runs and is reported, nothing is written (`out` is left out); implies the document.
@@ -27,8 +29,9 @@ struct Request {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 9] = [
-    "import", "style", "set", "log", "out", "report", "dry_run", "expect", "id",
+const FIELDS: [&str; 12] = [
+    "import", "style", "set", "log", "commands", "command", "args", "out", "report", "dry_run",
+    "expect", "id",
 ];
 
 impl Request {
@@ -59,6 +62,30 @@ impl Request {
         if obj.keys().any(|k| !FIELDS.contains(&k.as_str())) {
             return Err("error.draw2.requestField");
         }
+        let one = |c: &serde_json::Value, args: Option<&serde_json::Value>| {
+            let name = c.as_str().ok_or(BAD)?;
+            let args = args.cloned().unwrap_or_else(|| serde_json::json!({}));
+            crate::commands::check(name, &args)?;
+            Ok((name.to_string(), args))
+        };
+        let commands = match (v.get("command"), v.get("commands")) {
+            (Some(_), Some(_)) => return Err(BAD),
+            (Some(c), None) => vec![one(c, v.get("args"))?],
+            (None, Some(l)) => (l.as_array().ok_or(BAD)?.iter())
+                .map(|c| {
+                    // an item is `{"command", "args"}` and nothing else
+                    let item = c.as_object().ok_or(BAD)?;
+                    if item.keys().any(|k| k != "command" && k != "args") {
+                        return Err("error.draw2.requestField");
+                    }
+                    one(c.get("command").ok_or(BAD)?, c.get("args"))
+                })
+                .collect::<Result<_, _>>()?,
+            (None, None) => Vec::new(),
+        };
+        if v.get("args").is_some() && v.get("command").is_none() {
+            return Err(BAD);
+        }
         let flag = |k: &str| match v.get(k) {
             None => Ok(false),
             Some(x) => x.as_bool().ok_or(BAD),
@@ -69,6 +96,7 @@ impl Request {
             Some(_) => return Err(BAD),
         };
         Ok(Request {
+            commands,
             report: flag("report")?,
             dry_run: flag("dry_run")?,
             expect: v.get("expect").map_or(Ok(Vec::new()), read_expect)?,
@@ -145,6 +173,17 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             break;
         }
     }
+    if failed.is_none() {
+        for (i, (name, args)) in r.commands.iter().enumerate() {
+            if let Err(err) = crate::commands::run(&mut e, name, args) {
+                if !r.envelope() {
+                    return Err(err);
+                }
+                failed = Some(Failed::command(i, err.key, err.id));
+                break;
+            }
+        }
+    }
     let kind = r.out.as_deref().unwrap_or("mzdraw");
     let written = produce(&mut e, kind);
     if !r.envelope() {
@@ -179,10 +218,12 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         out: None,
         created: after.minus(&before),
         removed: before.minus(&after),
+        lost: Vec::new(),
         failed,
         expect,
     };
     if outcome.ok() {
+        outcome.lost = e.lost_on_save(r.out.as_deref().unwrap_or("mzdraw"));
         let text = written.map_err(fail)?;
         outcome.out = (!r.dry_run).then_some(text);
     }

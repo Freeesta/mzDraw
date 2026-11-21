@@ -362,7 +362,7 @@ pub(crate) fn assemble(
         let (clean, labels) = prepare(&text, info);
         let m = Mol::from_molfile(&clean).map_err(|_| key)?;
         d = crate::io::labelled(&m, labels, info).0;
-        d.set_maps(&crate::maps::of_molfile(&clean));
+        d.set_maps(crate::maps::of_molfile(&clean), info);
         if let Some(a) = d.atoms.get(far.1).filter(|_| far.0.abs() > 1e-9) {
             k = if far.2 { a.y } else { a.x } / far.0;
         }
@@ -385,6 +385,8 @@ pub(crate) fn assemble(
                 x2,
                 y2,
                 text: line.chars().take(200).collect(),
+                from: 0,
+                to: 0,
                 more: Vec::new(),
             };
             // what a document cannot hold (an arrow without length) is counted with the things left out

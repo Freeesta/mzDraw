@@ -227,7 +227,16 @@ struct Grab {
     start: Palette,
     /// Held by a pointer (not a keyboard move): a key does not take it over.
     pointer: bool,
+    /// Where the pointer landed, in page pixels.
+    from: (f64, f64),
+    /// The pointer has gone farther than `DRAG_START` from where it landed (a keyboard move counts as moved): until then the
+    /// palette stays where it is, and a release is a click, not a move.
+    moved: bool,
 }
+
+/// How far in pixels a pointer goes from where it landed on a handle before it drags the palette; a click with a little
+/// jitter is a click.
+pub const DRAG_START: f64 = 4.0;
 
 /// The layout: a preset (`None`: chosen by the width of the viewport) and the user's changes, by palette.
 #[derive(Clone, Debug)]
@@ -613,6 +622,8 @@ impl Layout {
             dy: y - r.y,
             start: p,
             pointer: true,
+            from: (x, y),
+            moved: false,
         });
         true
     }
@@ -622,6 +633,15 @@ impl Layout {
         let (Some((x, y)), Some(g)) = (point(x, y), self.grab.clone()) else {
             return false;
         };
+        if !g.moved {
+            // under the threshold nothing moves
+            if (x - g.from.0).hypot(y - g.from.1) < DRAG_START {
+                return false;
+            }
+            if let Some(held) = self.grab.as_mut() {
+                held.moved = true;
+            }
+        }
         let Some(mut p) = self.palette(&g.id) else {
             return false;
         };
@@ -664,7 +684,27 @@ impl Layout {
     /// The pointer lets go: a palette within the snap distance of an edge docks there, in the place along the edge that its
     /// position gives; else it stays where it floats.
     pub fn release(&mut self, x: f64, y: f64) -> bool {
+        // a release that follows no drag is a click: nothing moved, nothing changes
+        if self.grab.as_ref().is_some_and(|g| g.pointer && !g.moved) && point(x, y).is_some() {
+            let far = self
+                .grab
+                .as_ref()
+                .is_some_and(|g| (x - g.from.0).hypot(y - g.from.1) >= DRAG_START);
+            if !far {
+                self.grab = None;
+                return false;
+            }
+        }
         // a release at a point that is not a number ends the grab where the palette was
+        if point(x, y).is_none() {
+            return match self.grab.take() {
+                Some(g) => {
+                    self.put(g.start);
+                    true
+                }
+                None => false,
+            };
+        }
         if !self.drag(x, y) {
             return self.cancel();
         }
@@ -676,8 +716,10 @@ impl Layout {
     }
 
     /// Puts the held palette back where it was before the grab.
+    /// False when nothing was moved (a click on the handle).
     pub fn cancel(&mut self) -> bool {
         match self.grab.take() {
+            Some(g) if g.pointer && !g.moved => false,
             Some(g) => {
                 self.put(g.start);
                 true
@@ -808,6 +850,8 @@ impl Layout {
                 dy: 0.0,
                 start: p.clone(),
                 pointer: false,
+                from: (0.0, 0.0),
+                moved: true,
             });
         }
         // a keyboard step is smaller than the snap distance: it is only kept inside the viewport
@@ -841,6 +885,11 @@ impl Layout {
     /// "dock", "horizontal", "collapsed", "hidden"}]}`.
     pub fn arranged_json(&mut self, w: f64, h: f64, sizes: &[(String, f64, f64)]) -> String {
         let (rects, area) = self.arrange(w, h, sizes);
+        // the palette a pointer is dragging, and the edge it docks on if let go now (the one `release` uses)
+        let held = (self.grab.clone())
+            .filter(|g| g.pointer && g.moved)
+            .map(|g| g.id);
+        let hint = held.clone().and_then(|id| self.touching(&id));
         let bool = |b: bool| if b { "true" } else { "false" };
         let list: Vec<String> = rects
             .iter()
@@ -854,6 +903,8 @@ impl Layout {
                 e.raw("horizontal", bool(r.horizontal));
                 e.raw("collapsed", bool(r.collapsed));
                 e.raw("hidden", bool(r.hidden));
+                // only a floating palette turns between a row and a column
+                e.raw("can_turn", bool(r.dock == Dock::Float));
                 e.0 + "}"
             })
             .collect();
@@ -862,6 +913,8 @@ impl Layout {
         o.raw("all_hidden", bool(self.all_hidden));
         let area: Vec<String> = area.iter().map(|v| Value::from(*v).to_string()).collect();
         o.raw("area", &format!("[{}]", area.join(",")));
+        o.text("held", held.as_deref().unwrap_or(""));
+        o.text("hint_edge", hint.map_or("", |d| d.name()));
         o.raw("palettes", &format!("[{}]", list.join(",")));
         o.0 + "}"
     }

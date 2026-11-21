@@ -21,6 +21,8 @@ pub enum Op {
         el: String,
         x: f64,
         y: f64,
+        /// The atom-to-atom map number, 1..=999 (absent: none).
+        map: Option<u16>,
     },
     BondAdd {
         id: Option<u32>,
@@ -94,13 +96,18 @@ pub enum Op {
         x2: f64,
         y2: f64,
         text: String,
+        /// Arrows: an atom of the structure the arrow leaves and of the one it reaches (0: a free end).
+        from: u32,
+        to: u32,
     },
-    /// Sets the text and/or the end point of an object.
+    /// Sets the text, the end point and/or the anchors of an object (`from`, `to`: an atom id, or 0 to free the end).
     ObjSet {
         id: u32,
         text: Option<String>,
         x2: Option<f64>,
         y2: Option<f64>,
+        from: Option<u32>,
+        to: Option<u32>,
     },
     /// A ring of `n` atoms (3-8), `arom` = alternating double bonds: fused on the bond `bond`, or with the atom `atom` as a corner, or
     /// centred on (`x`, `y`).
@@ -158,12 +165,19 @@ impl Op {
         };
         let id = |v: &Option<u32>| v.map(i64::from);
         match self {
-            Op::AtomAdd { id: i, el, x, y } => {
+            Op::AtomAdd {
+                id: i,
+                el,
+                x,
+                y,
+                map,
+            } => {
                 w.text("op", "atom.add");
                 int(&mut w, "id", id(i));
                 w.text("el", el);
                 w.num("x", *x);
                 w.num("y", *y);
+                int(&mut w, "map", map.map(i64::from));
             }
             Op::BondAdd { id: i, a, b, o, s } => {
                 w.text("op", "bond.add");
@@ -267,6 +281,8 @@ impl Op {
                 x2,
                 y2,
                 text,
+                from,
+                to,
             } => {
                 w.text("op", "obj.add");
                 int(&mut w, "id", id(i));
@@ -281,12 +297,19 @@ impl Op {
                 if !text.is_empty() {
                     w.text("text", text);
                 }
+                for (k, v) in [("from", *from), ("to", *to)] {
+                    if v != 0 {
+                        w.int(k, i64::from(v));
+                    }
+                }
             }
             Op::ObjSet {
                 id: i,
                 text,
                 x2,
                 y2,
+                from,
+                to,
             } => {
                 w.text("op", "obj.set");
                 w.int("id", i64::from(*i));
@@ -296,6 +319,11 @@ impl Op {
                 for (k, v) in [("x2", x2), ("y2", y2)] {
                     if let Some(v) = v {
                         w.num(k, *v);
+                    }
+                }
+                for (k, v) in [("from", from), ("to", to)] {
+                    if let Some(v) = v {
+                        w.int(k, i64::from(*v));
                     }
                 }
             }
@@ -401,6 +429,7 @@ impl Op {
                 el: g.s("el")?.ok_or(())?,
                 x: need(g.f("x")?)?,
                 y: need(g.f("y")?)?,
+                map: g.u("map")?,
             },
             "bond.add" => Op::BondAdd {
                 id: g.u("id")?,
@@ -475,12 +504,16 @@ impl Op {
                 x2: g.f("x2")?.unwrap_or(0.0),
                 y2: g.f("y2")?.unwrap_or(0.0),
                 text: g.s("text")?.unwrap_or_default(),
+                from: g.u("from")?.unwrap_or(0),
+                to: g.u("to")?.unwrap_or(0),
             },
             "obj.set" => Op::ObjSet {
                 id: g.u("id")?.ok_or(())?,
                 text: g.s("text")?,
                 x2: g.f("x2")?,
                 y2: g.f("y2")?,
+                from: g.u("from")?,
+                to: g.u("to")?,
             },
             "ring" => Op::Ring {
                 n: g.u("n")?.ok_or(())?,
@@ -579,13 +612,16 @@ impl Document {
         &mut self,
         id: Option<u32>,
         el: &str,
-        x: f64,
-        y: f64,
+        (x, y): (f64, f64),
+        map: Option<u16>,
         done: &mut Vec<Op>,
         inv: &mut Vec<Inv>,
     ) -> Result<(), OpError> {
         if !mzlab_mol::is_element(el) {
             return err("error.draw2.element", id.unwrap_or(0));
+        }
+        if map.is_some_and(|m| m > crate::doc::MAX_MAP) {
+            return err("error.draw2.map", id.unwrap_or(0));
         }
         let id = self.take_id(id, inv)?;
         let (x, y, el) = (round4(x), round4(y), el.to_string());
@@ -597,7 +633,7 @@ impl Document {
             chg: 0,
             iso: 0,
             rad: 0,
-            map: 0,
+            map: map.unwrap_or(0),
             h: None,
             lab: String::new(),
             more: Vec::new(),
@@ -608,6 +644,7 @@ impl Document {
             el,
             x,
             y,
+            map: map.filter(|&m| m != 0),
         });
         Ok(())
     }
@@ -706,7 +743,9 @@ impl Document {
         inv: &mut Vec<Inv>,
     ) -> Result<(), OpError> {
         match op {
-            Op::AtomAdd { id, el, x, y } => self.add_atom(*id, el, *x, *y, done, inv)?,
+            Op::AtomAdd { id, el, x, y, map } => {
+                self.add_atom(*id, el, (*x, *y), *map, done, inv)?
+            }
             Op::BondAdd { id, a, b, o, s } => self.add_bond(*id, *a, *b, (*o, *s), done, inv)?,
             Op::AtomSet { .. } => {
                 self.set_atom(op, inv)?;
@@ -870,6 +909,8 @@ impl Document {
                 x2,
                 y2,
                 text,
+                from,
+                to,
             } => {
                 let mut o = Obj {
                     id: id.unwrap_or(self.next),
@@ -879,6 +920,8 @@ impl Document {
                     x2: round4(*x2),
                     y2: round4(*y2),
                     text: text.clone(),
+                    from: *from,
+                    to: *to,
                     more: Vec::new(),
                 };
                 if !o.valid() {
@@ -894,10 +937,19 @@ impl Document {
                     x2: o.x2,
                     y2: o.y2,
                     text: o.text.clone(),
+                    from: o.from,
+                    to: o.to,
                 });
                 self.objects.push(o);
             }
-            Op::ObjSet { id, text, x2, y2 } => {
+            Op::ObjSet {
+                id,
+                text,
+                x2,
+                y2,
+                from,
+                to,
+            } => {
                 let Some(i) = self.objects.iter().position(|o| o.id == *id) else {
                     return err("error.draw2.noObject", *id);
                 };
@@ -905,6 +957,8 @@ impl Document {
                 o.text = text.clone().unwrap_or(o.text);
                 o.x2 = x2.map_or(o.x2, round4);
                 o.y2 = y2.map_or(o.y2, round4);
+                o.from = from.unwrap_or(o.from);
+                o.to = to.unwrap_or(o.to);
                 if !o.valid() {
                     return err("error.draw2.object", *id);
                 }
@@ -914,6 +968,8 @@ impl Document {
                     text: text.clone(),
                     x2: x2.map(round4),
                     y2: y2.map(round4),
+                    from: *from,
+                    to: *to,
                 });
             }
             _ => {}

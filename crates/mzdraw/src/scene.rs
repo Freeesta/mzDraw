@@ -88,7 +88,7 @@ fn advance(c: char) -> f64 {
     }
 }
 
-pub(crate) fn width(s: &str, size: f64) -> f64 {
+pub fn width(s: &str, size: f64) -> f64 {
     s.chars().map(advance).sum::<f64>() * size
 }
 
@@ -659,4 +659,72 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
         p.push(&[RECT as f64, x, y, w, h, colour::SELECT as f64]);
     }
     p.out
+}
+
+/// How far the ink of the label of an atom reaches from the atom's point, in the units of `style` scaled so that a bond is 1:
+/// `[left, right, below, above]`, the text laid out as `Painter::label` and `Painter::group_label` do (the attachment atom of a
+/// group label on the point, the rest on the side away from the bonds; hydrogens, mass number and charge where the painter puts
+/// them). All zero for an atom drawn as a bare vertex. The vertical reach is a line of text, not the glyph outlines.
+pub fn label_extent(doc: &Document, a: &Atom, style: &crate::settings::Style) -> [f64; 4] {
+    if !has_label(doc, a) {
+        return [0.0; 4];
+    }
+    let view = View {
+        scale: 1.0,
+        ox: 0.0,
+        oy: 0.0,
+    };
+    let over = Overlay::default();
+    let m = style.metrics(1.0, false);
+    let p = Painter {
+        doc,
+        view,
+        over: &over,
+        m,
+        font: m.font,
+        out: Scene::default(),
+    };
+    let (f, small) = (m.font, m.small);
+    let line = f * 0.6;
+    if !a.lab.is_empty() {
+        let [before, mid, after] = p.group_box(a).1;
+        // the digits of a count are lowered by 0.3 of the font
+        let lowered = f * 0.3 + small * 0.6;
+        return [
+            before + mid / 2.0,
+            mid / 2.0 + after,
+            line.max(lowered),
+            line,
+        ];
+    }
+    let q = p.parts(a);
+    let wh = width("H", f);
+    let mut left = q.half + q.iso;
+    let mut right = q.half;
+    let (mut below, mut above) = (line, line);
+    if q.h > 1 {
+        below = below.max(f * 0.3 + small * 0.6);
+    }
+    if q.h > 0 {
+        if q.stack != 0.0 {
+            left = left.max(wh / 2.0);
+            right = right.max(q.hw - wh / 2.0);
+            if q.stack > 0.0 {
+                below = below.max(f * 0.95 + line);
+            } else {
+                above = above.max(f * 0.95 + line);
+            }
+        } else if q.left {
+            left += q.hw;
+        } else {
+            right += q.hw;
+        }
+    }
+    if q.iso != 0.0 || !q.mark.is_empty() {
+        above = above.max(f * 0.35 + small * 0.6);
+    }
+    if !q.mark.is_empty() {
+        right = right.max(q.half + if q.left { 0.0 } else { q.side() } + width(&q.mark, small));
+    }
+    [left, right, below, above]
 }

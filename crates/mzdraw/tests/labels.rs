@@ -149,6 +149,7 @@ fn an_r_group_is_an_r_atom_of_the_molfile_and_a_query_atom_for_the_check() {
 fn labels_are_set_refused_cleared_and_undone() {
     let mut s = Session::default();
     s.run(&[Op::AtomAdd {
+        map: None,
         id: None,
         el: "C".into(),
         x: 0.0,

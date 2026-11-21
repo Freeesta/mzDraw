@@ -47,7 +47,7 @@ fn presets_are_named_and_write_themselves_as_a_settings_file() {
     }
     assert_eq!(
         Style::preset("acs-1996").unwrap().to_json(),
-        r#"{"format":"mzdraw-settings/1","style":{"bold_width":2.0,"bond_length":14.4,"bond_spacing":0.18,"colour":"mono","font_size":10.0,"hash_spacing":2.5,"line_width":0.6,"margin":1.6,"preset":"acs-1996","subscript_scale":0.7}}"#
+        r#"{"format":"mzdraw-settings/1","style":{"bold_width":2.0,"bond_length":14.4,"bond_spacing":0.18,"colour":"mono","font_size":10.0,"hash_spacing":2.5,"line_width":0.6,"margin":1.6,"pathway.margin":0.35,"preset":"acs-1996","subscript_scale":0.7}}"#
     );
     assert!(Style::preset("nature").is_none());
 }
@@ -181,7 +181,7 @@ fn unknown_keys_survive_a_round_and_newer_versions_are_said_to_be_newer() {
     let out = s.to_json();
     assert_eq!(
         out,
-        r#"{"editor":{"snap":15},"format":"mzdraw-settings/1","shortcuts":{"w":"bond:up"},"style":{"arrow":{"head":4.5},"bold_width":2.0,"bond_length":20.0,"bond_spacing":0.18,"colour":"mono","font_size":10.0,"hash_spacing":2.5,"labels":"terminal","line_width":0.6,"margin":1.6,"preset":"acs-1996","subscript_scale":0.7},"templates":[]}"#
+        r#"{"editor":{"snap":15},"format":"mzdraw-settings/1","shortcuts":{"w":"bond:up"},"style":{"arrow":{"head":4.5},"bold_width":2.0,"bond_length":20.0,"bond_spacing":0.18,"colour":"mono","font_size":10.0,"hash_spacing":2.5,"labels":"terminal","line_width":0.6,"margin":1.6,"pathway.margin":0.35,"preset":"acs-1996","subscript_scale":0.7},"templates":[]}"#
     );
     let again = Style::from_text(&out).unwrap();
     assert_eq!(again, s);

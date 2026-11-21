@@ -11,8 +11,9 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 /// The keys of the envelope, in the order they are written. A key that does not apply is left out.
-pub const KEYS: [&str; 10] = [
-    "format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "failed", "expect",
+pub const KEYS: [&str; 11] = [
+    "format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed",
+    "expect",
 ];
 
 /// The keys of `failed`, in the order they are written.
@@ -222,6 +223,14 @@ impl Failed {
         }
     }
 
+    /// A refused editor command of the request, by its index in `commands`.
+    pub fn command(op: usize, key: &'static str, id: u32) -> Failed {
+        Failed {
+            stage: "command",
+            ..Failed::log(op, key, id)
+        }
+    }
+
     fn json(&self) -> String {
         let mut s = format!("{{\"stage\":{}", Value::from(self.stage));
         if let Some(op) = self.op {
@@ -263,6 +272,8 @@ pub struct Outcome {
     pub out: Option<String>,
     pub created: IdSets,
     pub removed: IdSets,
+    /// What the output format `out` cannot hold, as (i18n key, count): `draw2.export.mapsLost` for atom maps. Empty: nothing lost.
+    pub lost: Vec<(&'static str, usize)>,
     pub failed: Option<Failed>,
     /// `(request object, ok, detail)` per expectation, in request order; `None` when the request had no `expect`.
     pub expect: Option<Vec<(Value, bool, String)>>,
@@ -292,6 +303,12 @@ impl Outcome {
             self.created.json(),
             self.removed.json()
         ));
+        if !self.lost.is_empty() {
+            let items: Vec<String> = (self.lost.iter())
+                .map(|(key, n)| format!("{{\"key\":{},\"n\":{n}}}", Value::from(*key)))
+                .collect();
+            s.push_str(&format!(",\"lost\":[{}]", items.join(",")));
+        }
         if let Some(f) = &self.failed {
             s.push_str(&format!(",\"failed\":{}", f.json()));
         }

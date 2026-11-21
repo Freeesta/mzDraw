@@ -182,10 +182,17 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
                         .unwrap_or(0)
                 };
                 // the atom-to-atom map of a reaction
-                let map = a["mapping"]
-                    .as_u64()
-                    .filter(|m| (1..=u64::from(crate::doc::MAX_MAP)).contains(m))
-                    .unwrap_or(0);
+                let map = match a.get("mapping").filter(|v| !v.is_null()) {
+                    None => 0,
+                    Some(v) => match v.as_u64() {
+                        Some(m) if m <= u64::from(crate::doc::MAX_MAP) => m,
+                        // negative, above the limit or no whole number: counted, read as no map
+                        _ => {
+                            info.maps_left += 1;
+                            0
+                        }
+                    },
+                };
                 let label = a["label"].as_str().unwrap_or("A");
                 let plain = mzlab_mol::is_element(label);
                 let mut line = match a["type"].as_str() {

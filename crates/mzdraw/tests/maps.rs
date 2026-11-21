@@ -207,3 +207,243 @@ fn a_format_without_a_place_for_maps_lists_them_as_lost() {
     assert_eq!(d.maps_lost("cdxml"), 2);
     assert_eq!(d.maps_lost("cml"), 2);
 }
+
+/// A V2000 molfile of two atoms with the given text in the map field (3 characters, as the format has it).
+fn two_atoms(f1: &str, f2: &str) -> String {
+    let line = |x: f64, f: &str| {
+        format!(
+            "{x:>10.4}{:>10.4}{:>10.4} C   0  0  0  0  0  0  0  0  0{f:>3}  0  0\n",
+            0.0, 0.0
+        )
+    };
+    format!(
+        "m\n  mzdraw\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n{}{}  1  2  1  0\nM  END\n",
+        line(0.0, f1),
+        line(1.5, f2)
+    )
+}
+
+#[test]
+fn a_field_that_is_no_map_is_counted_not_dropped_in_silence() {
+    // 0 and blank are none, 1 and 999 are maps; negative, non-numeric and 1.5 are counted as left out
+    for (a, b, mapped, left) in [
+        ("  0", "   ", 0, 0),
+        ("  1", "999", 2, 0),
+        (" -5", "  7", 1, 1),
+        ("abc", "  7", 1, 1),
+        ("1.5", " -1", 0, 2),
+    ] {
+        let (d, info) = import(&two_atoms(a, b)).unwrap();
+        assert_eq!((d.mapped(), info.maps_left), (mapped, left), "{a:?} {b:?}");
+        assert_eq!(
+            info.notes().iter().any(|n| n.0 == "draw2.import.mapsLeft"),
+            left > 0
+        );
+    }
+    // V3000: AAMAP above the limit, huge, negative and not a number
+    let v3 = |aamap: &str| {
+        format!("m\n  mzdraw\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 1 0 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0 0 0 {aamap}\nM  V30 END ATOM\nM  V30 END CTAB\nM  END\n")
+    };
+    for (aamap, mapped, left) in [
+        ("0", 0, 0),
+        ("999", 1, 0),
+        ("1000", 0, 1),
+        ("99999999999", 0, 1),
+        ("-3", 0, 1),
+        ("x", 0, 1),
+    ] {
+        if let Ok((d, info)) = import(&v3(aamap)) {
+            assert_eq!(
+                (d.mapped(), info.maps_left),
+                (mapped, left),
+                "AAMAP {aamap}"
+            );
+        }
+    }
+    // SMILES: a class that is no map is counted
+    for (smiles, mapped, left) in [
+        ("[CH3:0]C", 0, 0),
+        ("[CH3:999]C", 1, 0),
+        ("[CH3:1000]C", 0, 1),
+    ] {
+        let (d, info) = import(smiles).unwrap();
+        assert_eq!((d.mapped(), info.maps_left), (mapped, left), "{smiles}");
+    }
+    // KET: mapping 0 is none; negative, above the limit, a string and a fraction are counted
+    let ket = |mapping: &str| {
+        format!(
+            r#"{{"root":{{"nodes":[{{"$ref":"mol0"}}]}},"mol0":{{"type":"molecule","atoms":[{{"label":"C","location":[0,0,0],"mapping":{mapping}}}],"bonds":[]}}}}"#
+        )
+    };
+    for (mapping, mapped, left) in [
+        ("0", 0, 0),
+        ("5", 1, 0),
+        ("1000", 0, 1),
+        ("-2", 0, 1),
+        ("\"a\"", 0, 1),
+        ("1.5", 0, 1),
+    ] {
+        let (d, info) = import(&ket(mapping)).unwrap();
+        assert_eq!(
+            (d.mapped(), info.maps_left),
+            (mapped, left),
+            "mapping {mapping}"
+        );
+    }
+}
+
+#[test]
+fn one_number_on_two_atoms_of_a_structure_is_reported() {
+    let (d, info) = import("[CH3:1][CH2:1]O").unwrap();
+    assert_eq!((d.duplicate_maps(), info.maps_duplicate), (1, 1));
+    assert!(info
+        .notes()
+        .iter()
+        .any(|n| n.0 == "draw2.import.mapsDuplicate"));
+    // the same number in the reactant and in the product is the point of a map: no report
+    let (_, info) = import(&esterification()).unwrap();
+    assert_eq!(info.maps_duplicate, 0);
+}
+
+#[test]
+fn the_sdf_and_the_other_formats_keep_the_maps_and_cdxml_and_cml_lose_them_aloud() {
+    let (d, _) = import("[CH3:1][OH:2]").unwrap();
+    let sdf = d.to_sdf();
+    let (back, _) = import(&sdf).unwrap();
+    assert_eq!(maps(&back), maps(&d));
+    for kind in [
+        "mzdraw",
+        "svg",
+        "molfile",
+        "molfile-v3000",
+        "smiles",
+        "ket",
+        "sdf",
+    ] {
+        assert_eq!(d.maps_lost(kind), 0, "{kind}");
+    }
+    let mut e = Editor::default();
+    e.import("[CH3:1][OH:2]").unwrap();
+    assert_eq!(e.lost_on_save("cdxml"), vec![("draw2.export.mapsLost", 2)]);
+    assert_eq!(e.lost_on_save("cml"), vec![("draw2.export.mapsLost", 2)]);
+    assert!(e.lost_on_save("molfile").is_empty());
+    // the replay report carries it
+    let r = mzdraw::replay::replay(r#"{"import":"[CH3:1][OH:2]","out":"cdxml","report":true}"#)
+        .unwrap();
+    assert!(
+        r.contains(r#""lost":[{"key":"draw2.export.mapsLost","n":2}]"#),
+        "{r}"
+    );
+    let r = mzdraw::replay::replay(r#"{"import":"[CH3:1][OH:2]","out":"molfile","report":true}"#)
+        .unwrap();
+    assert!(!r.contains("lost"));
+}
+
+#[test]
+fn atom_add_takes_a_map_and_the_writers_never_skip_a_number() {
+    let mut s = Session::new(Document::default());
+    let add = |map| Op::AtomAdd {
+        id: None,
+        el: "C".into(),
+        x: 0.0,
+        y: 0.0,
+        map: Some(map),
+    };
+    s.run(&[add(12)]).unwrap();
+    assert_eq!(s.doc.atoms[0].map, 12);
+    assert!(s.run(&[add(1000)]).is_err());
+    assert!(s.undo());
+    assert!(s.doc.atoms.is_empty());
+    // the numbers are written in the V3000 atom line even for a bare atom, and in the V2000 field
+    let (d, _) = import("[CH3:5]").unwrap();
+    assert!(d.to_molfile().contains("  0  5  0  0"));
+    assert!(d
+        .to_molfile_v3000()
+        .lines()
+        .any(|l| l.starts_with("M  V30 1 C ") && l.contains(" 5")));
+}
+
+fn fnv1a(text: &str) -> String {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in text.bytes() {
+        h = (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("{h:016x}")
+}
+
+fn data(name: &str) -> String {
+    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/data/fidelity")
+        .join(name);
+    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display()))
+}
+
+/// The reference of `tools/fidelity/maps.py` (RDKit reading our reaction files): needs no Python or RDKit here. Our writer still gives
+/// the very bytes RDKit read (hash), RDKit read the maps of the input, and they are the maps our reader reads from the same file.
+#[test]
+fn rdkit_reads_the_maps_we_write_as_the_reference_says() {
+    let reference: serde_json::Value = serde_json::from_str(&data("maps.json")).unwrap();
+    assert!(reference["programs"]["rdkit"]
+        .as_str()
+        .is_some_and(|v| !v.is_empty()));
+    let set: Vec<String> = data("maps-set.txt")
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(str::to_string)
+        .collect();
+    let results = reference["results"].as_array().unwrap();
+    assert_eq!(results.len(), set.len());
+    assert_eq!(set.len(), 20);
+    let replay = |req: serde_json::Value| mzdraw::replay::replay(&req.to_string()).unwrap();
+    for (reaction, r) in set.iter().zip(results) {
+        assert_eq!(r["reaction"].as_str().unwrap(), reaction);
+        assert_eq!(r["same_as_input"], true, "{reaction}");
+        let (left, right) = reaction.split_once(">>").unwrap();
+        let sides: Vec<Vec<&str>> = [left, right]
+            .iter()
+            .map(|s| s.split('.').collect())
+            .collect();
+        let mols: Vec<Vec<String>> = sides
+            .iter()
+            .map(|side| {
+                side.iter()
+                    .map(|s| replay(serde_json::json!({"import": s, "out": "molfile"})))
+                    .collect()
+            })
+            .collect();
+        let block = format!(
+            "$RXN\n\n  synthetic\n\n{:>3}{:>3}\n{}",
+            mols[0].len(),
+            mols[1].len(),
+            mols.iter()
+                .flatten()
+                .map(|m| format!("$MOL\n{m}"))
+                .collect::<String>()
+        );
+        let ours = replay(serde_json::json!({"import": block, "out": "rxn"}));
+        assert_eq!(
+            fnv1a(&ours),
+            r["hash"].as_str().unwrap(),
+            "{reaction}: our file changed: rerun tools/fidelity/maps.py"
+        );
+        // the maps RDKit read, flattened, are the maps our reader reads from the same file
+        let mut theirs: Vec<u64> = r["rdkit_rxn"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|s| s.as_array().unwrap())
+            .flat_map(|m| m.as_array().unwrap())
+            .map(|n| n.as_u64().unwrap())
+            .collect();
+        let (d, _) = import(&ours).unwrap();
+        let mut mine: Vec<u64> = d
+            .atoms
+            .iter()
+            .filter(|a| a.map != 0)
+            .map(|a| u64::from(a.map))
+            .collect();
+        theirs.sort_unstable();
+        mine.sort_unstable();
+        assert_eq!(theirs, mine, "{reaction}");
+    }
+}

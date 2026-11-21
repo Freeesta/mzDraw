@@ -36,7 +36,7 @@ The matrix is generated, not hand-kept, once the formats exist: `mzlab-cli mol f
 Built in `crates/mzdraw` unless said; R = read, W = write. "Listed" = said in words under the Add field (`Imported::notes`), never dropped in silence.
 | format | R | W | as built, and what differs from the study |
 |---|---|---|---|
-| `mzdraw/1` | yes | yes | unknown fields of the document, atoms, bonds and objects are kept on read and write; a higher version is refused with its key |
+| `mzdraw/1` | yes | yes | arrow anchors `from` and `to` (atom ids, tp-01) are kept only in `mzdraw/1`: no other format carries them; unknown fields of the document, atoms, bonds and objects are kept on read and write; a higher version is refused with its key |
 | MOL V2000 / V3000 | yes | yes | read and written by `mzlab-mol`; the drawing adds wedge marks as drawn (stereo column / `CFG`) and R groups (`R#` + `M  RGP` / `RGROUPS`), both ways. Query atoms are read as unnumbered R groups, query bonds as single bonds, S-groups are left out, enhanced-stereo "and"/"or" groups keep their wedges and lose the grouping: all listed. Abbreviations are written expanded and not recognised on read. Atom aliases and atom lists are not read |
 | SDF | yes (64 records at a time, the rest listed) | yes (one record per structure) | every record side by side; the data fields are read, edited and written (kept on the first atom of the structure as `data`, not in `meta.fields` as the study drew it); the annotation of a structure goes out and comes back as four `MZLAB_` fields (`mzdraw-annotations.md`); arrows and text are not written |
 | RXN V2000 / V3000 | yes | V2000 | read: reactants, arrow, products on one line with plus signs, agents above the arrow; written from a drawing with exactly one arrow, roles by position along it, agents as a third count. Atom maps are not read or written; conditions text has no place in the file |
@@ -51,6 +51,30 @@ Built in `crates/mzdraw` unless said; R = read, W = write. "Listed" = said in wo
 | SVG | own only | yes | the saved SVG carries the document in a `metadata` element and a text alternative (`role="img"`, `title`, `desc`, `xml:lang="en"`; SVG 1.1 elements only); an SVG of another program is refused in words |
 | PNG | own only | yes | 300 dpi on white, drawn by the page from the module's SVG, finished by the module (`iTXt` document, `pHYs`); a PNG of another program is refused in words |
 | PDF | - | no | not started |
+
+### 1b. Fidelity checked by RDKit, Open Babel and InChI (plan-03, 2026-11-21)
+Programs that are not ours read the files our writers give for 200 synthetic structures (`tests/data/fidelity/set.smi`: rings, fused and bridged rings, charges, isotopes, radicals, tetrahedral centres with wedges, E/Z double bonds, R groups, two-piece salts, written-out protecting groups), and the standard InChIKey of what they read is compared with the key of the input. The reference is `tests/data/fidelity/reference.json`; `tools/fidelity/run.py` makes it (`python3 tools/fidelity/run.py --replay target/debug/examples/replay > tests/data/fidelity/reference.json`) and `crates/mzdraw/tests/fidelity.rs` checks, without those programs, that our files are still byte-identical to the ones it was made from. Versions: RDKit 2026.09.2 with its bundled InChI 1.07.3 (the key of a read structure is made by RDKit's InChI for RDKit and for the input; Open Babel's InChI is its own, from Open Babel 3.1.1); `inchi-1` 1.07.5 was **not measured** (`"inchi-1": "not measured"` in the reference) (not on the machine, not fetched). A structure with an R group has no InChI of its own: the R group is replaced by one element with its label as isotope for RDKit; Open Babel makes no InChI of it, so those 14 are left out of its counts.
+
+Our file read by the program (match of the InChIKey, with the Wilson 95% interval of the rate):
+| format | RDKit | Open Babel 3.1.1 |
+|---|---|---|
+| molfile V2000 | 200/200 (98.1 to 100%) | 186/186 (98.0 to 100%) |
+| molfile V3000 | 200/200 (98.1 to 100%) | 186/186 (98.0 to 100%) |
+| SDF (the pieces of a salt are records) | 200/200 (98.1 to 100%) | 186/186 (98.0 to 100%) |
+| SMILES | 200/200 (98.1 to 100%) | 186/186 (98.0 to 100%) |
+| CDXML | 194/200 (93.6 to 98.6%); 6 differ (radicals 5, an isotope 1): difference found, cause not analysed | 6/200 (1.4 to 6.4%): the hydrogen layer differs; difference found, cause not analysed (our writer emits `NumHydrogens`, so it may be a limit of that reader) |
+| CML | no reader | 175/186 (89.7 to 96.7%); 11 differ (radicals 10, an isotope 1): difference found, cause not analysed |
+| KET | no reader | no reader |
+| RXN V2000 (20 drawn reactions) | 20/20 | 20/20 (reaction SMILES, then its InChI) |
+
+The program writes, we read (`Editor::open`, then our SMILES, then the InChIKey by RDKit):
+| written by | molfile | SDF | SMILES |
+|---|---|---|---|
+| RDKit | 0/200 (refused: empty title line); 186/200 with a one-character title | same | 200/200 |
+| Open Babel | 0/200 (refused: empty title line); 200/200 with a one-character title | same | 186/200 |
+The 14 that fail in the last column and in the RDKit "with a title" columns are the R-group structures: only the isotope layer, which carries the R label in this check, differs. RDKit writes the label as an atom-map number on a dummy atom; where the label is lost (our reader or the program's file) was not analysed.
+
+`lost` in the reference names the InChI layers that differ (`f` formula, `h` hydrogens, `c` connectivity, `q`/`p` charge, `b`/`t`/`m`/`s` stereo, `i`/`r` isotopes). The numbered list of what to fix is in the PR of the slice; nothing here changed a reader or a writer. Optional run on public structures: `python3 tools/fidelity/run.py --replay ... --corpus` fetches a fixed list of PubChem ids at run time and prints rates only; It was run once by hand on 20 ids to see that it works; its rates are not committed (E19 asked for them: a deviation, to be decided).
 
 ## 2. Images that carry their molecule, clipboard
 - **SVG**: `<metadata>` holds `<mzdraw:doc xmlns:mzdraw="https://freeesta.github.io/mzlab/ns/mzdraw/1">` with the `mzdraw/1` JSON in CDATA, plus `<mzdraw:molfile>` with the V3000 molfile of each molecule for other programs. Opening an SVG reads the document; an SVG without it is refused ("not a structure file"), never traced. Idea from RDKit (`<rdkit:mol>` in metadata) and Open Babel (`-e`, CML in the SVG).
