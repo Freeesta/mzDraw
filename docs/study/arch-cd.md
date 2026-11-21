@@ -140,8 +140,8 @@ Rows grouped by area; the ID is used by the prompts (§6). Source keys refer to 
 ### D. Layout and clean-up
 | ID | feature | who has it | how it works (short) | priority for mzDraw | scriptable twin | size |
 |---|---|---|---|---|---|---|
-| D01 | Clean Up Structure (selection or all), stereo meaning kept | CD-UG17 (Shift+Ctrl+K; bonds to the fixed length, 15° multiples, rings only if fully selected), MS/marvin_cleaning.html (Ctrl+2), MS-IOD/clean-2d.html* (partial clean keeps coordinates), CDD-G §14.7.1.1 (stochastic; keeps stereo), BD-DS20 | new coordinates from the 2D layout | MUST: `layout::clean_up` still returns nothing; `Mol::layout_2d_fixed` exists | op `place {atoms, xy}`; command `clean` | M |
-| D02 | Clean Up Reaction: spacing, plus signs, arrow length, wrap | CD-UG17, CDD-G §2.2.2.7 and §8.6, MS/marvin_creating-reactions.html (automatic plus) | arranges a reaction along its arrow | SHOULD: scheme figures | `place` + `move` + `obj.add plus`; command `clean-reaction` | M |
+| D01 | Clean Up Structure (selection or all), stereo meaning kept | CD-UG17 (Shift+Ctrl+K; bonds to the fixed length, 15° multiples, rings only if fully selected), MS/marvin_cleaning.html (Ctrl+2), MS-IOD/clean-2d.html* (partial clean keeps coordinates), CDD-G §14.7.1.1 (stochastic; keeps stereo), BD-DS20 | new coordinates from the 2D layout | MUST: `layout::clean_up` still returns nothing; `Mol::layout_2d_fixed` exists | op `atoms.xy` (arch-std-15, PR #45); command `clean` | M |
+| D02 | Clean Up Reaction: spacing, plus signs, arrow length, wrap | CD-UG17, CDD-G §2.2.2.7 and §8.6, MS/marvin_creating-reactions.html (automatic plus) | arranges a reaction along its arrow | SHOULD: scheme figures | `atoms.xy` + `move` + `obj.add plus`; command `clean-reaction` | M |
 | D03 | clean with ring templates | MS/marvin_cleaning.html (Clean and Arrange), MS-IOD/clean-2d.html* | templates guide the layout | LATER: layout quality is mzLab's (D1) | - | L |
 | D04 | deterministic clean | CDD-G §14.7.1.1 (stochastic: repeated runs differ) | | MUST (ours): parity needs the same bytes; part of D01 | - | - |
 | D05 | centre the drawing, zoom to fit | BD-T65 (centre button) | | MUST · built (`fit`) | - | - |
@@ -213,7 +213,7 @@ Rows grouped by area; the ID is used by the prompts (§6). Source keys refer to 
 | I05 | page setup, margins, print, several pages | CD-UG17, MS/marvin_creating-a-multipage-document.html, CDD-G §13.4.2 and §17.12 | a page model | LATER (print: SHOULD in the desktop app) | settings `page` | M |
 | I06 | align (left, centre, right, top, middle, bottom), distribute, centre | CD-UG17 (Alt+Shift+Ctrl+letter), M/marvin_sketch-js-comparison.html (guides), CDD-G §12.4 | moves whole structures and objects | MUST: tidy schemes; all have it | `move` ops; commands `align:<edge>`, `distribute:h\|v` | S |
 | I07 | rotate by a typed angle; 1° and 15° steps from the keyboard | CD-UG17 (Ctrl+R), M/marvin_shortcuts-and-tricks.html (Alt+arrow 1°, Shift+Alt+arrow 15°), CDD-G §12.4 | | SHOULD: 15° buttons are built | `rotate deg` | S |
-| I08 | scale the selection | CD-UG17 (Ctrl+K), MS/marvin_geometric-transformation-of-structures-and-objects.html, CDD-G §12.4 | | SHOULD | `place` (D01) | S |
+| I08 | scale the selection | CD-UG17 (Ctrl+K), MS/marvin_geometric-transformation-of-structures-and-objects.html, CDD-G §12.4 | | SHOULD | `atoms.xy` (D01) | S |
 | I09 | nudge the selection with the arrow keys | CDW/demos/2d-sketcher | | SHOULD: arrows walk the focus today | `move` | S |
 | I10 | select inverse, reselect, select a whole piece | CDD-G §12.2 | | SHOULD | - | S |
 | I11 | lasso selection | CDD-G §4.2.2 (key S), CDW/demos/2d-sketcher | free-form selection | SHOULD: a band exists | - | S |
@@ -311,10 +311,10 @@ The model is the one of `docs/mzdraw-ui.md` §4-§5, built as R1 (PR #35, `crate
 One prompt per slice in `docs/prompts/arch-cd-NN-slug.md`. The studies arch-std (`docs/study/arch-std.md`, on `main`) and arch-web (branch `claude/arch-web`) propose some of the same slices. Where theirs covers the same scope, **theirs is the one to run**, and the arch-cd file is a short "superseded" note that lists what the desktop editors add (to paste into that prompt or its review). Context menu and palettes are being built (PR #37 context menu model, PR #35 palettes R1): the arch-cd prompts 18-20 refine on top of them and add no second model.
 | NN | slug | rows | priority | run |
 |---|---|---|---|---|
-| 01 | clean-up | D01, D04 | MUST | **arch-web-10**; arch-cd-01 = additions |
+| 01 | clean-up | D01, D04 | MUST | **arch-std-15** (PR #45; arch-web-10 is withdrawn); arch-cd-01 = additions |
 | 02 | cip-labels | C02 | MUST | **arch-web-16**; arch-cd-02 = additions |
 | 03 | hover-hotkeys | B02, B03 | MUST | **arch-cd-03** (keys into arch-std-06's command table when merged) |
-| 04 | bond-display | A03, A04 | MUST (A03) + SHOULD (A04) | **arch-cd-04** (double-bond position; dashed kinds on arch-web-20's field) |
+| 04 | bond-display | A03, A04 | MUST (A03) + SHOULD (A04) | **arch-cd-04** (double-bond position; dashed kinds on the one bond field `k`, COO decision 16) |
 | 05 | chain-tool | A13 | MUST | **arch-web-08**; arch-cd-05 = additions |
 | 06 | arrow-kinds | G02, G03, G04 | MUST | **arch-web-13**; arch-cd-06 = additions (heads, arc) |
 | 07 | rich-text | H02, H10 | MUST | **arch-web-14**; arch-cd-07 = additions (formula mode, symbols) |
@@ -325,7 +325,7 @@ One prompt per slice in `docs/prompts/arch-cd-NN-slug.md`. The studies arch-std 
 | 12 | templates | A14, A17, A12 | MUST | **arch-web-19**; arch-cd-12 = additions |
 | 13 | user-templates | A15 | MUST | **arch-web-19**; arch-cd-13 = additions |
 | 14 | analysis-panel | F01 | MUST | **arch-web-17**; arch-cd-14 = additions (where the numbers come from, parity) |
-| 15 | align-distribute | I06, I07, I08, I09 | MUST + SHOULD | **arch-cd-15** (needs arch-web-10's `place` for scaling) |
+| 15 | align-distribute | I06, I07, I08 | MUST + SHOULD | **arch-cd-15** (scaling needs arch-std-15's `atoms.xy`; the 1°/15° keys and nudging are arch-std-05) |
 | 16 | smart-paste | J04 | MUST | **arch-cd-16** (Copy as is arch-web-21 and PR #37) |
 | 17 | shortcuts | K02 | MUST | **arch-std-06**; arch-cd-17 = additions |
 | 18 | palette-tear-off | P02, P03, P04, K01 | MUST | **arch-cd-18**, on top of PR #35 (R1) |
@@ -333,12 +333,12 @@ One prompt per slice in `docs/prompts/arch-cd-NN-slug.md`. The studies arch-std 
 | 20 | context-menu-refine | K03, §7 | MUST | **arch-cd-20**, on top of PR #37 (the model) and its page PR; arch-web-12 is the same first slice as PR #37 |
 | 21 | embed-api | L04 | MUST | **arch-web-01, -02, -03**; arch-cd-21 = additions |
 | 22 | desktop-shell | L01, L02 | MUST | **arch-cd-22** (asks the owner's choice of shell first) |
-| 23 | dative-hbond | A05, A06 | SHOULD | **arch-web-20**; arch-cd-23 = additions |
+| 23 | dative-hbond | A05, A06 | SHOULD | **arch-web-20** (the one bond field `k`, COO decision 16); arch-cd-23 = additions |
 | 24 | enhanced-stereo | C04 | SHOULD | **arch-std-12**; arch-cd-24 = additions |
 | 25 | curved-arrows | G05, B11 | SHOULD | **arch-cd-25** |
 | 26 | history-panel | A21 | SHOULD | **arch-cd-26** |
 
-Other rows of this study that the other studies already carry as prompts: A08 (either double bond) = arch-std-11, B08 (label reversal) = arch-std-08, B16 (hydrogen and carbon label display) = arch-std-10, I11 and I10 (lasso, select a piece) = arch-web-07.
+Other rows of this study that the other studies already carry as prompts: I07 keyboard rotation and I09 nudging = arch-std-05, A08 (either double bond) = arch-std-11, B08 (label reversal) = arch-std-08, B16 (hydrogen and carbon label display) = arch-std-10, I11 and I10 (lasso, select a piece) = arch-web-07.
 Not given a prompt although MUST: K06 (the WCAG 2.2 audit with a real screen reader; arch-std-07 is the page audit).
 Every prompt that is run cites `CLAUDE.md` rule 15: the feature is a `draw_edit/1` op or a `--set` setting first, with a CLI route and a native replay test, and the page is one client of it.
 
@@ -378,7 +378,7 @@ Opening: Marvin JS opens menus with a long press since 6.2.0 (2013) and with Ctr
 | X08 | an abbreviation is its own target: Expand, Contract, the label field, Delete | MJ/ctx, M-253, KE-SRC | MUST (needs arch-web-18) | `abbr.expand`, `abbr.contract` |
 | X09 | the atom menu gains, as each feature lands: Properties… (the popover, arch-web-11), isotope and radical (arch-cd-08), enhanced stereo group (arch-std-12), show the atom number | MS/pop-up, M-253, CDD-G, CD-UG17 | MUST: each entry is part of its feature's prompt (arch-cd-08 scope; additions in arch-cd-09 for arch-web-11 and arch-cd-24 for arch-std-12) | existing ops |
 | X10 | the bond menu gains: double-bond side (arch-cd-04), the bond kinds of arch-web-20, Change direction only for bonds that have one | CD-UG17 (Bond Position), KE-SRC | MUST: part of arch-cd-04 (scope) and of arch-web-20 (addition in arch-cd-23); "Change direction only where a bond has one" is in arch-cd-20 | `bond.set` |
-| X11 | the selection menu gains: Clean (arch-web-10), Align and distribute (arch-cd-15), Expand / Contract when it holds labels | M-253 | SHOULD | existing commands |
+| X11 | the selection menu gains: Clean (arch-std-15), Align and distribute (arch-cd-15), Expand / Contract when it holds labels | M-253 | SHOULD | existing commands |
 | X12 | the object menu gains: arrow kind and heads (arch-web-13), text formula mode (arch-web-14), bring to front / send to back (later) | CD-UG17, M-253, MS/pop-up | SHOULD | `obj.set` |
 | X13 | the CLI runs a menu item too: the replay request takes `context: [{x, y, item}]` and runs `context_menu` then `context_run`, so an agent and the parity test reach every item natively | `CLAUDE.md` rule 15 | MUST | replay request field |
 | X14 | the canvas menu gains the display toggles (stereo labels of arch-web-16, warnings, atom numbers) | M-253 (visibility settings) | SHOULD | `--set display.*` |

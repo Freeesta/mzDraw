@@ -1,6 +1,6 @@
-# arch-cd-15: Align, distribute, rotate by an angle, scale and nudge the selection
+# arch-cd-15: Align, distribute, rotate by a typed angle and scale the selection
 
-Study rows: I06, I07, I08, I09 of `docs/study/arch-cd.md`. Priority MUST (I06), SHOULD (I07-I09). Size guess S. Depends on: arch-web-10 (op `place`) for scaling.
+Study rows: I06, I07, I08 of `docs/study/arch-cd.md`. Priority MUST (I06), SHOULD (I07-I09). Size guess S. Depends on: arch-std-15 (op `atoms.xy`, PR #45) for scaling.
 
 ## Confirm message
 
@@ -8,15 +8,14 @@ Your first action: send COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 
 ## Role
 
-You are a DEV chat of mzDraw (repository `Freeesta/mzDraw`, site https://freeesta.github.io/mzDraw/). You build ONE small slice, open ONE pull request ready for review and never merge it: COO-MZDRAW merges with the full head SHA. Never push to `main`, never rebase, never force-push; merge `main` into your branch only on a real conflict.
+You are a DEV chat of mzDraw (repository `Freeesta/mzDraw`, site https://freeesta.github.io/mzDraw/). You build ONE small slice, open ONE pull request ready for review and never merge it: COO-MZDRAW merges with the full head SHA. Never push to `main`, never rebase, never force-push; merge `origin/main` into your branch only on a real conflict, then rerun the acceptance commands and push. Never edit the step count of `tests/e2e.mjs` by hand.
 
 ## Scope
 
 In:
 - align the selected structures and objects (left, centre, right, top, middle, bottom) on their boxes; distribute three or more horizontally or vertically with equal gaps; centre on the view
-- rotate the selection by a typed angle and by 1° / 15° steps from the keyboard (`Alt+arrow`, `Shift+Alt+arrow`)
-- scale the selection by a factor (atoms through arch-web-10's `place`, so the bond length changes only if the user asks)
-- arrow keys nudge the selection when something is selected and the keyboard focus is not on an atom
+- rotate the selection by a typed angle (a field); the 1° / 15° keyboard steps (`Alt+arrow`, `Shift+Alt+arrow`) belong to arch-std-05 and are not built here
+- scale the selection by a factor (atoms through arch-std-15's `atoms.xy`, so the bond length changes only if the user asks)
 
 Out (do not build here, say so in the PR if you meet it):
 - groups (H12)
@@ -35,17 +34,17 @@ Rules that bite in this slice: all logic in Rust, JavaScript only forwards event
 
 Branch `claude/cd-15-align-distribute` from `origin/main`.
 
-1. Commands `align:<edge>`, `distribute:h|v`, `rotate:<deg>`, `scale:<f>`, `nudge:<dx>,<dy>` produce existing ops only (`move`, `rotate`, `place`), one undo step each.
-2. Keys: decide how arrow keys share the keyboard focus walk (focus on an atom walks; a selection without focus nudges) and write it into the help.
+1. Commands `align:<edge>`, `distribute:h|v`, `rotate:<deg>`, `scale:<f>`, `nudge:<dx>,<dy>` produce existing ops only (`move`, `rotate`, `atoms.xy`), one undo step each.
+2. Keys: arrow-key nudging and the rotation keys are arch-std-05's; if it is on `main`, call its commands, else leave the keys out and say so.
 
 Tests to add (synthetic data, small):
 - three synthetic structures aligned left share the left edge to 4 decimals; distribute gives equal gaps; rotate 90 four times returns the document; scale 2 then 0.5 returns it
 
-UI: an Arrange group (align and distribute buttons); e2e: select two pieces with a band, align top, check boxes from `state()`; keyboard rotate with `Alt+arrow`. Screenshots at deviceScaleFactor 2 (`MZDRAW_SHOTS=<dir> node tests/e2e.mjs`), attached to the PR description; keep the touch/pen and keyboard steps of `tests/e2e.mjs` green and add yours.
+UI: an Arrange group (align and distribute buttons, an angle field); e2e: select two pieces with a band, align top, check boxes from `state()`; the same from the keyboard (Tab to the Arrange buttons) and with touch. Screenshots at deviceScaleFactor 2 (`MZDRAW_SHOTS=<dir> node tests/e2e.mjs`), attached to the PR description; keep the touch/pen and keyboard steps of `tests/e2e.mjs` green and add yours.
 
 Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
-CLI route and native replay (rule 15): every command produces existing ops (`move`, `rotate`, `place`), so the log replays natively; also accept the commands in the replay request (`"commands": ["align:left", ...]`, run on the selection given by `"select"`) so an agent can align without computing offsets; parity entry.
+CLI route and native replay (rule 15): every command produces existing ops (`move`, `rotate`, `atoms.xy`), so the log replays natively; also accept the commands in the replay request (`"commands": ["align:left", ...]`, run on the selection given by `"select"`) so an agent can align without computing offsets; parity entry.
 
 Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
 

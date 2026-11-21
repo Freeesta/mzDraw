@@ -1,6 +1,6 @@
 # arch-cd-04: Double-bond position (centre, left, right) and dashed bond displays
 
-Study rows: A03, A04 of `docs/study/arch-cd.md`. Priority MUST (A03), SHOULD (A04). Size guess S. Depends on: arch-web-20 (bond kinds, field `k`) if it is on `main`: use its field instead of a new one.
+Study rows: A03, A04 of `docs/study/arch-cd.md`. Priority MUST (A03), SHOULD (A04). Size guess S. Depends on: the bond field `k` (one field for bold, dashed, dative, hbond; V3000 types 9 and 10: COO decision 16), from arch-web-20 if it is on `main`.
 
 ## Confirm message
 
@@ -8,14 +8,14 @@ Your first action: send COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 
 ## Role
 
-You are a DEV chat of mzDraw (repository `Freeesta/mzDraw`, site https://freeesta.github.io/mzDraw/). You build ONE small slice, open ONE pull request ready for review and never merge it: COO-MZDRAW merges with the full head SHA. Never push to `main`, never rebase, never force-push; merge `main` into your branch only on a real conflict.
+You are a DEV chat of mzDraw (repository `Freeesta/mzDraw`, site https://freeesta.github.io/mzDraw/). You build ONE small slice, open ONE pull request ready for review and never merge it: COO-MZDRAW merges with the full head SHA. Never push to `main`, never rebase, never force-push; merge `origin/main` into your branch only on a real conflict, then rerun the acceptance commands and push. Never edit the step count of `tests/e2e.mjs` by hand.
 
 ## Scope
 
 In:
 - bond field `pos` (`auto` default, `c`, `l`, `r`: where the second line of a double bond goes, seen from atom `a` to `b`), in `bond.set` with exact inverse
 - auto: ring doubles inside the ring, terminal doubles centred, chain doubles on the side of more substituents (write the rule down)
-- dashed displays `dash`, `bdash` (bold dashed) and `hash` (plain hashed, not stereo) as values of arch-web-20's bond kind field `k` (it brings `bold`, `dative`, `hbond`); if arch-web-20 is not on `main`, ask COO-MZDRAW before adding a field of your own
+- dashed displays `dash`, `bdash` (bold dashed) and `hash` (plain hashed, not stereo) as values of the one bond field `k` (COO decision 16: `k` holds bold, dashed, dative, hbond); if `k` is not on `main` yet, add it with these values only and the same reader and writer arch-web-20 will extend
 - painted on screen and in the SVG; written to CDXML and KET where they have a place, otherwise listed as not written
 - the bond menu gains the double-bond side (centre, left, right, auto) for a double bond (study §7 X09/X10: the entry is part of this slice; PR #37's `context.rs` holds the menus)
 
