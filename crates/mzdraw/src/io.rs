@@ -434,8 +434,14 @@ pub fn import_bytes(bytes: &[u8]) -> Result<(Document, Imported), &'static str> 
 pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     let t = text.trim();
     let mut info = Imported::default();
-    // a transformation: the record `trasf/1` with its two records, one JSON text per line
-    if t.starts_with('{') && t.contains("\"trasf/1\"") && t.lines().count() > 1 {
+    // a transformation: the record `trasf/1` with its two records, one JSON text per line; the first line says it (`trasf/1`, or `mol/1`
+    // when the records come first), so a KET file or a document that mentions the text is not taken for one
+    let first = t.lines().next().unwrap_or("");
+    if t.lines().count() > 1
+        && first.starts_with('{')
+        && serde_json::from_str::<serde_json::Value>(first)
+            .is_ok_and(|v| v["format"] == "trasf/1" || v["format"] == "mol/1")
+    {
         let d = crate::trasf::from_trasf(t, &mut info)?;
         return checked(d, info, crate::trasf::READ);
     }
@@ -474,7 +480,17 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     if text.contains("M  END") {
         info.format = "molfile";
         let mut all = Document::default();
-        for record in text.split("$$$$").filter(|r| r.contains("M  END")) {
+        for (k, record) in text.split("$$$$").enumerate() {
+            // what is left of the `$$$$` line of the record before (the first record keeps its empty title line)
+            let record = match k {
+                0 => record,
+                _ => (record.strip_prefix("\r\n"))
+                    .or(record.strip_prefix('\n'))
+                    .unwrap_or(record),
+            };
+            if !record.contains("M  END") {
+                continue;
+            }
             if info.records == MAX_RECORDS {
                 info.skipped += 1;
                 continue;

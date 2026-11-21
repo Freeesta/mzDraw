@@ -413,3 +413,41 @@ fn the_record_is_in_a_report_and_absent_from_a_dry_run() {
     assert_eq!(dry["ok"], true);
     assert!(dry.get("out").is_none(), "nothing is written by a dry run");
 }
+
+#[test]
+fn a_file_is_a_transformation_by_its_first_line_not_by_a_mention() {
+    // a KET file that says `trasf/1` somewhere on a later line is read as KET
+    let ket = "{\n  \"root\": {\"nodes\": []},\n  \"note\": \"trasf/1\"\n}";
+    let e = import(ket).err();
+    assert!(
+        !matches!(e, Some(k) if k.starts_with("error.draw2.trasf")),
+        "{e:?}"
+    );
+    // a document that mentions it too
+    let doc = format!(
+        "{{\"format\":\"mzdraw/1\",\"next\":1,\"atoms\":[],\"bonds\":[],\"note\":\"trasf/1\"}}\n{}",
+        "{}"
+    );
+    assert!(!matches!(import(&doc), Err(k) if k.starts_with("error.draw2.trasf")));
+}
+
+#[test]
+fn an_empty_title_line_is_not_lost() {
+    // RDKit and others write an empty title: the molfile and the reaction file are read as with a title
+    let blank = |t: &str| t.replace("synthetic\n  mzdraw", "\n  mzdraw");
+    let with = hydroxylation();
+    let without = blank(&with);
+    assert_ne!(with, without);
+    let (a, b) = (doc(&with), doc(&without));
+    assert_eq!(
+        (a.atoms.len(), a.bonds.len()),
+        (b.atoms.len(), b.bonds.len())
+    );
+    assert_eq!(a.to_trasf().unwrap(), b.to_trasf().unwrap());
+    let one = mol(&[("C", 0), ("O", 0)], &[(1, 2, 1)]).replace("$MOL\nsynthetic", "\n");
+    let one = one.trim_start_matches('\n').to_string();
+    assert!(one.starts_with("\n  mzdraw") || one.starts_with("  mzdraw"));
+    // the molfile alone, with its empty first line kept (a text may not be trimmed)
+    let text = format!("\n  mzdraw\n\n{}", one.split_once("\n\n").unwrap().1);
+    assert_eq!(import(&text).unwrap().0.atoms.len(), 2);
+}
