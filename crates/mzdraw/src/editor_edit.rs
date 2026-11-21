@@ -53,6 +53,24 @@ impl Editor {
         self.run(&[Op::Flip { atoms, axis, at }], "draw2.say.flipped", "")
     }
 
+    /// Lays the structures, arrows, plus signs and texts of the selection (or of the drawing) out on one row, one undo step
+    /// (`scheme::row`, the command `scheme:row` with its default `gap` and no `wrap`).
+    pub fn scheme_row(&mut self) -> u32 {
+        let opts = crate::scheme::Opts {
+            atoms: self.over.sel_atoms.clone(),
+            objects: self.over.sel_objs.clone(),
+            ..Default::default()
+        };
+        match crate::scheme::row(self.doc(), &self.style, &opts) {
+            Ok(ops) if ops.is_empty() => 0,
+            Ok(ops) => self.run(&ops, "draw2.say.schemeRow", ""),
+            Err(key) => {
+                self.error = key;
+                REPAINT
+            }
+        }
+    }
+
     /// The selected atoms, the bonds between them and the selected objects as a document of their own, ids renumbered from 1
     /// (atoms, then bonds, then objects).
     pub(crate) fn selection_doc(&self) -> Document {

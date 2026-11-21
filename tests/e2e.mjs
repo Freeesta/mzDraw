@@ -543,6 +543,29 @@ try {
     await tool(pg, "undo"); await want(pg, { objects: 4 });
   });
 
+  await step("scheme row: a messy scheme is laid out on one line by the button, with the keyboard (select all, Enter on the button) and with the mouse; one undo step, the SVG equals the golden", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
+    await tool(pg, "clear"); await pg.fill("#d2-text", gold.request.import); await pg.click("#d2-add"); await want(pg, { atoms: 8, objects: 4 });
+    const messy = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    // the page numbers what it adds from its own counter: the geometry is what is compared
+    const shape = text => { const d = JSON.parse(text); return JSON.stringify([d.atoms.map(a => [a.el, a.x, a.y]), d.objects.map(o => [o.t, o.x, o.y, o.x2 || 0, o.y2 || 0, o.text || ""])]); };
+    // keyboard: select all, the button reached by its focus, Enter
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 16 });
+    await reveal(pg, '[data-testid="d2-scheme-row"]'); await pg.focus('[data-testid="d2-scheme-row"]'); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(shape(await pg.evaluate("window.MZDRAW.save('mzdraw')")), shape(gold.out.mzdraw));
+    const ink = svg => svg.replace(/<metadata[\s\S]*?<\/metadata>/, "").replace(/-[0-9a-f]{8}/g, "");       // the picture without the document it carries (its ids differ)
+    eq(ink(await pg.evaluate("window.MZDRAW.save('svg')")), ink(gold.out.svg));
+    await shot(pg, "plan-13-scheme-row");
+    await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);          // one step
+    // mouse: no selection, everything is laid out
+    await tool(pg, "select"); await pg.mouse.click(cx, cy + 300);
+    await tool(pg, "scheme-row"); await frames(pg);
+    eq(shape(await pg.evaluate("window.MZDRAW.save('mzdraw')")), shape(gold.out.mzdraw));
+    // a second press changes nothing: no new undo step
+    await tool(pg, "scheme-row"); await frames(pg);
+    await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
+  });
+
   await step("style: a preset or your own values change the screen and the saved SVG, in points, and not the document; the settings file is saved and opened", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0, style: "mzlab" });
     await pg.fill("#d2-text", "C[C@H](N)C(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 6 });
@@ -909,6 +932,18 @@ try {
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
+  });
+  await step("tablet with touch: a messy scheme is laid out by tapping the button, and the tap is undone", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
+    await tool(pg, "clear");
+    await pg.evaluate(text => { /** @type {any} */ (document.getElementById("d2-text")).value = text; document.getElementById("d2-add").click(); }, gold.request.import);     // the import field is in a palette that is not in view on a tablet
+    await want(pg, { atoms: 8, objects: 4 });
+    const messy = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    const shape = text => { const d = JSON.parse(text); return JSON.stringify([d.atoms.map(a => [a.el, a.x, a.y]), d.objects.map(o => [o.t, o.x, o.y, o.x2 || 0, o.y2 || 0, o.text || ""])]); };
+    await reveal(pg, '[data-testid="d2-scheme-row"]'); await pg.tap('[data-testid="d2-scheme-row"]'); await frames(pg);
+    eq(shape(await pg.evaluate("window.MZDRAW.save('mzdraw')")), shape(gold.out.mzdraw));
+    await shot(pg, "plan-13-scheme-row-touch");
+    await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
   });
 
   await step("tablet with touch: the PFAS scale and level 2c of the annotation, set by tapping", async () => {

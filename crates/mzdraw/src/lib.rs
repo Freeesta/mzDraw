@@ -32,6 +32,7 @@ pub mod route;
 pub mod rxn;
 pub mod scene;
 pub mod schema;
+pub mod scheme;
 pub mod settings;
 pub mod svg;
 pub mod xml;
