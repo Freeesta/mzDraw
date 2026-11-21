@@ -206,6 +206,11 @@ impl Editor {
         &self.session.doc
     }
 
+    /// The patch (`draw_edit/1`) that turns the drawing in the editor into `other`; see `diff::diff`.
+    pub fn diff_with(&self, other: &Document) -> Vec<crate::ops::Op> {
+        crate::diff::diff(self.doc(), other)
+    }
+
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
     pub(crate) fn run(&mut self, ops: &[Op], say: &'static str, what: &str) -> u32 {
         let ops = self.following(ops);
@@ -399,7 +404,7 @@ impl Editor {
         REPAINT
     }
 
-    /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `sdf` (one record per structure, with its data),
+    /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `trasf` (the record `trasf/1` of one structure before and one after the arrow, with its two `mol/1` records), `sdf` (one record per structure, with its data),
     /// `svg` (in the style of the editor), `pdf` (base64 of the PDF file), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
@@ -411,6 +416,7 @@ impl Editor {
             "cdxml" => self.doc().to_cdxml(),
             "cml" => self.doc().to_cml(),
             "rxn" => self.doc().to_rxn()?,
+            "trasf" => self.doc().to_trasf().map_err(|e| e.key)?,
             "sdf" => self.doc().to_sdf(),
             "svg" => self.svg(),
             "pdf" => crate::pdf::base64(&self.pdf()),
@@ -421,6 +427,12 @@ impl Editor {
             "schema" => crate::schema::json(),
             _ => return Err("error.draw2.request"),
         })
+    }
+
+    /// Why `save("trasf")` refuses the drawing, if it does: the i18n key and the ids of the atoms it is about (the unmapped ones for
+    /// `error.draw2.trasfMap`).
+    pub fn trasf_problem(&self) -> Option<(&'static str, Vec<u32>)> {
+        self.doc().trasf().err().map(|e| (e.key, e.atoms))
     }
 
     /// What `save(kind)` leaves out because the format has no place for it, as (i18n key, count): atom maps for CDXML and CML.

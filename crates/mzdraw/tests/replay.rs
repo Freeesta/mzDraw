@@ -121,6 +121,36 @@ fn every_case_replays_to_the_recorded_bytes() {
             assert_eq!(case["out"], json!(got), "{}", case["name"]);
             assert!(got.starts_with("JVBERi0xLjc"), "{}: %PDF-1.7", case["name"]);
         }
+        // a drawn parent and product as `trasf/1` with its two records (`out: trasf`): the same bytes on both sides; the record is read back
+        // by `mzlab-mol` and its `delta` is the one written in the case
+        for case in section_mut(fx, "trasf") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            let t = mzlab_mol::Transformation::from_json(got.lines().next().unwrap()).unwrap();
+            assert_eq!(json!(t.delta), case["delta"], "{}", case["name"]);
+        }
+        // the semantic diff of two documents (`{"diff":{"a","b"}}`): the patch and its hunks, which applied in order give `b`
+        for case in section_mut(fx, "diffs") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            let v: Value = serde_json::from_str(&got).unwrap();
+            let doc = |k: &str| match case["request"]["diff"][k].as_str() {
+                Some(text) => text.to_string(),
+                None => case["request"]["diff"][k].to_string(),
+            };
+            let mut s = mzdraw::Session::new(mzdraw::Document::from_json(&doc("a")).unwrap());
+            s.replay(&v["ops"].to_string()).unwrap();
+            let b = mzdraw::Document::from_json(&doc("b")).unwrap();
+            assert_eq!(s.doc.atoms, b.atoms, "{}", case["name"]);
+            assert_eq!(s.doc.bonds, b.bonds, "{}", case["name"]);
+            assert_eq!(s.doc.objects, b.objects, "{}", case["name"]);
+        }
         if bless {
             std::fs::write(&*path, serde_json::to_string_pretty(&*fx).unwrap() + "\n").unwrap();
         }
