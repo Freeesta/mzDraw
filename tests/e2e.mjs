@@ -1664,7 +1664,7 @@ try {
     await shot(pg, "tp02-arrow-followed");
     eq(await replayEq(pg), { mzdraw: true, svg: true });
   });
-  await step("pathway:anchor by keyboard: a free arrow is selected, the context menu opens with the Menu key, A then Enter anchors it; Route arrows puts a displaced arrow back; one undo each", async () => {
+  await step("pathway:anchor by keyboard: a free arrow is selected, the context menu opens with the Menu key, A then Enter anchors it; Route arrows (Menu key, R, Enter) puts displaced arrows back and the page equals the golden; one undo each", async () => {
     await twoRings(pg, cx, cy, 250);
     await tool(pg, "arrow"); await pg.mouse.move(cx - 180, cy + 10); await pg.mouse.down(); await pg.mouse.move(cx, cy + 10, { steps: 4 }); await pg.mouse.move(cx + 180, cy + 10, { steps: 4 }); await pg.mouse.up();
     await want(pg, { objects: 1 });
@@ -1689,6 +1689,23 @@ try {
     await pg.click(item("pathway.route")); await shown(pg, false);
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.routeNone')"));
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), routed);
+    // a really displaced arrow: a document opened with raw arrows (anchored, but not where the route puts them); Route arrows by the keyboard
+    // moves them, and the page equals the golden case of tests/data/log/pathway.json (the native replay of the same request), not only its own log
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway.json"), "utf8")).cases.find(c => c.name.startsWith("pathway:route puts displaced"));
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import);
+    await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 6, objects: 2 });
+    const raw = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    assert(raw !== gold.out.mzdraw, "the opened arrows are displaced");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await pg.keyboard.press("ContextMenu"); await shown(pg);
+    eq((await menuNow(pg)).target, "canvas");
+    await pg.keyboard.press("r"); eq((await menuNow(pg)).active, "pathway.route");
+    await pg.keyboard.press("Enter"); await shown(pg, false); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), gold.out.svg);
+    // the module replays the same request (the opened document and the command) to the same bytes: the CLI route of the page
+    eq(await pg.evaluate(r => window.MZDRAW.replay(JSON.stringify({ ...r, out: "svg" })), gold.request), gold.out.svg);
+    await pg.keyboard.press("Control+z"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), raw);          // one step
+    await pg.keyboard.press("Control+Shift+z"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
   });
   await ctx.close();
 
