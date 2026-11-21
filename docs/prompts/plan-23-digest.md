@@ -10,7 +10,7 @@ Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Rust only. An agent today must read the whole `mzdraw/1` document (or a picture) to learn the ids and where things are; the digest is a few hundred bytes that say it.
 
-**Contract: pending COO 16.** The request fields and outputs below are part of the `mzlab-cli mol draw` contract. The coordinator asked COO 16 (2026-11-21) whether mzLab's agent prompts AD0a-AD6 already define them. Before you start, ask the coordinator for COO 16's answer: if mzLab has a contract for this, implement THAT (names, keys, exit codes) in Rust and drop the names written here; otherwise use the names here and get COO 16's agreement on them before the PR. Exit codes are mzLab's one table (`docs/agenti/cli-agenti.md` of mzLab): no new code.
+**Contract (COO 16, 2026-11-21, D13).** The request fields and outputs below surface through `mzlab-cli mol draw`. Each needs ONE row in the `request` section of plan-01's table (`schema.rs`); COO 16 reviews that table, not each PR, as long as no `draw_edit/1` op is added. A false postcondition is exit 1 (a verdict) with the `draw-result/1` document on stdout; errors and progress go to stderr; the exit codes stay mzLab's table 0..8, no new code. `draw-result/1` as plan-20 defines it is the source of truth: `mzlab-cli` follows it.
 
 ## Scope
 In:
@@ -34,7 +34,7 @@ Out (do not do here):
 - `outline.rs` (the outline line already names pieces in words: reuse its piece order), `conform.rs`, `doc.rs`.
 
 ## Agreement needed before the PR
-No `draw_edit/1` op; the output name is a contract row (pending COO 16, through the coordinator).
+No `draw_edit/1` op. One row for the output `digest` in the `request` section of plan-01's table (D13).
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.
@@ -49,9 +49,8 @@ No `draw_edit/1` op; the output name is a contract row (pending COO 16, through 
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product; never claim novelty without a prior-art link; patent clearance is "unverified".
 
 ## Work
-1. Ask the coordinator for COO 16's answer.
-2. Digest writer.
-3. Budget test, runner arm, doc section.
+1. Digest writer.
+2. Budget test, runner arm, doc section.
 
 ## Tests to add
 - Digest of a fixed synthetic document is byte-identical to a golden; two runs give the same bytes.

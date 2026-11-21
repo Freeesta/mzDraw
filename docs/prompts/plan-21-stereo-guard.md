@@ -30,7 +30,7 @@ Out (do not do here):
 - `ops.rs` (`Flip`), `io.rs` (SMILES out), `conform.rs` (stereo checks), `mzlab-mol` `sites.rs` / `canon.rs` at the pin.
 
 ## Agreement needed before the PR
-None for `draw_edit/1`: this slice adds no operation or field and changes nothing in `mzlab-mol` / `mzlab-feat`. If you find you need one, stop and ask the coordinator (it asks COO 16). The `expect` arm is plan-20's contract row (pending COO 16).
+None for `draw_edit/1`: this slice adds no operation or field and changes nothing in `mzlab-mol` / `mzlab-feat`. If you find you need one, stop and ask the coordinator (it asks COO 16). Add one row for the `expect` arm `stereo` in the `request` section of plan-01's table (D13).
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.

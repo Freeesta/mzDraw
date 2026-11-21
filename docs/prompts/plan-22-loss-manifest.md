@@ -10,7 +10,7 @@ Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Rust only. Rule 13 already says a file we READ is opened with its unsupported parts listed; this is the same promise for the files we WRITE.
 
-**Contract: pending COO 16.** The request fields and outputs below are part of the `mzlab-cli mol draw` contract. The coordinator asked COO 16 (2026-11-21) whether mzLab's agent prompts AD0a-AD6 already define them. Before you start, ask the coordinator for COO 16's answer: if mzLab has a contract for this, implement THAT (names, keys, exit codes) in Rust and drop the names written here; otherwise use the names here and get COO 16's agreement on them before the PR. Exit codes are mzLab's one table (`docs/agenti/cli-agenti.md` of mzLab): no new code.
+**Contract (COO 16, 2026-11-21, D13).** The request fields and outputs below surface through `mzlab-cli mol draw`. Each needs ONE row in the `request` section of plan-01's table (`schema.rs`); COO 16 reviews that table, not each PR, as long as no `draw_edit/1` op is added. A false postcondition is exit 1 (a verdict) with the `draw-result/1` document on stdout; errors and progress go to stderr; the exit codes stay mzLab's table 0..8, no new code. `draw-result/1` as plan-20 defines it is the source of truth: `mzlab-cli` follows it.
 
 ## Scope
 In:
@@ -32,7 +32,7 @@ Out (do not do here):
 - Every writer: `io.rs`, `ket.rs`, `cdxml.rs`, `cml.rs`, `rxn.rs`, `svg.rs`; `diff.rs` of plan-15.
 
 ## Agreement needed before the PR
-No `draw_edit/1` op; the output name `loss:` and the `expect` arm are contract rows (pending COO 16, through the coordinator).
+No `draw_edit/1` op. One row each for the output `loss:FORMAT` and the `expect` arm `lossless` in the `request` section of plan-01's table (D13).
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.
@@ -47,10 +47,9 @@ No `draw_edit/1` op; the output name `loss:` and the `expect` arm are contract r
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product; never claim novelty without a prior-art link; patent clearance is "unverified".
 
 ## Work
-1. Ask the coordinator for COO 16's answer.
-2. Table and `loss`.
-3. Round-trip property test.
-4. Output, `expect` arm, doc section (the table rendered in `docs/mzdraw-formats.md`, compared with `loss.rs` by a test).
+1. Table and `loss`.
+2. Round-trip property test.
+3. Output, `expect` arm, doc section (the table rendered in `docs/mzdraw-formats.md`, compared with `loss.rs` by a test).
 
 ## Tests to add
 - Property: round trip difference ⊆ `loss` and `loss` ⊆ round trip difference, for every format, over random documents.

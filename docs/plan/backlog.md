@@ -412,16 +412,16 @@ Input: `docs/input/gemini-strategy-2.md` (Gemini Deep Research, PR #49). It prop
 Counts: 2 kept (one reduced), 2 reframed or split into 5 prompts, 2 deferred, 1 new drop, 2 drops already made. The validation part gives 1 kept, 1 reframed and 1 deferred.
 
 ### 9.4 Rows
-Same columns as §4. "pending" in the COO 16 column means the item adds request fields or outputs of the `mol draw` contract. COO 16 was asked on 2026-11-21 whether mzLab's agent prompts AD0a–AD6 define them already, and the prompts say to implement mzLab's contract if so.
+Same columns as §4. "request row" in the COO 16 column means the item adds request fields or outputs of the `mol draw` contract: one row each in the `request` section of plan-01's table, which COO 16 reviews (D13); no PR-by-PR agreement is needed as long as no `draw_edit/1` op is added.
 
 | # | id | item | status | size | depends on | zone | COO 16 | proof |
 |---|---|---|---|---|---|---|---|---|
 | 68 | plan-19 | agent task suite | N | M | plan-01 | `tools/agent-suite`, `tests/data/agent-suite`, new example | no | RDKit InChIKey of targets |
-| 69 | plan-20 | replay result: ids, failing op, dry run, `expect` | N | M | plan-01 | `replay.rs` + new `outcome.rs` | pending (request fields) | property on id sets |
+| 69 | plan-20 | replay result: ids, failing op, dry run, `expect` | N | M | plan-01 | `replay.rs` + new `outcome.rs` | request row | property on id sets |
 | 70 | plan-21 | stereo guard, `flip:keep` | N | M | plan-20 | new `stereo_guard.rs` + input (one command) | no (expect arm: plan-20's row) | InChI stereo layer by RDKit |
-| 71 | plan-22 | loss manifest `loss/1` | N | M | plan-20, plan-15 | new `loss.rs` | pending (output) | plan-03 differences explained |
-| 72 | plan-23 | digest `digest/1` | N | S–M | plan-20 | new `digest.rs` | pending (output) | RDKit formula |
-| 73 | plan-24 | selectors `select/1` | N | M | plan-20, plan-23, first plan-19 run | new `select.rs` | pending (request field) | RDKit match counts |
+| 71 | plan-22 | loss manifest `loss/1` | N | M | plan-20, plan-15 | new `loss.rs` | request row | plan-03 differences explained |
+| 72 | plan-23 | digest `digest/1` | N | S–M | plan-20 | new `digest.rs` | request row | RDKit formula |
+| 73 | plan-24 | selectors `select/1` | N | M | plan-20, plan-23, first plan-19 run | new `select.rs` | request row | RDKit match counts |
 | 74 | plan-25 | exact fix-its on `std/1` | N | S | std-02, std-15, plan-20 | conform | no | isomeric SMILES unchanged (RDKit) |
 
 Deferred, no prompt, added to §4's list:
@@ -451,7 +451,7 @@ None of these touch the page except plan-21's one command (the `input` zone). Th
 ### 9.7 Decisions (21 Nov 2026)
 | # | question | decision | by |
 |---|---|---|---|
-| D13 | replay fields and outputs as `mol draw` contract items; exit code of a failed postcondition; does AD0a–AD6 define an envelope | asked of COO 16; plan-20, -22, -23 and -24 say "contract: pending COO 16" and implement mzLab's contract if it exists | COO-MZDRAW → COO 16 (open) |
+| D13 | replay fields and outputs as `mol draw` contract items; exit code of a failed postcondition; does AD0a–AD6 define an envelope | Yes: each replay field or output is ONE row in the `request` section of plan-01's table; COO 16 reviews the table, not each PR, while no `draw_edit/1` op is added. A false postcondition is exit 1 (verdict) with the `draw-result/1` document on stdout; exit codes stay 0..8. mzLab has no envelope yet: `draw-result/1` of plan-20 is the source of truth and `mzlab-cli` follows it. | COO 16, via COO-MZDRAW |
 | D14 | external models on the agent suite | The owner may run them outside CI; keys stay outside the repo; only rates are committed. | COO-MZDRAW |
 | D15 | selector syntax | A JSON object, no mini-language. | COO-MZDRAW |
 | D16 | stereo guard | Report-only in the page; enforced only when a request lists `{"stereo":"kept"}`. | COO-MZDRAW |
