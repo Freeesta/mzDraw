@@ -329,7 +329,14 @@ impl Editor {
                 let m = &w["labelmode.".len()..];
                 let adduct = self.label_choice(self.doc(), &Default::default()).1.adduct;
                 let keep = crate::steplabel::Mode::parse(m).is_some_and(|m| m.wants_mass());
-                self.set_label_choice(m, if keep { adduct.as_deref().unwrap_or("") } else { "" })
+                self.set_label_choice(
+                    m,
+                    if keep {
+                        adduct.as_deref().unwrap_or("")
+                    } else {
+                        ""
+                    },
+                )
             }
             w if w.starts_with("labeladduct.") => {
                 let a = &w["labeladduct.".len()..];
@@ -548,17 +555,16 @@ impl Editor {
             item("labeladduct.none", "No adduct", "", true),
             adduct.is_empty(),
         )];
-        adducts.extend(crate::values::ADDUCTS.iter().map(|a| {
-            checked(item(&format!("labeladduct.{a}"), a, "", true), adduct == *a)
-        }));
-        vec![
-            group("pathway.labelmode", "Label mode", modes.collect()),
-            {
-                let mut g = group("pathway.labeladduct", "Label adduct", adducts);
-                g["enabled"] = json!(mode.wants_mass());
-                g
-            },
-        ]
+        adducts.extend(
+            crate::values::ADDUCTS
+                .iter()
+                .map(|a| checked(item(&format!("labeladduct.{a}"), a, "", true), adduct == *a)),
+        );
+        vec![group("pathway.labelmode", "Label mode", modes.collect()), {
+            let mut g = group("pathway.labeladduct", "Label adduct", adducts);
+            g["enabled"] = json!(mode.wants_mass());
+            g
+        }]
     }
 
     fn colour_group(&self, now: Option<String>) -> Value {

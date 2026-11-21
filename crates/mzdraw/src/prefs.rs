@@ -43,7 +43,16 @@ const ONOFF: &[&str] = &["on", "off"];
 const OFFON: &[&str] = &["off", "on"];
 const VALUES: &[&str] = &["off", "formula", "mass", "mz"];
 const LABEL: &[&str] = &["delta", "mass", "delta+mass", "name+delta"];
-const ADDUCT_WORDS: &[&str] = &["none", "[M+H]+", "[M+NH4]+", "[M+Na]+", "[M+K]+", "[M-H]-", "[M+Cl]-", "[M+HCOO]-"];
+const ADDUCT_WORDS: &[&str] = &[
+    "none",
+    "[M+H]+",
+    "[M+NH4]+",
+    "[M+Na]+",
+    "[M+K]+",
+    "[M-H]-",
+    "[M+Cl]-",
+    "[M+HCOO]-",
+];
 const LENS: &[&str] = &["off", "tint", "tint+ghost"];
 const DIR: &[&str] = &["right", "down"];
 const ORDER: &[&str] = &["id", "mz", "rt"];

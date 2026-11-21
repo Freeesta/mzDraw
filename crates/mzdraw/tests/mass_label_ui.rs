@@ -73,10 +73,11 @@ fn doc_op(mode: &str, adduct: &str) -> Op {
 fn the_choice_is_a_document_field_written_only_when_set_and_undone_exactly() {
     let mut e = editor(false);
     let before = e.doc().to_json();
-    assert!(!before.contains("labels"), "a scheme with no choice writes no field");
-    e.session
-        .run(&[doc_op("delta+mass", "[M+H]+")])
-        .unwrap();
+    assert!(
+        !before.contains("labels"),
+        "a scheme with no choice writes no field"
+    );
+    e.session.run(&[doc_op("delta+mass", "[M+H]+")]).unwrap();
     let after = e.doc().to_json();
     assert!(
         after.contains(r#""labels":{"adduct":"[M+H]+","mode":"delta+mass"}"#),
@@ -169,7 +170,11 @@ fn pathway_label_uses_the_argument_then_the_scheme_then_the_preferences() {
         Some(engine),
     )
     .unwrap();
-    assert!(reply.text.contains("+O +16.5000 [M+H]+ 42.0000"), "{}", reply.text);
+    assert!(
+        reply.text.contains("+O +16.5000 [M+H]+ 42.0000"),
+        "{}",
+        reply.text
+    );
 }
 
 #[test]
@@ -178,7 +183,11 @@ fn the_preferences_hold_the_defaults_for_new_schemes_and_say_when_a_value_is_non
     assert_eq!(e.get("pathway.adduct").unwrap(), "none");
     e.set("pathway.adduct=[M-H]-").unwrap();
     assert_eq!(e.get("pathway.adduct").unwrap(), "[M-H]-");
-    for bad in ["pathway.adduct=Na", "pathway.adduct=", "pathway.label=bogus"] {
+    for bad in [
+        "pathway.adduct=Na",
+        "pathway.adduct=",
+        "pathway.label=bogus",
+    ] {
         assert_eq!(e.set(bad).unwrap_err(), "error.draw2.styleValue", "{bad}");
     }
     assert_eq!(e.get("pathway.adduct").unwrap(), "[M-H]-");
@@ -199,7 +208,10 @@ fn the_preferences_hold_the_defaults_for_new_schemes_and_say_when_a_value_is_non
 fn the_state_says_what_is_in_force_and_what_it_means() {
     let mut e = editor(true);
     let l = labels(&e);
-    assert_eq!((l["mode"].as_str(), l["own"].as_bool()), (Some("delta"), Some(false)));
+    assert_eq!(
+        (l["mode"].as_str(), l["own"].as_bool()),
+        (Some("delta"), Some(false))
+    );
     assert_eq!(l["meaning"], "draw2.labels.meaning.delta");
     assert_eq!(l["modes"].as_array().unwrap().len(), 4);
     assert_eq!(l["adducts"].as_array().unwrap().len(), 7);
@@ -207,7 +219,10 @@ fn the_state_says_what_is_in_force_and_what_it_means() {
     assert_eq!(labels(&e)["mode"], "mass");
     e.session.run(&[doc_op("name+delta", "")]).unwrap();
     let l = labels(&e);
-    assert_eq!((l["mode"].as_str(), l["own"].as_bool()), (Some("name+delta"), Some(true)));
+    assert_eq!(
+        (l["mode"].as_str(), l["own"].as_bool()),
+        (Some("name+delta"), Some(true))
+    );
 }
 
 // ---- the menu: the items an arrow and the canvas carry

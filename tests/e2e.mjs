@@ -2496,6 +2496,97 @@ try {
     await clFly(tap); await tap(...await center(pg, '[data-testid="d2-colour-red"]')); await frames(pg);
     await clSame(clGold[2], "pen, toolbar"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
   });
+  // mass-label-ui: the mass-label choice of a scheme (document field `labels`, operation `doc.labels`). The items of the canvas menu choose the mode and
+  // the adduct; the module writes the field and the labels in one undo step; the page equals the goldens of tests/data/log/mass-label-ui.json
+  const mlGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/mass-label-ui.json"), "utf8")).values;
+  const mlOpen = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), mlGold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9 }); return tpDoc(); };
+  const mlItem = id => `[data-testid="d2-ctx-${id}"]`;
+  const mlLabels = () => pg.evaluate("JSON.parse(window.MZDRAW.state()).labels");
+  await step("mass labels by mouse: right-click the canvas, the group Label mode, delta+mass, then the group Label adduct; the page equals the goldens, one undo each; the tooltip says what the mode means", async () => {
+    const before = await mlOpen(), area = await pg.locator("#d2-canvas").boundingBox(), at = [area.x + 12, area.y + area.height - 12];
+    eq((await mlLabels()).mode, "delta"); eq((await mlLabels()).own, false);
+    const PL = '[data-testid="d2-pathway-label"]';
+    eq(await pg.getAttribute(PL, "title"), await pg.evaluate("I18N.t('draw2.tool.pathway-label.title') + ' ' + I18N.t('draw2.labels.now', { mode: I18N.t('draw2.prefs.pathway.label.delta'), meaning: I18N.t('draw2.labels.meaning.delta') })"));
+    await pg.mouse.click(...at, { button: "right" }); await tpShown();
+    const ids = (await tpMenu()).ids;
+    assert(["pathway.labelmode", "labelmode.delta", "labelmode.mass", "labelmode.delta+mass", "labelmode.name+delta", "pathway.labeladduct", "labeladduct.none", "labeladduct.[M+H]+"].every(i => ids.includes(i)), "the items: " + ids);
+    eq(await pg.getAttribute(mlItem("labelmode.delta"), "aria-checked"), "true");
+    eq(await pg.getAttribute(mlItem("pathway.labeladduct"), "aria-disabled"), "true");     // no numbers in the delta mode: no adduct
+    eq(await pg.innerText(mlItem("labelmode.delta+mass") + " .n"), await pg.evaluate("I18N.t('draw2.ctx.labelmode.delta+mass')"));
+    await pg.click(mlItem("pathway.labelmode")); await pg.click(mlItem("labelmode.mass")); await tpShown(false); await frames(pg);
+    eq(await tpSvg(), mlGold[0].out); eq((await mlLabels()).own, true);
+    await tool(pg, "undo"); eq(await tpDoc(), before);
+    // delta+mass, then the adduct [M+H]+
+    await pg.mouse.click(...at, { button: "right" }); await tpShown();
+    await pg.click(mlItem("pathway.labelmode")); await pg.click(mlItem("labelmode.delta+mass")); await tpShown(false); await frames(pg);
+    await pg.mouse.click(...at, { button: "right" }); await tpShown();
+    eq(await pg.getAttribute(mlItem("labelmode.delta+mass"), "aria-checked"), "true");
+    await pg.click(mlItem("pathway.labeladduct")); await pg.click(mlItem("labeladduct.[M+H]+")); await tpShown(false); await frames(pg);
+    eq(await tpSvg(), mlGold[1].out);
+    eq(await pg.getAttribute(PL, "title"), await pg.evaluate("I18N.t('draw2.tool.pathway-label.title') + ' ' + I18N.t('draw2.labels.nowAdduct', { mode: I18N.t('draw2.prefs.pathway.label.delta+mass'), adduct: '[M+H]+', meaning: I18N.t('draw2.labels.meaning.delta+mass') })"));
+    await shot(pg, "mass-label-ui-menu");
+    // the file keeps the choice: saved, cleared, opened again
+    const saved = await tpDoc(); assert(saved.includes('"labels":{"adduct":"[M+H]+","mode":"delta+mass"}'), "the document holds the choice");
+    await tool(pg, "undo"); await tool(pg, "undo"); eq(await tpDoc(), before);
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), saved); await frames(pg);
+    eq((await mlLabels()).mode, "delta+mass"); eq((await mlLabels()).adduct, "[M+H]+"); eq(await tpSvg(), mlGold[1].out);
+  });
+  await step("mass labels by keyboard: the Menu key, the group, Enter on the mode; Escape leaves it; the page equals the golden, one undo", async () => {
+    const before = await mlOpen();
+    await pg.evaluate("window.MZDRAW.pan(0, 500)"); await tool(pg, "select"); await frames(pg);
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await pg.keyboard.press("ContextMenu"); await tpShown();
+    await pg.focus(mlItem("pathway.labelmode")); await pg.keyboard.press("Enter");
+    eq(await pg.getAttribute(mlItem("pathway.labelmode"), "aria-expanded"), "true");
+    await pg.focus(mlItem("labelmode.mass")); await pg.keyboard.press("Enter"); await tpShown(false); await frames(pg);
+    eq((await mlLabels()).mode, "mass");
+    assert((await tpDoc()).includes('"mode":"mass"') && (await tpDoc()).includes('"text":"+15.9949"'), "the keyboard wrote the field and the labels");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  await step("mass labels by touch: long press the canvas, tap the group, tap the mode and the adduct; the page equals the golden, one undo each", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    const before = await mlOpen(), area = await pg.locator("#d2-canvas").boundingBox(), at = [area.x + 12, area.y + area.height - 12];
+    const menu = async () => { await touch("touchStart", [at]); await pg.waitForTimeout(700); await touch("touchEnd", []); await tpShown(); eq((await tpMenu()).kind, "touch"); };
+    const tap = (x, y) => pg.touchscreen.tap(x, y);
+    await menu(); await tap(...await center(pg, mlItem("pathway.labelmode")));
+    const b = await pg.locator(mlItem("labelmode.mass")).boundingBox(); assert(b.height >= 40, "a finger-size item: " + b.height);
+    await tap(...await center(pg, mlItem("labelmode.delta+mass"))); await tpShown(false); await frames(pg);
+    await menu(); await tap(...await center(pg, mlItem("pathway.labeladduct"))); await tap(...await center(pg, mlItem("labeladduct.[M+H]+"))); await tpShown(false); await frames(pg);
+    eq(await tpSvg(), mlGold[1].out);
+    await shot(pg, "mass-label-ui-touch");
+    await pg.keyboard.press("Control+z"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  await step("mass labels by pen: the barrel button on the canvas, the group, the mode and the adduct; the page equals the golden, one undo each", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y, barrel = false) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : barrel ? "right" : "left", buttons: type === "mousePressed" ? (barrel ? 2 : 1) : 0, clickCount: 1 });
+    const tap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const before = await mlOpen(), area = await pg.locator("#d2-canvas").boundingBox(), at = [area.x + 12, area.y + area.height - 12];
+    const menu = async () => { await pen("mouseMoved", ...at, true); await pen("mousePressed", ...at, true); await tpShown(); eq((await tpMenu()).kind, "pen"); await pen("mouseReleased", ...at, true); };
+    await menu(); await tap(...await center(pg, mlItem("pathway.labelmode"))); await tap(...await center(pg, mlItem("labelmode.delta+mass"))); await tpShown(false); await frames(pg);
+    await menu(); await tap(...await center(pg, mlItem("pathway.labeladduct"))); await tap(...await center(pg, mlItem("labeladduct.[M+H]+"))); await tpShown(false); await frames(pg);
+    eq(await tpSvg(), mlGold[1].out);
+    await shot(pg, "mass-label-ui-pen");
+    await pg.keyboard.press("Control+z"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  await step("mass labels default: the Preferences hold the mode and the adduct for a scheme with no choice of its own; the scheme's own choice wins; the page equals the golden", async () => {
+    await pg.evaluate("window.MZDRAW.set_style('mzlab')"); const before = await mlOpen();
+    await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter"); await until(pg, `!document.getElementById("d2-fly-prefs").hidden`);
+    const sel = setting => `#d2-fly-prefs [data-setting="${setting}"]`;
+    eq(await pg.locator(sel("pathway.label") + " option").allInnerTexts(), await pg.evaluate("['delta', 'mass', 'delta+mass', 'name+delta'].map(w => I18N.t('draw2.prefs.pathway.label.' + w))"));
+    eq(await pg.locator(sel("pathway.adduct") + " option").count(), 8);
+    await pg.selectOption(sel("pathway.label"), "delta+mass"); await pg.selectOption(sel("pathway.adduct"), "[M-H]-"); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.get('pathway.label') + '|' + window.MZDRAW.get('pathway.adduct')"), "delta+mass|[M-H]-");
+    eq((await mlLabels()).mode, "delta+mass"); eq((await mlLabels()).own, false);
+    await shot(pg, "mass-label-ui-prefs");
+    await pg.keyboard.press("Escape"); await until(pg, `document.getElementById("d2-fly-prefs").hidden`);
+    // "Label arrows" writes the default for this scheme; the document gets no field (the choice is not the scheme's)
+    const PL = '[data-testid="d2-pathway-label"]'; await reveal(pg, PL); await pg.focus(PL); await pg.keyboard.press("Enter"); await frames(pg);
+    assert((await tpDoc()).includes("[M-H]-") && !(await tpDoc()).includes('"labels"'), "the default was used, no field written");
+    eq(await tpSvg(), mlGold[3].out);
+    await tool(pg, "undo"); eq(await tpDoc(), before);
+    await pg.evaluate("window.MZDRAW.set('pathway.label=delta'); window.MZDRAW.set('pathway.adduct=none')");
+    await tool(pg, "clear");
+  });
   // struct-props: the owner chooses which lines stay written under a molecule. A tick of the Check palette goes to the module, which keeps the choice
   // on the molecule in one undo step; the page equals the goldens of tests/data/log/struct-props.json after each way of ticking
   const spGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/struct-props.json"), "utf8")).cases;
