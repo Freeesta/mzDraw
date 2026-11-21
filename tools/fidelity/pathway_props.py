@@ -171,7 +171,7 @@ def check_mirror(name):
 
 def main():
     if sys.version_info < (3, 6) or not os.path.exists(REPLAY):
-        print("skipped (no python 3.6+ or no replay example at " + REPLAY + ")")
+        print("skipped (no python 3.6+ or no replay example at " + REPLAY + ")", file=sys.stderr)
         return 0
     failed = 0
     for n in NAMES:

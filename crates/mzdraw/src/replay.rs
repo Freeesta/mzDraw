@@ -324,7 +324,7 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
                     "not checked: the log failed".to_string(),
                 ),
                 None => {
-                    let (ok, detail) = x.check.run(e.doc());
+                    let (ok, detail) = x.check.run(e.doc(), &e.style);
                     (x.request.clone(), ok, detail)
                 }
             })

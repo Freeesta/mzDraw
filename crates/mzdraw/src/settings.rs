@@ -457,7 +457,7 @@ impl Style {
         };
         let order = match g.s("pathway.order").ok()? {
             None => crate::pathway::Order::Id,
-            Some(v) => crate::pathway::Order::parse(&v)?,
+            Some(v) => crate::pathway::Order::parse_public(&v)?,
         };
         let mut s = Style {
             mono: colour,
@@ -494,7 +494,10 @@ impl Style {
         if self.pathway_down {
             style.push(("pathway.dir".to_string(), text("down")));
         }
-        if self.pathway_order != crate::pathway::Order::Id {
+        if !matches!(
+            self.pathway_order,
+            crate::pathway::Order::Id | crate::pathway::Order::ReverseId
+        ) {
             style.push(("pathway.order".to_string(), text(self.pathway_order.name())));
         }
         for f in &FIELDS {

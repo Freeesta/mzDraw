@@ -354,7 +354,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("request", "set", "string[]", "settings applied after `style`, each `<section>.<key>=<value>`"),
     r("set", "display.maps", "on|off", "draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file)"),
     r("command", "pathway:tree", "object", "lay out the whole pathway of the anchored arrows (layers, tidy tree across them, columns, routed arrows) as one undo step, with no `args`; a directed cycle, two arrows between the same structures or no anchored arrow is `error.draw2.schemeCycle`, `error.draw2.schemeDuplicate`, `error.draw2.schemeEmpty` (exit 1, `failed.stage` `command`)"),
-    r("set", "pathway.*", "string|number", "the pathway layout: `dir` (`right`|`down`), `col_gap` (2.5), `row_gap` (1), `max_angle` (40 degrees), `min_arrow` (1.2), `order` (`id`|`mz`|`rt`; `reverse-id` is for tests) and `margin` (0.35), in bond lengths"),
+    r("set", "pathway.*", "string|number", "the pathway layout: `dir` (`right`|`down`), `col_gap` (2.5), `row_gap` (1), `max_angle` (40 degrees), `min_arrow` (1.2), `order` (`id`|`mz`|`rt`) and `margin` (0.35), in bond lengths"),
     r("request", "log", "json[]", "the command log, operations of `draw_edit/1`"),
     r("request", "out", "string", "the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings`"),
     r("request", "commands", "object[]", "editor commands `[{\"command\":NAME,\"args\":{...}}]` (move, rotate, flip, scheme:row, pathway:tree), run after `log` and before `out`; the route of the anchored arrows follows; not with `command`"),

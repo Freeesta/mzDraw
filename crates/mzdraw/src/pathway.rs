@@ -33,13 +33,22 @@ pub enum Order {
 }
 
 impl Order {
-    pub fn parse(v: &str) -> Option<Order> {
+    /// The keys a settings file may hold (not the test-only `reverse-id`).
+    pub fn parse_public(v: &str) -> Option<Order> {
         match v {
             "id" => Some(Order::Id),
             "mz" => Some(Order::Mz),
             "rt" => Some(Order::Rt),
-            "reverse-id" => Some(Order::ReverseId),
             _ => None,
+        }
+    }
+
+    /// The keys `--set pathway.order=` takes: the public ones and `reverse-id`, a session-only key for the mirror tests (P8) that is
+    /// never written to a settings file.
+    pub fn parse(v: &str) -> Option<Order> {
+        match v {
+            "reverse-id" => Some(Order::ReverseId),
+            _ => Order::parse_public(v),
         }
     }
 
@@ -62,7 +71,14 @@ pub enum Refusal {
     Duplicate(u32),
     /// A directed cycle; the smallest arrow id on a cycle.
     Cycle(u32),
+    /// More than `MAX_ARROWS` anchored arrows or `MAX_NODES` structures: the layout is refused before any walk (a hostile document).
+    Size,
 }
+
+/// The most anchored arrows a pathway may have.
+pub const MAX_ARROWS: usize = 1000;
+/// The most structures a pathway may have.
+pub const MAX_NODES: usize = 1000;
 
 impl Refusal {
     pub fn key(&self) -> &'static str {
@@ -70,12 +86,13 @@ impl Refusal {
             Refusal::Empty => "error.draw2.schemeEmpty",
             Refusal::Duplicate(_) => "error.draw2.schemeDuplicate",
             Refusal::Cycle(_) => "error.draw2.schemeCycle",
+            Refusal::Size => "error.draw2.schemeSize",
         }
     }
 
     pub fn id(&self) -> u32 {
         match self {
-            Refusal::Empty => 0,
+            Refusal::Empty | Refusal::Size => 0,
             Refusal::Duplicate(i) | Refusal::Cycle(i) => *i,
         }
     }
@@ -185,6 +202,12 @@ fn flip(r: Rect) -> Rect {
 /// The layout of the whole pathway of `doc` for the settings of `style` (`pathway.*`, the label ink and the route margin).
 pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
     let o = Opts::of(style);
+    let anchored = (doc.objects.iter())
+        .filter(|ob| ob.t == ObjKind::Arrow && ob.from != 0 && ob.to != 0)
+        .count();
+    if anchored > MAX_ARROWS {
+        return Err(Refusal::Size);
+    }
     // structures and the anchored arrows between two of them
     let pieces = crate::layout::pieces(doc);
     let mut owner: HashMap<u32, usize> = HashMap::new();
@@ -220,6 +243,9 @@ pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
     let mut used: Vec<usize> = raw.iter().flat_map(|r| [r.1, r.2]).collect();
     used.sort_by_key(|&p| piece_atoms[p][0]);
     used.dedup();
+    if used.len() > MAX_NODES {
+        return Err(Refusal::Size);
+    }
     let index: HashMap<usize, usize> = used.iter().enumerate().map(|(i, &p)| (p, i)).collect();
     let n = used.len();
     let mut nodes: Vec<Node> = used

@@ -80,6 +80,8 @@ struct View<'a> {
     /// The saved document the arrows are read from; `None`: the clipped segment between the unrounded centres.
     arrows: Option<&'a Document>,
     eps: f64,
+    /// The sibling order key per node (the atom id by default; ties by atom id).
+    key: Vec<f64>,
 }
 
 impl<'a> View<'a> {
@@ -118,7 +120,25 @@ impl<'a> View<'a> {
             sz,
             arrows,
             eps,
+            key: lay.nodes.iter().map(|n| f64::from(n.id)).collect(),
         }
+    }
+
+    /// The sibling order is the data field `field` of a node (missing last).
+    fn ordered_by(mut self, d: &Document, field: &str) -> View<'a> {
+        self.key = self
+            .lay
+            .nodes
+            .iter()
+            .map(|n| {
+                let data = d.atom(n.id).unwrap().data();
+                data.iter()
+                    .find(|(k, _)| k == field)
+                    .and_then(|(_, v)| v.parse::<f64>().ok())
+                    .unwrap_or(f64::INFINITY)
+            })
+            .collect();
+        self
     }
 
     fn rect(&self, i: usize) -> Rect {
@@ -140,7 +160,11 @@ impl<'a> View<'a> {
             .filter(|e| e.primary && e.from == u)
             .map(|e| e.to)
             .collect();
-        k.sort_by_key(|&v| self.lay.nodes[v].id);
+        k.sort_by(|&a, &b| {
+            (self.key[a], self.lay.nodes[a].id)
+                .partial_cmp(&(self.key[b], self.lay.nodes[b].id))
+                .unwrap()
+        });
         k
     }
 
@@ -923,4 +947,166 @@ fn two_hundred_nodes_in_time() {
     if !cfg!(debug_assertions) {
         assert!(ms < 100.0, "{ms} ms");
     }
+}
+
+#[test]
+fn p14_locality_holds_on_the_saved_document_at_3e_4() {
+    let s = style(&[]);
+    let base = three_components(&[]);
+    let lay0 = pathway::layout(&base, &s).unwrap();
+    let out0 = saved(&base, &s);
+    let centre = |d: &Document, atoms: &[u32]| {
+        let r = piece_box(d, atoms, &s);
+        ((r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0)
+    };
+    for extra in [0u32, 1, 2] {
+        let grown = three_components(&[extra]);
+        let lay1 = pathway::layout(&grown, &s).unwrap();
+        let out1 = saved(&grown, &s);
+        let mut shifts = Vec::new();
+        for n in &lay0.nodes {
+            let m = lay1.nodes.iter().find(|m| m.id == n.id).unwrap();
+            let (a, b) = (centre(&out0, &n.atoms), centre(&out1, &m.atoms));
+            let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+            if n.comp < extra as usize {
+                assert!(
+                    dx.abs() <= EPS_SAVED && dy.abs() <= EPS_SAVED,
+                    "before {extra}"
+                );
+            } else if n.comp > extra as usize {
+                shifts.push((dx, dy));
+            }
+        }
+        assert!(
+            shifts
+                .iter()
+                .all(|t| t.0.abs() <= EPS_SAVED && (t.1 - shifts[0].1).abs() <= EPS_SAVED),
+            "after {extra}"
+        );
+    }
+}
+
+#[test]
+fn p7_and_p9_hold_under_the_order_keys_mz_and_rt() {
+    let d = doc("star4_mz");
+    for (key, field) in [("mz", "MZ"), ("rt", "RT")] {
+        let s = style(&[&format!("order={key}")]);
+        let lay = pathway::layout(&d, &s).unwrap();
+        let out = saved(&d, &s);
+        let (mut n1, mut n2) = (0, 0);
+        let bad = failures(&View::unrounded(&lay).ordered_by(&d, field), &mut n1);
+        assert!(bad.is_empty(), "{key}: {bad:?}");
+        let bad = failures(&View::of_doc(&lay, &out, &s).ordered_by(&d, field), &mut n2);
+        assert!(bad.is_empty(), "{key} saved: {bad:?}");
+        assert!(n1 >= 1 && n2 >= 1, "{key}: P7 applies to the fan");
+    }
+}
+
+#[test]
+fn the_findings_reach_report_and_expect_and_a_refusal_names_its_arrow() {
+    let t = text("dag");
+    let run = |extra: Value| {
+        let mut r = json!({"import": t, "commands": [{"command": "pathway:tree"}]});
+        for (k, v) in extra.as_object().unwrap() {
+            r[k] = v.clone();
+        }
+        serde_json::from_str::<Value>(&mzdraw::replay::replay(&r.to_string()).unwrap()).unwrap()
+    };
+    // `out: std` lists the crossing, so `expect` must see it too
+    let v = run(json!({"expect": [{"std_absent": ["std.scheme.crossing"]}]}));
+    assert_eq!(v["ok"], json!(false), "{v}");
+    assert!(
+        v["expect"][0]["detail"]
+            .as_str()
+            .unwrap_or("")
+            .contains("std.scheme.crossing"),
+        "{v}"
+    );
+    let v = run(json!({"expect": [{"std": "none"}]}));
+    assert_eq!(v["ok"], json!(false));
+    // a pathway without findings passes both arms
+    let clean = json!({"import": text("chain4"), "commands": [{"command": "pathway:tree"}], "expect": [{"std": "none"}, {"std_absent": ["std.scheme.crossing"]}]});
+    let v: Value =
+        serde_json::from_str(&mzdraw::replay::replay(&clean.to_string()).unwrap()).unwrap();
+    assert_eq!(v["ok"], json!(true), "{v}");
+    // the refusals through the request name their arrow
+    let cyc = synthetic(4, &[(0, 1), (1, 2), (2, 0), (2, 3)]);
+    let dup = synthetic(2, &[(0, 1), (0, 1)]);
+    for (d, id) in [
+        (&cyc, cyc.objects.iter().map(|o| o.id).min().unwrap()),
+        (&dup, dup.objects[0].id),
+    ] {
+        let req = json!({"import": d.to_json(), "commands": [{"command": "pathway:tree"}], "report": true}).to_string();
+        let v: Value = serde_json::from_str(&mzdraw::replay::replay(&req).unwrap()).unwrap();
+        assert_eq!(v["failed"]["id"], json!(id), "{v}");
+    }
+}
+
+#[test]
+fn a_self_loop_is_free_and_alone_it_is_empty() {
+    // an arrow anchored twice to the same structure is not an edge
+    let mut d = synthetic(2, &[]);
+    let a = d.atoms[0].id;
+    let b = d.atoms[1].id;
+    let mut v: Value = serde_json::from_str(&d.to_json()).unwrap();
+    v["objects"] =
+        json!([{"id": 900, "t": "arrow", "x": 0, "y": 0, "x2": 1, "y2": 1, "from": a, "to": b}]);
+    v["next"] = json!(901);
+    d = Document::from_json(&v.to_string()).unwrap();
+    assert_eq!(
+        pathway::layout(&d, &style(&[])).unwrap_err(),
+        Refusal::Empty
+    );
+    // next to a real edge it is listed as free
+    let mut v: Value = serde_json::from_str(&synthetic(3, &[(0, 1)]).to_json()).unwrap();
+    let (x, y) = (v["atoms"][6]["id"].clone(), v["atoms"][7]["id"].clone());
+    v["objects"].as_array_mut().unwrap().push(
+        json!({"id": 900, "t": "arrow", "x": 0, "y": 0, "x2": 1, "y2": 1, "from": x, "to": y}),
+    );
+    v["next"] = json!(901);
+    let d = Document::from_json(&v.to_string()).unwrap();
+    assert_eq!(pathway::layout(&d, &style(&[])).unwrap().free, vec![900]);
+}
+
+#[test]
+fn a_hostile_size_is_refused_before_any_walk_and_a_long_chain_still_lays_out() {
+    // 8000 nodes in a chain, and 1001 arrows on one pair: refused with the key, no stack, no wait
+    let t = std::time::Instant::now();
+    let big = synthetic(8000, &(0..7999).map(|i| (i, i + 1)).collect::<Vec<_>>());
+    assert_eq!(
+        pathway::layout(&big, &style(&[])).unwrap_err(),
+        Refusal::Size
+    );
+    let many = synthetic(2, &vec![(0, 1); 1001]);
+    assert_eq!(
+        pathway::layout(&many, &style(&[])).unwrap_err(),
+        Refusal::Size
+    );
+    let req =
+        json!({"import": big.to_json(), "commands": [{"command": "pathway:tree"}]}).to_string();
+    assert_eq!(
+        mzdraw::replay::replay(&req).unwrap_err().key,
+        "error.draw2.schemeSize"
+    );
+    println!("size refusals in {:?}", t.elapsed());
+    // 1000 nodes in a chain is the limit: it lays out (the recursion is 1000 deep)
+    let edge = |n: usize| (0..n - 1).map(|i| (i, i + 1)).collect::<Vec<_>>();
+    let chain = synthetic(pathway::MAX_NODES, &edge(pathway::MAX_NODES));
+    assert!(pathway::layout(&chain, &style(&[])).is_ok());
+    let over = synthetic(pathway::MAX_NODES + 1, &edge(pathway::MAX_NODES + 1));
+    assert_eq!(
+        pathway::layout(&over, &style(&[])).unwrap_err(),
+        Refusal::Size
+    );
+}
+
+#[test]
+fn the_test_only_order_key_is_never_written_to_a_settings_file() {
+    let mut s = Style::default();
+    s.set_pathway("order", "reverse-id").unwrap();
+    assert!(!s.to_json().contains("reverse-id") && !s.to_json().contains("pathway.order"));
+    s.set_pathway("order", "mz").unwrap();
+    assert!(s.to_json().contains("\"pathway.order\":\"mz\""));
+    let file = r#"{"format":"mzdraw-settings/1","style":{"pathway.order":"reverse-id"}}"#;
+    assert!(Style::from_text(file).is_err());
 }
