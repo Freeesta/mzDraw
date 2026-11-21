@@ -695,6 +695,11 @@ impl Editor {
         {
             return self.text_open() | HANDLED;
         }
+        // F2 on a selected arrow: the panel styles text objects only; the page says so (keyed) instead of doing nothing
+        if !ctrl && lower == "f2" && self.text_target().is_none() && self.arrow_selected_alone() {
+            self.error = "error.draw2.textArrow";
+            return REPAINT | HANDLED;
+        }
         // the Menu key and Shift+F10 open the context menu of what has the keyboard focus (`Editor::context_anchor`)
         if !ctrl && (lower == "contextmenu" || (lower == "f10" && shift)) {
             return MENU | HANDLED;

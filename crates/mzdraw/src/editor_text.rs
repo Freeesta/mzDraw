@@ -56,6 +56,18 @@ impl Editor {
         }
     }
 
+    /// Whether an arrow is the whole selection (its text is not styled by the panel).
+    pub(crate) fn arrow_selected_alone(&self) -> bool {
+        let o = &self.over;
+        o.sel_atoms.is_empty()
+            && o.sel_bonds.is_empty()
+            && o.sel_objs.len() == 1
+            && self
+                .doc()
+                .object(o.sel_objs[0])
+                .is_some_and(|x| x.t == ObjKind::Arrow)
+    }
+
     /// Drops a selection inside a text that is not the selected text any more.
     pub(crate) fn text_sync(&mut self) {
         if let Some(t) = &self.over.text

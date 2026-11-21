@@ -368,3 +368,19 @@ fn a_stored_settings_file_with_a_text_object_this_version_cannot_read_loses_only
     // an explicit setting of a bad value stays an error
     assert!(e.set("text.font=comic").is_err());
 }
+
+#[test]
+fn a_selected_arrow_is_not_styled_by_the_panel_and_f2_says_so_in_a_keyed_note() {
+    let mut e = Editor::default();
+    e.open(r#"{"format":"mzdraw/1","next":2,"atoms":[],"bonds":[],"objects":[{"id":1,"t":"arrow","x":0.0,"y":0.0,"x2":2.0,"y2":0.0,"text":"80 C"}]}"#).unwrap();
+    e.set_tool("select");
+    let (x, y) = e.view.to_px(1.0, 0.0);
+    e.pointer_down(x, y, 0, 0);
+    e.pointer_up(x, y);
+    assert_eq!(e.text_json(), "null");
+    e.key("F2", 0);
+    assert_eq!(e.error, "error.draw2.textArrow");
+    e.error = "";
+    assert_eq!(e.text_style("b", "") & CHANGED, 0);
+    assert_eq!(e.error, "error.draw2.textNone");
+}

@@ -28,7 +28,7 @@ The panel emits nothing the log does not already know: bold on a range is `{"op"
 ## Not built
 
 - Lists, alignment, tables, images in a text, fonts outside the list of the panel (a file's font is kept, not chosen).
-- Styling the text of an arrow in place (the panel acts on text objects; an arrow's text is set by `obj.set` as before).
+- Styling the text of an arrow in place (the panel acts on text objects; an arrow's text is set by `obj.set` as before). With an arrow selected alone, F2 says so with the keyed note `error.draw2.textArrow` (shown like every refusal); the panel does not appear for an arrow.
 - Ctrl+arrow by word, a selection by triple click, rich-text paste (a paste into an edited text is plain text; copy and cut give the plain text of the range).
 - Underline in KET and the fonts of the PDF stay as `text-runs.md` says.
 
