@@ -590,14 +590,15 @@ fn the_log_reader_takes_what_the_writer_writes_and_refuses_the_rest() {
         }
         let _ = s.run(&random_step(&s, &mut r));
     }
-    // defaults of fields left out, unknown fields ignored, null as absent
+    // defaults of fields left out, null as absent; a field outside the table of the operation is refused (`schema::OPS`)
     assert_eq!(
-        serde_json::from_str::<Op>(r#"{"op":"bond.add","a":1,"b":2,"later":true,"id":null}"#)
-            .unwrap(),
+        serde_json::from_str::<Op>(r#"{"op":"bond.add","a":1,"b":2,"id":null}"#).unwrap(),
         bond(1, 2, 1)
     );
     for bad in [
         r#"{"op":"nope"}"#,
+        r#"{"op":"bond.add","a":1,"b":2,"later":true}"#,
+        r#"{"op":"merge","from":1,"into":2}"#,
         r#"{"a":1,"b":2}"#,
         r#"{"op":"bond.add","a":1}"#,
         r#"{"op":"bond.add","a":1,"b":"2"}"#,

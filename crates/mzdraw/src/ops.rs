@@ -368,10 +368,25 @@ impl Fields<'_> {
 }
 
 impl Op {
-    /// An operation from its JSON object; `None` for an unknown `op`, a missing required field or a field of the wrong type.
-    /// Unknown fields are ignored.
+    /// An operation from its JSON object; `None` for an unknown `op`, a field the table of the operation does not list
+    /// (`schema::OPS`), a missing required field or a field of the wrong type.
     pub fn from_value(v: &serde_json::Value) -> Option<Op> {
-        Self::read(&Fields(v), v.get("op")?.as_str()?).ok()
+        Self::parse(v).ok()
+    }
+
+    /// `from_value` with the reason as an i18n key: `error.draw2.opField` for a field outside the table of the operation,
+    /// `error.draw2.request` for anything else.
+    pub fn parse(v: &serde_json::Value) -> Result<Op, &'static str> {
+        const BAD: &str = "error.draw2.request";
+        let name = v.get("op").and_then(|n| n.as_str()).ok_or(BAD)?;
+        let spec = crate::schema::spec(name).filter(|s| s.mzdraw).ok_or(BAD)?;
+        if let Some(obj) = v.as_object() {
+            let known = |k: &str| k == "op" || spec.fields.iter().any(|f| f.key == k);
+            if !obj.keys().all(|k| known(k)) {
+                return Err("error.draw2.opField");
+            }
+        }
+        Self::read(&Fields(v), name).map_err(|()| BAD)
     }
 
     fn read(g: &Fields, name: &str) -> Result<Op, ()> {

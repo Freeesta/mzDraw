@@ -36,6 +36,13 @@ for (const c of fx.contexts) {
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
   check(a.stdout === c.out && JSON.parse(c.out).items.length > 0, `${c.name}: the recorded menu`);
 }
+// the table of the operations (`draw-edit-schema/1`)
+for (const c of fx.schemas) {
+  const request = JSON.stringify(c.request), a = site(request), b = native(request);
+  check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
+  check(a.stdout === b.stdout, `${c.name}: wasm == native`);
+  check(a.stdout === c.out && JSON.parse(c.out).format === "draw-edit-schema/1", `${c.name}: the recorded table`);
+}
 // the settings file after layout and export defaults were set through the route of Editor::set (`set`, the --set of the CLI)
 for (const c of fx.settings) {
   const request = JSON.stringify(c.request), a = site(request), b = native(request);

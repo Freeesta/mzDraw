@@ -12,4 +12,5 @@ cap = 4000000
 # 2026-11-21: 592912 B with the annotation scales (arch-std-14; +2936 B over 589976 B).
 # 2026-11-21: 739519 B with the engine glue (cip, cut, mech +102.8 kB, hilite +38.0 kB, sel +11.4 kB; +146607 B over 592912 B).
 # 2026-11-21: measured 769039 (palettes and export defaults in the settings, R1, +29520 B on 739519).
-measured = 769039
+# 2026-11-21: 774101 B with the table of the operations `schema.rs` (+5062 B over 769039 B).
+measured = 774101

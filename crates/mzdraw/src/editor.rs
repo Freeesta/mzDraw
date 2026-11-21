@@ -397,6 +397,7 @@ impl Editor {
             // the settings file: the style, the layout of the palettes and the export defaults
             "settings" => self.settings_json(),
             "std" => crate::conform::report(self.doc()).to_json(),
+            "schema" => crate::schema::json(),
             _ => return Err("error.draw2.request"),
         })
     }

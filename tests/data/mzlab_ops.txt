@@ -1,0 +1,11 @@
+# The operations that the reader of mzLab accepts (`crates/mzlab-feat/src/chem/edit.rs`, the `match name` of `apply`), one per line.
+# Source: Freeesta/mzlab `main` at 76a4703e6d7c26adce67d77caee744242317a280, read on 2026-11-21.
+# The commit pinned in the root Cargo.toml (ccd4680fc35b4ca6029cfead3a8e97f82042fdf7) has no such reader yet.
+# Re-check against edit.rs when the pin moves (rule 9); the test `schema.rs` holds the table to this list.
+atom.add
+atom.set
+bond.add
+bond.set
+remove
+move
+merge
