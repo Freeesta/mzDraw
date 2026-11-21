@@ -10,6 +10,9 @@ use mzdraw::values::{self, Measured};
 use serde_json::{json, Value};
 use std::cell::Cell;
 
+#[path = "support/timing.rs"]
+mod timing;
+
 fn doc_of(smiles: &str) -> Document {
     let mut e = Editor::default();
     e.import(smiles).unwrap();
@@ -389,16 +392,9 @@ fn a_result_a_later_edit_left_behind_is_never_drawn() {
     assert_eq!(calls(), before, "nothing changed: no call");
 }
 
-/// The best of five runs of `f`, in microseconds.
+/// The least CPU time of the thread over seven runs of `f` after one warm-up, in microseconds (`support/timing.rs`).
 fn best(f: impl Fn()) -> u128 {
-    (0..5)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            f();
-            t.elapsed().as_micros()
-        })
-        .min()
-        .unwrap()
+    timing::best_of(1, 7, f).as_micros()
 }
 
 /// Four times the size may cost about four times; a scan of all atoms or all bonds for each structure costs sixteen times. There is

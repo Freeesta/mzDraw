@@ -5,7 +5,9 @@ use mzdraw::diff::hunks;
 use mzdraw::editor::{CHANGED, CTRL, PROPOSAL};
 use mzdraw::{Document, Editor, Op, Session};
 use serde_json::{json, Value};
-use std::time::Instant;
+
+#[path = "support/timing.rs"]
+mod timing;
 
 fn ops(v: Value) -> Vec<Op> {
     v.as_array()
@@ -155,7 +157,7 @@ fn a_patch_that_does_not_apply_or_is_too_big_is_refused_and_nothing_is_held() {
             Op::parse(&json!({"op":"atom.add","id":100 + i,"el":"C","x":0.0,"y":0.0})).unwrap()
         })
         .collect();
-    let at = Instant::now();
+    let at = timing::Watch::start();
     assert_eq!(e.propose(big).unwrap_err().key, "error.draw2.proposalSize");
     assert!(at.elapsed().as_millis() < 500);
     assert_eq!(e.proposal_json(), "null");
@@ -320,25 +322,20 @@ fn editor(doc: Document) -> Editor {
     e
 }
 
-/// The best of three runs of `f`, in milliseconds (noise only ever adds time).
+/// The least CPU time of the thread over seven runs of `f` after one that is not timed, in milliseconds (`support/timing.rs`: the
+/// time the thread waited for a core on a busy machine is not counted, and noise only ever adds time).
 fn best(mut f: impl FnMut()) -> f64 {
-    (0..3)
-        .map(|_| {
-            let at = Instant::now();
-            f();
-            at.elapsed().as_secs_f64() * 1000.0
-        })
-        .fold(f64::MAX, f64::min)
+    timing::best_of(1, 7, &mut f).as_secs_f64() * 1000.0
 }
 
 /// The time of `run` on the input of `n` and of `4n` (built by `setup`, outside the clock) must not differ by more than a factor 8:
-/// linear work gives 4 and quadratic work 16; the floor of 40 ms keeps noise out, and `n` is large enough that quadratic work is
-/// seconds in a release build too.
+/// linear work gives 4 and quadratic work 16, and the bound has no floor, so it is the same at every speed; `n` is large enough that
+/// quadratic work is seconds in a release build too.
 fn scales<T>(what: &str, n: u32, setup: impl Fn(u32) -> T, run: impl Fn(&T)) {
     let (small, big) = (setup(n), setup(4 * n));
     let (a, b) = (best(|| run(&small)), best(|| run(&big)));
     assert!(
-        b <= (a * 8.0).max(40.0),
+        b <= a * 8.0,
         "{what}: {a:.1} ms for {n}, {b:.1} ms for {}",
         4 * n
     );
@@ -353,7 +350,7 @@ fn one_remove_naming_every_atom_of_a_big_drawing_is_held_marked_and_accepted() {
         bonds: Vec::new(),
         objects: Vec::new(),
     };
-    let at = Instant::now();
+    let at = timing::Watch::start();
     assert_eq!(e.propose(vec![remove]).unwrap(), 1);
     let _ = (e.scene(), e.proposal_json());
     e.accept_hunk(1).unwrap();
@@ -372,14 +369,14 @@ fn one_move_of_all_atoms_is_one_hunk_and_the_ids_are_capped() {
         dx: 1.0,
         dy: 0.0,
     };
-    let at = Instant::now();
+    let at = timing::Watch::start();
     assert_eq!(e.propose(vec![mv]).unwrap(), 1);
     let held = at.elapsed().as_millis();
     let before = e.doc().to_json();
-    let at = Instant::now();
+    let at = timing::Watch::start();
     e.accept_all().unwrap();
     let accepted = at.elapsed().as_millis();
-    let at = Instant::now();
+    let at = timing::Watch::start();
     assert!(e.undo() != 0);
     let undone = at.elapsed().as_millis();
     assert_eq!(e.doc().to_json(), before);
@@ -394,7 +391,7 @@ fn one_move_of_all_atoms_is_one_hunk_and_the_ids_are_capped() {
         dx: 1.0,
         dy: 0.0,
     };
-    let at = Instant::now();
+    let at = timing::Watch::start();
     assert_eq!(
         e.propose(vec![mv]).unwrap_err().key,
         "error.draw2.proposalIds"
@@ -518,7 +515,10 @@ fn marking_and_saying_a_proposal_scales() {
             e
         },
         |e| {
-            let _ = (e.proposal_marks(), e.proposal_json());
+            // repeated, so that the small run is tens of milliseconds and not a few (a few is inside the noise of the clock)
+            for _ in 0..20 {
+                let _ = (e.proposal_marks(), e.proposal_json());
+            }
         },
     );
     scales(
@@ -536,7 +536,10 @@ fn marking_and_saying_a_proposal_scales() {
             e
         },
         |e| {
-            let _ = (e.proposal_marks(), e.proposal_json());
+            // repeated, so that the small run is tens of milliseconds and not a few (a few is inside the noise of the clock)
+            for _ in 0..20 {
+                let _ = (e.proposal_marks(), e.proposal_json());
+            }
         },
     );
 }
@@ -551,7 +554,7 @@ fn two_thousand_separate_accepts_through_the_request_are_fast_and_all_or_none() 
         .collect();
     let accept: Vec<u32> = (1..=n).collect();
     let r = json!({"import": doc, "propose": set, "accept": accept, "out": "log"});
-    let at = Instant::now();
+    let at = timing::Watch::start();
     mzdraw::replay::replay(&r.to_string()).unwrap();
     let ms = at.elapsed().as_millis();
     assert!(ms < 20_000, "{ms} ms");

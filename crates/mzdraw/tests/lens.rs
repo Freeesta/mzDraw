@@ -4,6 +4,9 @@
 use mzdraw::{Document, Editor};
 use serde_json::{json, Value};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 /// N-methyl caprolactam as a hexagon, atoms 1..8, bonds 9..16 (ring bonds 9..14), next 17.
 fn lactam() -> Value {
     let p = |k: f64| {
@@ -489,10 +492,9 @@ fn pairs(n: u32) -> Document {
     Document::from_json(&doc.to_string()).unwrap()
 }
 
+/// The least CPU time of the thread over three runs of `f` after a warm-up, in seconds (`support/timing.rs`).
 fn time(f: impl Fn()) -> f64 {
-    let t = std::time::Instant::now();
-    f();
-    t.elapsed().as_secs_f64()
+    timing::best_of(1, 3, f).as_secs_f64()
 }
 
 /// The time of `reps` runs of `f` over `n` pairs, the drawing built outside the clock.
@@ -516,7 +518,7 @@ fn the_cost_of_the_lens_grows_linearly_with_the_drawing() {
     };
     let (small, big) = (reps_time(200, 10, run), reps_time(800, 10, run));
     assert!(
-        big < 8.0 * small + 0.05,
+        big < 8.0 * small,
         "200 pairs {small:.3} s, 800 pairs {big:.3} s"
     );
     // the machine form is linear too (the display list has its own test in `scene.rs`: the whole painter has older quadratic
@@ -530,7 +532,7 @@ fn the_cost_of_the_lens_grows_linearly_with_the_drawing() {
     };
     let (small, big) = (reps_time(200, 1, json), reps_time(800, 1, json));
     assert!(
-        big < 8.0 * small + 0.05,
+        big < 8.0 * small,
         "200 pairs {small:.3} s, 800 pairs {big:.3} s"
     );
 }
@@ -610,15 +612,16 @@ fn the_state_of_the_lens_for_the_page_finds_a_product_by_its_anchor_in_one_looku
                 .collect(),
             ..Default::default()
         };
-        let t = std::time::Instant::now();
-        let st = mzdraw::tp::LensState::from_lenses(&l);
-        let found = (1..=n).filter(|&i| st.line(i).is_some()).count();
-        assert_eq!(found, n as usize, "every product has its words");
-        t.elapsed().as_secs_f64()
+        timing::best_of(1, 5, || {
+            let st = mzdraw::tp::LensState::from_lenses(&l);
+            let found = (1..=n).filter(|&i| st.line(i).is_some()).count();
+            assert_eq!(found, n as usize, "every product has its words");
+        })
+        .as_secs_f64()
     };
     let (small, big) = (run(16_000), run(64_000));
     assert!(
-        big < 8.0 * small + 0.05,
+        big < 8.0 * small,
         "16000 products {small:.3} s, 64000 {big:.3} s"
     );
     // from a drawing: each product of a pathway has its words and nothing is noted

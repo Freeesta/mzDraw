@@ -4,6 +4,9 @@
 use mzdraw::{Document, Editor};
 use serde_json::{json, Value};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 /// N-methyl caprolactam drawn as a hexagon: N1, C2 (C=O, O 8), C3..C6; methyl 7 on N. Atom ids 1..8, bond ids 9..16, next 17.
 fn lactam(dx: f64) -> Value {
     let p = |k: f64| {
@@ -382,38 +385,30 @@ fn many(n: u32) -> String {
     json!({"format":"mzdraw/1","next":3 * n + 1,"atoms":atoms,"bonds":bonds}).to_string()
 }
 
-/// The best of three runs of `derives` derives from the first structure of a drawing of `n` structures, in seconds.
+/// The least CPU time of the thread over five runs (after a warm-up) of `derives` derives from the first structure of a drawing of `n` structures, in seconds.
 fn derive_time(n: u32, derives: usize) -> f64 {
     let doc = many(n);
     let cmds: Vec<Value> = (0..derives).map(|_| derive(1, json!([]))).collect();
     let req = json!({"import": doc, "commands": cmds, "report": true}).to_string();
-    (0..3)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            let r: Value = serde_json::from_str(&mzdraw::replay::replay(&req).unwrap()).unwrap();
-            assert_eq!(r["ok"], true, "{r}");
-            t.elapsed().as_secs_f64()
-        })
-        .fold(f64::MAX, f64::min)
+    timing::best_of(1, 5, || {
+        let r: Value = serde_json::from_str(&mzdraw::replay::replay(&req).unwrap()).unwrap();
+        assert_eq!(r["ok"], true, "{r}");
+    })
+    .as_secs_f64()
 }
 
 #[test]
 fn the_cost_of_a_derive_grows_linearly_with_the_drawing() {
-    // twice the structures must cost about twice as much, not four times: the pieces, the placement and the checks are linear.
-    // A floor keeps timer noise out: the small run must take long enough to measure.
-    let (mut n, mut small) = (1000u32, 0.0);
-    while n <= 16_000 {
-        small = derive_time(n, 6);
-        if small > 0.05 {
-            break;
-        }
-        n *= 2;
-    }
-    let big = derive_time(2 * n, 6);
+    // four times the structures must cost about four times as much, not sixteen: the pieces, the placement and the checks are linear.
+    // The sizes are fixed (they were searched with a clock, so the size compared moved with the speed of the machine) and the bound
+    // is a pure ratio, with no additive floor. Measured, the cost is a little over linear (the memory is not a pure scan) and the
+    // ratio moves from run to run between about 4 and 8; a quadratic one is 16, and the bound 10 sits between the two.
+    let (n, small) = (1000u32, derive_time(1000, 6));
+    let big = derive_time(4 * n, 6);
     assert!(
-        big < 3.0 * small + 0.02,
+        big < 10.0 * small,
         "{n} structures {small:.3} s, {} structures {big:.3} s",
-        2 * n
+        4 * n
     );
 }
 

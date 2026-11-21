@@ -5,6 +5,9 @@ use mzdraw::steplabel::{display, owned, Mode, Opts};
 use mzdraw::{Document, Editor};
 use serde_json::{json, Value};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 /// A structure: elements of a chain joined by the orders of `bonds` (a bond between consecutive atoms: `orders[i]` joins i and i+1).
 struct S(&'static [&'static str], &'static [u8]);
 
@@ -396,19 +399,18 @@ fn chain(n: usize, extra: usize) -> String {
     json!({"format": "mzdraw/1", "next": 900_000, "atoms": atoms, "bonds": bonds, "objects": objects}).to_string()
 }
 
-/// The best of three runs of `steplabel::plan` on `text`, in microseconds (the import and the application of the operations, which the
+/// The least CPU time of the thread over seven runs (after one warm-up) of `steplabel::plan` on `text`, in nanoseconds (the import and the application of the operations, which the
 /// document layer owns, are not timed).
 fn timed(text: &str) -> u128 {
     let doc = Document::from_json(text).unwrap();
-    (0..3)
-        .map(|_| {
-            let t = std::time::Instant::now();
+    // twenty plans per run: a run of a few hundred microseconds is inside the noise of the clock, twenty of them are not
+    timing::best_of(1, 7, || {
+        for _ in 0..20 {
             let p = mzdraw::steplabel::plan(&doc, Mode::Delta, &Opts::default(), None).unwrap();
             assert!(!p.ops.is_empty());
-            t.elapsed().as_micros()
-        })
-        .min()
-        .unwrap()
+        }
+    })
+    .as_nanos()
 }
 
 #[test]
@@ -430,14 +432,14 @@ fn the_labels_of_a_thousand_arrows_scale_linearly_and_more_are_refused() {
     // a very fast small run from making the ratio noise
     let (small, large) = (timed(&chain(250, 0)), timed(&chain(1000, 0)));
     assert!(
-        large <= 9 * small.max(1500),
-        "250 arrows {small} us, 1000 arrows {large} us"
+        large <= 9 * small,
+        "250 arrows {small} ns, 1000 arrows {large} ns"
     );
     // a hostile document: 1000 arrows and fifty thousand other objects (a scan of the objects per arrow costs 5e7 steps)
     let (base, crowded) = (timed(&chain(1000, 0)), timed(&chain(1000, 50_000)));
     assert!(
-        crowded <= 6 * base.max(5000),
-        "{base} us without, {crowded} us with 50000 plus signs"
+        crowded <= 6 * base,
+        "{base} ns without, {crowded} ns with 50000 plus signs"
     );
 }
 
@@ -733,19 +735,14 @@ fn big_chain(n: usize, k: usize, extra: usize) -> String {
     json!({"format": "mzdraw/1", "next": 9_000_000, "atoms": atoms, "bonds": bonds, "objects": objects}).to_string()
 }
 
-/// The best of five runs of `plan` in a mass mode, in microseconds, the stand-in engine included (the same cheap function for every size).
+/// The least CPU time of the thread over seven runs (after one warm-up) of `plan` in a mass mode, in nanoseconds, the stand-in engine included (the same cheap function for every size).
 fn timed_mass(text: &str) -> u128 {
     let doc = Document::from_json(text).unwrap();
-    (0..5)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            let p =
-                mzdraw::steplabel::plan(&doc, Mode::Mass, &Opts::default(), Some(engine)).unwrap();
-            assert!(!p.ops.is_empty());
-            t.elapsed().as_micros()
-        })
-        .min()
-        .unwrap()
+    timing::best_of(1, 7, || {
+        let p = mzdraw::steplabel::plan(&doc, Mode::Mass, &Opts::default(), Some(engine)).unwrap();
+        assert!(!p.ops.is_empty());
+    })
+    .as_nanos()
 }
 
 #[test]
@@ -776,7 +773,7 @@ fn the_mass_labels_scale_linearly_in_arrows_atoms_and_objects() {
     );
     assert!(
         large <= 8 * small,
-        "250 arrows {small} us, 999 arrows {large} us (14 atoms each)"
+        "250 arrows {small} ns, 999 arrows {large} ns (14 atoms each)"
     );
     // a hostile document: 999 arrows and fifty thousand other objects (a scan of the objects per arrow costs 5e7 steps)
     let (base, crowded) = (
@@ -785,7 +782,7 @@ fn the_mass_labels_scale_linearly_in_arrows_atoms_and_objects() {
     );
     assert!(
         crowded <= 6 * base,
-        "{base} us without, {crowded} us with 50000 plus signs"
+        "{base} ns without, {crowded} ns with 50000 plus signs"
     );
 }
 
@@ -812,11 +809,23 @@ fn fan(n: usize) -> String {
 
 #[test]
 fn the_cost_per_arrow_does_not_grow_with_the_atoms() {
-    // the atoms are fixed, so the run is the same work plus the arrows: a scan of the atoms per arrow (999 x 14,980) adds a third or more
-    let (small, large) = (timed_mass(&fan(250)), timed_mass(&fan(999)));
+    // the atoms are fixed, so the run is the same work plus the arrows: a scan of the atoms per arrow (999 x 14,980) adds a third or more.
+    // The two runs are taken in turns (a slow phase of the machine falls on both) and each is the least of fifteen on the CPU clock.
+    let (a, b) = (
+        Document::from_json(&fan(250)).unwrap(),
+        Document::from_json(&fan(999)).unwrap(),
+    );
+    let run = |d: &Document| {
+        let p = mzdraw::steplabel::plan(d, Mode::Mass, &Opts::default(), Some(engine)).unwrap();
+        assert!(!p.ops.is_empty());
+    };
+    let (small, large) = timing::best_of_pair(2, 15, || run(&a), || run(&b));
+    let (small, large) = (small.as_nanos(), large.as_nanos());
+    // the arrows add little to the atoms' work: 999 against 250 may cost 8% more (a scan of the atoms per arrow costs 11% to 16% more
+    // here, a map or a position lookup by id for each arrow nothing visible)
     assert!(
-        4 * large <= 5 * small,
-        "250 arrows {small} us, 999 arrows {large} us over 14,980 atoms"
+        25 * large <= 27 * small,
+        "250 arrows {small} ns, 999 arrows {large} ns over 14,980 atoms"
     );
 }
 

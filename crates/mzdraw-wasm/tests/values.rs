@@ -7,6 +7,9 @@
 use mzdraw_wasm::glue;
 use serde_json::{json, Value};
 
+#[path = "../../mzdraw/tests/support/timing.rs"]
+mod timing;
+
 fn values(request: Value) -> Value {
     serde_json::from_str(&glue::replay(&request.to_string()).unwrap()).unwrap()
 }
@@ -300,16 +303,9 @@ fn every_key_the_engine_can_refuse_with_has_a_text_in_the_catalog() {
     }
 }
 
-/// The best of five runs of `f`, in microseconds.
+/// The least CPU time of the thread over seven runs of `f` after one warm-up, in microseconds (`support/timing.rs`).
 fn best(f: impl Fn()) -> u128 {
-    (0..5)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            f();
-            t.elapsed().as_micros()
-        })
-        .min()
-        .unwrap()
+    timing::best_of(1, 7, f).as_micros()
 }
 
 #[test]

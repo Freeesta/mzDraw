@@ -7,6 +7,9 @@ use mzdraw::route::{clip, piece_box, Rect};
 use mzdraw::{Document, Editor, Style};
 use serde_json::{json, Value};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 const EPS: f64 = 1e-9;
 const EPS_SAVED: f64 = 3e-4;
 
@@ -936,7 +939,7 @@ fn the_request_route_gives_the_same_bytes_as_the_native_ops_and_the_boxes_and_st
 #[test]
 fn two_hundred_nodes_in_time() {
     let (d, s) = (doc("big200"), style(&[]));
-    let t = std::time::Instant::now();
+    let t = timing::Watch::start();
     let lay = pathway::layout(&d, &s).unwrap();
     let ops = pathway::ops(&d, &s, &lay).unwrap();
     let ms = t.elapsed().as_secs_f64() * 1000.0;

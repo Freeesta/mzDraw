@@ -10,6 +10,9 @@ use mzdraw::Editor;
 use serde_json::{json, Value};
 use std::time::Instant;
 
+#[path = "support/timing.rs"]
+mod timing;
+
 const TP12: &str = include_str!("../../../tests/data/tp/tp12.csv");
 
 /// A stand-in for the engine: every structure weighs 100 and every adduct adds 1 (a made-up value; a charged structure is not asked).
@@ -444,19 +447,15 @@ fn big(n: usize, linked: bool) -> Editor {
     e
 }
 
-/// The best of `runs` builds of the table of `e`, with the layout of the pathway made before and outside the timing (the document and the
+/// The least CPU time of the thread over `runs` builds (after a warm-up) of the table of `e`, with the layout of the pathway made before and outside the timing (the document and the
 /// stand-in engine too): the work of `tptable` alone.
 fn best(e: &Editor, runs: usize) -> f64 {
     let order = mzdraw::tp_list::table_order(e.doc(), &e.style).unwrap();
-    (0..runs)
-        .map(|_| {
-            let t = Instant::now();
-            let table = tptable::build_with(e.doc(), order.as_ref(), e.measurer).unwrap();
-            let s = t.elapsed().as_secs_f64();
-            assert!(!table.rows.is_empty());
-            s
-        })
-        .fold(f64::MAX, f64::min)
+    timing::best_of(1, runs, || {
+        let table = tptable::build_with(e.doc(), order.as_ref(), e.measurer).unwrap();
+        assert!(!table.rows.is_empty());
+    })
+    .as_secs_f64()
 }
 
 #[test]
@@ -464,22 +463,22 @@ fn the_table_of_unlinked_structures_grows_linearly() {
     // 1000 structures against 250 (the cap): the work of this module alone (no pathway: no layout), the document and the stand-in engine
     // outside the timing. A scan of the atoms, the objects or the structures for each structure shows as a ratio far above 4.
     let (small, large) = (big(250, false), big(1000, false));
-    let (a, b) = (best(&small, 5), best(&large, 5));
+    let (a, b) = (best(&small, 7), best(&large, 7));
     println!(
         "250 structures {:.1} ms, 1000 structures {:.1} ms",
         a * 1e3,
         b * 1e3
     );
-    assert!(b < 6.0 * a + 0.002, "250: {a:.4} s, 1000: {b:.4} s");
+    assert!(b < 6.0 * a, "250: {a:.4} s, 1000: {b:.4} s");
 }
 
 #[test]
 fn the_table_of_a_pathway_grows_linearly() {
     // the pathway is laid out before the timing (that layout is tp-05's, with its own tests); 100 against 400 rows
     let (small, large) = (big(100, true), big(400, true));
-    let (a, b) = (best(&small, 5), best(&large, 5));
+    let (a, b) = (best(&small, 7), best(&large, 7));
     println!("100 linked {:.1} ms, 400 linked {:.1} ms", a * 1e3, b * 1e3);
-    assert!(b < 6.0 * a + 0.002, "100: {a:.4} s, 400: {b:.4} s");
+    assert!(b < 6.0 * a, "100: {a:.4} s, 400: {b:.4} s");
 }
 
 #[test]
