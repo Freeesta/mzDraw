@@ -471,6 +471,12 @@ pub fn style() -> String {
     with(|p| p.editor.settings_json())
 }
 
+/// The effective word of a setting that takes a word (`choices` of `settings_schema`): `right` for `pathway.dir` when the file says nothing.
+#[wasm_bindgen]
+pub fn choice(key: &str) -> String {
+    with(|p| p.editor.style.choice(key).unwrap_or_default().to_string())
+}
+
 /// The palettes laid out in a viewport of `w` x `h` pixels, from the sizes the page measured (`sizes`: a JSON list of
 /// `[id, width, height]`, or empty to keep the last ones). JSON as `Layout::arranged_json` writes it.
 #[wasm_bindgen]

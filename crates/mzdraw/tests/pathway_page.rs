@@ -179,7 +179,11 @@ fn the_two_words_of_the_layout_are_in_the_schema_and_set_the_layout() {
     // set to the default the settings file leaves the key out; a word that is not the default is written
     let mut e = Editor::default();
     assert!(!e.settings_json().contains("pathway.dir"));
+    assert_eq!(e.style.choice("pathway.dir"), Some("right"));
+    assert_eq!(e.style.choice("pathway.order"), Some("id"));
+    assert_eq!(e.style.choice("colour"), None);
     e.set("pathway.dir=down").unwrap();
+    assert_eq!(e.style.choice("pathway.dir"), Some("down"));
     assert!(e.settings_json().contains(r#""pathway.dir":"down""#));
     e.set("pathway.dir=right").unwrap();
     assert!(!e.settings_json().contains("pathway.dir"));

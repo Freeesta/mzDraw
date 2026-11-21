@@ -392,6 +392,15 @@ impl Style {
         Ok(())
     }
 
+    /// The effective word of a key of `CHOICES` (`pathway.dir`, `pathway.order`), the default when the file leaves it out; `None` for any other key.
+    pub fn choice(&self, key: &str) -> Option<&'static str> {
+        match key {
+            "pathway.dir" => Some(if self.pathway_down { "down" } else { "right" }),
+            "pathway.order" => Some(self.pathway_order.name()),
+            _ => None,
+        }
+    }
+
     /// A style from a preset name or from the text of a settings file (`{"format": "mzdraw-settings/1", "style": {...}}`; the
     /// field `preset` of `style` names the preset the other fields start from, default `mzlab`). The error is an i18n key.
     pub fn from_text(text: &str) -> Result<Style, &'static str> {

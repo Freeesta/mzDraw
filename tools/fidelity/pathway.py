@@ -2,11 +2,15 @@
 """Independent check of the pathway layout (tp-06): the same graphs go to Graphviz `dot -Grankdir=LR -Tjson`, a program that shares nothing
 with this repository, and the answers are compared with ours.
 
-  ranks      dot's rank of a node is the index of its x among the distinct x values of the node positions (rounded to 1 pt). For every
-             tree it must equal our layer. For the DAG the differences are listed, not failed: dot minimises the total edge length,
-             we use the longest path.
-  crossings  counted here, as pairwise proper intersections of the straight segments between node positions (dot's splines are not
-             used; two segments that share an end do not cross). For every tree our primary-edge count must be <= dot's.
+  ranks      the rank of a node is the index of its x among the distinct x values of the node positions, rounded to 1 pt. Ours is read
+             from OUR layout (the centres of the boxes of `boxes/1` after `pathway:tree`, at 30 pt per bond length), dot's from dot's
+             `pos`; for every tree the two must be equal. No topology is computed here to stand for our rank.
+  crossings  counted here, as pairwise proper intersections of the straight segments between node positions (ours: the real box
+             centres; dot's: its node positions; dot's splines are not used; segments that share an end do not cross). For every
+             tree (every edge is then a primary edge) our count must be <= dot's.
+  DAG        a graph in which a node has two parents is not a tree: its rank differences and crossing counts are listed, never counted
+             as a pass or a fail (dot minimises the total edge length, we use the longest path; our primary edges are not re-derived here).
+  control    the same comparison on the messy star BEFORE the layout must fail: it shows the check can.
 
 Our layout is the one of `pathway:tree` on each synthetic pathway of tests/data/pathways/ (read as `boxes/1` from the native replay;
 build it with `cargo build -p mzdraw --example replay`). `dot` is installed or fetched by the caller (`apt-get install graphviz`); no
@@ -27,10 +31,15 @@ NAMES = ["chain4", "star2", "star3", "star4", "star5", "star4_mz", "binary3", "u
          "mixed", "messy_star", "big200"]
 
 
-def ours(name):
-    """boxes/1 of the pathway after our layout."""
+PT = 30.0     # points per bond length of the default style
+
+
+def ours(name, laid=True):
+    """boxes/1 of the pathway after our layout (or before it, for the control)."""
     doc = open(os.path.join(ROOT, "tests", "data", "pathways", name + ".json")).read()
-    req = {"import": doc, "commands": [{"command": "pathway:tree"}], "out": "boxes"}
+    req = {"import": doc, "out": "boxes"}
+    if laid:
+        req["commands"] = [{"command": "pathway:tree"}]
     r = subprocess.run([REPLAY], input=json.dumps(req), capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError(name + ": " + r.stderr)
@@ -38,21 +47,10 @@ def ours(name):
 
 
 def graph(b):
-    """(node ids, edges as (from, to) with distinct ends, our layer of every node: the longest directed path from a root)."""
+    """(node ids, edges as (from, to) with distinct ends, whether the graph is a forest: no node has two parents)."""
     edges = sorted({(a["from"], a["to"]) for a in b["arrows"] if a["from"] and a["to"] and a["from"] != a["to"]})
     ids = sorted({v for e in edges for v in e})
-    parents = {v: [u for u, w in edges if w == v] for v in ids}
-    layer = {}
-
-    def of(v):
-        if v not in layer:
-            layer[v] = 0 if not parents[v] else 1 + max(of(u) for u in parents[v])
-        return layer[v]
-
-    sys.setrecursionlimit(10000)
-    for v in ids:
-        of(v)
-    return ids, edges, layer
+    return ids, edges, len({w for _, w in edges}) == len(edges)
 
 
 def dot_layout(ids, edges, box):
@@ -97,6 +95,21 @@ def crossings(edges, pos):
     return n
 
 
+def compare(name, laid=True):
+    """The comparison of one pathway: (row, node ids)."""
+    b = ours(name, laid)
+    box = {s["id"]: (s["x0"], s["y0"], s["x1"], s["y1"]) for s in b["structures"]}
+    ids, edges, forest = graph(b)
+    centre = {v: (PT * (box[v][0] + box[v][2]) / 2, PT * (box[v][1] + box[v][3]) / 2) for v in ids}
+    dpos = dot_layout(ids, edges, box)
+    orank, drank = ranks(centre), ranks(dpos)
+    differ = {v: [orank[v], drank[v]] for v in ids if orank[v] != drank[v]}
+    mine, theirs = crossings(edges, centre), crossings(edges, dpos)
+    return {"nodes": len(ids), "edges": len(edges), "kind": "tree" if forest else "dag", "ranks_equal": not differ,
+            "rank_differences": {str(v): d for v, d in sorted(differ.items())},
+            "crossings_ours": mine, "crossings_dot": theirs}
+
+
 def main():
     if shutil.which("dot") is None:
         print("skipped: dot not installed")
@@ -106,33 +119,35 @@ def main():
         return 0
     version = subprocess.run(["dot", "-V"], capture_output=True, text=True).stderr.strip()
     print(version)
-    failed, rows = 0, {}
+    failed, rows, trees = 0, {}, 0
     for name in NAMES:
-        b = ours(name)
-        box = {s["id"]: (s["x0"], s["y0"], s["x1"], s["y1"]) for s in b["structures"]}
-        ids, edges, layer = graph(b)
-        centre = {v: ((box[v][0] + box[v][2]) / 2, (box[v][1] + box[v][3]) / 2) for v in ids}
-        dpos = dot_layout(ids, edges, box)
-        drank = ranks(dpos)
-        differ = {v: [layer[v], drank[v]] for v in ids if layer[v] != drank[v]}
-        mine, theirs = crossings(edges, centre), crossings(edges, dpos)
-        tree = name != "dag"
-        ok = (not differ and mine <= theirs) if tree else True
-        failed += not ok
-        rows[name] = {"nodes": len(ids), "edges": len(edges), "kind": "tree" if tree else "dag", "ranks_equal": not differ,
-                      "rank_differences": {str(v): d for v, d in sorted(differ.items())},
-                      "crossings_ours": mine, "crossings_dot": theirs}
-        note = "" if tree else f"  (listed, not failed: {len(differ)} rank difference(s) {differ})"
-        print(f"{'ok  ' if ok else 'FAIL'} {name:15} nodes {len(ids):3} edges {len(edges):3}  ranks "
-              f"{'equal' if not differ else 'differ'}  crossings ours {mine} dot {theirs}{note}")
+        r = compare(name)
+        rows[name] = r
+        if r["kind"] == "tree":
+            trees += 1
+            ok = r["ranks_equal"] and r["crossings_ours"] <= r["crossings_dot"]
+            failed += not ok
+            verdict = "ok  " if ok else "FAIL"
+            note = ""
+        else:
+            verdict = "list"
+            note = f"  (DAG: listed, not counted; rank differences {r['rank_differences']})"
+        print(f"{verdict} {name:15} {r['kind']:4} nodes {r['nodes']:3} edges {r['edges']:3}  ranks "
+              f"{'equal' if r['ranks_equal'] else 'differ'}  crossings ours {r['crossings_ours']} dot {r['crossings_dot']}{note}")
+    c = compare("messy_star", laid=False)
+    caught = not c["ranks_equal"] or c["crossings_ours"] > c["crossings_dot"]
+    failed += not caught
+    print(f"{'ok  ' if caught else 'FAIL'} control: the messy star before the layout "
+          f"{'is told apart' if caught else 'passes (the check cannot fail)'} (ranks {'equal' if c['ranks_equal'] else 'differ'}, "
+          f"crossings ours {c['crossings_ours']} dot {c['crossings_dot']})")
     if WRITE:
         ref = {"format": "pathway-graphviz/1", "program": version, "date": datetime.date.today().isoformat(),
-               "invocation": "dot -Grankdir=LR -Tjson", "pathways": rows}
+               "invocation": "dot -Grankdir=LR -Tjson", "pathways": rows, "control_messy_star_unarranged": c}
         with open(REFERENCE, "w") as f:
             json.dump(ref, f, indent=1)
             f.write("\n")
         print("wrote", os.path.relpath(REFERENCE, ROOT))
-    print(f"{len(NAMES) - failed}/{len(NAMES)} pathways pass")
+    print(f"{trees - (failed - (not caught))}/{trees} trees pass, control {'caught' if caught else 'missed'}")
     return 1 if failed else 0
 
 

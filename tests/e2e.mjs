@@ -729,8 +729,6 @@ try {
   const PT = '[data-testid="d2-pathway-tree"]';
   const saved = (pg, what = "mzdraw") => pg.evaluate(`window.MZDRAW.save(${JSON.stringify(what)})`);
   const openDoc = async (pg, text, atoms) => { await pg.evaluate(t => /** @type {any} */ (window).MZDRAW.open(t), text); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms }); };
-  /** the live line the page shows after the layout: the catalog's text of the numbers the module gave */
-  const said = pg => pg.evaluate("(() => { const s = JSON.parse(window.MZDRAW.state()); return I18N.t(s.say.key, { what: s.say.what, ...s.say.params }); })()");
 
   await step("pathway: the button Arrange pathway lays the messy star out by mouse and by keyboard (the button, the context menu); the SVG equals the golden, one undo step, the line says what it did", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });

@@ -454,24 +454,24 @@ async function styles() {
   const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), note = $("d2-style-note"), NAME = NAMES.settings;
   const schema = JSON.parse(ed.settings_schema()), box = $("d2-style-fields");
   /** @type {Record<string, HTMLInputElement | HTMLSelectElement>} */ const inputs = {};
-  /** what the settings file leaves out because it is the default (the words of the schema) @type {Record<string, string>} */ const defaults = {};
+  /** the settings that take a word (the schema's `choices`): their value is asked of the module, which knows the default @type {Record<string, true>} */ const words = {};
   for (const name of schema.presets) { const o = document.createElement("option"); o.value = name; o.textContent = t(`draw2.style.${name}`); sel.append(o); }
   /** shows the style the module holds: the preset it was made from and every value */
   const show = () => {
     const style = JSON.parse(ed.style()).style;
     sel.value = style.preset; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
-    for (const [key, input] of Object.entries(inputs)) { input.value = String(style[key] ?? defaults[key]); input.removeAttribute("aria-invalid"); }
+    for (const [key, input] of Object.entries(inputs)) { input.value = key in words ? ed.choice(key) : String(style[key]); input.removeAttribute("aria-invalid"); }
   };
   /** one change asked of the module; a refusal is said in words, the field is marked and nothing changes */
   const ask = (/** @type {() => number} */ change, /** @type {string} */ said, /** @type {Element | null} */ field) => {
     try { after(change() | CHANGED); show(); note.textContent = said; $("d2-live").textContent = t("draw2.say.style", { what: sel.selectedOptions[0].textContent || "" }); keep(); }
     catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; field?.setAttribute("aria-invalid", "true"); }
   };
-  const row = (/** @type {string} */ key, /** @type {HTMLInputElement | HTMLSelectElement} */ input, /** @type {string} */ unit, /** @type {string} */ section = "style") => {
+  const row = (/** @type {string} */ key, /** @type {HTMLInputElement | HTMLSelectElement} */ input, /** @type {string} */ unit, /** @type {string} */ setting = `style.${key}`) => {
     const label = document.createElement("label"), name = document.createElement("span");
     label.className = "field"; name.textContent = t(`draw2.style.field.${key}`);
     input.id = `d2-style-${key}`; inputs[key] = input;
-    input.addEventListener("change", () => ask(() => ed.set(`${section}.${section === "style" ? key : key.slice(section.length + 1)}=${input.value}`), t("draw2.style.custom.note"), input));
+    input.addEventListener("change", () => ask(() => ed.set(`${setting}=${input.value}`), t("draw2.style.custom.note"), input));
     label.append(name, input, unit); box.append(label);
   };
   for (const f of schema.fields) {
@@ -483,8 +483,8 @@ async function styles() {
   for (const c of schema.choices) {
     const input = document.createElement("select");
     for (const v of c.values) { const o = document.createElement("option"); o.value = v; o.textContent = t(`draw2.style.choice.${c.key}.${v}`); input.append(o); }
-    defaults[c.key] = c.default;
-    row(c.key, input, "", c.key.split(".")[0]);
+    words[c.key] = true;
+    row(c.key, input, "", c.key);
   }
   const colour = document.createElement("select");
   for (const c of schema.colours) { const o = document.createElement("option"); o.value = c; o.textContent = t(`draw2.style.colour.${c}`); colour.append(o); }

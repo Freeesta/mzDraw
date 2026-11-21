@@ -121,5 +121,23 @@
    "crossings_ours": 0,
    "crossings_dot": 0
   }
+ },
+ "control_messy_star_unarranged": {
+  "nodes": 4,
+  "edges": 3,
+  "kind": "tree",
+  "ranks_equal": false,
+  "rank_differences": {
+   "6": [
+    2,
+    1
+   ],
+   "11": [
+    3,
+    1
+   ]
+  },
+  "crossings_ours": 0,
+  "crossings_dot": 0
  }
 }
