@@ -112,6 +112,22 @@
         "import": "[2H]C([2H])([2H])O.[Na+]",
         "values": true
       }
+    },
+    {
+      "name": "values: 200 atoms in one structure (has its mass)",
+      "out": "{\"format\":\"values/1\",\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":200,\"formula\":\"C200H402\",\"charge\":0,\"composition\":{\"C\":200,\"H\":402},\"mass\":\"2805.1457\",\"average\":\"2807.4160\",\"ionMz\":null,\"mz\":{\"[M+H]+\":\"2806.1529\",\"[M-H]-\":\"2804.1384\"},\"error\":null}],\"selection\":null}",
+      "request": {
+        "import": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        "values": true
+      }
+    },
+    {
+      "name": "values: 250 atoms in one structure (is a key and no number)",
+      "out": "{\"format\":\"values/1\",\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":250,\"formula\":\"C250H502\",\"charge\":0,\"composition\":{\"C\":250,\"H\":502},\"mass\":null,\"average\":null,\"ionMz\":null,\"mz\":{},\"error\":\"error.grafo.tooBig\"}],\"selection\":null}",
+      "request": {
+        "import": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        "values": true
+      }
     }
   ]
 }

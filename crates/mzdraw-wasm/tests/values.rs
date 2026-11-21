@@ -291,9 +291,9 @@ fn every_key_the_engine_can_refuse_with_has_a_text_in_the_catalog() {
     }
 }
 
-/// The best of three runs of `f`, in microseconds.
+/// The best of five runs of `f`, in microseconds.
 fn best(f: impl Fn()) -> u128 {
-    (0..3)
+    (0..5)
         .map(|_| {
             let t = std::time::Instant::now();
             f();
@@ -305,7 +305,9 @@ fn best(f: impl Fn()) -> u128 {
 
 #[test]
 fn the_glue_path_with_the_real_engine_scales_linearly_in_the_structures() {
-    // 25 structures against 100 (four times): the request is import, scan, one `sel` call per structure and the answer
+    // A sanity check of the glue path, not the proof of linearity: the real `sel` calls dominate the time here, and the scan mutations are
+    // caught by the unit tests of crates/mzdraw/tests/values.rs. 25 structures against 100 (four times): import, scan, one `sel` call per
+    // structure and the answer.
     let ask = |n: usize| json!({"import": vec!["CCO"; n].join("."), "values": true}).to_string();
     let (small, large) = (ask(25), ask(100));
     let run = |r: &str| {

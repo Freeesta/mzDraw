@@ -452,11 +452,16 @@ fn the_scan_the_captions_and_a_selection_scale_linearly() {
     // the sub-records of the structures, up to the cap of 5000 atoms (the stand-in engine: the glue path with the real engine is
     // timed in crates/mzdraw-wasm/tests/values.rs)
     let (small, large) = (grid(25, 50), grid(100, 50));
-    let measure = |d: &Document| values::scan(d).measure(&adducts, stand_in).unwrap();
+    // each timed run repeats the work 100 times, so that the small one takes milliseconds in a release build
+    let measure = |d: &Document| {
+        for _ in 0..100 {
+            drop(values::scan(d).measure(&adducts, stand_in).unwrap());
+        }
+    };
     assert_linear(
-        "sub-records of 25 structures of 50 atoms",
-        best(|| drop(measure(&small))),
-        best(|| drop(measure(&large))),
+        "sub-records of 25 structures of 50 atoms, 100 runs",
+        best(|| measure(&small)),
+        best(|| measure(&large)),
     );
 }
 
