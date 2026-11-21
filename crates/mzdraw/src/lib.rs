@@ -12,6 +12,7 @@ mod commands;
 pub mod conform;
 pub mod context;
 pub mod diff;
+pub mod digest;
 pub mod doc;
 pub mod editor;
 mod editor_edit;

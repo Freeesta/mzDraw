@@ -471,6 +471,7 @@ impl Editor {
             "settings" => self.settings_json(),
             "std" => crate::pathway::report_with(self.doc(), &self.style).to_json(),
             "boxes" => crate::pathway::boxes_json(self.doc(), &self.style),
+            "digest" => crate::digest::json(self.doc(), &self.style),
             "schema" => crate::schema::json(),
             _ => return Err("error.draw2.request"),
         })
