@@ -24,22 +24,56 @@ pub(crate) fn num(v: f32) -> String {
     }
 }
 
+/// The JSON text of the carried document as the content of an element. serde_json already writes the control characters as
+/// `\u00XX`; U+FFFE and U+FFFF, which XML 1.0 does not allow, are written the same way (JSON reads them back as the same
+/// character, so the document is not changed).
 fn escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
+        .replace('\u{fffe}', "\\ufffe")
+        .replace('\u{ffff}', "\\uffff")
 }
 
 /// The attributes of the root that name the picture for assistive technology (SVG 1.1 plus WAI-ARIA Graphics: the role, the
 /// two elements that label it, the language of their text).
-const ACCESS: &str = " role=\"img\" aria-labelledby=\"svg-title svg-desc\" xml:lang=\"en\"";
+fn access(id: &str) -> String {
+    format!(" role=\"img\" aria-labelledby=\"t-{id} d-{id}\" xml:lang=\"en\"")
+}
 
-/// The `title` and `desc` elements, first children of the root.
-fn alternative(title: &str, desc: &str) -> String {
-    format!(
-        "<title id=\"svg-title\">{}</title>\n<desc id=\"svg-desc\">{}</desc>\n",
-        escape(title),
-        escape(desc)
+/// A short deterministic name for the ids of the two elements: FNV-1a (32 bits) of the text alternative and the document, in
+/// hex, so two saved SVGs inlined in one page do not share ids unless they are the same drawing (then their texts are the same).
+fn short_hash(doc: &Document, title: &str, desc: &str) -> String {
+    let mut h: u32 = 0x811c_9dc5;
+    for b in title
+        .bytes()
+        .chain([0])
+        .chain(desc.bytes())
+        .chain([0])
+        .chain(doc.to_json().bytes())
+    {
+        h = (h ^ b as u32).wrapping_mul(0x0100_0193);
+    }
+    let mut s = String::new();
+    for i in (0..8).rev() {
+        s.push(char::from(
+            b"0123456789abcdef"[(h >> (4 * i) & 15) as usize],
+        ));
+    }
+    s
+}
+
+/// The `title` and `desc` elements, first children of the root, and the attributes of the root that point at them.
+fn alternative(doc: &Document) -> (String, String) {
+    let (title, desc) = crate::outline::alternative(doc);
+    let id = short_hash(doc, &title, &desc);
+    (
+        access(&id),
+        format!(
+            "<title id=\"t-{id}\">{}</title>\n<desc id=\"d-{id}\">{}</desc>\n",
+            crate::xml::escape(&title),
+            crate::xml::escape(&desc)
+        ),
     )
 }
 
@@ -86,10 +120,9 @@ pub fn to_svg_styled(doc: &Document, style: &Style) -> String {
 /// `to_svg_styled` with the width and the height of the drawing in points.
 pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
     let Some((x0, y0, mut x1, y1)) = doc.bounds() else {
-        let (t, d) = crate::outline::alternative(doc);
+        let (attrs, elements) = alternative(doc);
         let empty = format!(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"{ACCESS}>\n{}</svg>\n",
-            alternative(&t, &d)
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"{attrs}>\n{elements}</svg>\n"
         );
         return (empty, 1.0, 1.0);
     };
@@ -111,11 +144,11 @@ pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
     // the size as the file states it (two decimals)
     let size = ((w * 100.0).round() / 100.0, (h * 100.0).round() / 100.0);
     let (w, h) = (num(w as f32), num(h as f32));
+    let (attrs, elements) = alternative(doc);
     let mut s = format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}pt\" height=\"{h}pt\" viewBox=\"0 0 {w} {h}\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\"{ACCESS}>\n"
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}pt\" height=\"{h}pt\" viewBox=\"0 0 {w} {h}\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\"{attrs}>\n"
     );
-    let (t, d) = crate::outline::alternative(doc);
-    s.push_str(&alternative(&t, &d));
+    s.push_str(&elements);
     let d = &sc.data;
     let mut i = 0;
     while i < d.len() {
@@ -130,7 +163,7 @@ pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
             let anchor = if d[i + 6] == 0.0 { "middle" } else { "start" };
             s.push_str(&format!(
                 "<text x=\"{}\" y=\"{}\" font-size=\"{}\" fill=\"{}\" text-anchor=\"{anchor}\" dominant-baseline=\"central\">{}</text>\n",
-                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), PALETTE[d[i + 4] as usize % 10], escape(&sc.strings[d[i + 5] as usize])
+                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), PALETTE[d[i + 4] as usize % 10], crate::xml::escape(&sc.strings[d[i + 5] as usize])
             ));
             i += 7;
         } else if op == scene::TRI {

@@ -134,13 +134,14 @@ pub fn pieces(doc: &Document) -> Vec<Piece> {
 }
 
 /// The English words of the text alternative of a saved picture. A small fixed table: the file has no i18n layer.
-const WORDS: [&str; 6] = [
+const WORDS: [&str; 7] = [
     "Empty drawing",
     "and",
     "with a reaction arrow",
     "Reaction arrow",
     "Drawing",
     "level",
+    "Reaction scheme",
 ];
 
 /// The text alternative of a drawing, as `(title, desc)`: the title is the outline line (the Hill formulas of the structures
@@ -163,30 +164,28 @@ pub fn alternative(doc: &Document) -> (String, String) {
         }
         title.push_str(&p.formula);
     }
+    // one sentence: the structures, then the arrow; with an arrow it is a scheme
     let mut desc = String::new();
     for (i, p) in pieces.iter().enumerate() {
         if i > 0 {
-            desc.push(' ');
+            desc.push_str(if i + 1 == pieces.len() { " and " } else { ", " });
         }
         desc.push_str(&p.formula);
         if let Some(a) = p.ann.as_ref().filter(|a| !a.level.is_empty()) {
             desc.push_str(&format!(" ({} {})", WORDS[5], a.level));
         }
-        desc.push('.');
     }
     if arrow {
         if pieces.is_empty() {
             title.push_str(WORDS[3]);
             desc.push_str(WORDS[3]);
-            desc.push('.');
         } else {
             title.push(' ');
             title.push_str(WORDS[2]);
-            desc.push(' ');
-            desc.push_str(WORDS[2]);
-            desc.push('.');
+            desc = format!("{}: {desc}, {}", WORDS[6], WORDS[2]);
         }
     }
+    desc.push('.');
     (title, desc)
 }
 
