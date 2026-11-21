@@ -364,6 +364,7 @@ I18N.add("en", {
   "draw2.colour.brown": "Brown",
   "draw2.colour.grey": "Grey",
   "draw2.colour.done": "Colour set: {name}.",
+  "draw2.colour.same": "Unchanged: the selection already has this colour ({name}).",
   "draw2.colour.current": "In use on the selection: {name}.",
   "draw2.colour.mixed": "The selection has more than one colour.",
   "draw2.colour.customName": "custom {hex}",

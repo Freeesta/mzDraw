@@ -105,7 +105,7 @@ function colourField() {
   const rows = [{ key: "auto", hex: "" }, ...JSON.parse(ed.colour_palette())];
   const choose = (/** @type {string} */ hex, /** @type {string} */ name) => {
     const f = after(ed.set_colour(hex)), st = JSON.parse(ed.state());
-    note.textContent = f & CHANGED ? t("draw2.colour.done", { name }) : st.error ? t(st.error) : t("draw2.colour.done", { name });
+    note.textContent = f & CHANGED ? t("draw2.colour.done", { name }) : st.error ? t(st.error) : t("draw2.colour.same", { name });
     $("d2-live").textContent = note.textContent;
     if (st.error === "error.draw2.colour") input.setAttribute("aria-invalid", "true"); else input.removeAttribute("aria-invalid");
     return f;

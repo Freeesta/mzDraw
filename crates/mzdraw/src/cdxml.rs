@@ -54,7 +54,9 @@ fn colour_index(e: &Element) -> Option<usize> {
     e.attr("color")?.parse::<usize>().ok().filter(|i| *i >= 2)
 }
 
-/// The colours of the `colortable` of the root, as canonical `#rrggbb` (an entry that is not three numbers of 0..1 is empty).
+/// The colours of the `colortable` of the root as written: entry `i` is the colour `i` of the file (a file lists white and black as
+/// entries 0 and 1, so the first colour of a drawing is entry 2), as canonical `#rrggbb` (an entry that is not three numbers of 0..1
+/// is empty).
 fn colour_table(root: &Element) -> Vec<String> {
     let Some(t) = root.each("colortable").next() else {
         return Vec::new();
@@ -282,11 +284,7 @@ pub(crate) fn from_tree(
     }
     // the colours: the atoms are in file order; the bonds only when the reader kept every one of them (it may refuse some)
     let table = colour_table(root);
-    let hex = |c: &Option<usize>| {
-        c.and_then(|i| table.get(i - 2))
-            .cloned()
-            .unwrap_or_default()
-    };
+    let hex = |c: &Option<usize>| c.and_then(|i| table.get(i)).cloned().unwrap_or_default();
     for (a, c) in d.atoms.iter_mut().zip(&r.atom_col) {
         crate::ink::put(&mut a.more, &hex(c));
     }
@@ -318,7 +316,8 @@ impl Document {
                 xml::escape(s)
             )
         };
-        // the colours of the atoms and bonds, in order of first use; the table starts at index 2 (0 and 1 are black and white)
+        // the colours of the atoms and bonds, in order of first use; the table lists white and black as entries 0 and 1 (as the files of
+        // tests/data do), so the first of these is entry 2
         let mut table: Vec<String> = Vec::new();
         for c in (self.atoms.iter().map(|a| a.col())).chain(self.bonds.iter().map(|b| b.col())) {
             if !c.is_empty() && !table.contains(&c) {
@@ -350,7 +349,7 @@ impl Document {
                         format!("<color r=\"{}\" g=\"{}\" b=\"{}\"/>", v(1), v(3), v(5))
                     })
                     .collect();
-                format!("<colortable>{rows}</colortable>\n")
+                format!("<colortable><color r=\"1\" g=\"1\" b=\"1\"/><color r=\"0\" g=\"0\" b=\"0\"/>{rows}</colortable>\n")
             }
         );
         let mut id = 0;

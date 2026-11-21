@@ -178,8 +178,10 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if !a.ann().is_empty() {
             push("annotation", a.ann(), a.id, 0, 0);
         }
-        for (key, _) in (a.more.iter()).filter(|m| !["data", "ann", "col"].contains(&m.0.as_str()))
-        {
+        // `col` is not unknown when it is a colour (it has its own row); a value that is not one (a newer file) is
+        for (key, _) in (a.more.iter()).filter(|m| {
+            !["data", "ann"].contains(&m.0.as_str()) && (m.0 != "col" || a.col().is_empty())
+        }) {
             push("unknown", format!("atom.{key}"), a.id, 0, 0);
         }
     }
@@ -196,7 +198,7 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if !b.col().is_empty() {
             push("colour", b.col(), 0, b.id, 0);
         }
-        for (key, _) in b.more.iter().filter(|m| m.0 != "col") {
+        for (key, _) in (b.more.iter()).filter(|m| m.0 != "col" || b.col().is_empty()) {
             push("unknown", format!("bond.{key}"), 0, b.id, 0);
         }
     }
@@ -218,7 +220,7 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if !o.col().is_empty() {
             push("colour.object", o.col(), 0, 0, o.id);
         }
-        for (key, _) in o.more.iter().filter(|m| m.0 != "col") {
+        for (key, _) in (o.more.iter()).filter(|m| m.0 != "col" || o.col().is_empty()) {
             push("unknown", format!("object.{key}"), 0, 0, o.id);
         }
     }

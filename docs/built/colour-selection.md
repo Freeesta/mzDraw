@@ -20,7 +20,7 @@ Select atoms and bonds (click, rubber band, select all, the keyboard focus), cho
 | format | colour |
 |---|---|
 | `mzdraw` document, SVG (carries the document), PNG, PDF | carried (PDF as RGB operators) |
-| CDXML | atoms and bonds: written as `colortable` and the `color` attribute of the `n` and `b` elements, and read back (the colour of an object is not written: reported, row `colour.object`); the table starts at index 2 (0 and 1 are black and white), as the public CDX pages say: **not checked against a file of ChemDraw** |
+| CDXML | atoms and bonds: written as a `colortable` that lists white and black as entries 0 and 1 (as `tests/data/foreign.cdxml` does) and then the colours used, and the `color` attribute of the `n` and `b` elements (the entry index, 2 or more); read back by entry index as written. **Not verified against a ChemDraw file**; the colour of an object is not written (reported, row `colour.object`) |
 | molfile, V3000, SMILES, SDF, KET, CML, RXN, `trasf` | not carried: the save says it (`lost`: key `draw2.export.coloursLost` with the count; the page note; the replay report; `loss:FORMAT` lists the coloured atoms and bonds, row `colour` of the loss table) |
 
 The binary CDX reader ignores colours as before. MRV is not written by this program.

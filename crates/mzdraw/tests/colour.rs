@@ -262,7 +262,7 @@ fn pdf_and_cdxml_carry_the_colour_and_the_other_files_say_what_they_left_out() {
     // CDXML: a colour table and the colour of the nodes and bonds, read back
     let x = e.save("cdxml").unwrap();
     assert!(
-        x.contains("<colortable><color r=\"0.816\" g=\"0\" b=\"0\"/></colortable>"),
+        x.contains("<colortable><color r=\"1\" g=\"1\" b=\"1\"/><color r=\"0\" g=\"0\" b=\"0\"/><color r=\"0.816\" g=\"0\" b=\"0\"/></colortable>"),
         "{x}"
     );
     assert_eq!(
@@ -444,7 +444,7 @@ fn colouring_grows_with_the_size_not_with_its_square() {
         let d = chain(n);
         let atoms: Vec<u32> = d.atoms.iter().map(|a| a.id).collect();
         let bonds: Vec<u32> = d.bonds.iter().map(|b| b.id).collect();
-        (0..3)
+        (0..5)
             .map(|_| {
                 let mut s = Session::new(d.clone());
                 let t = std::time::Instant::now();
@@ -459,7 +459,7 @@ fn colouring_grows_with_the_size_not_with_its_square() {
     let (small, big) = (cost(20_000), cost(40_000));
     eprintln!("20,000 atoms {small:?}, 40,000 atoms {big:?}");
     assert!(
-        big.as_secs_f64() < 3.0 * small.as_secs_f64() + 0.02,
+        big.as_secs_f64() < 3.0 * small.as_secs_f64(),
         "20,000 atoms {small:?}, 40,000 atoms {big:?}"
     );
 }
@@ -576,4 +576,105 @@ fn a_colour_field_of_a_newer_file_is_kept_and_never_an_error() {
         assert_eq!(d.object(8).unwrap().col(), "");
         assert!(d.to_json().contains(&format!(r#""col":{odd}"#)), "{odd}");
     }
+}
+
+#[test]
+fn cdxml_lists_white_and_black_first_and_reads_the_table_as_written() {
+    let mut e = Editor::default();
+    e.open(DOC).unwrap();
+    e.over.sel_atoms = vec![3];
+    e.colour("#d00000");
+    let x = e.save("cdxml").unwrap();
+    // entries 0 and 1 are white and black, as in tests/data/foreign.cdxml; the first colour of the drawing is entry 2
+    assert!(x.contains(r#"<colortable><color r="1" g="1" b="1"/><color r="0" g="0" b="0"/><color r="0.816" g="0" b="0"/></colortable>"#), "{x}");
+    assert!(x.contains(r#"color="2""#));
+    // a file of another program, with its own table: entry 2 is its first colour, entry 0 and 1 are not colours of the drawing
+    let foreign = r#"<?xml version="1.0" encoding="UTF-8" ?>
+<CDXML BondLength="30"><colortable><color r="1" g="1" b="1"/><color r="0" g="0" b="0"/><color r="0" g="0" b="1"/><color r="0" g="1" b="0"/></colortable>
+<page><fragment id="1"><n id="2" p="30 30" color="3"/><n id="3" p="60 30" color="2"/><n id="4" p="90 30" color="1"/><n id="5" p="120 30" color="0"/><n id="6" p="150 30" color="9"/>
+<b id="7" B="2" E="3" color="2"/><b id="8" B="3" E="4"/></fragment></page></CDXML>"#;
+    let mut back = Editor::default();
+    back.import(foreign).unwrap();
+    let cols: Vec<String> = back.doc().atoms.iter().map(|a| a.col()).collect();
+    assert_eq!(
+        cols,
+        ["#00ff00", "#0000ff", "", "", ""],
+        "white and black are the default ink; an entry that is missing is automatic"
+    );
+    assert_eq!(back.doc().bonds[0].col(), "#0000ff");
+}
+
+#[test]
+fn a_value_that_is_not_a_colour_is_listed_as_lost_by_the_formats_without_a_place_for_it() {
+    for odd in [r#""rgba(1,2,3,1)""#, r#"{"r":1}"#, r#""red""#] {
+        let text = DOC
+            .replacen(
+                r#""id":1,"el":"C""#,
+                &format!(r#""id":1,"col":{odd},"el":"C""#),
+                1,
+            )
+            .replacen(r#""id":5,"#, &format!(r#""id":5,"col":{odd},"#), 1);
+        let d = Document::from_json(&text).unwrap();
+        let said = mzdraw::loss::loss(&d, "molfile").unwrap();
+        let unknown: Vec<(&[u32], &[u32])> = (said.iter())
+            .filter(|l| l.what == "unknown")
+            .map(|l| (&l.atoms[..], &l.bonds[..]))
+            .collect();
+        assert_eq!(
+            unknown,
+            [(&[1][..], &[][..]), (&[][..], &[5][..])],
+            "{odd}: {said:?}"
+        );
+        assert!(!said.iter().any(|l| l.what == "colour"));
+    }
+    // a colour has its own row and is not listed twice
+    let mut s = session();
+    s.run(&[colour(&[1], &[], "#d00000")]).unwrap();
+    let said = mzdraw::loss::loss(&s.doc, "molfile").unwrap();
+    assert!(said.iter().any(|l| l.what == "colour") && !said.iter().any(|l| l.what == "unknown"));
+}
+
+#[test]
+fn every_text_of_the_colour_picker_exists_in_the_catalog() {
+    let lang = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/lang/mzdraw.js"),
+    )
+    .unwrap();
+    let has = |key: &str| lang.contains(&format!("\"{key}\":"));
+    let mut keys: Vec<String> = [
+        "draw2.tool.colour",
+        "draw2.tool.colour.title",
+        "draw2.fly.colour",
+        "draw2.say.coloured",
+        "draw2.colour.list",
+        "draw2.colour.custom",
+        "draw2.colour.hex.title",
+        "draw2.colour.set",
+        "draw2.colour.set.title",
+        "draw2.colour.auto",
+        "draw2.colour.auto.title",
+        "draw2.colour.done",
+        "draw2.colour.same",
+        "draw2.colour.title",
+        "draw2.ctx.edit.colour",
+        "draw2.ctx.colour.auto",
+        "draw2.ctx.colour.custom",
+        "draw2.ctx.say.colour",
+        "error.draw2.colour",
+        "error.draw2.colourNone",
+        "draw2.export.coloursLost",
+    ]
+    .map(String::from)
+    .to_vec();
+    for (key, name, _) in mzdraw::ink::PALETTE {
+        keys.push(format!("draw2.colour.{key}"));
+        keys.push(format!("draw2.ctx.colour.{key}"));
+        // the English text is the module's own name
+        assert!(
+            lang.contains(&format!("\"draw2.colour.{key}\": \"{name}\"")),
+            "{key}"
+        );
+    }
+    let missing: Vec<&String> = keys.iter().filter(|k| !has(k)).collect();
+    assert!(missing.is_empty(), "{missing:?}");
 }
