@@ -1,12 +1,16 @@
-// mzDraw page: forwards pointer, wheel and key events to the editor in the mzdraw .wasm and paints the display list it returns.
+// The page: forwards pointer, wheel and key events to the editor in the mzdraw .wasm and paints the display list it returns.
 // No chemistry and no decision here: what a click does is decided in Rust (crates/mzdraw).
+
+import { build, layout, show, open, PALETTES } from "./palettes.js";
+import { NAMES } from "./names.js";
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
 const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64;
-// toolbar: [command or tool name, key of the short label, key of the tooltip]; "|" is a separator
-const TOOLS = ["select", "move-here", "erase", "|", "bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
-  "ring:6a", "ring:6", "ring:5", "|", "label", "|", "arrow", "plus", "text", "|", "charge:+", "charge:-", "|", "undo", "redo", "|", "copy", "cut", "paste", "duplicate", "|", "rotate-l", "rotate-r", "flip-h", "flip-v", "|", "zoom-in", "zoom-out", "fit", "|", "clear"];
+// what each save format is called when downloaded: file name and media type (png is drawn by the page, savePng)
+const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["drawing.mol", "chemical/x-mdl-molfile"], "molfile-v3000": ["drawing-v3000.mol", "chemical/x-mdl-molfile"],
+  sdf: ["drawing.sdf", "chemical/x-mdl-sdfile"], smiles: ["drawing.smi", "chemical/x-daylight-smiles"], ket: ["drawing.ket", "application/json"], cdxml: ["drawing.cdxml", "chemical/x-cdxml"],
+  cml: ["drawing.cml", "chemical/x-cml"], rxn: ["drawing.rxn", "chemical/x-mdl-rxnfile"], svg: ["drawing.svg", "image/svg+xml"], mzdraw: [NAMES.doc, "application/json"], log: ["drawing.log.json", "application/json"] });
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus"];
 
 /** @type {any} */ let ed = null;
@@ -15,7 +19,7 @@ const cv = /** @type {HTMLCanvasElement} */ ($("d2-canvas")), g = /** @type {Can
 async function load() {
   const mod = await import("./pkg/mzdraw_wasm.js");
   await mod.default();
-  if (mod.version() !== "mzdraw/1") throw new Error("version");
+  if (mod.version() !== NAMES.version) throw new Error("version");
   return mod;
 }
 
@@ -33,6 +37,14 @@ function paint() {
     else if (op === 6) { g.fillStyle = col[d[i + 7]]; g.beginPath(); g.moveTo(d[i + 1], d[i + 2]); g.lineTo(d[i + 3], d[i + 4]); g.lineTo(d[i + 5], d[i + 6]); g.closePath(); g.fill(); i += 8; }
     else { g.beginPath(); g.arc(d[i + 1], d[i + 2], d[i + 3], 0, 2 * Math.PI); if (op === 4) { g.fillStyle = col[d[i + 4]]; g.fill(); } else { g.strokeStyle = col[d[i + 4]]; g.lineWidth = 2; g.stroke(); } i += 5; }
   }
+}
+
+/** the canvas takes the area the palettes leave free @param {number[]} a [x, y, width, height] */
+function place(a) {
+  const s = $("d2-stage").style, [x, y, w, h] = a.map(v => v + "px");
+  if (s.left === x && s.top === y && s.width === w && s.height === h) return;
+  Object.assign(s, { left: x, top: y, width: w, height: h });
+  size();
 }
 
 function size() {
@@ -118,7 +130,8 @@ function warningText(w) {
 
 function refresh() {
   const st = JSON.parse(ed.state());
-  for (const b of $("d2-tools").querySelectorAll("button")) {
+  show(st);
+  for (const b of document.querySelectorAll("button[data-cmd]")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
     if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
     if (c === "move-here") b.setAttribute("aria-pressed", String(st.moveHere));
@@ -135,7 +148,7 @@ function refresh() {
   if (!st.outline.length) { const li = document.createElement("li"); li.textContent = t("draw2.outline.empty"); $("d2-outline").append(li); }
   dataFields(st.outline); annFields(st.outline);
   $("d2-focus").textContent = st.focus ? focusText(st.focus) : "";
-  for (const [id, kind] of [["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
+  for (const [id, kind] of [["d2-element", "atom:"], ["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
     const input = /** @type {HTMLInputElement} */ ($(id)), on = st.tool.startsWith(kind);
     input.classList.toggle("on", on);
     // the field shows the tool: what it holds when another tool is chosen is taken away (a text still being typed is left, a
@@ -177,6 +190,7 @@ function after(f) {
   if (f & REPAINT) paint();
   if (f & (CHANGED | TOOL)) refresh();
   if (f & CHANGED) autosave.touch();
+  if (f & PALETTES) { layout(); keep(); }
   if (f & FOCUS) { refresh(); const st = JSON.parse(ed.state()); $("d2-live").textContent = st.focus ? focusText(st.focus) : t("draw2.focus.none"); }
   return f;
 }
@@ -185,7 +199,7 @@ function after(f) {
 // on the next visit. What is worth offering and what a saved text holds is decided in Rust (saved_summary, open). While an offer
 // waits for its answer nothing is written, so the saved drawing cannot be lost to a stray click. Without OPFS there is no autosave.
 const autosave = (() => {
-  const NAME = "mzdraw-autosave.json";
+  const NAME = NAMES.autosave;
   let timer = 0, last = "", paused = false;
   const file = async (/** @type {boolean} */ create) => (await (await navigator.storage.getDirectory()).getFileHandle(NAME, { create }));
   const mark = (/** @type {string} */ k, /** @type {string} */ v) => { document.documentElement.dataset[k] = v; };
@@ -239,7 +253,7 @@ function run(c) {
 }
 
 // The system clipboard: plain text is a molfile (for other programs), our own type is the document (nothing lost between two mzDraw pages).
-const CLIP = "application/x-mzdraw+json";
+const CLIP = NAMES.clip;
 function clipboardEvents() {
   const here = () => document.activeElement === cv;
   const put = (/** @type {ClipboardEvent} */ e, /** @type {string} */ c) => {
@@ -258,12 +272,13 @@ function clipboardEvents() {
   });
 }
 
-/** a toolbar field that picks a tool with an argument: the label field (an abbreviation or an R group, with its list) and the text field
- * (a line of text to place, or to set on an arrow); Enter or a choice picks the tool @param {"label" | "text"} kind */
+/** a flyout field that picks a tool with an argument: the element field (any symbol), the label field (an abbreviation or an R group,
+ * with its list) and the text field (a line of text to place, or to set on an arrow); Enter or a choice picks the tool; the module
+ * judges what is typed @param {string} kind */
 function field(kind) {
   const box = document.createElement("label"), input = document.createElement("input"), out = [box];
   box.className = "field"; box.append(t(`draw2.tool.${kind}`) + " ", input);
-  input.id = kind === "label" ? "d2-label" : "d2-text-tool"; input.type = "text"; input.size = kind === "label" ? 7 : 12; input.autocomplete = "off"; input.spellcheck = false; input.maxLength = 200;
+  input.id = { atom: "d2-element", label: "d2-label", text: "d2-text-tool" }[kind] || ""; input.type = "text"; input.size = kind === "text" ? 12 : 7; input.autocomplete = "off"; input.spellcheck = false; input.maxLength = kind === "atom" ? 3 : 200;
   input.title = t(`draw2.tool.${kind}.title`); input.placeholder = t(`draw2.tool.${kind}.hint`);
   if (kind === "label") {
     const list = document.createElement("datalist");
@@ -272,9 +287,9 @@ function field(kind) {
     out.push(list);
   }
   const pick = () => {
-    const v = kind === "label" ? input.value.trim() : input.value;
+    const v = kind === "text" ? input.value : input.value.trim();
     if (!v.trim()) return;
-    if (after(ed.command(kind + ":" + v))) { input.removeAttribute("aria-invalid"); $("d2-live").textContent = t(`draw2.say.${kind}Tool`, { what: v }); cv.focus({ preventScroll: true }); }
+    if (after(ed.command(kind + ":" + v))) { input.removeAttribute("aria-invalid"); $("d2-live").textContent = t(`draw2.say.${kind}Tool`, { what: v }); open(input.closest(".fly")?.getAttribute("data-fly") || "", false); cv.focus({ preventScroll: true }); }
     // a refused entry stays to be corrected, marked as not valid and selected: it is never shown as if it were the tool
     else { input.setAttribute("aria-invalid", "true"); input.select(); $("d2-live").textContent = t(`error.draw2.${kind}`); }
   };
@@ -282,21 +297,6 @@ function field(kind) {
   input.addEventListener("change", pick);
   input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); pick(); } else if (e.key === "Escape") cv.focus({ preventScroll: true }); });
   return out;
-}
-
-function toolbar() {
-  const bar = $("d2-tools");
-  for (const c of TOOLS) {
-    if (c === "|") { const s = document.createElement("span"); s.className = "sep"; s.setAttribute("role", "separator"); bar.append(s); continue; }
-    if (c === "label" || c === "text") { bar.append(...field(c)); continue; }
-    const b = document.createElement("button"), k = c.replace(":", ".").replace("+", "plus").replace("charge.-", "charge.minus").replace("zoom-in", "zoomIn").replace("zoom-out", "zoomOut");
-    b.type = "button"; b.dataset.cmd = c; b.dataset.testid = "d2-" + c;
-    b.textContent = c.startsWith("atom:") ? c.slice(5) : t(`draw2.tool.${k}`);
-    b.title = t(`draw2.tool.${k}.title`); b.setAttribute("aria-label", b.title);
-    // a pointer click gives the keyboard back to the canvas (shortcuts keep working); a keyboard activation stays on the button
-    b.addEventListener("click", e => { run(c); if (e.detail) cv.focus({ preventScroll: true }); });
-    bar.append(b);
-  }
 }
 
 // bit 8: Alt (Option); bit 4: the eraser end or eraser button of a pen (button 5, buttons bit 32)
@@ -329,9 +329,9 @@ function events() {
   cv.addEventListener("keydown", e => {
     const f = ed.key(e.key, mods(e), e.timeStamp);
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
-    if (f & (ASK_LABEL | ASK_TEXT)) { const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
+    if (f & (ASK_LABEL | ASK_TEXT)) { open(f & ASK_LABEL ? "charges" : "objects", true); const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
   });
-  addEventListener("resize", size);
+  addEventListener("resize", () => layout());
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
 }
 
@@ -345,10 +345,16 @@ function add(text) {
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
+/** one click on Save: the default format of the settings (`export.default`) @returns {void | Promise<void>} */
+function saveDefault() {
+  const what = JSON.parse(ed.export_settings()).default;
+  return what === "png" ? savePng() : save(what, ...FILES[what]);
+}
+
 /** downloads a text as a file @param {string} what @param {string} name @param {string} type */
 function save(what, name, type) {
   const note = $("d2-ex-note"); note.textContent = "";
-  try { download(ed.save(what), name, type); } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
+  try { download(ed.save(what), name, type); open("saveas", false); } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
 /** @param {BlobPart} data @param {string} name @param {string} type */
@@ -369,25 +375,32 @@ async function savePng() {
     x.fillStyle = plan.paper; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
     URL.revokeObjectURL(url);
     const blob = /** @type {Blob} */ (await new Promise(ok => c.toBlob(ok, "image/png")));
-    download(ed.png_finish(new Uint8Array(await blob.arrayBuffer())), "drawing.png", "image/png");
+    download(ed.png_finish(new Uint8Array(await blob.arrayBuffer())), "drawing.png", "image/png"); open("saveas", false);
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
 /** the style: the presets and the fields the module's schema names; a choice changes the screen and the saved pictures, not the
  * document. The settings file the module writes for the style is kept in the browser (OPFS) and given back to the module on the
  * next visit; it can be saved as a file and a settings file can be opened. The module judges every value and every file. */
+/** keeps the settings file the module writes (the style, the layout of the palettes, the export defaults) in the browser (OPFS),
+ * half a second after the last change; without storage they last for this visit */
+let keeping = 0;
+function keep() {
+  clearTimeout(keeping);
+  keeping = setTimeout(async () => {
+    try {
+      const w = await (await (await navigator.storage.getDirectory()).getFileHandle(NAMES.settings, { create: true })).createWritable();
+      await w.write(ed.style()); await w.close();
+      document.documentElement.dataset.d2Style = String(Number(document.documentElement.dataset.d2Style || 0) + 1);
+    } catch { /* no storage: the settings last for this visit */ }
+  }, 500);
+}
+
 async function styles() {
-  const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), note = $("d2-style-note"), NAME = "mzdraw-settings.json";
+  const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), note = $("d2-style-note"), NAME = NAMES.settings;
   const schema = JSON.parse(ed.settings_schema()), box = $("d2-style-fields");
   /** @type {Record<string, HTMLInputElement | HTMLSelectElement>} */ const inputs = {};
   for (const name of schema.presets) { const o = document.createElement("option"); o.value = name; o.textContent = t(`draw2.style.${name}`); sel.append(o); }
-  const keep = async () => {
-    try {
-      const w = await (await (await navigator.storage.getDirectory()).getFileHandle(NAME, { create: true })).createWritable();
-      await w.write(ed.style()); await w.close();
-      document.documentElement.dataset.d2Style = String(Number(document.documentElement.dataset.d2Style || 0) + 1);
-    } catch { /* no storage: the style lasts for this visit */ }
-  };
   /** shows the style the module holds: the preset it was made from and every value */
   const show = () => {
     const style = JSON.parse(ed.style()).style;
@@ -415,7 +428,7 @@ async function styles() {
   for (const c of schema.colours) { const o = document.createElement("option"); o.value = c; o.textContent = t(`draw2.style.colour.${c}`); colour.append(o); }
   row("colour", colour, "");
   sel.addEventListener("change", () => ask(() => ed.set_style(sel.value), t(`draw2.style.${sel.value}.note`), null));
-  $("d2-style-save").addEventListener("click", () => download(ed.style(), "mzdraw-settings.json", "application/json"));
+  $("d2-style-save").addEventListener("click", () => download(ed.style(), NAMES.settings, "application/json"));
   $("d2-style-open").addEventListener("click", () => $("d2-style-file").click());
   $("d2-style-file").addEventListener("change", async e => {
     const f = /** @type {HTMLInputElement} */ (e.target).files?.[0];
@@ -437,25 +450,18 @@ function panels() {
   $("d2-add").addEventListener("click", () => add(/** @type {HTMLTextAreaElement} */ ($("d2-text")).value));
   $("d2-open").addEventListener("click", () => $("d2-file").click());
   $("d2-file").addEventListener("change", async e => { const f = /** @type {HTMLInputElement} */ (e.target).files?.[0]; if (f) add(new Uint8Array(await f.arrayBuffer())); });
-  $("d2-ex-molfile").addEventListener("click", () => save("molfile", "drawing.mol", "chemical/x-mdl-molfile"));
-  $("d2-ex-v3000").addEventListener("click", () => save("molfile-v3000", "drawing-v3000.mol", "chemical/x-mdl-molfile"));
-  $("d2-ex-sdf").addEventListener("click", () => save("sdf", "drawing.sdf", "chemical/x-mdl-sdfile"));
-  $("d2-ex-smiles").addEventListener("click", () => save("smiles", "drawing.smi", "chemical/x-daylight-smiles"));
-  $("d2-ex-ket").addEventListener("click", () => save("ket", "drawing.ket", "application/json"));
-  $("d2-ex-cdxml").addEventListener("click", () => save("cdxml", "drawing.cdxml", "chemical/x-cdxml"));
-  $("d2-ex-cml").addEventListener("click", () => save("cml", "drawing.cml", "chemical/x-cml"));
-  $("d2-ex-rxn").addEventListener("click", () => save("rxn", "drawing.rxn", "chemical/x-mdl-rxnfile"));
+  for (const [id, what] of [["molfile", "molfile"], ["v3000", "molfile-v3000"], ["sdf", "sdf"], ["smiles", "smiles"], ["ket", "ket"], ["cdxml", "cdxml"], ["cml", "cml"], ["rxn", "rxn"], ["svg", "svg"], ["mzdraw", "mzdraw"]])
+    $(`d2-ex-${id}`).addEventListener("click", () => save(what, ...FILES[what]));
   $("d2-ex-png").addEventListener("click", savePng);
-  $("d2-ex-svg").addEventListener("click", () => save("svg", "drawing.svg", "image/svg+xml"));
-  $("d2-ex-mzdraw").addEventListener("click", () => save("mzdraw", "drawing.mzdraw.json", "application/json"));
 }
 
 I.apply(document);
 document.title = t("draw2.name");
 try {
   ed = await load();
-  /** @type {any} */ (window).MZDRAW = ed;
-  toolbar(); events(); clipboardEvents(); panels(); await styles(); size(); refresh();
+  /** @type {any} */ (window)[NAMES.global] = ed;
+  build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
+  events(); clipboardEvents(); panels(); await styles(); layout(); refresh();
   document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });
   await autosave.offer();
   document.documentElement.dataset.d2Ready = "1";
