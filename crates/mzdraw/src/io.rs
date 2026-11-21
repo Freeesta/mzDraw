@@ -17,7 +17,7 @@ pub(crate) const R_STAND_IN: &str = "He";
 /// What an import read, and what it could not keep (the page says so: nothing is dropped in silence).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Imported {
-    /// `mzdraw`, `svg` or `png` (a picture carrying its document), `ket`, `cdxml`, `cml` (CML or a Marvin document), `rxn` (a reaction file or an RD file), `molfile` or `smiles`.
+    /// `mzdraw`, `svg` or `png` (a picture carrying its document), `ket`, `cdxml`, `cdx` (binary CDX), `cml` (CML or a Marvin document), `rxn` (a reaction file or an RD file), `molfile` or `smiles`.
     pub format: &'static str,
     /// The positions are placeholders (the text had no coordinates).
     pub placeholder: bool,
@@ -383,7 +383,8 @@ pub fn saved_summary(text: &str) -> Option<(usize, usize, usize)> {
     (!d.is_empty()).then_some((d.atoms.len(), d.bonds.len(), d.objects.len()))
 }
 
-/// `import` for the bytes of a file: a PNG saved by mzDraw gives the document it carries, anything else is read as text.
+/// `import` for the bytes of a file: a PNG saved by mzDraw gives the document it carries, a binary CDX file (found by its magic,
+/// `VjCD0100`) is read by `cdx`, anything else is read as text.
 pub fn import_bytes(bytes: &[u8]) -> Result<(Document, Imported), &'static str> {
     if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
         let d = crate::png::carried(bytes).ok_or("error.draw2.pngPlain")??;
@@ -392,6 +393,15 @@ pub fn import_bytes(bytes: &[u8]) -> Result<(Document, Imported), &'static str> 
             ..Imported::default()
         };
         return Ok((d, info));
+    }
+    if crate::cdx::is_cdx(bytes) {
+        let mut info = Imported {
+            format: "cdx",
+            ..Imported::default()
+        };
+        let root = crate::cdx::tree(bytes).ok_or(crate::cdx::KEY)?;
+        let d = crate::cdxml::from_tree(&root, &mut info, crate::cdx::KEY)?;
+        return checked(d, info, crate::cdx::KEY);
     }
     import(std::str::from_utf8(bytes).map_err(|_| "error.draw2.import")?)
 }

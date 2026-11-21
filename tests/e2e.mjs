@@ -15,6 +15,8 @@ import path from "node:path";
 
 const { chromium } = createRequire(import.meta.url)("playwright");       // require, so that a global install (NODE_PATH) is found too
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// a CDX file made of the example of the CDX documentation (dimethylamine: a nitrogen and two carbons, two bonds), as printed there byte by byte
+const CDX = Buffer.from("566A4344303130300403020100000000000000000000000000000000018001000000038008000000048005000000000208000040A40000809400020402000700000004800600000000020800BA03AC004F7AB100000005800200000004060400050000000506040006000000000004800400000000020800BA03AC00B08577000000058003000000040604000500000005060400040000000000000000000000", "hex");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json" };
 let server = null, base = process.argv[2];
 if (!base) {
@@ -747,6 +749,16 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await want(pg, { selected: 0 });
     await pg.keyboard.press("Control+z"); await want(pg, { atoms: 2, bonds: 1, std: 0 });      // the line goes with the wedge
   });
+  await step("binary CDX: a file opened by the keyboard (focus on Open, Enter) is read, a cut one is refused in words", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    const open = async name => { const [fc] = await Promise.all([pg.waitForEvent("filechooser"), (async () => { await pg.focus("#d2-open"); await pg.keyboard.press("Enter"); })()]); return fc; };
+    await (await open()).setFiles({ name: "dimethylamine.cdx", mimeType: "chemical/x-cdx", buffer: CDX }); await want(pg, { atoms: 3, bonds: 2 });
+    await tool(pg, "undo"); await want(pg, { atoms: 0 });
+    await (await open()).setFiles({ name: "cut.cdx", mimeType: "chemical/x-cdx", buffer: CDX.subarray(0, 90) }); await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-note"), await pg.evaluate("I18N.t('error.draw2.cdx')"));
+    await want(pg, { atoms: 0 });
+  });
+
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
@@ -761,6 +773,13 @@ try {
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
+  });
+
+  await step("tablet with touch: a CDX file is opened by tapping Open", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    const b = await pg.locator("#d2-open").boundingBox();
+    const [fc] = await Promise.all([pg.waitForEvent("filechooser"), pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2)]);
+    await fc.setFiles({ name: "dimethylamine.cdx", mimeType: "chemical/x-cdx", buffer: CDX }); await want(pg, { atoms: 3, bonds: 2 });
   });
 
   await step("tablet with touch: the PFAS scale and level 2c of the annotation, set by tapping", async () => {

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE CDXML SYSTEM "http://www.cambridgesoft.com/xml/cdxml.dtd" >
+<CDXML CreationProgram="synthetic" BondLength="14.4" LabelFont="3">
+<colortable><color r="1" g="1" b="1"/><color r="0" g="0" b="0"/></colortable>
+<fonttable><font id="3" charset="iso-8859-1" name="Arial"/></fonttable>
+<page id="900" BoundingBox="0 0 540 720">
+ <group id="800">
+  <fragment id="1">
+   <n id="2" p="100 100"/><n id="3" p="112.47 107.2"/><n id="4" p="112.47 121.6"/><n id="5" p="100 128.8"/><n id="6" p="87.53 121.6"/><n id="7" p="87.53 107.2"/>
+   <n id="8" p="100 85.6" Element="7" NumHydrogens="3" Charge="1"><t p="96 89"><s font="3" size="10" face="96">NH3+</s></t></n>
+   <n id="9" p="124.94 100" NodeType="Nickname"><fragment id="700"><n id="701" p="0 0" NodeType="ExternalConnectionPoint"/><n id="702" p="1 1"/><b id="703" B="701" E="702"/></fragment><t p="121 103"><s font="3" size="10" face="96">Ph</s></t></n>
+   <n id="10" p="124.94 128.8" NodeType="GenericNickname" GenericNickname="R3"><t><s font="3" size="10" face="96">R3</s></t></n>
+   <n id="11" p="100 143.2" NodeType="ElementList" ElementList="8 16"><t><s font="3" size="10" face="96">[O,S]</s></t></n>
+   <n id="12" p="75.06 128.8" NodeType="Unspecified"><t><s font="3" size="10" face="96">Whatever</s></t></n>
+   <b id="20" B="2" E="3" Order="1.5"/><b id="21" B="3" E="4" Order="1.5"/><b id="22" B="4" E="5" Order="1.5"/><b id="23" B="5" E="6" Order="1.5"/><b id="24" B="6" E="7" Order="1.5"/><b id="25" B="7" E="2" Order="1.5"/>
+   <b id="26" B="2" E="8"/><b id="27" B="3" E="9" Display="Bold"/><b id="28" B="4" E="10"/><b id="29" B="5" E="11" Order="dative"/><b id="30" B="6" E="12"/>
+  </fragment>
+  <fragment id="40">
+   <n id="41" p="250 114.4"/><n id="42" p="262.47 107.2"/><n id="43" p="274.94 114.4" Element="8" NumHydrogens="1"><t><s font="3" size="10" face="96">OH</s></t></n><n id="44" p="262.47 92.8" Element="9"><t><s font="3" size="10" face="96">F</s></t></n><n id="45" p="250 128.8" Element="17"><t><s font="3" size="10" face="96">Cl</s></t></n>
+   <b id="46" B="41" E="42"/><b id="47" B="42" E="43"/><b id="48" B="42" E="44" Display="WedgeBegin"/><b id="49" B="45" E="41" Display="WedgedHashEnd"/>
+  </fragment>
+ </group>
+ <graphic id="60" BoundingBox="230 114.4 150 114.4" GraphicType="Line" ArrowType="FullHead" HeadSize="1000"/>
+ <graphic id="61" BoundingBox="140 114.4 144 114.4" GraphicType="Symbol" SymbolType="Plus"/>
+ <graphic id="62" BoundingBox="10 10 50 50" GraphicType="Rectangle"/>
+ <graphic id="63" BoundingBox="10 10 50 50" GraphicType="Line"/>
+ <t id="64" p="170 104" Justification="Center"><s font="3" size="10" face="1">H</s><s font="3" size="10" face="32">2</s><s font="3" size="10" face="0">O, &lt;heat&gt;
+second line</s></t>
+ <curve id="65" CurvePoints="1 2 3 4"/>
+ <scheme id="66"><step id="67" ReactionStepReactants="1" ReactionStepProducts="40" ReactionStepArrows="60"/></scheme>
+</page>
+</CDXML>

@@ -4,6 +4,7 @@
 
 pub mod ann;
 pub mod build;
+pub mod cdx;
 pub mod cdxml;
 pub mod cml;
 pub mod conform;

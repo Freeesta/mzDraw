@@ -279,6 +279,7 @@ I18N.add("en", {
   "error.draw2.rxn": "The reaction file could not be read.",
   "error.draw2.rxnArrow": "A reaction file needs exactly one arrow in the drawing: reactants before it, products after it.",
   "error.draw2.cdxml": "The CDXML file could not be read.",
+  "error.draw2.cdx": "The CDX file could not be read: it is damaged, cut short or not a ChemDraw file.",
   "error.draw2.cml": "The CML or Marvin file could not be read.",
   "error.draw2.styleValue": "This value is outside what the style allows: nothing was changed.",
   "error.draw2.styleKey": "This is not a setting of the style.",
