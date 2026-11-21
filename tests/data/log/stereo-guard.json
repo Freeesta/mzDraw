@@ -491,6 +491,28 @@
           }
         ]
       }
+    },
+    {
+      "name": "a centre that loses a neighbour is gone: not kept, with no mirror",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{\"atoms\":[1],\"bonds\":[5]},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 2\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C[C@H](F)Cl",
+        "log": [
+          {
+            "atoms": [
+              1
+            ],
+            "bonds": [],
+            "objects": [],
+            "op": "remove"
+          }
+        ]
+      }
     }
   ]
 }
