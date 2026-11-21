@@ -806,10 +806,22 @@ fn fan(n: usize) -> String {
 
 #[test]
 fn the_cost_per_arrow_does_not_grow_with_the_atoms() {
-    // the atoms are fixed, so the run is the same work plus the arrows: a scan of the atoms per arrow (999 x 14,980) adds a third or more
-    let (small, large) = (timed_mass(&fan(250)), timed_mass(&fan(999)));
+    // the atoms are fixed, so the run is the same work plus the arrows: a scan of the atoms per arrow (999 x 14,980) adds a third or more.
+    // The two runs are taken in turns (a slow phase of the machine falls on both) and each is the least of fifteen on the CPU clock.
+    let (a, b) = (
+        Document::from_json(&fan(250)).unwrap(),
+        Document::from_json(&fan(999)).unwrap(),
+    );
+    let run = |d: &Document| {
+        let p = mzdraw::steplabel::plan(d, Mode::Mass, &Opts::default(), Some(engine)).unwrap();
+        assert!(!p.ops.is_empty());
+    };
+    let (small, large) = timing::best_of_pair(2, 15, || run(&a), || run(&b));
+    let (small, large) = (small.as_nanos(), large.as_nanos());
+    // the arrows add little to the atoms' work: 999 against 250 may cost 8% more (a scan of the atoms per arrow costs 11% to 16% more
+    // here, a map or a position lookup by id for each arrow nothing visible)
     assert!(
-        4 * large <= 5 * small,
+        25 * large <= 27 * small,
         "250 arrows {small} ns, 999 arrows {large} ns over 14,980 atoms"
     );
 }

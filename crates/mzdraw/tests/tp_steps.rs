@@ -5,6 +5,9 @@ use mzdraw::Editor;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
+#[path = "support/timing.rs"]
+mod timing;
+
 fn replay(request: Value) -> Value {
     serde_json::from_str(&mzdraw::replay::replay(&request.to_string()).unwrap()).unwrap()
 }
@@ -525,14 +528,8 @@ fn chain(n: u32) -> String {
 }
 
 fn best_of_three(run: impl Fn()) -> f64 {
-    // the minimum of many runs is a steadier estimate than one: noise only ever adds time
-    (0..9)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            run();
-            t.elapsed().as_secs_f64()
-        })
-        .fold(f64::MAX, f64::min)
+    // the least CPU time of the thread over nine runs after one that is not timed: noise only ever adds time
+    timing::best_of(1, 9, run).as_secs_f64()
 }
 
 /// The hydroxylation of atom 1 written as a plain patch (what the step expands to), for the comparison with the step.

@@ -66,3 +66,27 @@ pub fn best_of(warm: usize, runs: usize, mut f: impl FnMut()) -> Duration {
         .min()
         .expect("at least one run")
 }
+
+/// The least CPU times of `runs` runs of `f` and of `g`, taken in turns (after `warm` runs of each that are not timed), so that a
+/// slow phase of the machine (a neighbour, a clock step) falls on both of them and not on one: for a comparison of the two.
+pub fn best_of_pair(
+    warm: usize,
+    runs: usize,
+    mut f: impl FnMut(),
+    mut g: impl FnMut(),
+) -> (Duration, Duration) {
+    for _ in 0..warm {
+        f();
+        g();
+    }
+    let (mut a, mut b) = (Duration::MAX, Duration::MAX);
+    for _ in 0..runs {
+        let w = Watch::start();
+        f();
+        a = a.min(w.elapsed());
+        let w = Watch::start();
+        g();
+        b = b.min(w.elapsed());
+    }
+    (a, b)
+}

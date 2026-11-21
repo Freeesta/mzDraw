@@ -4,6 +4,9 @@ use mzdraw::replay::replay;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
+#[path = "support/timing.rs"]
+mod timing;
+
 fn digest_of(doc: &Value) -> String {
     replay(&json!({"import": doc.to_string(), "out": "digest"}).to_string()).unwrap()
 }
@@ -441,17 +444,17 @@ fn long_chain(n: usize) -> String {
 fn digest_time(text: &str) -> (std::time::Duration, String) {
     let mut e = mzdraw::Editor::default();
     e.import(text).unwrap();
-    let t0 = std::time::Instant::now();
+    let t0 = timing::Watch::start();
     let out = e.save("digest").unwrap();
     (t0.elapsed(), out)
 }
 
 /// The cost grows with the size of the drawing, not with its square: doubling the number of structures at most triples the time (a
 /// quadratic version, such as one that looks every atom up in a list of the atoms seen, quadruples it), and 40,000 structures stay
-/// within a bound. Best of three runs against noise.
+/// within a bound. Least CPU time of the thread over seven runs against noise.
 #[test]
 fn the_time_grows_with_the_size_not_with_its_square() {
-    let best = |text: &str| (0..3).map(|_| digest_time(text).0).min().unwrap();
+    let best = |text: &str| (0..7).map(|_| digest_time(text).0).min().unwrap();
     let (small, big) = (best(&bondless(20_000)), best(&bondless(40_000)));
     eprintln!("20,000 structures {small:?}, 40,000 structures {big:?}");
     assert!(

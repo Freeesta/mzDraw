@@ -7,6 +7,9 @@ use mzdraw::stereo_guard::{pieces, signature};
 use mzdraw::{Axis, Document, Editor, Op, Session};
 use serde_json::{json, Value};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 /// A chiral centre drawn with a wedge: C with F (wedge), Cl and Br, one hydrogen implied.
 fn centre() -> Vec<Value> {
     vec![
@@ -613,11 +616,11 @@ fn the_guard_scales_with_the_number_of_pieces() {
             axis: Axis::H,
             at: 100.0,
         };
-        let t = std::time::Instant::now();
+        let t = timing::Watch::start();
         let guard = mzdraw::stereo_guard::before(&s.doc, std::slice::from_ref(&op)).unwrap();
         let before = t.elapsed().as_secs_f64() * 1000.0;
         s.run(std::slice::from_ref(&op)).unwrap();
-        let t = std::time::Instant::now();
+        let t = timing::Watch::start();
         let named = mzdraw::stereo_guard::changed(&s.doc, &guard, false);
         let after = t.elapsed().as_secs_f64() * 1000.0;
         assert_eq!(named.len(), k as usize, "every centre is said");
@@ -699,7 +702,7 @@ fn a_geometry_step_on_a_big_wedge_free_drawing_is_cheap() {
         dx: 0.5,
         dy: 0.5,
     };
-    let t = std::time::Instant::now();
+    let t = timing::Watch::start();
     for _ in 0..20 {
         assert!(mzdraw::stereo_guard::before(&s.doc, std::slice::from_ref(&op)).is_none());
     }
