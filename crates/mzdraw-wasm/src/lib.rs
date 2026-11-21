@@ -2,6 +2,9 @@
 //! the display list (`scene` + `strings`) and shows what `state` says. All decisions are in the crate `mzdraw`; `replay` is the same
 //! function the native side runs, for the parity test. With the `mzlab` feature `state` carries the `check/1` warnings of the drawing
 //! (`mzlab_feat::chem::check`, the bytes of `mzlab-cli mol check`). Errors are JSON `{"error_key", "params"}` strings.
+#[cfg(feature = "mzlab")]
+pub mod glue;
+
 use mzdraw::editor::{Editor, CHANGED};
 use mzdraw::scene::Scene;
 use mzdraw::Axis;
@@ -59,31 +62,28 @@ fn live_check(p: &mut Page) {
     let doc = p.editor.doc();
     p.check.clear();
     let mut flagged = Vec::new();
-    if !doc.atoms.is_empty() {
-        let molfile = serde_json::Value::from(doc.to_molfile_for_check());
-        let request = format!(r#"{{"molfile":{molfile}}}"#);
-        if let Ok(j) = mzlab_feat::chem::check::check_json(&request) {
-            let v: serde_json::Value = serde_json::from_str(&j).unwrap_or_default();
-            for w in v["warnings"]
+    if let Some(j) = glue::check(doc) {
+        let v: serde_json::Value = serde_json::from_str(&j).unwrap_or_default();
+        let ids = glue::ids(doc);
+        for w in v["warnings"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|w| w["level"] == "warn")
+        {
+            for i in w["atoms"]
                 .as_array()
                 .into_iter()
                 .flatten()
-                .filter(|w| w["level"] == "warn")
+                .filter_map(|i| i.as_u64())
             {
-                for i in w["atoms"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|i| i.as_u64())
-                {
-                    // check/1 counts atoms from 0 in molfile order, which is the pool order
-                    if let Some(a) = doc.atoms.get(i as usize) {
-                        flagged.push(a.id);
-                    }
+                // check/1 counts atoms from 0 in molfile order, which is the pool order
+                if let Some(id) = ids.get(i as usize) {
+                    flagged.push(*id);
                 }
             }
-            p.check = j;
         }
+        p.check = j;
     }
     p.editor.set_warnings(flagged);
 }
@@ -276,7 +276,7 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log` (the command log) or `std` (the drawing checks).
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log` (the command log), `std` (the drawing checks) or `settings`.
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| p.editor.save(kind).map_err(js_err))
@@ -412,10 +412,57 @@ pub fn settings_schema() -> String {
     mzdraw::settings::schema_json()
 }
 
-/// The current style as a settings file.
+/// The current settings file: the style, the layout of the palettes and the export defaults.
 #[wasm_bindgen]
 pub fn style() -> String {
-    with(|p| p.editor.style.to_json())
+    with(|p| p.editor.settings_json())
+}
+
+/// The palettes laid out in a viewport of `w` x `h` pixels, from the sizes the page measured (`sizes`: a JSON list of
+/// `[id, width, height]`, or empty to keep the last ones). JSON as `Layout::arranged_json` writes it.
+#[wasm_bindgen]
+pub fn palettes(w: f64, h: f64, sizes: &str) -> String {
+    let sizes = mzdraw::palettes::sizes_of(sizes);
+    with(|p| p.editor.layout.arranged_json(w, h, &sizes))
+}
+
+/// An action on the palette `id`: `press`, `drag`, `release` at the page point (`x`, `y`) of its handle, `cancel`, a key on
+/// its handle (`key:<name as the browser names it>`, Shift in `shift`), `hidden`, `collapsed`, `orient` (toggles), `reset`
+/// (every palette), `all` (hide or show every palette). Returns `PALETTES` (128) when the layout changed, else 0.
+#[wasm_bindgen]
+pub fn palette(action: &str, id: &str, x: f64, y: f64, shift: bool) -> u32 {
+    with(|p| {
+        let l = &mut p.editor.layout;
+        let changed = match action {
+            "press" => l.press(id, x, y),
+            "drag" => l.drag(x, y),
+            "release" => l.release(x, y),
+            "cancel" => l.cancel(),
+            "reset" => {
+                l.reset();
+                true
+            }
+            "all" => {
+                l.all_hidden = !l.all_hidden;
+                true
+            }
+            a => match a.strip_prefix("key:") {
+                Some(k) => l.key(id, &k.to_ascii_lowercase(), shift),
+                None => l.toggle(id, a),
+            },
+        };
+        if changed {
+            mzdraw::editor::PALETTES
+        } else {
+            0
+        }
+    })
+}
+
+/// What one click on Save writes: `{"default": <format>, "background": "white" | "none"}` of the settings.
+#[wasm_bindgen]
+pub fn export_settings() -> String {
+    with(|p| p.editor.export.to_json())
 }
 
 /// The labels the label tool takes: the abbreviations of the table, then `R` and `R1` ... `R9` (up to `R32` can be typed).
@@ -509,6 +556,14 @@ pub fn state() -> String {
             if p.std.is_empty() { "[]" } else { &p.std },
         )
     })
+}
+
+/// Headless with engines: a replay request plus `"engines": [{"engine", "args"?}]` gives `{"engines": [...]}` (`glue::replay`), the same bytes
+/// as the native example `replay_glue`.
+#[cfg(feature = "mzlab")]
+#[wasm_bindgen]
+pub fn replay_glue(request: &str) -> Result<String, JsValue> {
+    glue::replay(request).map_err(|e| JsValue::from_str(&e.to_json()))
 }
 
 /// Headless: `{"import", "log", "out"}` gives the output text, the same bytes as the native `mzdraw::replay::replay`.

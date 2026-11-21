@@ -2,7 +2,7 @@
 
 Agreed with the coordinator (COO-MZDRAW) and COO 16 on 2026-11-21; the decisions are in section 8.
 
-This file has five inputs:
+This file has five inputs (a sixth, the second Gemini output, is section 9):
 - the external research output `docs/input/gemini-feature-discovery.md` (Gemini Deep Research, PR #39);
 - the three studies and their prompts:
   - arch-std 01–14 on `main`;
@@ -253,6 +253,7 @@ Two chats never write the same zone at the same time.
 | **layout** | `layout.rs` (`scheme.rs` is its own zone) |
 | **tools** | `tools/<own dir>`, a new `tests/*.mjs` |
 | **new module** | one new file in `crates/mzdraw/src` |
+| **new modules of §9–§10** | each its own zone: `outcome.rs` (plan-20), `stereo_guard.rs` (plan-21), `loss.rs` (plan-22), `digest.rs` (plan-23), `select.rs` (plan-24), `plan.rs` (plan-27), `grant.rs` (plan-28), `chain.rs` (plan-30); `tools/agent-suite` (plan-19) |
 
 Append-only lines any chat may add next to another chat (merge = keep both, then rerun):
 - the Built state bullets of `docs/mzdraw.md`;
@@ -262,6 +263,7 @@ Append-only lines any chat may add next to another chat (merge = keep both, then
 - `mod` lines;
 - one match arm in `Op::from_value` / `Op::write` / `Editor::save` / `glue::run`;
 - one row in the plan-01 table.
+- one `touches` arm in `ops.rs` (from plan-28, E25).
 
 The e2e step count is counted from the file and is never edited by hand.
 
@@ -279,14 +281,16 @@ Wave 0 (running now): UI-2 (R1, PR 2, PR 3), CTX-MENU page, arch-std-01, -05, -0
 
 | wave | starts when | items, in launch order |
 |---|---|---|
-| **1** | now | plan-01, plan-04, plan-02, plan-03, arch-std-22, arch-std-18, plan-15, arch-std-09 |
-| **2** | std-01, std-05, UI-2 PR 2 merged | arch-std-02, arch-std-15, plan-05, arch-std-12, arch-std-06, arch-web-01, plan-13, arch-std-03 (after UI-2 PR 3) |
-| **3** | the wave's dependencies merged; first `velocity/1` report in | plan-06, arch-std-11, arch-web-02, arch-std-17, arch-cd-03, plan-14, arch-std-13, plan-10 |
-| **4** | as above | plan-11, plan-07, arch-web-07, arch-web-13, arch-std-16, arch-std-10, arch-web-03, arch-std-07 |
-| **5** | as above | arch-web-16, arch-web-17, arch-web-08, arch-std-19, plan-12, arch-cd-25, arch-web-05 |
+| **1** | now | plan-01, plan-04, plan-02, plan-03, arch-std-22, arch-std-18, plan-15, arch-std-09, plan-19, plan-20 |
+| **2** | std-01, std-05, UI-2 PR 2 merged | arch-std-02, arch-std-15, plan-05, arch-std-12, arch-std-06, arch-web-01, plan-13, arch-std-03 (after UI-2 PR 3), plan-23 |
+| **3** | the wave's dependencies merged; first `velocity/1` report in | plan-06, arch-std-11, arch-web-02, arch-std-17, arch-cd-03, plan-14, arch-std-13, plan-10, plan-21, plan-22, plan-30, plan-26 |
+| **4** | as above | plan-11, plan-07, arch-web-07, arch-web-13, arch-std-16, arch-std-10, arch-web-03, arch-std-07, plan-24, plan-25, plan-27, plan-28, plan-31 |
+| **5** | as above | arch-web-16, arch-web-17, arch-web-08, arch-std-19, plan-12, arch-cd-25, arch-web-05, plan-29 |
 | **6** | as above | plan-16, arch-std-21, arch-web-15, arch-web-18, arch-web-19, arch-web-09, arch-web-11, plan-08 |
 | **7** | as above | arch-web-20, arch-std-20, arch-web-21, arch-cd-15, arch-cd-08, arch-cd-18, arch-cd-19, arch-cd-20 |
 | **8** | as above | arch-cd-26, arch-cd-04, arch-cd-16, arch-web-04, arch-cd-22 |
+
+Waves 1, 3 and 4 hold more than 8 items since §9 and §10: they are ordered lists, launched 2–3 at a time under the launch rules, not batches.
 
 Same zone, serialize: inside a wave, launch one prompt per zone at a time.
 - Wave 4: arch-std-16 and arch-std-10 both touch `svg.rs` / scene.
@@ -342,3 +346,211 @@ Answers of the coordinator (COO-MZDRAW) and of COO 16 to the questions of the dr
 | D10 | launch limits | At most 10 open chats; launch 2–3 at a time; no new chat while 6 green PRs wait; Sonnet medium; handoff at about 150k tokens. | owner, via COO-MZDRAW |
 | D11 | withdrawals | arch-web-12 is withdrawn; arch-cd-15 drops its Alt keys; 15 arch-cd prompts are reduced to "additions" notes; the defer and drop lists of section 4 are agreed. | COO-MZDRAW |
 | D12 | desktop app | One component, two distributions (standalone macOS + Windows app; bundled by default in mzLab site and app via Tauri). The shell is separate for now, uses the shared `release.yml` pattern, and signing is a later step of the owner's. | owner, COO 16 |
+
+## 9. Second Gemini input (ARCH PLAN-2, 2026-11-21)
+Input: `docs/input/gemini-strategy-2.md` (Gemini Deep Research, PR #49). It proposes five ideas, three features not to build and an external validation protocol. Every claim was re-checked at its source on 2026-11-21. Pages read on github.com, iupac.qmul.ac.uk, arxiv.org, typst.app, patents.google.com, molsoft.com and en.wikipedia.org. Pages that refused access (HTTP 403) or are bot-walled are "not read".
+
+### 9.1 Claims checked
+| claim in the input | verdict | source read | note |
+|---|---|---|---|
+| Ketcher #5873: KET export increments internal ids on every call | verified | https://github.com/epam/ketcher/issues/5873 | Opened 2024, fixed by Ketcher PR #5916. |
+| Ketcher #8898: the API drops selections in KET fragments | partly | https://github.com/epam/ketcher/issues/8898 | Selection is ignored by `setMolecule` / `addFragment`; "silently" is the input's word. Closed Jan 2026. |
+| Ketcher #64: V2000 drops OR / AND enhanced stereo | partly | https://github.com/epam/ketcher/issues/64 | A 2021 comment says AND/OR centres are "not supported in V2000"; nothing about silent loss. |
+| Ketcher #5152, #5156: an ACS-style setting with bond length | verified (partly on "1996") | https://github.com/epam/ketcher/issues/5152 ; https://github.com/epam/ketcher/issues/5156 | "ACS style"; the year 1996 is not in the text read. |
+| Ketcher #6377, #7649: undo bugs in macromolecule mode | verified (undo), not "regression" | https://github.com/epam/ketcher/issues/6377 ; https://github.com/epam/ketcher/issues/7649 | Both closed (2026-04, 2025-10). |
+| RDKit #4041: random R/S because wedges need coordinates and tags depend on bond order | partly | https://github.com/rdkit/rdkit/issues/4041 | A question closed in 2021; the comments explain the dependence; no bug confirmed. |
+| RDKit #5067: one wedge only on quaternary centres | verified | https://github.com/rdkit/rdkit/issues/5067 | An opt-in option was added (RDKit PR #6108), not the default. |
+| RDKit #1286: depiction matching moves core coordinates in clean-up | verified | https://github.com/rdkit/rdkit/issues/1286 | Confirmed by the maintainer; closed by the stale bot (2025), not fixed. |
+| RDKit #8124: depiction matching flips the orientation | verified | https://github.com/rdkit/rdkit/issues/8124 | Closed by the stale bot (2026), not fixed. |
+| RDKit #6626: overlapping atoms in bridged bicyclics | partly | https://github.com/rdkit/rdkit/issues/6626 | A hard-to-read depiction; overlap is not stated. |
+| RDKit #4504: overlapping coordinates | partly | https://github.com/rdkit/rdkit/issues/4504 | Atoms of 1,1-disubstituted cyclobutanes; labels not mentioned. Fixed. |
+| RDKit #4508: S-group labels overlap atoms | verified | https://github.com/rdkit/rdkit/issues/4508 | Closed 2021. |
+| RDKit #9354: CDXML overlap | **wrong** | https://github.com/rdkit/rdkit/issues/9354 | It is about NeedsClean atoms in CDXML reading. |
+| Indigo #2739: stereo data leaks across CDXML products | verified | https://github.com/epam/Indigo/issues/2739 | Fixed by Indigo PR #2740. |
+| Indigo #2810: overlaps after CDXML import | partly | https://github.com/epam/Indigo/issues/2810 | Rearrangement causing overlap, from hidden superatom atoms. |
+| CDK #1292: depiction overlap | **wrong** | https://github.com/cdk/cdk/issues/1292 | SMARTS ring-size matching. |
+| CDK #1282, #951 | not read | https://github.com/cdk/cdk/issues | The input links the issue list, not the issues. |
+| Open Babel #2015: 2D overlap | **wrong** | https://github.com/openbabel/openbabel/issues/2015 | A request to adopt coordgen. |
+| IUPAC 2006 rules ST-1.1.1, ST-1.1.2 | verified | https://iupac.qmul.ac.uk/drawing/stereo.html | Numbering ST-1.1.1 to ST-1.1.20. |
+| IUPAC 2006 ST-1.1.9 / ST-1.1.10 call some wedge sets ambiguous | not read | same page | The page was read only in part; seen only in a summary. |
+| IUPAC 2008 GR-0.3 forbids shrinking to illegible size | **wrong rule** | https://iupac.qmul.ac.uk/drawing/drawing.html | GR-0.3 is "Text" (under 5 pt not acceptable). The no-shrink rule is **GR-0.6**, which points to abbreviations (GR-2.2, GR-2.3) as the alternative. |
+| ACS Document 1996 bond length 0.508 cm (14.4 pt) | verified | https://en.wikipedia.org/wiki/Wikipedia:Manual_of_Style/Chemistry/Structure_drawing | An essay page, not a guideline. |
+| ACS single column 82.5 mm | not read | https://pubs.acs.org/page/4authors/submission/graphics_prep.html | HTTP 403. arch-std-16 has the ACS widths it read. |
+| ChemDraw 23.0 release notes (canvas atom ids, monomers, retrosynthesis removed) | not read | the input's PDF link | HTTP 403. |
+| ChemDraw 25.5 alignment regressions | not read | Reddit | Bot wall. |
+| LiveFigure (arXiv 2605.23527): VLM agents for figures | partly | https://arxiv.org/abs/2605.23527 | Real (Shao et al., 22 May 2026). Screenshot loops and token cost are not in the abstract. |
+| IChO 2025 multi-agent (arXiv 2511.16205) | verified | https://arxiv.org/abs/2511.16205 | "ChemLabs on ChemO", Nov 2025. |
+| arXiv 2508.17692 reviews ChemCrow | partly | https://arxiv.org/abs/2508.17692 | An agent survey; ChemCrow is not in the abstract. |
+| typed-smiles: abbreviations leave index gaps | verified | https://typst.app/universe/package/typed-smiles/ | Its own "Index gaps" note (v0.14.0). |
+| ICM: stereo-specific SMARTS | verified | https://molsoft.com/~eugene/icm/release-notes.html | "S[123]" attribute, version 3.9-2d. |
+| US12159693B2 | verified, not relevant | https://patents.google.com/patent/US12159693B2 | Genesis Therapeutics, generative ML of molecules. |
+| Wilson 95% CI [99.82, 99.95] at N = 10,000 and 99.9%; ±6.3 pp at N = 240 | verified (computed) | — | Recomputed; ±6.3 pp is the worst case (p = 0.5). |
+| KLM 40.2 s vs 3.5 s for a series revision | arithmetic correct | — | An estimate from assumed steps, not a measurement. |
+| Novelty ("genuinely new") and patent clearance | not used | — | Keyword searches are not a prior-art or FTO search. |
+| The batching penalty (77 s / 0.8 s for 901 calls) | ours, ratio corrected | — | Measured in mzLab. 77 / 0.8 is about 96×, not the 95× of the prompt. |
+
+### 9.2 Findings of this pass
+1. **Ids are already stable** in mzDraw (`atom.add` takes an `id`; ids never shift), so the input's main failure (indices that move after an edit) does not apply to us as stated. Two gaps remain:
+   - the result of a replay does not report the ids it created and removed or which op failed, although every arch-std prompt states that rule;
+   - an agent that imports a SMILES must read the whole document to learn the ids.
+   plan-20 and plan-23 close these gaps.
+2. **Exit codes** are mzLab's one table (`docs/agenti/cli-agenti.md` of mzLab, read at the pin `ccd4680`). The input's "exit code 12" is not used.
+3. **Substructure** search in `mzlab-mol` (`substruct.rs`, `query.rs`) takes SMILES and molfile queries, not SMARTS. Selectors use SMILES only (rule 13).
+4. **Flip** mirrors the configuration today. "Flip that keeps the configuration" is already listed as still to build (`docs/mzdraw.md`). plan-26 builds it with existing ops.
+
+### 9.3 Verdicts
+| idea | verdict | where | reason |
+|---|---|---|---|
+| 1 ChemSel selectors | **KEEP, reduced** → plan-24 | read-only `select/1` | Resolved to ids before the log, so inverses and parity are untouched. SMILES substructure, not SMARTS. Selectors inside ops are DEFER: they would put a field on every op. It starts only if plan-19 shows addressing errors. |
+| 2 stereo-invariant geometry kernel | **REFRAME** → plan-21 (guard), plan-26 (`flip:keep`) | two slices | Report-only in the page, enforced only with `{"stereo":"kept"}`. Automatic wedge re-solving is DEFER. |
+| 3 core-linked analog families | **DEFER**; part → E18 (plan-14) | — | A live master/instance link is a new document concept. Orienting a series on one core needs no new concept. Revisit after plan-14 numbers. |
+| 4 Knuth-Plass abbreviation folding to fit a box | **DEFER**, no prompt | — | It depends on arch-std-16 (profiles), arch-web-18 (`abbr.contract`) and arch-std-15. The real basis is IUPAC GR-0.6. **Kill test** when revisited: on 30 synthetic large structures that do not fit an arch-std-16 width class at the minimum text size, contracting abbreviations (greedy) must make at least 50% fit; otherwise drop. |
+| 5 transactional canvas | **KEEP, split** → plan-20 (envelope, dry run, postconditions), plan-22 (loss manifest), plan-23 (digest), plan-25 (fix-its) | replay request | The stdio server is DEFER: it would be a second server next to `mzlab-cli`. Batch and stdin streaming are already mzLab's contract. |
+| Do-not 1 macromolecules / HELM | DROP (agree; already dropped) | — | Rule 13. |
+| Do-not 2 3D, force field, NMR | DROP (agree; already dropped) | — | mzLab has 3D. |
+| Do-not 3 cloud sync, CRDT multiplayer | **DROP** (agree, new) | — | No server; files and logs are deterministic, so git review covers async work. |
+| Validation: public corpus round trip | **REFRAME** → E19 (plan-03) | — | Run-time fetch only (D5). |
+| Validation: time-and-motion with chemists | **DEFER** (owner) | plan-02 person protocol | It needs at least 6 people with ChemDraw licences. |
+| Validation: blind multi-model agent suite | **KEEP** → plan-19 | `tools/agent-suite` | It is the kill test of plan-20, plan-23 and plan-24. |
+
+Counts, each idea once: ideas 1 and 5 kept (1 reduced to plan-24; 5 split into plan-20, -22, -23, -25), idea 2 reframed (plan-21, plan-26), ideas 3 and 4 deferred. Do-not list: 1 new drop, 2 drops already made. Validation: 1 kept (plan-19), 1 reframed (E19), 1 deferred.
+
+### 9.4 Rows
+Same columns as §4. "request row" in the COO 16 column means the item adds request fields or outputs of the `mol draw` contract: one row each in the `request` section of plan-01's table, which COO 16 reviews (D13); no PR-by-PR agreement is needed as long as no `draw_edit/1` op is added.
+
+| # | id | item | status | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|---|
+| 68 | plan-19 | agent task suite | N | M | plan-01 | `tools/agent-suite`, `tests/data/agent-suite`, new example | no | RDKit InChIKey of targets |
+| 69 | plan-20 | replay result: ids, failing op, dry run, `expect` | N | M | plan-01 | `replay.rs` + new `outcome.rs` | request row | property on id sets |
+| 70 | plan-21 | stereo guard (signature, live line, `expect` arm `stereo`) | N | M | plan-20 | new `stereo_guard.rs` | request row (`expect` arm `stereo`) | InChI stereo layer by RDKit |
+| 71 | plan-22 | loss manifest `loss/1` | N | M | plan-20, plan-15 | new `loss.rs` | request row | plan-03 differences explained |
+| 72 | plan-23 | digest `digest/1` | N | S–M | plan-20 | new `digest.rs` | request row | RDKit formula |
+| 73 | plan-24 | selectors `select/1` | N | M | plan-20, plan-23, first plan-19 run | new `select.rs` | request row | RDKit match counts |
+| 74 | plan-25 | exact fix-its on `std/1` | N | S | std-02, std-15, plan-20 | conform | request row (`std/1` field `fix`; `std/1` goldens move) | isomeric SMILES unchanged (RDKit) |
+| 75 | plan-26 | `flip:keep`, with the rule for a selection that cuts a stereocentre | N | S | plan-21 | input (one command) + `context.rs` arm | no | InChI stereo layer by RDKit |
+
+Deferred, no prompt, added to §4's list:
+- live analog families (master/instance);
+- abbreviation folding to fit a box (its kill test is in §9.3);
+- automatic wedge re-solving;
+- selectors inside ops;
+- the stdio server;
+- the time-and-motion study with chemists.
+
+Dropped, added: cloud sync and CRDT multiplayer.
+
+Totals after this section: 75 rows to run, 23 new prompts in all (8 here).
+
+### 9.5 Edits to existing prompts
+18. **E18 plan-14:** besides "each structure after an arrow on the one before it", add `scheme:orient-series`: every structure of a selection is oriented on ONE chosen core (the first selected), with the same rules (rigid fit, flip only without wedges, no clean-up, refuse on overlap). It is one undo step and has the CLI twin `{"command":"scheme:orient-series"}`. This is Gemini idea 3 without live links. Before applying it, the plan-14 chat asks the coordinator whether ARCH TP-DRAW (transformation products, arrow auto-layout, tables; prompts `tp-NN`) already covers series orientation; if it does, E18 is dropped in favour of that prompt. Check it against RDKit `GenerateDepictionMatching2DStructure` on the same synthetic series: core atoms must keep their exact coordinates (RDKit #1286 and #8124 are the cases to beat).
+19. **E19 plan-03:** an optional `--corpus` run of `tools/fidelity/run.py` fetches a fixed public subset at run time (PubChem or ChEMBL ids listed in the script, never the structures). It commits only the success rates with a Wilson 95% interval, the source, the version and the date (D5). The synthetic set stays the test.
+
+### 9.6 Waves
+- **Wave 1 tail** (after plan-01): plan-19, plan-20 (coordinator, 2026-11-21).
+- **Wave 2:** plan-23.
+- **Wave 3:** plan-21, plan-22 (after plan-15), then plan-26 (after plan-21).
+- **Wave 4:** plan-24 (only if its start condition holds), plan-25 (after std-02, std-15).
+
+None of these touch the page except plan-21's live-line key and plan-26's one command (the `input` zone). They do not collide with the running zones; serialize plan-20 with any other prompt that edits `replay.rs`.
+
+### 9.7 Decisions (21 Nov 2026)
+| # | question | decision | by |
+|---|---|---|---|
+| D13 | replay fields and outputs as `mol draw` contract items; exit code of a failed postcondition; does AD0a–AD6 define an envelope | Yes: each replay field or output is ONE row in the `request` section of plan-01's table; COO 16 reviews the table, not each PR, while no `draw_edit/1` op is added. A false postcondition is exit 1 (verdict) with the `draw-result/1` document on stdout; exit codes stay 0..8. mzLab has no envelope yet: `draw-result/1` of plan-20 is the source of truth and `mzlab-cli` follows it. The caps of D9 still apply: no mzLab module cap or catalog guard (33,000 B / 25,600 B) rises without telling COO 16 first. | COO 16, via COO-MZDRAW |
+| D14 | external models on the agent suite | The owner may run them outside CI; keys stay outside the repo; only rates are committed. | COO-MZDRAW |
+| D15 | selector syntax | A JSON object, no mini-language. | COO-MZDRAW |
+| D16 | stereo guard | Report-only in the page; enforced only when a request lists `{"stereo":"kept"}`. | COO-MZDRAW |
+| D17 | abbreviation folding | A deferred row with its kill test, no prompt. | COO-MZDRAW |
+| D18 | waves | plan-19 and plan-20 go in the wave 1 tail, after plan-01. | COO-MZDRAW |
+
+## 10. Third and fourth external reports (ARCH PLAN-2, second pass, 2026-11-21)
+Input: two more external research outputs. They are **not in the repository**: this section works from the coordinator's summaries (COO-MZDRAW, 2026-11-21) and does not quote them. Their novelty and patent claims are not evidence. Their figures (among them an "Open Babel 37%") are not verified and are used nowhere.
+
+### 10.1 Sources checked for this pass
+| claim or fact used | verdict | source read | note |
+|---|---|---|---|
+| V2000 chiral flag: on = a single isomer of known absolute configuration at every wedged centre; off = the drawn isomer and its enantiomer | verified | BIOVIA, CTfile Formats, Chemistry 2026, https://www.3ds.com/assets/invest/2026-01/biovia_chemistry_2026_ctfile_formats.pdf | Read on 2026-11-21 as text extracted locally (`pdftotext`); the fetch tool could not render the PDF. Counts line: "0=not chiral, 1=chiral". This public copy needs no request form: arch-std-19's note "behind a request form, not read" is corrected in that prompt. |
+| V3000 collections `MDLV30/STEABS` (absolute), `STERACn` (relative configuration known, mixture of both enantiomers), `STERELn` (relative known, one enantiomer, unknown which) | verified | same | Collections take precedence over the chiral flag; wedged centres in no collection take the flag "globally". |
+| IUPAC 2006 ST-6: no marks = unknown; mixtures said in words; the chiral-flag behaviour is not followed | verified (earlier) | `docs/study/arch-std.md` §2.2 (second pass) | Read for arch-std-12. |
+| FIPS 180-4 Secure Hash Standard | partly | https://csrc.nist.gov/pubs/fips/180-4/upd1/final | Published August 2015. The landing page does not name SHA-256 (the standard does). The example vectors were not read: plan-30's DEV reads them. |
+| `mzlab-mol` links `sha2` 0.11 and exposes only `Mol::core_hash` (core JSON, without coordinates or ids) | verified | `crates/mzlab-mol/Cargo.toml`, `src/codec.rs` at the pin `ccd4680` | So SHA-256 is already in the module. There is no public hash of bytes. |
+| mzLab records runs with SHA-256 fields (`prov/1`) | verified | mzLab `docs/schemi/prov-1.json` at the pin | — |
+| InChI `/s1`, `/s2`, `/s3` and the "absolute" flag | **not verified** | https://www.inchi-trust.org/technical-faq-2/ (301, then 404) | `docs/study/arch-std.md` has `/s1` and `/s2` only. `/s3` and "absolute" are not in `docs/study`; plan-29's proof says so. |
+| mzDraw has FNV-1a only (SVG element names) | verified | `crates/mzdraw/src/svg.rs` | Not a hash for provenance. |
+
+### 10.2 Verdicts
+| idea | report | verdict | where | reason |
+|---|---|---|---|---|
+| `plan`: one goal in, a canonical reversible patch out, under a step budget | third | **KEEP** → plan-27 | `goal`, `budget` | Fewer calls for agents. It uses table ops only, so inverses and parity hold. Goal kinds are gated on their engines (templates, scheme, selectors); an unsupported kind is an explicit error. |
+| `grant`: scope envelope checked per op, one transaction | third | **KEEP** → plan-28 | `grant` | Not covered: plan-20 checks the end of a log, not what each op touches. The page side waits for plan-16 (wave 6). |
+| per-op drawing contracts | fourth | **MERGE** into plan-28 (`grant.each`) | — | These are plan-20's `expect` arms run after each op. No new op. |
+| stereo tier per centre, never defaulted silently | fourth | **KEEP** → plan-29 | derived from `stg` | arch-std-12 stores groups. The gaps are a wedged centre with no group and a reader that would assume a tier from the chiral flag. The rule is "noted, never assumed" (D19). No new field, no new loss kind. |
+| provenance ledger | fourth | **KEEP, two slices** → plan-30 (chain, `expect` arm), plan-31 (head in pictures) | `chain/1` | Cheap given byte parity. SHA-256 is already linked through `mzlab-mol`. |
+| stable handles / selectors | third, fourth | = plan-24 | — | Already planned. |
+| loss ledger | third | = plan-22 | — | Already planned. |
+| public conformance suite, expert-verified corpus | third, fourth | = plan-03 (+ E19) and plan-19 | — | Only gold files and invariants, fetched at run time (D5). |
+
+### 10.3 Rows
+Same columns as §4 and §9.4.
+
+| # | id | item | status | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|---|
+| 76 | plan-27 | goal → canonical patch (`goal`, `budget`) | N | M | plan-01, plan-20 (E21); kinds gated (plan-13, web-19/18, plan-24) | new `plan.rs` | request row (`goal`, `budget`; key `patch` and stage `plan` via E21) | RDKit canonical SMILES |
+| 77 | plan-28 | scope grant + per-op contracts | N | M | plan-20; plan-24 optional | new `grant.rs` + `touches` arms in `ops.rs` + `class` column in `schema.rs` | request row (`grant`, class column, stage `grant`) | property: bytes outside the scope unchanged; `touches` checked against real differences |
+| 78 | plan-29 | stereo tier: noted never assumed, `tierUndefined`, digest `centres` | N | S–M | std-12, std-19 (E20), plan-22, plan-23 | readers (`io.rs`), conform, `digest.rs` | request row (`expect` arm, digest key `centres`) | InChI stereo flags by RDKit (meaning not verified) |
+| 79 | plan-30 | hash chain of the log, `expect` arm `chain` | N | S | plan-20 | new `chain.rs` + one replay arm | request row (`out:chain`, arm `chain`); `sha2` direct dependency decided YES (D25; reason and wasm cost in the PR, guard in `docs/mzdraw.md` updated) | FIPS 180-4 examples; Python `hashlib` |
+| 80 | plan-31 | chain head in saved SVG and PNG, `export.chain` | N | S | plan-30, std-16, std-17 | `svg.rs`, `png.rs`, settings table | request row (setting and output element) | head recomputed from the goldens |
+
+The page part of plan-28 (a proposal held under a grant) is not built in row 77. It becomes a follow-up row once plan-16 (wave 6) merges.
+
+Totals after this section: 80 rows to run, 28 new prompts in all (13 from PLAN-2).
+
+### 10.4 Waves
+- **Wave 3:** plan-30. It only touches a new module and one replay arm, so it does not collide with its wave-3 neighbours arch-std-17 (`svg.rs`) and arch-std-13 (scene).
+- **Wave 4:** plan-27, plan-28 (both after plan-20; plan-28 after plan-24 if its selector scope is wanted), plan-31. plan-31 touches `svg.rs`: it runs after arch-std-17 (wave 3), and arch-std-16 and arch-std-10 (also `svg.rs`, wave 4) are serialized with it.
+- **Wave 5:** plan-29 (after arch-std-19 and plan-22). It touches `io.rs`, so serialize it with arch-std-19 and plan-12.
+
+### 10.5 Edits to existing prompts
+These are listed here, not rewritten. Each chat applies its edit when it starts (as §7).
+
+20. **E20 arch-std-19:**
+    - The readers never set `stg` from a default. A V2000 chiral flag (0 or 1) and a V3000 wedged centre outside every collection leave the centre without a group; the import notes list the centres, the flag and its CTfile meaning (D19).
+    - The V2000 write rule of arch-std-19 is unchanged, and plan-29 adds none.
+    - The CTfile 2026 edition is readable at the public URL of §10.1; the prompt's source line now says so (corrected in the prompt file in this PR).
+21. **E21 plan-20:** `draw-result/1` gains:
+    - the key `patch` (plan-27), placed before `out`;
+    - the `failed.stage` values `plan` (plan-27) and `grant` (plan-28);
+    - `goal` joins `report`, `dry_run` and `expect` in making the answer an envelope;
+    - the exit-2 list (invalid request) gains "an unsupported goal kind", "a malformed grant" and "`style`/`set` under a grant without `settings`".
+
+    It also gains the request `id` as its second key: see E26 (D27).
+
+    There is no stage `verify`: the chain is checked with the `expect` arm `chain` (plan-30). If plan-20 has merged before these prompts run, each of plan-27 and plan-28 makes its own part of E21 in its PR.
+22. **E22 plan-19:** the `--arm` feature list gains `plan` (plan-27) and `grant` (plan-28). The adversarial set `tests/data/agent-suite/adversarial.json` comes with plan-28.
+23. **E23 plan-01:** the op table gains a `class` column (`geometry`, `atoms`, `bonds`, `objects`, `structure`). plan-28 adds it if plan-01 has merged; otherwise plan-01 includes it.
+24. **E24 plan-23:** the digest gains the per-centre key `centres` (`[[atom id, tier]]`) with plan-29. The per-bond `stereo` entries are unchanged.
+25. **E25 every prompt that adds a `draw_edit/1` op after plan-28:** add its `touches` arm in `ops.rs` and its `class` in the table, next to its inverse and its property-test case.
+26. **E26 plan-20 (request id, D27):** the key table of `draw-result/1` gains `id`.
+    - Position: second, right after `format`.
+    - When present: always.
+    - Value: the request's own `id` echoed as given (a string or an integer; any other type is an invalid request, exit 2). When the request has none, it is `n`, the 0-based index of the request in its batch. The caller passes `n` (`mzlab-cli` counts the lines of a JSONL stream); a single request is `n` = 0.
+    - Effect: a batch of requests maps answer to request, line to line.
+    - The JSON Schema file `docs/schemas/draw-result-1.json` lists it, and the golden key-order test covers it (`format`, `id`, `ok`, ...).
+    - The request field `id` is one row in the `request` section of plan-01's table.
+    - If plan-20 has merged before this edit is applied, the next prompt to touch `outcome.rs` (plan-27 or plan-28) makes it in its PR.
+
+### 10.6 Decisions (21 Nov 2026)
+| # | question | decision | by |
+|---|---|---|---|
+| D19 | stereo tier on import | Noted, never assumed: no reader sets a group from the chiral flag or for an uncollected centre; the import notes say what the file said. | COO-MZDRAW (review of #55) |
+| D20 | new request fields and stages for plan-27, -28, -30 | `patch`, stages `plan` and `grant` go into plan-20's key table (E21). The chain is an `expect` arm, not a field or a stage. | COO-MZDRAW (review of #55) |
+| D21 | agent-suite features | `plan` and `grant` join the `--arm` list (E22). | COO-MZDRAW |
+| D22 | op classes | A `class` column in plan-01's table (E23); `geometry` = `move`, `rotate`, `flip` today. Each later op names its class when it is added: `atoms.xy` (arch-std-15) `geometry`, `merge` (arch-web-09) `structure` (E25). | COO-MZDRAW |
+| D23 | `touches` | One arm per op, append-only; every later op-adding prompt adds it (E25). | COO-MZDRAW |
+| D24 | digest key for tiers | A new per-centre key `centres` (E24), not a change to the per-bond `stereo` entries. | COO-MZDRAW |
+| D25 | SHA-256 | `sha2` becomes a direct dependency of `mzdraw` (the version `mzlab-mol` already links, already in `Cargo.lock`), added to the dependency guard. plan-30 states the reason and measures the module. Never a second implementation; no request to COO 16. | COO-MZDRAW |
+| D26 | rows of other ARCH chats | ARCH TP-DRAW (PR #54) adds its rows (tp-01..07) after #55 merges; PLAN-2 owns rows 76–80. | COO-MZDRAW |
+| D27 | request id in `draw-result/1` | `draw-result/1` carries the request's `id`, or its index `n` in the batch when it has none, so a batch or JSONL of requests maps line to line (E26). | COO 16 (decision 4), via COO-MZDRAW |
+| D28 | who owns the writers | mzDraw owns every writer (KET, CDXML, SVG, PNG, PDF); mzLab deletes its copies in the integration PR (refines D9). | COO 16, via COO-MZDRAW |
+| D29 | how mzLab links mzDraw | `mzlab-cli` depends on `mzdraw` as a git dependency with a pinned `rev`, and a `[patch]` section keeps one copy of `mzlab-mol` in its build. | COO 16, via COO-MZDRAW |
+| D30 | mzLab site | The site runs `mzdraw::replay` in mzDraw's own wasm module, under its guard of 4,000,000 B (`tools/wasm-cap.toml`). | COO 16, via COO-MZDRAW |

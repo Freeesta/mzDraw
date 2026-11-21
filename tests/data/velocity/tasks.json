@@ -1,0 +1,18 @@
+{
+ "format": "velocity-tasks/1",
+ "note": "Synthetic structures written for this benchmark (rule 4). A drawing reaches a task when the identity of its SMILES (mzlab-mol Mol::can: atom order and Kekule form do not matter, stereo does) equals the target's and its objects are the listed ones.",
+ "tasks": [
+  {"id": "benzene", "goal": "Draw benzene", "target_smiles": "c1ccccc1"},
+  {"id": "ethanol", "goal": "Draw ethanol", "target_smiles": "CCO"},
+  {"id": "isobutanol", "goal": "Draw isobutanol (2-methylpropan-1-ol)", "target_smiles": "CC(C)CO"},
+  {"id": "ibuprofen", "goal": "Draw ibuprofen", "target_smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O"},
+  {"id": "caffeine", "goal": "Draw caffeine", "target_smiles": "Cn1cnc2c1c(=O)n(C)c(=O)n2C"},
+  {"id": "anthracene", "goal": "Draw anthracene", "target_smiles": "c1ccc2cc3ccccc3cc2c1"},
+  {"id": "gonane", "goal": "Draw the steroid skeleton gonane (three six-membered rings and one five-membered ring, all single bonds)", "target_smiles": "C1CCC2C(C1)CCC1C2CCC2C1CCC2"},
+  {"id": "butanediol-rr", "goal": "Draw (2R,3R)-butane-2,3-diol with wedges and hashes", "target_smiles": "C[C@H]([C@@H](C)O)O"},
+  {"id": "glycine-zwitterion", "goal": "Draw the glycine zwitterion", "target_smiles": "[NH3+]CC(=O)[O-]"},
+  {"id": "boc-amine", "goal": "Draw N-ethyl tert-butyl carbamate with the Boc abbreviation (an ethylamine carrying Boc)", "target_smiles": "CCNC(=O)OC(C)(C)C"},
+  {"id": "esterification", "goal": "Draw ethanol + acetic acid, an arrow with the condition text H+, and ethyl acetate", "target_smiles": "CCO.CC(=O)O.CC(=O)OCC", "objects": [{"t": "plus"}, {"t": "arrow", "text": "H+"}]},
+  {"id": "three-in-a-row", "goal": "Draw benzene, ethanol and acetic acid in a row, separated by two plus signs", "target_smiles": "c1ccccc1.CCO.CC(=O)O", "objects": [{"t": "plus"}, {"t": "plus"}]}
+ ]
+}
