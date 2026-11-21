@@ -571,7 +571,56 @@ try {
     await key("Shift+Tab");
     assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-canvas')"), "and Shift+Tab comes back");
     // the help is on the page, closed until asked for
-    assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 4, "the keyboard help");
+    assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 5, "the keyboard help");
+  });
+  await ctx.close();
+
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  await step("no dragging needed (WCAG 2.5.7): a selection is moved and turned by keys, and brought to a click by Move here with the mouse and with a finger", async () => {
+    const atoms = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms;
+    const centre = async () => { const a = await atoms(), xs = a.map(p => p.x), ys = a.map(p => p.y); return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]; };
+    const live = () => pg.innerText("#d2-live"), say = (key, what) => pg.evaluate(`I18N.t(${JSON.stringify(key)}, { what: ${JSON.stringify(what)} })`);
+    const near = (a, b, tol, what) => assert(a.every((v, i) => Math.abs(v - b[i]) < tol), `${what}: ${JSON.stringify(a)} vs ${JSON.stringify(b)}`);
+    await tool(pg, "clear"); await tool(pg, "ring:6a"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 6, bonds: 6 });
+    await tool(pg, "select"); await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 18 - 6 });
+    const c0 = await centre(), key = k => pg.keyboard.press(k);
+    // Alt+Arrow: 0.1 bond length per press, three presses in a row are one undo step
+    for (let n = 0; n < 3; n++) await key("Alt+ArrowRight");
+    near(await centre(), [c0[0] + 0.3, c0[1]], 2e-4, "three small steps right");
+    eq(await live(), await say("draw2.announce.moved", "right 0.3"));
+    await key("Alt+Shift+ArrowUp"); near(await centre(), [c0[0] + 0.3, c0[1] + 1], 2e-4, "one bond length up, joined to the steps before");
+    await key("Control+z"); near(await centre(), c0, 1e-9, "presses in a row, whatever their size, are one undo step");
+    // Alt+[ and Alt+]: 15 degrees about the centre, 24 presses come back; the announcement says the amount
+    const d0 = JSON.stringify(await atoms());
+    await key("Alt+["); eq(await live(), await say("draw2.announce.rotated", "15 counter-clockwise"));
+    await key("Alt+]"); await key("Alt+]"); eq(await live(), await say("draw2.announce.rotated", "15 clockwise"));
+    await key("Alt+["); near((await atoms()).flatMap(p => [p.x, p.y]), JSON.parse(d0).flatMap(p => [p.x, p.y]), 5e-4, "left, right, right, left is the start");
+    for (let n = 0; n < 24; n++) await key("Alt+[");
+    near((await atoms()).flatMap(p => [p.x, p.y]), JSON.parse(d0).flatMap(p => [p.x, p.y]), 3e-3, "24 turns of 15 degrees are a full turn");
+    // without a selection the keys do nothing and the browser does not go back
+    await key("Escape"); await key("Alt+ArrowLeft"); eq((await state(pg)).selected, 0);
+    // Move here: a real toggle button (and the key M); a click on an empty spot brings the selection there, one undo step
+    const toggle = '[data-testid="d2-move-here"]';
+    assert((await pg.evaluate(`document.querySelector('${toggle}').tagName`)) === "BUTTON", "a real button");
+    eq(await pg.getAttribute(toggle, "aria-pressed"), "false");
+    await pg.keyboard.press("Control+a"); await want(pg, { selected: 12 });
+    await pg.click(toggle); eq(await pg.getAttribute(toggle, "aria-pressed"), "true");
+    const before = JSON.stringify(await atoms()), c1 = await centre();
+    await pg.mouse.click(cx + 200, cy + 100); await want(pg, { selected: 12 });
+    const c2 = await centre(), k = (c2[0] - c1[0]) / 200;                       // document units per pixel
+    assert(k > 0 && Math.abs((c1[1] - c2[1]) / 100 - k) < 1e-3 * k + 1e-4, "right and down on the screen is right and down in the document");
+    const ring = (await atoms()).length; eq(ring, 6);
+    await shot(pg, "move-here");
+    await pg.keyboard.press("Control+z"); eq(JSON.stringify(await atoms()), before);
+    await pg.keyboard.press("Control+Shift+z");
+    // a finger does the same
+    await pg.touchscreen.tap(cx - 300, cy - 150); await want(pg, { selected: 12 });
+    const c3 = await centre();
+    near([(c3[0] - c2[0]) / -500, (c3[1] - c2[1]) / 250], [k, k], 1e-3 * k + 1e-4, "a finger brings the selection to the tap");
+    eq(await live(), await say("draw2.say.moved", "6"));
+    // M turns the mode off: a click on an empty spot clears the selection again
+    await key("m"); eq(await pg.getAttribute(toggle, "aria-pressed"), "false");
+    await pg.mouse.click(cx + 300, cy + 200); await want(pg, { selected: 0 });
   });
   await ctx.close();
 
