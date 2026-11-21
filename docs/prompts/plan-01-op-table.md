@@ -11,7 +11,7 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- A new module `crates/mzdraw/src/schema.rs`: `OPS: &[OpSpec]`, one row per operation of the log (`atom.add`, `atom.set`, `atom.ann`, `atom.data`, `bond.add`, `bond.set`, `obj.add`, `obj.set`, `move`, `remove`, `rotate`, `flip`, `ring`): name, fields (key, JSON type, required, unit, bounds), the inverse it records, `since` (the `mzdraw/1` version) and `mzlab` (true when the reader of mzLab, `mzlab-feat/src/chem/edit.rs`, accepts it).
+- A new module `crates/mzdraw/src/schema.rs`: `OPS: &[OpSpec]`, one row per operation of the log (`atom.add`, `atom.set`, `atom.ann`, `atom.data`, `bond.add`, `bond.set`, `obj.add`, `obj.set`, `move`, `remove`, `rotate`, `flip`, `ring`): name, fields (key, JSON type, required, unit, bounds), the inverse it records, `since` (the `mzdraw/1` version), `mzdraw` (true when this repository reads it) and `mzlab` (true when the reader of mzLab, `mzlab-feat/src/chem/edit.rs`, accepts it). `merge` is a row with `mzdraw: false` until arch-web-09 adds it; every later slice that adds an op adds its row (backlog edit E11).
 - `schema::json()` writes the table as `draw-edit-schema/1` (`{"format","ops":[{"op","fields":[...],"mzlab"}]}`), by hand, keys in a fixed order (no derived serde, no `f64` through `{}`).
 - `Op::from_value` checks the op name and the field set against the table (one source of truth; an unknown field is refused with `error.draw2.opField`, as today for unknown ops). The existing readers per op stay; the table is what they are checked against.
 - Replay: `"out":"schema"` returns the JSON; `Editor::save("schema")` is the door.
@@ -32,13 +32,13 @@ Out (do not do here):
 - mzLab `docs/agenti/mol-draw.md` (the language as mzLab documents it).
 
 ## Agreement needed before the PR
-COO 16 owns `draw_edit/1` (backlog Q1). Before the PR, send the coordinator the table of the 13 ops with the `mzlab` column and the field names that differ, and wait for the answer on who owns the table. Without an answer, open the PR with the table marked "proposal" in its doc section.
+Decided by COO 16 on 2026-11-21 (backlog section 8, D1): the one table lives here in `schema.rs` and is served as JSON; a test checks that the 7 ops of mzLab are in it; mzLab adopts the table in its integration PR, and nothing in mzLab `edit.rs` changes before then. When the PR is open, send the coordinator the table with the `mzlab` and `mzdraw` columns for COO 16.
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.
 - Every new operation of the log `draw_edit/1` has an exact inverse and is added to the property test "apply then undo returns the identical document" (`crates/mzdraw/tests/ops.rs`). The page only emits commands: what the page does, the replay request (`crates/mzdraw/src/replay.rs`, the route of `mzlab-cli mol draw`) does with the same bytes (`tests/parity.mjs`).
 - Synthetic data only in tests and examples (structures you write yourself). Never skip, disable or loosen a test.
-- Branch `claude/plan-01-op-table` from `origin/main`; never push to `main`, never rebase, never force-push; merge `main` only on a real conflict. Open the PR ready for review and never merge it: the coordinator merges.
+- Branch `claude/plan-01-op-table` from `origin/main`; never push to `main`, never rebase, never force-push. Hot files (`docs/mzdraw.md` Built state, `measured` in `tools/wasm-cap.toml`) conflict in every PR: merge `origin/main` only on a real conflict, rerun the acceptance commands, push. Do not edit the e2e step count (it is counted from the file now). Open the PR ready for review and never merge it: the coordinator merges.
 - Stay in your zone (`docs/plan/backlog.md` §5). Append-only lines (Built state bullet, `measured`, i18n keys, log cases, `mod` lines, one match arm) may be added next to another chat.
 - Engines of mzLab are called only through `crates/mzdraw-wasm/src/glue.rs` (plan-04), never from `lib.rs` directly, and never re-implemented here. `mzdraw` itself depends on `mzlab-mol`, `libm`, `serde`, `serde_json` only.
 - No new literal of the product name in logic or user text: use `mzdraw::NAME` and the i18n key `draw2.name` (the name will change).
@@ -60,7 +60,7 @@ COO 16 owns `draw_edit/1` (backlog Q1). Before the PR, send the coordinator the 
 - **Fails without the change**: the schema test on a log with an unknown field passes today (unknown fields are ignored or refused per op, not by one rule); it must fail before `schema.rs` and pass after.
 
 ## Independent proof
-Correctness must not rest on our own claims. The `mzlab` column is checked by a test that reads a list of mzLab's op names copied into `tests/data/mzlab_ops.txt` with the mzLab commit it came from; the coordinator re-checks it against mzLab's own `edit.rs` when the pin moves (rule 9). Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date. If a reference cannot be installed in the container, say so in the PR and leave the script runnable.
+Correctness must not rest on our own claims. The `mzlab` column is checked by a test (every op of mzLab is a row; every row marked `mzlab` is one of mzLab's ops) that reads a list of mzLab's op names copied into `tests/data/mzlab_ops.txt` with the mzLab commit it came from; the coordinator re-checks it against mzLab's own `edit.rs` when the pin moves (rule 9). Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date. If a reference cannot be installed in the container, say so in the PR and leave the script runnable.
 
 ## Acceptance (all green before the PR)
 ```

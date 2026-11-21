@@ -1,10 +1,14 @@
 # mzDraw backlog: one ordered plan (ARCH-PLAN)
 
-DRAFT for agreement with the coordinator (COO-MZDRAW). Until the coordinator answers, the wave plan in section 6 is a proposal.
+Agreed with the coordinator (COO-MZDRAW) and COO 16 on 2026-11-21; the decisions are in section 8.
 
 This file has five inputs:
 - the external research output `docs/input/gemini-feature-discovery.md` (Gemini Deep Research, PR #39);
-- the three studies and their prompts: arch-std on `main`, arch-web on PR #38 (branch `claude/arch-web` at `7d15a7b`), arch-cd on branch `claude/arch-cd` at `ef4542d`;
+- the three studies and their prompts:
+  - arch-std 01–14 on `main`;
+  - arch-std second pass 15–22 on PR #45 (branch `claude/arch-std-2` at `0cad22a`);
+  - arch-web on `main` (PR #38);
+  - arch-cd on PR #41 (branch `claude/arch-cd` at `ef4542d`; not final until the coordinator says so);
 - the running work, as the coordinator listed it on 2026-11-21;
 - the code of `main` at `222612f`;
 - the engines of mzLab, read at the pinned commit `ccd4680` and at mzLab `main` `76a4703`.
@@ -83,7 +87,7 @@ Sizes: S is up to about 300 lines, M about 600 lines (one PR), L means several P
 | item | verdict | evidence and reason | depends on | size |
 |---|---|---|---|---|
 | Card 1: MS/MS cleavage and exact-mass annotator | **REFRAME** → plan-05, plan-06, plan-07 | `cut/1`, `fragments`, `breaks` and the adduct table exist in mzLab (F1). mzDraw adds the cut-line object, the callout and the peak match through the glue. It is framed as annotation, never as prediction; `cut.rs` already says "candidates to judge, never a ranking". This is our edge as the mass-spectrometry editor. The Gemini op `add_ms_cleavage` is replaced by `obj.add t:"cut"`. | plan-04 | 3 × M |
-| Card 2: living vector export | **REFRAME** → plan-09, plan-10; the rest is built | SVG `<metadata>` and PNG `iTXt` carrying the document are built (slice 3b); the clipboard formats are arch-web-21. New here: PDF out with the document embedded, and a survival matrix over the hosts we can run headless, plus a checklist for Word and PowerPoint run by hand. Outlining fonts into paths is **DEFER**: a font file has to be bundled and licensed, and the screen text would differ from the file. "#1 daily pain" is not verified. | UI-2 R1 (`export` section) | M + S |
+| Card 2: living vector export | **REFRAME** → arch-std-18 (PDF), arch-std-17 (export default and clipboard), plan-10; the rest is built | SVG `<metadata>` and PNG `iTXt` carrying the document are built (slice 3b); the clipboard formats are arch-web-21. New: PDF out with the document embedded (arch-std-18, written first; plan-09 was withdrawn for it), and a survival matrix over the hosts we can run headless, plus a checklist for Word and PowerPoint run by hand. Outlining fonts into paths is **DEFER**: a font file has to be bundled and licensed, and the screen text would differ from the file. "#1 daily pain" is not verified. | UI-2 R1 (`export` section) | M + S |
 | Card 3: reaction scheme and catalytic-cycle layout | **REFRAME** → plan-13, plan-14; cycle **DEFER**; ORD export **DROP** | Ketcher #1617 is real but fixed. Layout of a one-line scheme and keeping the core oriented the same way on both sides of an arrow are cheap with `move`/`rotate`/`flip` and the substructure search of `mzlab-mol`; no MCS engine is needed for the first cut. A catalytic cycle needs curved arrows on paths first (arch-cd-25). ORD is a protocol-buffer data model of experiments, outside a drawing editor. | arch-web-13, arch-cd-15 | 2 × M |
 | Card 4: open CIP, enhanced stereo, IUPAC linter | **REFRAME** → arch-web-16, arch-std-01/02/12; "Explain CIP" **DEFER** | The CIP engine exists (`cip/1`). The linter is arch-std-01/02 (01 running), enhanced stereo is arch-std-12, the labels are arch-web-16. "Explain CIP" needs `cip/1` to emit its digraph trace, a mzLab change (COO 16). The CIP validation suite has no licence, so it can only be a run-time benchmark in mzLab and is never committed. | plan-04 | covered |
 | Card 5: Markush / R-group / SAR sync | **DEFER** | Markush enumeration and R-group definitions are query features, outside rule 13 of `CLAUDE.md`; it needs an owner decision. R labels are built. Ketcher #197 is closed. | owner decision | L |
@@ -95,12 +99,12 @@ Sizes: S is up to about 300 lines, M about 600 lines (one PR), L means several P
 | Do-not 2: 3D conformers and viewer | **DROP** (agree) | mzLab has 3D (`mzlab-chem` embed); a host page can show it. | — | — |
 | Do-not 3: macromolecules / HELM | **DROP** (agree) | Rule 13. | — | — |
 | Do-not 4: natural-language structure generator | **DROP** (agree) | No server, deterministic bytes; agents drive the editor from outside (rule 15). | — | — |
-| Do-not 5: OLE and proprietary binary formats | **REFRAME** | OLE is dropped. Reading **binary CDX** is kept (plan-17, plan-18): it is a common file format, Octet-Draw reads it, and the owner asks for all common formats. Writing CDX is DEFER. | slice 3d (`cdxml.rs`) | 2 × M |
+| Do-not 5: OLE and proprietary binary formats | **REFRAME** | OLE is dropped. Reading **binary CDX** is kept (arch-std-22, written first; plan-17 and plan-18 were withdrawn for it): it is a common file format, Octet-Draw reads it, and the owner asks for all common formats. Writing CDX is DEFER. | slice 3d (`cdxml.rs`) | M |
 | Better question 1: where do we lose on drawing speed? | **KEEP** → plan-02 | Answered by measurement, below (section 2). | — | M |
 | Better question 2: analytical niche vs synthetic chemists | answered | Both, in order: drawing speed and file fidelity first (waves 1 to 4), the mass-spectrometry edge from wave 3 (plan-05 to plan-07). | — | — |
 | Better question 3: synthetic data vs real files | **KEEP** → plan-03 | Fixtures stay synthetic (rule 4). A tool fetches public corpora at run time, never commits them, and commits only the success rates. Open question Q5. | — | M |
 
-Gemini counts: 1 kept, 8 reframed, 1 deferred, 4 dropped. The better questions add 2 kept and 1 answered.
+Gemini counts: 1 kept, 8 reframed, 1 deferred, 4 dropped (14 items). The better questions add 2 kept and 1 answered.
 
 ## 2. Drawing speed: a measured answer (plan-02)
 There is no number today; we do not know where we lose to ChemDraw. The plan measures it on a fixed task set. Speed has two parts, one per kind of user (rule 15).
@@ -116,174 +120,219 @@ There is no number today; we do not know where we lose to ChemDraw. The plan mea
 The output is `velocity/1` JSON, with one row per task and tool. A test fails when the action count of an mzDraw task rises; that is the regression guard. The first report is expected to show where hover hotkeys (arch-cd-03), chains (arch-web-08), templates (arch-web-19) and labels pay off, and it orders wave 3 and later; the coordinator re-orders after it.
 
 ## 3. Duplicates and conflicts resolved
+"Runs" names the one prompt to launch; the others become notes of additions that the running chat reads at its start (section 7).
+
 | topic | prompts | resolution |
 |---|---|---|
-| shortcuts section | arch-web-06 (none), arch-std-06, arch-cd-17 | **arch-std-06 runs.** Add from arch-cd-17: the per-target table (canvas, atom, bond), reserved keys, a printable table. Add from arch-web-06: nothing (it was never written). |
-| keyboard move / rotate / nudge | arch-std-05 (running), arch-web-07, arch-cd-15 | **arch-std-05 owns the keys**: Alt+Arrow moves, Alt+[ ] rotates. arch-cd-15 keeps align, distribute and scale and **drops** its Alt+Arrow 1° and Shift+Alt+Arrow 15° rotation. arch-web-07 keeps lasso, piece selection, the two-click band and focus on bonds and objects; it must not bind Shift+Arrow (arch-std-05 does). |
-| context menu | arch-web-12, CTX-MENU (PR #37), arch-cd-20 | **arch-web-12 is withdrawn** (it is PR #37). Its long-press and Shift+F10 / Menu key notes go to the CTX-MENU page PR. arch-cd-20 (refine) runs after that page PR. **Its file is missing on `claude/arch-cd` at `ef4542d`** although the study lists it; arch-cd must add it (edit E10). |
-| either / crossed double bond | arch-web-20, arch-std-11, arch-cd-04 | **arch-std-11** (`bond.set s:3` on a double bond). arch-web-20 has no "either". |
-| bond kinds | arch-web-20, arch-cd-04, arch-cd-23 | One field `k` on a bond (arch-web-20): `bold`, `dative`, `hbond`, plus arch-cd-04's dashed kinds. arch-cd-04 keeps the double-bond position `pos`. arch-cd-23 supplies V3000 types 9 and 10. Whether a dative bond counts for valence is decided in `mzlab-mol` (COO 16). |
-| CIP labels | arch-web-16, arch-cd-02 | **arch-web-16 runs**, computing through `cip/1` in the glue (plan-04), so the native replay gives the same bytes. Add arch-cd-02's `"cip"` request field. |
-| enhanced stereo | arch-std-12, arch-cd-24 | **arch-std-12 runs** (`stereo.group {atoms, g}`, atom field `stg`). arch-cd-24 becomes its additions. |
-| abbreviations expand / contract / user | arch-web-18, arch-cd-10, arch-cd-11, arch-std-08 | **arch-web-18 runs**, with op names `abbr.expand` / `abbr.contract`. Composed labels (CO2Me) must reuse the label-unit tokenizer of arch-std-08, which runs first. |
-| templates | arch-web-19, arch-cd-12, arch-cd-13 | **arch-web-19 runs** (op `tmpl`), with arch-cd-12's merge rules added. |
-| chain | arch-web-08, arch-cd-05 | **arch-web-08 runs** (op `chain`), with arch-cd-05's count display added. |
-| clean-up | arch-web-10, arch-cd-01, Gemini card 3 | **arch-web-10 runs** (op `place {atoms, xy}`), with arch-cd-01's acceptance added: isomeric SMILES identical before and after, wedges keep their meaning. |
-| values | arch-web-17, arch-cd-14 | **arch-web-17 runs**, but takes its numbers from `selection/1` (`mzlab-feat` feature `sel`) through the glue: `mzlab-mol` has no mass table (arch-cd-14 is right). |
-| copy as / drop / paste | arch-web-21, arch-cd-16 | Both run: web-21 for drop and copy-as, cd-16 for paste on a free spot. The key `Ctrl+Shift+K` goes to clean-up (arch-web-10); "copy as KET" moves into the copy-as chooser. |
-| theme tokens | arch-web-04, arch-std-03, UI-2 PR 3 | Order: UI-2 PR 3 (tokens), then arch-std-03 (element palettes, `background`), then arch-web-04 (host tokens, no own palette). |
-| palettes | arch-cd-18, arch-cd-19, UI-2 R1 (PR #35) | arch-cd-18 and arch-cd-19 run on top of R1, after UI-2 PR 2. |
-| embedding API | arch-web-01..03, arch-cd-21 | **arch-web runs.** The element name stays `<mzdraw-editor>` until the product is renamed; it is the one literal, in one file (owner: the name will change). |
+| shortcuts section | arch-web-06 (never written), arch-std-06, arch-cd-17 | **arch-std-06 runs**, with arch-cd-17's additions (E1). |
+| keyboard move / rotate / nudge | arch-std-05 (built or running), arch-web-07, arch-cd-15 | **arch-std-05 owns the keys**: Alt+Arrow moves, Alt+[ ] rotates. arch-cd-15 keeps align, distribute and scale and drops its Alt keys (E2). arch-web-07 keeps lasso, piece selection, the band and bond/object focus, and does not bind Shift+Arrow (E3). |
+| context menu | arch-web-12, CTX-MENU (PR #37 merged; page PR waits), arch-cd-20 | **arch-web-12 is withdrawn.** Its long-press and Shift+F10 / Menu key notes go to the CTX-MENU page PR. arch-cd-20 (refine) runs after that page PR; its file is asked of arch-cd (E10). |
+| clean-up | arch-std-15 (`atoms.xy`), arch-web-10 (`place`), arch-cd-01 | **arch-std-15 runs; ONE op: `atoms.xy`.** arch-web-10 is withdrawn. arch-cd-01's acceptance (isomeric SMILES unchanged, wedge meaning and E/Z kept) and arch-web-10's "clean the selection only" are added to std-15 (E4). |
+| text runs | arch-std-21, arch-web-14, arch-cd-07 | **arch-std-21 runs** (runs, `_`/`^` parser, Formula button, KET and CDXML). arch-web-14 is withdrawn. arch-cd-07's symbol picker stays as an addition (E15). |
+| export default, clipboard, copy as | arch-std-17, arch-web-21, arch-cd-16 | **arch-std-17 runs first**: background, the Download default, and the clipboard payload list decided in Rust. **arch-web-21 runs after it** (drop files, a "Copy as" chooser built on std-17's payload list). arch-cd-16 (paste on a free spot) runs after that. The key `Ctrl+Shift+K` is not taken by either (E7). |
+| PDF | arch-std-18, plan-09 (withdrawn) | **arch-std-18 runs**; plan-09's determinism and independent checks are added (E16). |
+| CDX read | arch-std-22, plan-17 + plan-18 (withdrawn) | **arch-std-22 runs** (one slice: the container reader feeds the CDXML element tree, so objects come with it); plan-17's proof (Open Babel) is added (E17). |
+| either / crossed double bond | arch-std-11, arch-web-20, arch-cd-04 | **arch-std-11.** IUPAC ST-4.4 says the crossed form is not acceptable (arch-std second pass), so its default is the wavy form and the crossed form is only an option. |
+| bond kinds (dative, hydrogen, bold, dashed) | arch-std row 17 ("new order codes"), arch-web-20 (`k`), arch-cd-04, arch-cd-23 | **arch-web-20 runs with ONE field `k`**, written as V3000 types 9 and 10 (COO 16, D4). arch-std row 17 is realised by arch-web-20, with no new order codes. arch-cd-04 keeps the double-bond position `pos` and puts its dashed kinds on `k`. arch-cd-23 becomes additions. Valence meaning of a dative bond is `mzlab-mol`'s (E9). |
+| CIP labels | arch-web-16, arch-cd-02 | **arch-web-16 runs**, through `cip/1` in the glue (plan-04), with arch-cd-02's `"cip"` request field (E5). |
+| enhanced stereo | arch-std-12, -19, -20; arch-cd-24 | **arch-std-12** (document, op, drawing), **then 19** (V3000, KET), **then 20** (CXSMILES). arch-cd-24 becomes additions. |
+| abbreviations | arch-web-18, arch-cd-10, arch-cd-11, arch-std-08 | **arch-web-18 runs** (`abbr.expand` / `abbr.contract`, section `abbreviations`), after arch-std-08, reusing its label-unit tokenizer (E8). |
+| templates | arch-web-19, arch-cd-12, arch-cd-13 | **arch-web-19 runs** (op `tmpl`, COO 16, D3), with arch-cd-12's merge rules. |
+| chain | arch-web-08, arch-cd-05 | **arch-web-08 runs** (op `chain`, COO 16, D3), with arch-cd-05's count display. |
+| values | arch-web-17, arch-cd-14 | **arch-web-17 runs**, taking its numbers from `selection/1` through the glue (E6). |
+| theme tokens | arch-web-04, arch-std-03, UI-2 PR 3 | Order: UI-2 PR 3, then arch-std-03, then arch-web-04. |
+| palettes | arch-cd-18, arch-cd-19, UI-2 (R1 PR #35, page PR 2) | arch-cd-18 then arch-cd-19, in one chat, on top of R1 and after UI-2 PR 2; final scope as arch-cd fixes PR #41. |
+| embedding API | arch-web-01..05, arch-cd-21 | **arch-web runs** (web-01 first: it removes the one global editor of the bridge and blocks web-02..05). The element name `<mzdraw-editor>` is the one literal, in one file. |
+| desktop app | arch-cd-22 | Owner: one component, two distributions (standalone app macOS + Windows; bundled by default in mzLab site and app through Tauri). COO 16: a separate shell for now, the shared `release.yml` pattern, signing later by the owner. arch-cd-22 runs last (wave 8). |
 
 ## 4. The backlog
 Columns:
 - **Zone** is the main write zone (section 5).
-- **COO 16** is "yes" when the item needs COO 16's agreement first: a new `draw_edit/1` op or field, or a change in `mzlab-mol` / `mzlab-feat`.
-- **Proof** is the independent check named in the prompt.
+- **COO 16** is "yes" when the item adds a `draw_edit/1` op or field (agreement before its PR) or needs a change in `mzlab-mol` / `mzlab-feat`. Ops already agreed in section 8 say "agreed".
+- **Proof** is the independent check the prompt names.
 
-Status: RUN = running now, Q = queued, P = has a prompt, N = new prompt in this PR, W = withdrawn, D = deferred.
+Status: RUN = running now or waiting for merge, Q = queued, P = has a prompt, N = new prompt in this PR, W = withdrawn.
 
 | # | id | item | status | size | depends on | zone | COO 16 | proof |
 |---|---|---|---|---|---|---|---|---|
-| 1 | UI-2 R1 | palette layout in Rust (PR #35) | RUN | M | — | `palettes.rs`, settings `layout`/`export` | no | property tests |
+| 1 | UI-2 R1 | palette layout in Rust (PR #35) | RUN | M | — | `palettes.rs`; settings `layout`, `export` | no | property tests |
 | 2 | UI-2 PR 2 | icons and page palettes | RUN | M | R1 | page | no | screenshots |
 | 3 | UI-2 PR 3 | light / dark tokens | RUN | S | PR 2 | page css | no | contrast |
-| 4 | CTX-MENU | menu model (PR #37) + page PR | RUN | M+S | — | `context.rs`, bridge `menu` | no | APG pattern |
-| 5 | arch-std-01 | `std/1` stereo checks | RUN | M | — | `conform.rs` | no | InChI TechMan 1.07 |
-| 6 | arch-std-04 | accessible SVG | RUN | S | — | `svg.rs`, `outline.rs` | no | SVG 1.1 element test |
-| 7 | arch-std-05 | drag-free editing | RUN | S | — | input | no | 24×15° round trip |
-| 8 | arch-std-08 | label reversal | RUN | S | — | `label.rs` | no | goldens |
-| 9 | arch-std-14 | annotation scales | RUN | S | — | `ann.rs` | no | Charbonnet 2022 |
-| 10 | arch-std-02 | geometry checks | Q | M | std-01 | `conform.rs` | no | flaw sheet |
-| 11 | arch-std-13 | crossing gap | Q | S | std-02 | scene | no | goldens |
-| 12 | plan-01 | one op table for `draw_edit/1` | N | S | — | new `schema.rs` | **yes** (ownership of the language) | mzLab `edit.rs` op set ⊆ table, by test |
-| 13 | plan-02 | drawing-speed benchmark | N | M | — | `tools/velocity`, `tests/velocity.mjs` | no | Ketcher pinned build; ChemDraw protocol |
-| 14 | plan-03 | format fidelity against RDKit / Open Babel / InChI | N | M | — | `tools/fidelity` | no | RDKit 2025.09*, Open Babel 3.1.1*, InChI 1.07.5 |
-| 15 | plan-04 | engine glue callable natively | N | S | CTX-MENU bridge merged | bridge, new `glue.rs` | no (uses existing features) | parity wasm == native with engines |
-| 16 | arch-std-09 | OpenSMILES file rules | P | S | — | readers (`io.rs`) | no | OpenSMILES 1.0 |
-| 17 | plan-09 | PDF out with the document embedded | N | M | — | new `pdf.rs` | no | `qpdf --check`, `pdfdetach` (poppler) |
-| 18 | plan-15 | semantic diff of two documents | N | M | plan-01 | new `diff.rs` | no | property: apply(diff(a,b),a) == b |
-| 19 | plan-17 | binary CDX reader: structures | N | M | — | new `cdx.rs` | no | CDX ↔ CDXML of the same synthetic file, written by Open Babel 3.1.1* |
-| 20 | arch-std-12 | enhanced stereo | P | M | std-01 | document atoms/bonds | **yes** (op `stereo.group`, field `stg`) | V3000 / CXSMILES against RDKit (plan-03) |
-| 21 | arch-std-03 | palette contrast | P | S | UI-2 PR 3 | scene / style | no | WCAG 2.2 formula |
-| 22 | arch-std-06 | shortcuts section (+ arch-cd-17 additions) | P | M | std-05 | input + settings | no | WCAG 2.1.4 |
-| 23 | arch-web-01 | editor instances | P | M | plan-04 | bridge | no | two-editor test |
-| 24 | plan-05 | cut line object | N | M | — | document objects | **yes** (`obj.add t:"cut"`) | `mol cut` of mzLab on the same molfile |
-| 25 | plan-13 | one-line scheme layout | N | M | — | new `scheme.rs` | no (moves only) | geometry invariants; Ketcher comparison |
-| 26 | plan-18 | binary CDX reader: objects | N | M | plan-17 | `cdx.rs` | no | as plan-17 |
-| 27 | arch-std-11 | unknown double bond | P | M | std-12 | document atoms/bonds | **yes** (`s:3` on order 2) | round trips (plan-03) |
-| 28 | arch-web-02 | `<mzdraw-editor>` element | P | M | web-01, UI-2 PR 2 | page (new file) | no (`apply` = log) | network log |
-| 29 | plan-06 | fragment masses on the cut | N | M | plan-04, plan-05 | glue + objects | no | masses against RDKit `ExactMolWt` and mzLab `mol cut` |
-| 30 | arch-web-10 | clean-up (+ arch-cd-01) | P | M | — | `layout.rs` | **yes** (op `place`) | isomeric SMILES unchanged |
-| 31 | arch-cd-03 | hover hotkeys | P | S | std-06 | input | no | velocity/1 counts drop |
-| 32 | arch-web-13 | arrow kinds (+ arch-cd-06) | P | S | UI flyout | document objects | **yes** (obj fields) | KET / CDXML round trip |
-| 33 | plan-10 | survival matrix of pictures | N | S | plan-09 | `tools/survival` | no | rsvg-convert, Inkscape, LibreOffice headless, ImageMagick |
-| 34 | arch-cd-04 | double-bond position, dashed display | P | S | web-20 field agreed | scene + bond field | **yes** (`pos`) | CDXML |
-| 35 | plan-11 | atom maps | N | M | std-11 | document atoms | **yes** (`atom.set map`) | RXN / SMILES maps against RDKit |
-| 36 | arch-std-10 | label display modes | P | S | std-03 | scene / style | no | goldens |
-| 37 | arch-web-03 | host adapter | P | S | web-02 | page | no | — |
-| 38 | arch-web-07 | selection (lasso, piece) | P | M | std-05 | input | no | — |
-| 39 | plan-07 | peak list → explained cuts | N | M | plan-06 | glue | no | MassBank CC BY 4.0, fetched at run time, success rate |
-| 40 | arch-web-14 | rich text (+ arch-cd-07) | P | M | — | document objects | **yes** (`runs`) | goldens, KET |
-| 41 | plan-14 | keep the core oriented across a scheme | N | M | plan-13 | `scheme.rs` | no | RDKit `GenerateDepictionMatching2DStructure` |
-| 42 | arch-std-07 | page accessibility audit | P | S | UI-2 PR 3 | page css + e2e | no | WCAG values |
-| 43 | arch-web-16 | CIP labels (+ arch-cd-02) | P | M | plan-04 | scene labels | no | RDKit `rdCIPLabeler` on the plan-03 set |
-| 44 | arch-web-08 | chain (+ arch-cd-05) | P | S | std-06 | input | **yes** (op `chain`) | velocity/1 |
-| 45 | arch-web-05 | viewer and form | P | S | web-02 | page | no | WHATWG text |
-| 46 | arch-web-15 | highlight marks | P | M | — | document atoms/bonds | **yes** (field `hl`) | KET |
-| 47 | plan-12 | `trasf/1` out | N | M | plan-11 | io | no (`mzlab-mol` has it) | mzLab `trasf/1` reader; RDKit reaction |
-| 48 | arch-cd-25 | curved arrows and lone pairs | P | M | web-13 | document objects | **yes** (`lp`, `t:"curve"`) | `mechanism/1` |
-| 49 | arch-web-17 | values (+ arch-cd-14) | P | S | plan-04 | glue | no | RDKit masses |
-| 50 | arch-cd-08 | radical, isotope, periodic table | P | S | web-07 | input | no | — |
-| 51 | plan-16 | agent proposal layer | N | M | plan-15, UI-2 PR 2 | overlay + page | no (view only) | e2e accept/reject = log |
-| 52 | plan-08 | curved-arrow check | N | S | arch-cd-25, plan-04 | glue | no | `mol mech` of mzLab |
-| 53 | arch-web-09 | merge on drop | P | M | web-08 | input | **yes** (`merge` exists in mzLab, not in mzDraw) | — |
-| 54 | arch-web-11 | atom popover (+ arch-cd-09) | P | M | cd-08, CTX-MENU page | bridge + page | no | — |
-| 55 | arch-web-18 | abbreviations (+ arch-cd-10/11) | P | M | std-08 | `label.rs` | **yes** (`abbr.*`) | molfile of expanded = contracted |
-| 56 | arch-web-19 | templates (+ arch-cd-12/13) | P | M | std-06 | new data + ops | **yes** (`tmpl`) | velocity/1 |
-| 57 | arch-web-20 | bond kinds (+ arch-cd-23) | P | M | cd-04 | document bonds | **yes** (`k`; dative valence in `mzlab-mol`) | V3000, KET |
-| 58 | arch-web-21 | drop and copy as | P | S | CTX-MENU page | page | no | — |
-| 59 | arch-cd-16 | smart paste | P | S | web-21 | editor_edit | no | — |
-| 60 | arch-cd-15 | align, distribute, scale (no Alt keys) | P | S | web-10 | ops via commands | no | geometry |
-| 61 | arch-cd-18 | palette tear-off | P | M | UI-2 PR 2 | `palettes.rs` + page | no | — |
-| 62 | arch-cd-19 | named layouts | P | S | cd-18 | `palettes.rs` | no | — |
-| 63 | arch-cd-20 | context-menu refine | P (file missing) | S | CTX-MENU page | `context.rs` | no | — |
-| 64 | arch-web-04 | host theme tokens | P | S | UI-2 PR 3, std-03 | scene screen palette | no | goldens unchanged |
-| 65 | arch-cd-26 | history panel | P | S | — | editor + page | no | log |
-| 66 | arch-cd-22 | desktop shell | P | L | owner's choice of shell, web-02 | new crate | no | headless smoke |
-| — | arch-web-12 | context menu | W | — | = CTX-MENU | — | — | — |
-| — | arch-cd-01/02/05/06/07/09/10/11/12/13/14/17/21/23/24 | superseded notes | W (additions only) | — | see section 3 | — | — | — |
-| — | Markush / SAR (card 5) | | D | L | owner, rule 13 | — | — | — |
-| — | catalytic-cycle layout | | D | M | arch-cd-25 on paths | — | — | — |
-| — | Explain CIP trace | | D | M | `cip/1` trace (mzLab) | — | yes | — |
-| — | next mechanistic intermediate | | D | L | new mzLab engine | — | yes | — |
-| — | font outlining in files | | D | M | font licence | — | — | — |
-| — | CDX writer | | D | M | plan-18 | — | — | — |
+| 4 | CTX-MENU page | menu on the page (PR 1 #37 merged) | RUN | S | UI-2 PR 2 | page | no | APG menu pattern |
+| 5 | arch-std-01 | `std/1` stereo checks | RUN | M | — | conform | no | InChI TechMan 1.07 |
+| 6 | arch-std-05 | drag-free editing | RUN | S | — | input | no | 24×15° round trip |
+| 7 | arch-std-08 | label reversal | RUN | S | — | label | no | goldens, IUPAC GR-2.1.6 |
+| 8 | arch-std-14 | annotation scales | RUN | S | — | `ann.rs` | no | Charbonnet 2022 |
+| 9 | plan-01 | one table of `draw_edit/1` ops | N | S | — | new `schema.rs` | agreed (D1) | mzLab op list ⊆ table |
+| 10 | plan-02 | drawing-speed benchmark | N | M | — | `tools/velocity`, `tests/velocity.mjs` | no | pinned Ketcher; person protocol |
+| 11 | plan-03 | fidelity against RDKit / Open Babel / InChI | N | M | — | `tools/fidelity` | no | InChIKey by RDKit, Open Babel |
+| 12 | plan-04 | engine glue callable natively | N | S | — | bridge, new `glue.rs` | no (D2) | parity with engines; bytes = mzLab CLI |
+| 13 | plan-15 | semantic diff | N | M | — | new `diff.rs` | no | property apply(diff(a,b),a) == b |
+| 14 | arch-std-09 | OpenSMILES file rules | P | S | — | readers (`io.rs`) | no | OpenSMILES 1.0 |
+| 15 | arch-std-18 | PDF writer (+ E16) | P | M | — | new `pdf.rs` | no (D7) | `qpdf --check`, `pdfdetach` |
+| 16 | arch-std-22 | CDX reader (+ E17) | P | M | — | new `cdx.rs` | no | Open Babel reads the same files |
+| 17 | arch-std-02 | geometry checks | Q | M | std-01 | conform | no | flaw sheet |
+| 18 | arch-std-12 | enhanced stereo: document, op, drawing | P | M | std-01 | document atoms/bonds | yes (`stereo.group`, `stg`) | IUPAC ST rules; RDKit via plan-03 |
+| 19 | arch-std-03 | palette contrast | P | S | UI-2 PR 3 | scene/style | no | WCAG 2.2 formula |
+| 20 | arch-std-06 | shortcuts (+ E1) | P | M | std-05 | input + settings section | no | WCAG 2.1.4 |
+| 21 | arch-web-01 | editor instances | P | M | plan-04 | bridge | no | two-editor test |
+| 22 | plan-05 | cut line object | N | M | plan-01 | document objects | yes (`t:"cut"`) | `mol cut` of mzLab |
+| 23 | plan-13 | one-line scheme layout | N | M | — | new `scheme.rs` | no (moves only) | geometry invariants; RXN roles by RDKit |
+| 24 | arch-std-15 | clean-up (+ E4) | P | M | — | `layout.rs` + op | yes (`atoms.xy`) | isomeric SMILES unchanged |
+| 25 | arch-std-11 | unknown double bond | P | M | std-12 | document atoms/bonds | yes (`s:3` on order 2) | round trips (plan-03) |
+| 26 | arch-std-13 | crossing gap | Q | S | std-02 | scene | no | IUPAC ST-3.1; goldens |
+| 27 | arch-web-02 | `<mzdraw-editor>` element | P | M | web-01, UI-2 PR 2 | page (new file) | no | network log |
+| 28 | plan-06 | fragment masses on a cut | N | M | plan-04, plan-05 | glue + objects | yes (fields `h`, `adduct`) | RDKit `ExactMolWt` |
+| 29 | arch-std-17 | export default, Download, clipboard list | P | S | std-03 | `svg.rs` + page Download | no | Office SVG notes |
+| 30 | arch-cd-03 | hover hotkeys | P | S | std-06 | input | no | velocity/1 |
+| 31 | plan-14 | keep the core oriented | N | M | plan-13 | `scheme.rs` | no | RDKit `GenerateDepictionMatching2DStructure` |
+| 32 | plan-10 | survival matrix of pictures | N | S | std-18 | `tools/survival` | no | independent hosts reopen |
+| 33 | plan-11 | atom maps | N | M | std-11 | document atoms/bonds | yes (`atom.set map`) | RDKit maps |
+| 34 | arch-std-10 | label display modes | P | S | std-03 | scene/style | no | goldens |
+| 35 | arch-web-03 | host adapter | P | S | web-02 | page (element file) | no | — |
+| 36 | arch-web-07 | selection (+ E3) | P | M | std-05 | input | no | — |
+| 37 | plan-07 | peak list → explained cuts | N | M | plan-06 | glue | maybe (engine entry) | MassBank run-time rate |
+| 38 | arch-web-13 | arrow kinds (+ cd-06) | P | S | — | document objects | yes (obj fields) | KET / CDXML |
+| 39 | arch-std-16 | export profiles | P | M | std-01 | conform + svg sizes | no | journal pages read |
+| 40 | arch-std-07 | page accessibility audit | P | S | UI-2 PR 3 | page css + e2e | no | WCAG values |
+| 41 | arch-web-16 | CIP labels (+ E5) | P | M | plan-04 | scene labels + glue arm | no | RDKit `rdCIPLabeler` |
+| 42 | arch-web-08 | chain (+ cd-05) | P | S | std-06 | input + op | agreed (D3) | velocity/1 |
+| 43 | arch-web-05 | viewer and form | P | S | web-03 | page (element file) | no | WHATWG text |
+| 44 | arch-std-19 | enhanced stereo in V3000, KET | P | M | std-12 | readers + writers | maybe (`mzlab-mol` reads them) | RDKit via plan-03 |
+| 45 | plan-12 | `trasf/1` out | N | M | plan-11 | io (save arm) | maybe (constructor) | RDKit reaction; mzLab reader |
+| 46 | arch-cd-25 | curved arrows, lone pairs | P | M | web-13 | document objects | yes (`lp`, `t:"curve"`) | `mechanism/1` |
+| 47 | arch-web-17 | values (+ E6) | P | S | plan-04 | glue arm + outline | no | RDKit masses |
+| 48 | plan-16 | agent proposal layer | N | M | plan-15, UI-2 PR 2 | overlay + page panel | no | bytes = apply of hunks |
+| 49 | arch-web-09 | merge on drop | P | M | web-08 | input + op | yes (`merge`: mzLab has it, D1 table) | — |
+| 50 | arch-web-11 | atom popover (+ cd-09) | P | M | CTX-MENU page | bridge + page | no | — |
+| 51 | arch-web-18 | abbreviations (+ E8) | P | M | std-08 | label | yes (`abbr.*`) | molfile expanded = contracted |
+| 52 | arch-web-19 | templates (+ cd-12/13) | P | M | std-06 | data + op | agreed (D3) | velocity/1 |
+| 53 | arch-web-15 | highlight marks | P | M | — | document atoms/bonds | yes (`hl`) | KET |
+| 54 | arch-std-21 | text runs (+ E15) | P | M | — | document objects | yes (`runs`) | KET, CDXML goldens |
+| 55 | plan-08 | curved-arrow check | N | S | cd-25, plan-04 | glue arm + conform panel | no | `mol mech` of mzLab |
+| 56 | arch-web-20 | bond kinds (+ E9) | P | M | web-15 | document bonds | agreed (D4); valence in `mzlab-mol` maybe | V3000 9/10, KET |
+| 57 | arch-std-20 | enhanced stereo in CXSMILES | P | S | std-19 | readers | maybe (CXSMILES writer) | RDKit via plan-03 |
+| 58 | arch-cd-08 | radical, isotope, periodic table | P | S | web-07 | input | no | — |
+| 59 | arch-cd-15 | align, distribute, scale (+ E2) | P | S | std-15 | commands | no | geometry |
+| 60 | arch-web-21 | drop and copy as (+ E7) | P | S | std-17, CTX-MENU page | page clipboard | no | — |
+| 61 | arch-cd-18 + 19 | palette tear-off, named layouts | P | M | UI-2 PR 2 | `palettes.rs` + page | no | — |
+| 62 | arch-cd-20 | context-menu refine | P (file asked) | S | CTX-MENU page | `context.rs` | no | — |
+| 63 | arch-cd-26 | history panel | P | S | — | editor + page | no | log |
+| 64 | arch-cd-04 | double-bond position, dashed on `k` | P | S | web-20 | document bonds | yes (`pos`) | CDXML |
+| 65 | arch-cd-16 | smart paste | P | S | web-21 | `editor_edit.rs` | no | — |
+| 66 | arch-web-04 | host theme tokens | P | S | UI-2 PR 3, std-03 | scene screen palette | no | goldens unchanged |
+| 67 | arch-cd-22 | desktop shell | P | L | web-02; owner's Tauri choice | new crate | no | headless smoke |
+| — | arch-web-10, arch-web-12, arch-web-14 | clean-up, context menu, rich text | W | — | = std-15, CTX-MENU, std-21 | — | — | — |
+| — | plan-09, plan-17, plan-18 | PDF, CDX core, CDX objects | W | — | = std-18, std-22 | — | — | — |
+| — | arch-cd-01/02/05/06/07/09/10/11/12/13/14/17/21/23/24 | superseded | additions only | — | section 3 | — | — | — |
 
-Totals: 66 rows to run (11 running or queued, 18 new prompts, 37 with existing prompts). Deferred: 6. Withdrawn: 1 prompt, plus 15 arch-cd prompts reduced to notes of additions.
+Deferred, no prompt: Markush / SAR (card 5, rule 13, owner); catalytic-cycle layout (after arch-cd-25 on paths); Explain-CIP trace (a `cip/1` change, COO 16); next mechanistic intermediate (a new mzLab engine, COO 16); font outlining in files (font licence); CDX writer (after std-22); live isomer re-ranking (after plan-07's numbers); automatic atom mapping.
+Dropped: Open Reaction Database export; freehand gesture recognition; 3D conformers and viewer; macromolecules; natural-language structure generation; OLE.
+
+Totals:
+- 67 rows to run: 8 running or waiting, 15 new prompts, 44 with existing prompts.
+- Withdrawn: 6 prompts (arch-web-10, -12, -14; plan-09, -17, -18).
+- 15 arch-cd prompts are reduced to notes of additions.
+- Deferred: 8.
 
 ## 5. File zones
 Two chats never write the same zone at the same time.
 
 | zone | files |
 |---|---|
-| **document atoms/bonds** | `doc.rs` (atom/bond fields), the atom/bond arms of `ops.rs`, the writers of those fields in `io.rs`, `ket.rs`, `cdxml.rs`, `cml.rs`, `rxn.rs` |
-| **document objects** | `doc.rs` (objects), the `obj.*` arms of `ops.rs`, object painting in `scene.rs` |
-| **scene / style** | atom, bond and label painting in `scene.rs`, `settings.rs` style fields, `svg.rs` |
+| **document atoms/bonds** | `doc.rs` atom/bond fields; the atom/bond arms of `ops.rs`; the writers of those fields in `io.rs`, `ket.rs`, `cdxml.rs`, `cml.rs`, `rxn.rs` |
+| **document objects** | `doc.rs` objects; the `obj.*` arms of `ops.rs`; object painting in `scene.rs` |
+| **scene/style** | atom, bond and label painting in `scene.rs`; `settings.rs` style fields; `svg.rs` |
 | **input** | `editor_tools.rs`, `editor_keys.rs`, `editor_touch.rs`, `editor_edit.rs` |
-| **readers** | `io.rs` read paths. A new reader module (`cdx.rs`) is its own zone. |
-| **bridge** | `crates/mzdraw-wasm/src/*` |
-| **page** | `web/*` (a new page file is its own zone) |
+| **readers** | `io.rs` read paths (a new reader module is its own zone) |
+| **bridge** | `crates/mzdraw-wasm/src/lib.rs` and other bridge files except `glue.rs` |
+| **glue** | `crates/mzdraw-wasm/src/glue.rs`: one engine arm per feature is append-only |
+| **page** | `web/index.html`, `web/mzdraw.js`, `web/mzdraw.css` (the element file `web/mzdraw-editor.js` is its own zone) |
 | **conform** | `conform.rs` |
 | **label** | `label.rs` |
-| **layout** | `layout.rs`, `scheme.rs` |
+| **layout** | `layout.rs` (`scheme.rs` is its own zone) |
 | **tools** | `tools/<own dir>`, a new `tests/*.mjs` |
 | **new module** | one new file in `crates/mzdraw/src` |
 
-Append-only lines that any chat may add next to another chat (merge = keep both):
+Append-only lines any chat may add next to another chat (merge = keep both, then rerun):
 - the Built state bullets of `docs/mzdraw.md`;
 - `measured` in `tools/wasm-cap.toml`;
 - keys in `web/lang/mzdraw.js`;
 - cases in `tests/data/mzdraw_log.json`;
-- `mod` lines in `lib.rs`;
-- one match arm in `Op::from_value` / `Op::write`;
-- one arm in `Editor::save`.
+- `mod` lines;
+- one match arm in `Op::from_value` / `Op::write` / `Editor::save` / `glue::run`;
+- one row in the plan-01 table.
 
-## 6. Wave plan (at most 8 chats each, Sonnet at medium effort)
-Wave 0 is what runs now: UI-2 (R1, PR 2, PR 3), CTX-MENU, arch-std-01, -04, -05, -08, -14.
+The e2e step count is counted from the file and is never edited by hand.
 
-| wave | starts when | items | zones |
-|---|---|---|---|
-| **1** | now | plan-01, plan-02, plan-03, plan-04, plan-09, plan-15, plan-17, arch-std-09 | new `schema.rs` · tools/velocity · tools/fidelity · bridge new `glue.rs` · new `pdf.rs` · new `diff.rs` · new `cdx.rs` · readers |
-| **2** | std-01, std-05, CTX-MENU Rust and UI-2 PR 2 merged; COO 16 answered on plan-01 | arch-std-02, arch-std-12, arch-std-03\*, arch-std-06, arch-web-01, plan-05, plan-13, plan-18 | conform · document atoms/bonds · scene/style · input · bridge · document objects · layout · `cdx.rs` |
-| **3** | wave 2 merged; first `velocity/1` report in | arch-std-11, arch-std-13, arch-web-02, plan-06, arch-web-10, arch-cd-03, arch-web-13†, plan-10 | document atoms/bonds · scene · page (new file) · bridge glue · layout · input · document objects · tools |
-| **4** | wave 3 merged | plan-11, arch-std-10, arch-web-03, arch-web-07, plan-07, arch-web-14, plan-14, arch-std-07 | document atoms/bonds · scene/style · page (element file) · input · bridge glue · document objects · `scheme.rs` · page css |
-| **5** | wave 4 merged | arch-web-16, arch-web-08, arch-web-05, arch-web-15‡, plan-12, arch-cd-25, arch-web-17, arch-cd-04‡ | scene labels · input · page · document atoms/bonds · io · document objects · glue · bond display |
-| **6** | wave 5 merged | plan-16, arch-web-09, arch-web-11, arch-web-18, arch-web-19, arch-web-20, arch-web-21, plan-08 | overlay+page · input · bridge · label · ops+data · document bonds · page clipboard · glue |
-| **7** | wave 6 merged | arch-cd-08, arch-cd-15, arch-cd-16, arch-cd-18, arch-cd-19, arch-cd-20, arch-web-04, arch-cd-26 (+ arch-cd-22 once the owner picks a shell) | input · layout · editor_edit · palettes (18 then 19 in one chat) · context · scene palette · editor |
+## 6. Wave plan
+Waves are ordered batches of at most 8 prompts whose zones do not collide; they are not launched as whole batches.
 
-Notes on the waves:
-- \* arch-std-03 waits for UI-2 PR 3 if PR 3 has not merged by then; if so, swap in arch-std-10.
-- † arch-web-13 and plan-05 both write the object zone, so arch-web-13 starts only after plan-05 (wave 2) has merged.
-- ‡ arch-web-15 (field `hl`) and arch-cd-04 (field `pos`) are both in the document atoms/bonds zone. Run them one after the other in one chat, or move arch-cd-04 to wave 6.
-- Prompts whose COO 16 agreement has not come back by their wave start are swapped for the next prompt with "no" in that column.
+Launch rules (owner and coordinator, 2026-11-21):
+- At most 10 chats open in total, including the running ones.
+- Launch 2–3 prompts at a time as slots free up, in the order listed inside the wave.
+- No new chat while 6 green PRs wait for review.
+- Chats run Sonnet at medium effort and hand off at about 150k tokens.
+- A prompt marked "yes" for COO 16 waits for that agreement; the next prompt marked "no" in the same wave takes its slot.
+
+Wave 0 (running now): UI-2 (R1, PR 2, PR 3), CTX-MENU page, arch-std-01, -05, -08, -14.
+
+| wave | starts when | items, in launch order |
+|---|---|---|
+| **1** | now | plan-01, plan-04, plan-02, plan-03, arch-std-22, arch-std-18, plan-15, arch-std-09 |
+| **2** | std-01, std-05, UI-2 PR 2 merged | arch-std-02, arch-std-15, plan-05, arch-std-12, arch-std-06, arch-web-01, plan-13, arch-std-03 (after UI-2 PR 3) |
+| **3** | the wave's dependencies merged; first `velocity/1` report in | plan-06, arch-std-11, arch-web-02, arch-std-17, arch-cd-03, plan-14, arch-std-13, plan-10 |
+| **4** | as above | plan-11, plan-07, arch-web-07, arch-web-13, arch-std-16, arch-std-10, arch-web-03, arch-std-07 |
+| **5** | as above | arch-web-16, arch-web-17, arch-web-08, arch-std-19, plan-12, arch-cd-25, arch-web-05 |
+| **6** | as above | plan-16, arch-std-21, arch-web-15, arch-web-18, arch-web-19, arch-web-09, arch-web-11, plan-08 |
+| **7** | as above | arch-web-20, arch-std-20, arch-web-21, arch-cd-15, arch-cd-08, arch-cd-18 + 19 (one chat), arch-cd-20, arch-cd-26 |
+| **8** | as above | arch-cd-04, arch-cd-16, arch-web-04, arch-cd-22 |
+
+Order inside a wave puts the analytical edge and the agent route early (plan-04, plan-05/06, plan-15) without starving drawing speed and file fidelity (std-22, std-18, std-15, cd-03). After the first `velocity/1` report, the coordinator may move the largest-gap items (hover hotkeys, chain, templates) one wave earlier; their zones allow it.
 
 ## 7. Edits to existing prompts
 These are listed here, not rewritten. Each chat applies its edit when it starts.
 
-1. **E1 arch-std-06:** take arch-cd-17's per-target table (canvas, atom, bond), its reserved keys and its printable table; the command table is the one arch-cd-03 fills later.
-2. **E2 arch-cd-15:** drop Alt+Arrow and Shift+Alt+Arrow rotation and plain-arrow nudging (arch-std-05 owns them); scaling uses arch-web-10's `place`.
+1. **E1 arch-std-06:** take arch-cd-17's per-target table (canvas, atom, bond), its reserved keys and its printable table. arch-cd-03 fills the command table later.
+2. **E2 arch-cd-15:** drop Alt+Arrow, Shift+Alt+Arrow and plain-arrow nudging (arch-std-05 owns them). Scaling uses `atoms.xy` (arch-std-15).
 3. **E3 arch-web-07:** do not bind Shift+Arrow (arch-std-05).
-4. **E4 arch-web-10:** add arch-cd-01's acceptance (isomeric SMILES identical before and after; wedge meaning and E/Z kept, `ez_mismatches`). The key is `Ctrl+Shift+K`.
-5. **E5 arch-web-16:** compute through `cip/1` in the glue of plan-04. The native replay calls the same glue, so parity holds. Add arch-cd-02's `"cip"` request field. Independent check: RDKit `rdCIPLabeler` on the plan-03 set.
+4. **E4 arch-std-15:** add arch-cd-01's acceptance (isomeric SMILES identical before and after; wedge meaning and E/Z kept, `ez_mismatches`) and arch-web-10's "clean the selection only". The op is `atoms.xy` (the one name; `place` is not used). It needs COO 16's agreement for the op.
+5. **E5 arch-web-16:** compute through `cip/1` in `glue.rs` (plan-04). The native example `replay_glue` gives the same bytes. Add arch-cd-02's `"cip"` request field. Independent check: RDKit `rdCIPLabeler` on the plan-03 set.
 6. **E6 arch-web-17:** numbers from `selection/1` (`mzlab-feat` feature `sel`) through the glue; there is no mass table in `mzlab-mol`. Remove "ask COO for masses in mzlab-mol". Check: RDKit `ExactMolWt` reference values from plan-03.
-7. **E7 arch-web-21:** "copy as KET" moves into the chooser; `Ctrl+Shift+K` is clean-up.
+7. **E7 arch-web-21:** build "Copy as" on arch-std-17's payload list in Rust; "copy as KET" is in the chooser, with no `Ctrl+Shift+K`.
 8. **E8 arch-web-18:** reuse arch-std-08's label-unit tokenizer for composed labels; the op names are `abbr.expand` / `abbr.contract`.
-9. **E9 arch-web-20:** the field `k` takes arch-cd-04's dashed kinds; V3000 types 9 and 10 come from arch-cd-23; valence meaning is in `mzlab-mol` (COO 16).
-10. **E10 arch-cd:** add the missing `arch-cd-20-context-menu-refine.md` on `claude/arch-cd`.
-11. **E11 every prompt** that adds a `draw_edit/1` op or field: add the op to the plan-01 table and wait for COO 16's agreement before its PR.
-12. **E12 every prompt** whose feature calls an engine: go through `glue.rs` (plan-04), never call `mzlab_feat` from `lib.rs` directly.
-13. **E13 handoff:** the new prompts hand off at about 150k tokens; the existing ones say 200k. Keep each as written.
+9. **E9 arch-web-20:** one field `k` with arch-cd-04's dashed kinds; V3000 types 9 and 10 from arch-cd-23. A dative bond's valence meaning is `mzlab-mol`'s: if it is missing at the pin, list the gap for COO 16.
+10. **E10 arch-cd:** add the missing `arch-cd-20` prompt file or drop it; arch-cd was asked on 2026-11-21.
+11. **E11 every prompt that adds a `draw_edit/1` op or field:** add its row to the plan-01 table and get COO 16's agreement before the PR (the ones in section 8 are already agreed).
+12. **E12 every prompt whose feature calls an engine:** go through `glue.rs` (plan-04), never call `mzlab_feat` from `lib.rs` directly.
+13. **E13 every prompt:** hot files (`docs/mzdraw.md` Built state, `measured` in `tools/wasm-cap.toml`) conflict in every PR. Merge `origin/main` only on a real conflict, rerun, push. Do not edit the e2e step count, which is counted from the file now. Hand off at about 150k tokens with a pushed WIP branch and a one-line state note (replaces "200k").
+14. **E14 arch-std-15, -16, -17, -18: name the CLI route** (coordinator's review of PR #45). Each must state its replay request and its `mzlab-cli mol draw` route, and add a native replay test in `crates/mzdraw/tests/replay.rs` that gives the page's bytes:
+    - std-15: `{"command":"clean"}`, with `"select":[ids]` for a part;
+    - std-16: `"set":["export.profile=elsevier","export.width=single"]` with `"out":"std"` and `"out":"svg"`;
+    - std-17: `"set":["export.background=white"]` with `"out":"svg"`, and `"out":"clipboard"` for the payload list (MIME and base64);
+    - std-18: `"out":"pdf"` (base64, `--raw` writes the file).
+15. **E15 arch-std-21:** add arch-cd-07's symbol picker (a Rust list, the page paints it) if it fits in the slice; otherwise list it as not built.
+16. **E16 arch-std-18:** add plan-09's points:
+    - deterministic bytes (no dates; `/ID` a hash of the content; numbers through `mzlab_mol::fixed`);
+    - the V3000 molfile as a second embedded file;
+    - `qpdf --check` and `pdfdetach -list` (poppler) on the goldens, from a `tools/` script;
+    - a fuzz-style test of the reader.
+17. **E17 arch-std-22:** add plan-17's proof. `tools/fidelity/cdx.py` has Open Babel (`obabel -icdx`) read the same synthetic CDX files, and the committed reference compares InChIKeys with ours. Synthetic CDX files are written by a small writer in the test from the documented layout, never by another program. If one slice cannot carry the text and graphic objects, split them into a second PR.
 
-## 8. Open questions for the coordinator
-These are in the message sent before the PR; the answers will be recorded here.
+## 8. Decisions (21 Nov 2026)
+Answers of the coordinator (COO-MZDRAW) and of COO 16 to the questions of the draft:
+
+| # | question | decision | by |
+|---|---|---|---|
+| D1 | who owns `draw_edit/1` | One op table in `crates/mzdraw/src/schema.rs`, served as JSON. A test checks that mzLab's 7 ops are in it. mzLab adopts the table in its integration PR, and mzLab's `edit.rs` does not change before then. | COO 16 |
+| D2 | engines in the native replay | The glue lives in `crates/mzdraw-wasm/src/glue.rs`, with a native example there, so parity covers the engines and `mzdraw` stays free of `mzlab-feat`. | COO-MZDRAW |
+| D3 | chain and template in the log | Semantic ops `chain` and `tmpl`. | COO 16 |
+| D4 | bond kinds | One field `k` (bold, dashed, dative, hbond), written as V3000 types 9 and 10. | COO 16 |
+| D5 | real public corpora | A `tools/` script fetches them at run time and commits only rates and reference outputs for our synthetic inputs. Fixtures stay synthetic (rule 4). | COO-MZDRAW |
+| D6 | binary CDX reader | Kept now; the owner wants mzDraw to read all files. It runs as arch-std-22. | COO-MZDRAW |
+| D7 | PDF writer | In `mzdraw`, from its display list. It runs as arch-std-18. | COO 16 |
+| D8 | Ketcher in the benchmark | A pinned standalone Ketcher, fetched at run time in `tools/velocity`, outside CI. | COO-MZDRAW |
+| D9 | integration with mzLab | `mzlab-cli` calls `mzdraw::replay`, so the KET and CDXML writers exist once. This is done in the integration PR, with site (wasm) and app/CLI parity tests. If adoption would raise any other mzLab module cap or the catalog guards (33,000 B / 25,600 B), stop and tell COO 16 first. | COO 16 |
+| D10 | launch limits | At most 10 open chats; launch 2–3 at a time; no new chat while 6 green PRs wait; Sonnet medium; handoff at about 150k tokens. | owner, via COO-MZDRAW |
+| D11 | withdrawals | arch-web-12 is withdrawn; arch-cd-15 drops its Alt keys; 15 arch-cd prompts are reduced to "additions" notes; the defer and drop lists of section 4 are agreed. | COO-MZDRAW |
+| D12 | desktop app | One component, two distributions (standalone macOS + Windows app; bundled by default in mzLab site and app via Tauri). The shell is separate for now, uses the shared `release.yml` pattern, and signing is a later step of the owner's. | owner, COO 16 |
