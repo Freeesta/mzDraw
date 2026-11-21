@@ -1,0 +1,3 @@
+# Slice 2c, built
+
+objects next to the molecules (`objects` of the document, ids from the same counter): reaction arrow (with an optional text above), plus sign, one-line text. Log ops `obj.add`, `obj.set`; `move` and `remove` take `objects`. Tools `arrow` (click = two bond lengths, drag = own length, levelled within 10 degrees; `Shift+A`), `plus`, `text:<line>` (a text field in the toolbar, key `T`; on an arrow it writes above it). Objects are hovered, selected, band-selected, dragged, erased, copied and pasted like atoms, and painted in the SVG. They are not in the molfile; rotate and flip leave them where they are.

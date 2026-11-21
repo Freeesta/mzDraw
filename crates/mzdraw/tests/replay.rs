@@ -1,9 +1,11 @@
-//! Golden replay: every case of `tests/data/mzdraw_log.json` (a start text, a command log) gives the recorded document, molfile (V2000 and
+//! Golden replay: every case of the files of `tests/data/log/` (one file per area; a start text, a command log) gives the recorded document, molfile (V2000 and
 //! V3000), SMILES, SDF, SVG, log and drawing checks (`std`) byte for byte, and every refused request its key. The `.wasm` is held to the same file by `tests/parity.mjs`.
 //! `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` rewrites the recorded outputs after a wanted change.
 
+mod common;
+
+use common::{golden_files, section};
 use serde_json::{json, Value};
-use std::path::PathBuf;
 
 const OUTS: [&str; 11] = [
     "mzdraw",
@@ -19,8 +21,10 @@ const OUTS: [&str; 11] = [
     "std",
 ];
 
-fn fixture() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/data/mzdraw_log.json")
+fn section_mut<'a>(fx: &'a mut Value, key: &str) -> &'a mut [Value] {
+    fx.get_mut(key)
+        .and_then(Value::as_array_mut)
+        .map_or(&mut [], Vec::as_mut_slice)
 }
 
 fn request(case: &Value, out: &str) -> String {
@@ -31,86 +35,92 @@ fn request(case: &Value, out: &str) -> String {
 
 #[test]
 fn every_case_replays_to_the_recorded_bytes() {
-    let mut fx: Value = serde_json::from_str(&std::fs::read_to_string(fixture()).unwrap()).unwrap();
+    let mut files = golden_files();
     let bless = std::env::var("MZDRAW_BLESS").is_ok();
-    for case in fx["cases"].as_array_mut().unwrap() {
-        for out in OUTS {
-            let got = mzdraw::replay::replay(&request(case, out)).unwrap();
-            if bless {
-                case["out"][out] = json!(got);
-            }
-            assert_eq!(case["out"][out], json!(got), "{} as {out}", case["name"]);
-        }
-        // a reaction file is written by the drawings that are a reaction (one arrow): recorded where it is, refused elsewhere
-        match mzdraw::replay::replay(&request(case, "rxn")) {
-            Ok(got) => {
+    let mut cases = 0;
+    for (path, fx) in files.iter_mut() {
+        cases += section(fx, "cases").len();
+        for case in section_mut(fx, "cases") {
+            for out in OUTS {
+                let got = mzdraw::replay::replay(&request(case, out)).unwrap();
                 if bless {
-                    case["out"]["rxn"] = json!(got);
+                    case["out"][out] = json!(got);
                 }
-                assert_eq!(case["out"]["rxn"], json!(got), "{} as rxn", case["name"]);
+                assert_eq!(case["out"][out], json!(got), "{} as {out}", case["name"]);
             }
-            Err(e) => {
-                assert_eq!(e.key, "error.draw2.rxnArrow", "{}", case["name"]);
-                assert!(case["out"].get("rxn").is_none(), "{}", case["name"]);
+            // a reaction file is written by the drawings that are a reaction (one arrow): recorded where it is, refused elsewhere
+            match mzdraw::replay::replay(&request(case, "rxn")) {
+                Ok(got) => {
+                    if bless {
+                        case["out"]["rxn"] = json!(got);
+                    }
+                    assert_eq!(case["out"]["rxn"], json!(got), "{} as rxn", case["name"]);
+                }
+                Err(e) => {
+                    assert_eq!(e.key, "error.draw2.rxnArrow", "{}", case["name"]);
+                    assert!(case["out"].get("rxn").is_none(), "{}", case["name"]);
+                }
             }
         }
-    }
-    // the context menu of a right-click on each kind of target, as the `.wasm` gives it (tests/parity.mjs)
-    for case in fx["contexts"].as_array_mut().unwrap() {
-        let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
-        if bless {
-            case["out"] = json!(got);
+        // the context menu of a right-click on each kind of target, as the `.wasm` gives it (tests/parity.mjs)
+        for case in section_mut(fx, "contexts") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            let menu: Value = serde_json::from_str(&got).unwrap();
+            assert!(menu["target"].is_string() && menu["items"].is_array());
         }
-        assert_eq!(case["out"], json!(got), "{}", case["name"]);
-        let menu: Value = serde_json::from_str(&got).unwrap();
-        assert!(menu["target"].is_string() && menu["items"].is_array());
-    }
-    // the table of the operations (`draw-edit-schema/1`): the CLI twin of the language reader
-    for case in fx["schemas"].as_array_mut().unwrap() {
-        let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
-        if bless {
-            case["out"] = json!(got);
+        // the table of the operations (`draw-edit-schema/1`): the CLI twin of the language reader
+        for case in section_mut(fx, "schemas") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            assert_eq!(got, mzdraw::schema::json());
         }
-        assert_eq!(case["out"], json!(got), "{}", case["name"]);
-        assert_eq!(got, mzdraw::schema::json());
-    }
-    // the settings file (`out: settings`) after settings set through `Editor::set` (the `--set` of the CLI): the layout and the
-    // export defaults are covered by the same parity as the drawing
-    for case in fx["settings"].as_array_mut().unwrap() {
-        let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
-        if bless {
-            case["out"] = json!(got);
+        // the settings file (`out: settings`) after settings set through `Editor::set` (the `--set` of the CLI): the layout and the
+        // export defaults are covered by the same parity as the drawing
+        for case in section_mut(fx, "settings") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            let file: Value = serde_json::from_str(&got).unwrap();
+            assert!(file["layout"].is_object() && file["export"].is_object());
         }
-        assert_eq!(case["out"], json!(got), "{}", case["name"]);
-        let file: Value = serde_json::from_str(&got).unwrap();
-        assert!(file["layout"].is_object() && file["export"].is_object());
+        if bless {
+            std::fs::write(&*path, serde_json::to_string_pretty(&*fx).unwrap() + "\n").unwrap();
+        }
     }
-    if bless {
-        std::fs::write(fixture(), serde_json::to_string_pretty(&fx).unwrap() + "\n").unwrap();
-    }
-    assert!(fx["cases"].as_array().unwrap().len() >= 3);
+    assert!(cases >= 3);
 }
 
 #[test]
 fn the_recorded_log_replays_to_the_same_document() {
-    let fx: Value = serde_json::from_str(&std::fs::read_to_string(fixture()).unwrap()).unwrap();
-    for case in fx["cases"].as_array().unwrap() {
-        // the log of a session is itself a command log: replayed on the same start it gives the same document, and logs itself again
-        let again = json!({ "log": serde_json::from_str::<Value>(case["out"]["log"].as_str().unwrap()).unwrap(), "out": "log" });
-        assert_eq!(
-            mzdraw::replay::replay(&again.to_string()).unwrap(),
-            case["out"]["log"].as_str().unwrap(),
-            "{}",
-            case["name"]
-        );
+    for (_, fx) in golden_files() {
+        for case in section(&fx, "cases") {
+            // the log of a session is itself a command log: replayed on the same start it gives the same document, and logs itself again
+            let again = json!({ "log": serde_json::from_str::<Value>(case["out"]["log"].as_str().unwrap()).unwrap(), "out": "log" });
+            assert_eq!(
+                mzdraw::replay::replay(&again.to_string()).unwrap(),
+                case["out"]["log"].as_str().unwrap(),
+                "{}",
+                case["name"]
+            );
+        }
     }
 }
 
 #[test]
 fn a_refused_request_gives_its_key() {
-    let fx: Value = serde_json::from_str(&std::fs::read_to_string(fixture()).unwrap()).unwrap();
-    for case in fx["refused"].as_array().unwrap() {
-        let e = mzdraw::replay::replay(&case["request"].to_string()).unwrap_err();
-        assert_eq!(e.key, case["error_key"].as_str().unwrap());
+    for (_, fx) in golden_files() {
+        for case in section(&fx, "refused") {
+            let e = mzdraw::replay::replay(&case["request"].to_string()).unwrap_err();
+            assert_eq!(e.key, case["error_key"].as_str().unwrap());
+        }
     }
 }

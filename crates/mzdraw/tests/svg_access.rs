@@ -1,5 +1,8 @@
 //! The saved SVG with a text alternative (role, title, desc, language) and only SVG 1.1 elements. Synthetic structures only.
 
+mod common;
+
+use common::{golden_files, section};
 use mzdraw::doc::{Obj, ObjKind};
 use mzdraw::{svg, Editor};
 
@@ -235,40 +238,34 @@ const ATTRIBUTES: [&str; 23] = [
 
 #[test]
 fn every_golden_svg_uses_only_svg_1_1() {
-    let fx: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../tests/data/mzdraw_log.json"),
-        )
-        .unwrap(),
-    )
-    .unwrap();
     let mut seen = 0;
-    for case in fx["cases"].as_array().unwrap() {
-        let s = case["out"]["svg"].as_str().unwrap();
-        seen += 1;
-        // the carried document is text: drop it, then every tag is a known element with known attributes
-        let (a, b) = (s.find("<metadata"), s.find("</metadata>"));
-        let s = match (a, b) {
-            (Some(a), Some(b)) => format!("{}<metadata/>{}", &s[..a], &s[b + 11..]),
-            _ => s.to_string(),
-        };
-        let mut rest = s.as_str();
-        while let Some(i) = rest.find('<') {
-            let end = rest[i..].find('>').unwrap() + i;
-            let tag = rest[i + 1..end].trim_end_matches('/');
-            rest = &rest[end + 1..];
-            if tag.starts_with('/') {
-                continue;
-            }
-            let name = tag.split([' ', '/']).next().unwrap();
-            assert!(ELEMENTS.contains(&name), "{} : <{name}>", case["name"]);
-            let mut attrs = tag[name.len()..].trim();
-            while let Some(eq) = attrs.find("=\"") {
-                let key = attrs[..eq].trim();
-                assert!(ATTRIBUTES.contains(&key), "{} : {name} {key}", case["name"]);
-                let close = attrs[eq + 2..].find('"').unwrap() + eq + 2;
-                attrs = attrs[close + 1..].trim();
+    for (_, fx) in golden_files() {
+        for case in section(&fx, "cases") {
+            let s = case["out"]["svg"].as_str().unwrap();
+            seen += 1;
+            // the carried document is text: drop it, then every tag is a known element with known attributes
+            let (a, b) = (s.find("<metadata"), s.find("</metadata>"));
+            let s = match (a, b) {
+                (Some(a), Some(b)) => format!("{}<metadata/>{}", &s[..a], &s[b + 11..]),
+                _ => s.to_string(),
+            };
+            let mut rest = s.as_str();
+            while let Some(i) = rest.find('<') {
+                let end = rest[i..].find('>').unwrap() + i;
+                let tag = rest[i + 1..end].trim_end_matches('/');
+                rest = &rest[end + 1..];
+                if tag.starts_with('/') {
+                    continue;
+                }
+                let name = tag.split([' ', '/']).next().unwrap();
+                assert!(ELEMENTS.contains(&name), "{} : <{name}>", case["name"]);
+                let mut attrs = tag[name.len()..].trim();
+                while let Some(eq) = attrs.find("=\"") {
+                    let key = attrs[..eq].trim();
+                    assert!(ATTRIBUTES.contains(&key), "{} : {name} {key}", case["name"]);
+                    let close = attrs[eq + 2..].find('"').unwrap() + eq + 2;
+                    attrs = attrs[close + 1..].trim();
+                }
             }
         }
     }
