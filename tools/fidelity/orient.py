@@ -2,7 +2,8 @@
 """Independent check of `scheme:orient` (plan-14): RDKit `rdDepictor.GenerateDepictionMatching2DStructure` depicts the product with
 its core on the reactant's; the angle of the core in that depiction must equal the angle of the core in mzDraw's output, within 2 degrees.
 
-    python3 tools/fidelity/orient.py          # needs `pip install rdkit`; exit 3 when RDKit is not installed
+    python3 tools/fidelity/orient.py [--write]   # needs `pip install rdkit`; exit 3 when RDKit is not installed;
+                                                 # --write saves tools/fidelity/orient.reference.json
 
 Inputs are the synthetic cases of tests/data/log/scheme-orient.json (the drawing before the command, `request.import`, and after it,
 `out.mzdraw`). Nothing is fetched or committed from outside: RDKit is installed by the person who runs this.
@@ -49,7 +50,7 @@ def diff(a, b):
 
 def main():
     cases = json.load(open(CASES))["cases"]
-    worst, n = 0.0, 0
+    worst, n, skipped = 0.0, 0, 0
     for case in cases:
         before = json.loads(case["request"]["import"])
         after = json.loads(case["out"]["mzdraw"])
@@ -59,7 +60,8 @@ def main():
         # the core: the source is a substructure of the product in the cases that have an RDKit reference
         match = tgt_in.GetSubstructMatch(src)
         if not match or len(match) < 3 or len(src_ids) != len(match):
-            print("skip (no substructure match):", case["name"])
+            print("skip (no exact substructure match, RDKit has no reference):", case["name"])
+            skipped += 1
             continue
         ref = Chem.Mol(tgt_in)
         rdDepictor.GenerateDepictionMatching2DStructure(ref, src)
@@ -71,7 +73,15 @@ def main():
         d = diff(got_rd, got_us)
         worst, n = max(worst, d), n + 1
         print(f"{case['name'][:60]:60} source {want:8.2f}  rdkit {got_rd:8.2f}  mzdraw {got_us:8.2f}  |rdkit-mzdraw| {d:.3f}")
-    print(f"RDKit {rdBase.rdkitVersion}: {n} cases compared, worst difference {worst:.3f} degrees (limit 2)")
+    print(f"RDKit {rdBase.rdkitVersion}: {n} cases compared, {skipped} skipped (no exact substructure match), worst difference {worst:.3f} degrees (limit 2)")
+    if "--write" in sys.argv:
+        # the reference output: counts, version and date, no third-party data
+        import datetime
+        ref = {"program": "RDKit", "version": rdBase.rdkitVersion, "date": datetime.date.today().isoformat(), "script": "tools/fidelity/orient.py",
+               "cases": len(cases), "compared": n, "skipped": skipped, "worst_degrees": round(worst, 3), "limit_degrees": 2.0}
+        with open(os.path.join(HERE, "orient.reference.json"), "w") as f:
+            json.dump(ref, f, indent=1)
+            f.write("\n")
     sys.exit(0 if n and worst <= 2.0 else 1)
 
 

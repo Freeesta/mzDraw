@@ -621,7 +621,7 @@ try {
     eq((await state(pg)).atoms, 16);
   });
 
-  await step("scheme orient by keyboard: the button reached with the keys turns the structure after the arrow onto the one before it, one undo step; a second press says it is done", async () => {
+  await step("scheme orient by keyboard: the button reached with the keys turns the structure after the arrow onto the one before it, one undo step; a second press says it is already oriented", async () => {
     const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.evaluate(`(() => { const d = new DataTransfer(); d.setData('text/plain', ${JSON.stringify(orientScheme(70))}); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()`);
@@ -636,7 +636,7 @@ try {
     eq(await pg.innerText("#d2-live"), await pg.evaluate(`I18N.t("draw2.say.oriented", { what: "1" })`));
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await doc(), before);                       // one undo step
     await pg.keyboard.press("Control+y"); await reveal(pg, sel); await pg.focus(sel); await pg.keyboard.press("Enter");
-    await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('error.draw2.orientDone')").catch(async e => { throw new Error(e.message + " | live: " + await pg.innerText("#d2-live") + " | " + await pg.evaluate("document.documentElement.dataset.d2")); });
+    await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('draw2.say.orientDone')").catch(async e => { throw new Error(e.message + " | live: " + await pg.innerText("#d2-live") + " | " + await pg.evaluate("document.documentElement.dataset.d2")); });
     await shot(pg, "plan-14-scheme-orient");
   });
 
@@ -734,7 +734,7 @@ try {
     await tool(pg, "undo"); await want(pg, { objects: 4 });
   });
 
-  await step("scheme row: a messy scheme is laid out on one line by the button, with the keyboard (select all, Enter on the button) and with the mouse; one undo step, the SVG equals the golden, a second press says it is done", async () => {
+  await step("scheme row: a messy scheme is laid out on one line by the button, with the keyboard (select all, Enter on the button) and with the mouse; one undo step, the SVG equals the golden, a second press says it is already oriented", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
     // the drawing is opened with its ids (as a saved file is), so the bytes can be the golden ones
     const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)

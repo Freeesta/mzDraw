@@ -285,6 +285,8 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             break;
         }
     }
+    let orients = r.commands.iter().any(|c| c.0 == "scheme:orient");
+    let before_commands = (r.envelope() && orients).then(|| e.doc().to_json());
     if failed.is_none() {
         for (i, (name, args)) in r.commands.iter().enumerate() {
             if let Err(err) = crate::commands::run(&mut e, name, args) {
@@ -341,6 +343,8 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         removed: before.minus(&after),
         lost: Vec::new(),
         failed,
+        changed: before_commands.map(|b| b != e.doc().to_json()),
+        orient: orients.then(|| e.orient_steps.clone()),
         expect,
     };
     if outcome.ok() {

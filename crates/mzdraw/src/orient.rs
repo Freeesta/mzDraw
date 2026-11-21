@@ -14,6 +14,7 @@ use crate::doc::{Document, ObjKind};
 use crate::m;
 use crate::ops::{Axis, Op};
 use mzlab_mol::{SubOptions, SubQuery};
+use std::collections::{HashMap, HashSet};
 
 /// Two atoms closer than this (bond lengths) make the result overlap itself.
 pub const OVERLAP: f64 = 0.3;
@@ -25,6 +26,20 @@ const MIN_CORE: usize = 3;
 const SAME: f64 = 0.05;
 /// Matches kept per search (symmetric cores have many).
 const MATCHES: usize = 400;
+/// A structure of more heavy atoms than this is not oriented (`TooLarge`): the cost of the search is not bounded by its size.
+pub const MAX_HEAVY: usize = 500;
+/// Search steps of one substructure search (the default of `mzlab-mol` is 2,000,000): a search that needs more is a refusal to
+/// match, said as `TooLarge`, not a missing core.
+const STEPS: u64 = 100_000;
+/// Ring systems tried per structure when the whole smaller structure is not in the larger one.
+const SYSTEMS: usize = 4;
+/// Reactants tried for one product (the nearest first): a scheme has few, and a drawing of thousands of pieces must not make
+/// the cost grow with all pairs.
+const REACTANTS: usize = 8;
+/// Product structures one command orients; the ones after these are reported as `too_large` (the budget is spent).
+pub const MAX_PRODUCTS: usize = 200;
+/// An arrow, plus sign or text whose box this near the box of the turned structure (bond lengths) counts as overlapped.
+const REACH: f64 = 0.3;
 
 /// What came of one pair of structures.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,18 +50,32 @@ pub enum Status {
     Already,
     /// No common core of three atoms or more: nothing done.
     NoCore,
-    /// The result would overlap itself: not applied.
+    /// The result would overlap an atom, a structure, an arrow, a plus sign or a text: not applied.
     Overlap,
+    /// A structure has more than `MAX_HEAVY` heavy atoms, or the search needed more than `STEPS` steps: nothing done.
+    TooLarge,
 }
 
 impl Status {
-    /// The i18n key a refusal of a command with only this status gives.
+    /// The i18n key a refusal with this status gives (empty for the two that are not refusals).
     pub fn key(self) -> &'static str {
         match self {
             Status::Oriented => "",
-            Status::Already => "error.draw2.orientDone",
+            Status::Already => "",
             Status::NoCore => "error.draw2.orientNone",
             Status::Overlap => "error.draw2.orientOverlap",
+            Status::TooLarge => "error.draw2.orientSize",
+        }
+    }
+
+    /// The word of the result document.
+    pub fn name(self) -> &'static str {
+        match self {
+            Status::Oriented => "oriented",
+            Status::Already => "already",
+            Status::NoCore => "no_core",
+            Status::Overlap => "overlap",
+            Status::TooLarge => "too_large",
         }
     }
 }
@@ -66,7 +95,7 @@ pub struct Step {
     /// Root-mean-square distance of the core atoms (shift taken away) before and after, in bond lengths.
     pub before: f64,
     pub after: f64,
-    /// For `Overlap`: one of the atoms that would come too close.
+    /// For `Overlap`: the atom (of the target) or the object that would come too close; 0 otherwise.
     pub at: u32,
 }
 
@@ -154,94 +183,133 @@ fn best_fit(p: &[(f64, f64)], q: &[(f64, f64)], cx: f64, mirror: bool) -> Fit {
     best
 }
 
-/// Whether atom `id`'s bond list carries a wedge, hash or wave mark anywhere in `ids`.
-fn wedged(doc: &Document, ids: &[u32]) -> bool {
+/// Whether a wedge, hash or wave mark is drawn on a bond inside `ids`.
+fn wedged(doc: &Document, ids: &HashSet<u32>) -> bool {
     (doc.bonds.iter()).any(|b| b.s != 0 && ids.contains(&b.a) && ids.contains(&b.b))
 }
 
-/// The ring systems of a piece, as lists of atom ids: the connected sets of the bonds that lie on a ring (a bond is on a ring when
-/// its ends stay connected without it), the biggest first.
-fn ring_systems(doc: &Document, ids: &[u32]) -> Vec<Vec<u32>> {
-    let bonds: Vec<(u32, u32)> = (doc.bonds.iter())
-        .filter(|b| ids.contains(&b.a) && ids.contains(&b.b))
-        .map(|b| (b.a, b.b))
-        .collect();
-    let connected = |skip: usize, from: u32, to: u32| {
-        let mut seen = vec![from];
-        let mut k = 0;
-        while k < seen.len() {
-            let at = seen[k];
-            k += 1;
-            for (i, &(a, b)) in bonds.iter().enumerate() {
-                if i == skip {
-                    continue;
-                }
-                let next = if a == at {
-                    b
-                } else if b == at {
-                    a
-                } else {
-                    continue;
-                };
-                if !seen.contains(&next) {
-                    seen.push(next);
-                }
+/// The bonds of a graph (pairs of 0-based atom numbers) that lie on a ring: the bonds that are not bridges (lowlink search, linear).
+fn ring_bonds(n: usize, edges: &[(usize, usize)]) -> Vec<bool> {
+    struct Dfs<'a> {
+        adj: &'a [Vec<(usize, usize)>],
+        disc: Vec<usize>,
+        low: Vec<usize>,
+        bridge: Vec<bool>,
+        time: usize,
+    }
+    fn go(d: &mut Dfs, u: usize, via: usize) {
+        d.time += 1;
+        (d.disc[u], d.low[u]) = (d.time, d.time);
+        for k in 0..d.adj[u].len() {
+            let (v, e) = d.adj[u][k];
+            if e == via {
+                continue;
             }
-        }
-        seen.contains(&to)
-    };
-    let ring: Vec<(u32, u32)> = (bonds.iter().enumerate())
-        .filter(|&(i, &(a, b))| connected(i, a, b))
-        .map(|(_, &p)| p)
-        .collect();
-    let mut systems: Vec<Vec<u32>> = Vec::new();
-    for &(a, b) in &ring {
-        let (ia, ib) = (
-            systems.iter().position(|s| s.contains(&a)),
-            systems.iter().position(|s| s.contains(&b)),
-        );
-        match (ia, ib) {
-            (None, None) => systems.push(vec![a, b]),
-            (Some(i), None) => systems[i].push(b),
-            (None, Some(j)) => systems[j].push(a),
-            (Some(i), Some(j)) if i != j => {
-                let moved = systems.remove(i.max(j));
-                systems[i.min(j)].extend(moved);
+            if d.disc[v] == 0 {
+                go(d, v, e);
+                d.low[u] = d.low[u].min(d.low[v]);
+                if d.low[v] > d.disc[u] {
+                    d.bridge[e] = true;
+                }
+            } else {
+                d.low[u] = d.low[u].min(d.disc[v]);
             }
-            _ => {}
         }
     }
+    let mut adj = vec![Vec::new(); n];
+    for (e, &(a, b)) in edges.iter().enumerate() {
+        adj[a].push((b, e));
+        adj[b].push((a, e));
+    }
+    let mut d = Dfs {
+        adj: &adj,
+        disc: vec![0; n],
+        low: vec![0; n],
+        bridge: vec![false; edges.len()],
+        time: 0,
+    };
+    for u in 0..n {
+        if d.disc[u] == 0 {
+            go(&mut d, u, usize::MAX);
+        }
+    }
+    d.bridge.iter().map(|b| !b).collect()
+}
+
+/// The ring systems of a document of heavy atoms, as lists of atom ids, the biggest first: the connected sets of ring bonds.
+fn ring_systems(h: &Document) -> Vec<Vec<u32>> {
+    let at: HashMap<u32, usize> = (h.atoms.iter().enumerate())
+        .map(|(i, a)| (a.id, i))
+        .collect();
+    let edges: Vec<(usize, usize)> = (h.bonds.iter())
+        .filter_map(|b| Some((*at.get(&b.a)?, *at.get(&b.b)?)))
+        .collect();
+    let ring = ring_bonds(h.atoms.len(), &edges);
+    let mut root: Vec<usize> = (0..h.atoms.len()).collect();
+    fn find(root: &mut [usize], mut x: usize) -> usize {
+        while root[x] != x {
+            root[x] = root[root[x]];
+            x = root[x];
+        }
+        x
+    }
+    let mut on_ring = vec![false; h.atoms.len()];
+    for (&(a, b), _) in edges.iter().zip(&ring).filter(|p| *p.1) {
+        (on_ring[a], on_ring[b]) = (true, true);
+        let (ra, rb) = (find(&mut root, a), find(&mut root, b));
+        root[ra] = rb;
+    }
+    let mut groups: Vec<(usize, Vec<u32>)> = Vec::new();
+    for i in (0..h.atoms.len()).filter(|&i| on_ring[i]) {
+        let r = find(&mut root, i);
+        match groups.iter_mut().find(|g| g.0 == r) {
+            Some(g) => g.1.push(h.atoms[i].id),
+            None => groups.push((r, vec![h.atoms[i].id])),
+        }
+    }
+    let mut systems: Vec<Vec<u32>> = groups.into_iter().map(|g| g.1).collect();
     m::sort_by(&mut systems, |a, b| a.len() > b.len());
     systems
 }
 
-/// The heavy atoms of `ids`, as a document of their own with no abbreviation label dropped.
-fn heavy(doc: &Document, ids: &[u32]) -> Document {
-    let keep: Vec<u32> = (doc.atoms.iter())
-        .filter(|a| ids.contains(&a.id) && a.el != "H")
+/// The atoms of `keep` (heavy atoms only) with the bonds between them, as a document of their own.
+fn heavy(doc: &Document, keep: &HashSet<u32>) -> Document {
+    let ok: HashSet<u32> = (doc.atoms.iter())
+        .filter(|a| keep.contains(&a.id) && a.el != "H")
         .map(|a| a.id)
         .collect();
-    doc.part(&keep)
+    Document {
+        atoms: (doc.atoms.iter())
+            .filter(|a| ok.contains(&a.id))
+            .cloned()
+            .collect(),
+        bonds: (doc.bonds.iter())
+            .filter(|b| ok.contains(&b.a) && ok.contains(&b.b))
+            .cloned()
+            .collect(),
+        next: doc.next,
+        ..Document::default()
+    }
 }
 
-/// The matches of the atoms `small` of the document in the atoms `big`: rows of `(small atom id, big atom id)`.
-fn find(doc: &Document, small: &[u32], big: &[u32]) -> Vec<Vec<(u32, u32)>> {
-    let (q, t) = (heavy(doc, small), heavy(doc, big));
+/// Rows of `(small atom id, big atom id)`; `Err` when the search needed more than `STEPS`.
+type Rows = Vec<Vec<(u32, u32)>>;
+
+/// The matches of the document of heavy atoms `q` in the one `t`.
+fn find(q: &Document, t: &Document) -> Result<Rows, ()> {
     if q.atoms.len() < MIN_CORE || q.atoms.len() > t.atoms.len() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
-    let (qm, tm) = (q.to_mol(), t.to_mol());
-    let query = SubQuery::exact(qm);
+    let query = SubQuery::exact(q.to_mol());
     let opts = SubOptions {
         max_matches: MATCHES,
+        max_steps: STEPS,
         ..SubOptions::default()
     };
+    let rows = query.matches(&t.to_mol(), &opts).map_err(|_| ())?;
     // a query that grew atoms (an abbreviation expanded) has columns the document has no atom for: such a row is not read
-    let Ok(rows) = query.matches(&tm, &opts) else {
-        return Vec::new();
-    };
     let width = query.mol.atoms.len();
-    (rows.into_iter())
+    Ok((rows.into_iter())
         .filter(|r| r.len() == width)
         .map(|r| {
             (q.atoms.iter().zip(&r))
@@ -249,57 +317,97 @@ fn find(doc: &Document, small: &[u32], big: &[u32]) -> Vec<Vec<(u32, u32)>> {
                 .collect::<Vec<_>>()
         })
         .filter(|r: &Vec<(u32, u32)>| r.len() >= MIN_CORE)
+        .collect())
+}
+
+fn flipped(rows: Rows) -> Rows {
+    (rows.into_iter())
+        .map(|r| r.into_iter().map(|(x, y)| (y, x)).collect())
         .collect()
 }
 
-/// The matches of the core of `a` and `b`: the smaller in the larger, else the ring systems of one in the other, the biggest
-/// first. Rows are `(atom of a, atom of b)`.
-fn core(doc: &Document, a: &[u32], b: &[u32]) -> Vec<Vec<(u32, u32)>> {
-    let flipped = |rows: Vec<Vec<(u32, u32)>>| -> Vec<Vec<(u32, u32)>> {
-        rows.into_iter()
-            .map(|r| r.into_iter().map(|(x, y)| (y, x)).collect())
-            .collect()
-    };
-    let n = |ids: &[u32]| heavy(doc, ids).atoms.len();
-    let rows = if n(a) <= n(b) {
-        find(doc, a, b)
+/// The matches of the core of `a` and `b` (rows are `(atom of a, atom of b)`): the smaller in the larger, else the ring systems of
+/// either in the other, the biggest first. The flag says that a search ran out of steps (a missing core is then `TooLarge`).
+fn core(doc: &Document, a: &HashSet<u32>, b: &HashSet<u32>) -> (Rows, bool) {
+    let (ha, hb) = (heavy(doc, a), heavy(doc, b));
+    let mut limited = false;
+    let first = if ha.atoms.len() <= hb.atoms.len() {
+        find(&ha, &hb)
     } else {
-        flipped(find(doc, b, a))
+        find(&hb, &ha).map(flipped)
     };
-    if !rows.is_empty() {
-        return rows;
+    match first {
+        Ok(rows) if !rows.is_empty() => return (rows, false),
+        Ok(_) => {}
+        Err(()) => limited = true,
     }
-    // ring systems of either, the biggest that occurs in the other
-    let mut tries: Vec<(Vec<u32>, bool)> = Vec::new();
-    for (ids, from_a) in [(a, true), (b, false)] {
-        for s in ring_systems(doc, ids) {
-            tries.push((s, from_a));
+    let mut tries: Vec<(Document, bool)> = Vec::new();
+    for (h, from_a) in [(&ha, true), (&hb, false)] {
+        for s in ring_systems(h).into_iter().take(SYSTEMS) {
+            tries.push((heavy(h, &s.into_iter().collect()), from_a));
         }
     }
-    m::sort_by(&mut tries, |x, y| x.0.len() > y.0.len());
-    for (s, from_a) in tries {
-        let rows = if from_a {
-            find(doc, &s, b)
+    m::sort_by(&mut tries, |x, y| x.0.atoms.len() > y.0.atoms.len());
+    for (q, from_a) in tries {
+        let found = if from_a {
+            find(&q, &hb)
         } else {
-            flipped(find(doc, &s, a))
+            find(&q, &ha).map(flipped)
         };
-        if !rows.is_empty() {
-            return rows;
+        match found {
+            Ok(rows) if !rows.is_empty() => return (rows, false),
+            Ok(_) => {}
+            Err(()) => limited = true,
         }
     }
-    Vec::new()
+    (Vec::new(), limited)
 }
 
-/// The pieces of a document that hold the atoms `from` and `to`; `None` when one is missing or both are in one piece.
-fn pair_of(doc: &Document, from: u32, to: u32) -> Option<(Vec<u32>, Vec<u32>)> {
-    let pieces = crate::layout::pieces(doc);
-    let a = pieces.iter().find(|p| p.contains(&from))?;
-    let b = pieces.iter().find(|p| p.contains(&to))?;
-    (a != b).then(|| (a.clone(), b.clone()))
+/// The connected pieces of a drawing and the piece of each atom: computed once for a plan (turning does not change who is joined).
+struct Pieces {
+    list: Vec<Vec<u32>>,
+    of: HashMap<u32, usize>,
+    /// Heavy atoms of each piece.
+    heavy: Vec<usize>,
 }
 
-fn xy(doc: &Document, id: u32) -> (f64, f64) {
-    doc.atom(id).map_or((0.0, 0.0), |a| (a.x, a.y))
+impl Pieces {
+    fn of(doc: &Document) -> Pieces {
+        let list = crate::layout::pieces(doc);
+        let of: HashMap<u32, usize> = (list.iter().enumerate())
+            .flat_map(|(i, p)| p.iter().map(move |&a| (a, i)))
+            .collect();
+        let mut heavy = vec![0; list.len()];
+        for a in doc.atoms.iter().filter(|a| a.el != "H") {
+            heavy[of[&a.id]] += 1;
+        }
+        Pieces { list, of, heavy }
+    }
+}
+
+fn blank(from: u32, to: u32, status: Status) -> Step {
+    Step {
+        arrow: 0,
+        from,
+        to,
+        status,
+        core: 0,
+        flip: false,
+        deg: 0.0,
+        before: 0.0,
+        after: 0.0,
+        at: 0,
+    }
+}
+
+type Box4 = (f64, f64, f64, f64);
+
+fn meet(a: Box4, b: Box4) -> bool {
+    a.0 <= b.2 && b.0 <= a.2 && a.1 <= b.3 && b.1 <= a.3
+}
+
+fn grow(b: Box4, m: f64) -> Box4 {
+    (b.0 - m, b.1 - m, b.2 + m, b.3 + m)
 }
 
 /// Orients the piece of atom `to` on the piece of atom `from`: the operations (`flip` then `rotate`, about the centre of the box
@@ -310,48 +418,56 @@ pub fn orient(doc: &Document, from: u32, to: u32) -> Vec<Op> {
 
 /// The step for one pair and its operations (empty unless the status is `Oriented`).
 pub fn solve(doc: &Document, from: u32, to: u32) -> (Step, Vec<Op>) {
-    match solve_in(doc, from, to) {
-        Ok(ops) => (ops.0, ops.1),
-        Err(s) => (s, Vec::new()),
+    let pieces = Pieces::of(doc);
+    match (pieces.of.get(&from), pieces.of.get(&to)) {
+        (Some(&s), Some(&t)) if s != t => solve_in(doc, &pieces, s, t, from, to),
+        _ => (blank(from, to, Status::NoCore), Vec::new()),
     }
 }
 
-fn solve_in(doc: &Document, from: u32, to: u32) -> Result<(Step, Vec<Op>), Step> {
-    let mut step = Step {
-        arrow: 0,
-        from,
-        to,
-        status: Status::NoCore,
-        core: 0,
-        flip: false,
-        deg: 0.0,
-        before: 0.0,
-        after: 0.0,
-        at: 0,
-    };
-    let Some((src, mut tgt)) = pair_of(doc, from, to) else {
-        return Err(step);
-    };
-    tgt.sort_unstable();
-    let rows = core(doc, &src, &tgt);
+/// `solve` for the pieces `si` (source) and `ti` (target) of `pieces`.
+fn solve_in(
+    doc: &Document,
+    pieces: &Pieces,
+    si: usize,
+    ti: usize,
+    from: u32,
+    to: u32,
+) -> (Step, Vec<Op>) {
+    let mut step = blank(from, to, Status::NoCore);
+    let (src, tgt): (HashSet<u32>, HashSet<u32>) = (
+        pieces.list[si].iter().copied().collect(),
+        pieces.list[ti].iter().copied().collect(),
+    );
+    if pieces.heavy[si] > MAX_HEAVY || pieces.heavy[ti] > MAX_HEAVY {
+        step.status = Status::TooLarge;
+        return (step, Vec::new());
+    }
+    if pieces.heavy[si] < MIN_CORE || pieces.heavy[ti] < MIN_CORE {
+        return (step, Vec::new());
+    }
+    let (rows, limited) = core(doc, &src, &tgt);
     if rows.is_empty() {
-        return Err(step);
+        if limited {
+            step.status = Status::TooLarge;
+        }
+        return (step, Vec::new());
     }
+    let pos: HashMap<u32, (f64, f64)> = (doc.atoms.iter())
+        .filter(|a| src.contains(&a.id) || tgt.contains(&a.id))
+        .map(|a| (a.id, (a.x, a.y)))
+        .collect();
     // the box centre of the target: the mirror axis and the pivot
-    let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
-    for &id in &tgt {
-        let (x, y) = xy(doc, id);
-        (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x), y1.max(y));
-    }
+    let tbox = box_of(doc, &tgt);
     let (cx, cy) = (
-        crate::doc::round4((x0 + x1) / 2.0),
-        crate::doc::round4((y0 + y1) / 2.0),
+        crate::doc::round4((tbox.0 + tbox.2) / 2.0),
+        crate::doc::round4((tbox.1 + tbox.3) / 2.0),
     );
     let mirror = !wedged(doc, &tgt);
     let mut best: Option<(Fit, usize, f64)> = None;
     for r in &rows {
-        let q: Vec<(f64, f64)> = r.iter().map(|&(s, _)| xy(doc, s)).collect();
-        let p: Vec<(f64, f64)> = r.iter().map(|&(_, t)| xy(doc, t)).collect();
+        let q: Vec<(f64, f64)> = r.iter().map(|&(s, _)| pos[&s]).collect();
+        let p: Vec<(f64, f64)> = r.iter().map(|&(_, t)| pos[&t]).collect();
         let fit = best_fit(&p, &q, cx, mirror);
         let better = match &best {
             None => true,
@@ -366,141 +482,282 @@ fn solve_in(doc: &Document, from: u32, to: u32) -> Result<(Step, Vec<Op>), Step>
         }
     }
     let Some((fit, n, before)) = best else {
-        return Err(step);
+        return (step, Vec::new());
     };
     step.core = n;
     step.before = before;
     step.flip = fit.flip;
     step.deg = crate::doc::round4(fit.deg);
     if fit.rms > FIT {
-        // the core does not fit as a rigid piece (drawn bent): nothing is done
-        step.status = Status::NoCore;
+        // the core does not fit as a rigid piece (drawn bent, or only a mirror fits a target with a wedge): nothing is done
         step.core = 0;
-        return Err(step);
+        step.flip = false;
+        step.deg = 0.0;
+        return (step, Vec::new());
     }
     if !fit.flip && fit.deg.abs() < SAME {
         step.status = Status::Already;
         step.after = before;
-        return Err(step);
+        return (step, Vec::new());
     }
+    let mut ids: Vec<u32> = tgt.iter().copied().collect();
+    ids.sort_unstable();
     let mut ops = Vec::new();
     if fit.flip {
         ops.push(Op::Flip {
-            atoms: tgt.clone(),
+            atoms: ids.clone(),
             axis: Axis::H,
             at: cx,
         });
     }
     ops.push(Op::Rotate {
-        atoms: tgt.clone(),
+        atoms: ids,
         deg: step.deg,
         x: cx,
         y: cy,
     });
-    // measured on the result, not on the fit
-    let mut after = doc.clone();
-    if after.apply(&ops).is_err() {
-        return Err(step);
+    // measured on the result, not on the fit: the target alone is turned on a copy
+    let mut moved = heavy_all(doc, &tgt);
+    if moved.apply(&ops).is_err() {
+        return (blank(from, to, Status::NoCore), Vec::new());
     }
-    let mut all = rows.iter().map(|r| {
-        let q: Vec<(f64, f64)> = r.iter().map(|&(s, _)| xy(&after, s)).collect();
-        let p: Vec<(f64, f64)> = r.iter().map(|&(_, t)| xy(&after, t)).collect();
-        shape_rms(&p, &q)
-    });
-    step.after = all.next().unwrap_or(0.0);
-    for v in all {
-        step.after = step.after.min(v);
-    }
-    // overlap: a pair of atoms that is now too close and was not before
-    let close = |d: &Document, a: u32, b: u32| {
-        let (p, q) = (xy(d, a), xy(d, b));
-        m::hypot(p.0 - q.0, p.1 - q.1) < OVERLAP
-    };
-    for &a in &tgt {
-        for o in &doc.atoms {
-            if o.id != a && close(&after, a, o.id) && !close(doc, a, o.id) {
-                step.status = Status::Overlap;
-                step.at = a;
-                return Err(step);
-            }
-        }
+    let after: HashMap<u32, (f64, f64)> = moved.atoms.iter().map(|a| (a.id, (a.x, a.y))).collect();
+    step.after = rows
+        .iter()
+        .map(|r| {
+            let q: Vec<(f64, f64)> = r.iter().map(|&(s, _)| pos[&s]).collect();
+            let p: Vec<(f64, f64)> = r.iter().map(|&(_, t)| after[&t]).collect();
+            shape_rms(&p, &q)
+        })
+        .fold(f64::MAX, f64::min);
+    if let Some(at) = overlap(doc, pieces, ti, &tgt, tbox, &after) {
+        step.status = Status::Overlap;
+        step.at = at;
+        return (step, Vec::new());
     }
     step.status = Status::Oriented;
-    Ok((step, ops))
+    (step, ops)
 }
 
-/// The pairs of structures a scheme asks for: for each arrow, the atom of the structure it leaves and the one it reaches. An arrow
-/// with both anchors (`from`, `to`) uses them; a free arrow uses the nearest structure before its tail and the nearest past its
-/// head (a structure beside the arrow is an agent, and is left out).
-fn pairs(doc: &Document) -> Vec<(u32, u32, u32)> {
-    let pieces = crate::layout::pieces(doc);
-    let mid: Vec<(f64, f64)> = pieces
-        .iter()
-        .map(|p| centre(&p.iter().map(|&i| xy(doc, i)).collect::<Vec<_>>()))
-        .collect();
-    let mut out = Vec::new();
-    for o in doc.objects.iter().filter(|o| o.t == ObjKind::Arrow) {
-        if doc.atom(o.from).is_some() && doc.atom(o.to).is_some() {
-            out.push((o.id, o.from, o.to));
+/// All atoms of `set` (hydrogens too) with the bonds between them, to apply operations on a copy of the piece alone.
+fn heavy_all(doc: &Document, set: &HashSet<u32>) -> Document {
+    Document {
+        atoms: (doc.atoms.iter())
+            .filter(|a| set.contains(&a.id))
+            .cloned()
+            .collect(),
+        bonds: (doc.bonds.iter())
+            .filter(|b| set.contains(&b.a) && set.contains(&b.b))
+            .cloned()
+            .collect(),
+        next: doc.next,
+        ..Document::default()
+    }
+}
+
+fn box_of(doc: &Document, set: &HashSet<u32>) -> Box4 {
+    let mut b = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+    for a in doc.atoms.iter().filter(|a| set.contains(&a.id)) {
+        b = (b.0.min(a.x), b.1.min(a.y), b.2.max(a.x), b.3.max(a.y));
+    }
+    b
+}
+
+/// What the turned target would run into that it did not run into before: an atom of another structure closer than `OVERLAP`, the
+/// box of another structure, or the box of an arrow, a plus sign or a text (an arrow anchored to the source or the target is
+/// left out: its ends follow the structure). The id of the atom or the object, `None` when nothing.
+fn overlap(
+    doc: &Document,
+    pieces: &Pieces,
+    ti: usize,
+    tgt: &HashSet<u32>,
+    old: Box4,
+    after: &HashMap<u32, (f64, f64)>,
+) -> Option<u32> {
+    let new = (after.values()).fold((f64::MAX, f64::MAX, f64::MIN, f64::MIN), |b, p| {
+        (b.0.min(p.0), b.1.min(p.1), b.2.max(p.0), b.3.max(p.1))
+    });
+    // atoms: any pair now closer than OVERLAP that was not
+    for a in doc.atoms.iter().filter(|a| !tgt.contains(&a.id)) {
+        let near = |p: (f64, f64)| m::hypot(p.0 - a.x, p.1 - a.y) < OVERLAP;
+        if a.x < new.0 - OVERLAP
+            || a.x > new.2 + OVERLAP
+            || a.y < new.1 - OVERLAP
+            || a.y > new.3 + OVERLAP
+        {
             continue;
         }
-        let (dx, dy) = (o.x2 - o.x, o.y2 - o.y);
-        let len2 = dx * dx + dy * dy;
-        if len2 == 0.0 {
-            continue;
-        }
-        // the nearest piece before the tail and the nearest past the head, as (distance, piece)
-        let mut near: [Option<(f64, usize)>; 2] = [None, None];
-        for (i, c) in mid.iter().enumerate() {
-            let t = ((c.0 - o.x) * dx + (c.1 - o.y) * dy) / len2;
-            let (k, d) = if t < 0.0 {
-                (0, m::hypot(c.0 - o.x, c.1 - o.y))
-            } else if t > 1.0 {
-                (1, m::hypot(c.0 - o.x2, c.1 - o.y2))
-            } else {
-                continue;
-            };
-            if near[k].is_none_or(|(best, _)| d < best) {
-                near[k] = Some((d, i));
+        for t in doc.atoms.iter().filter(|t| tgt.contains(&t.id)) {
+            if near(after[&t.id]) && !near((t.x, t.y)) {
+                return Some(t.id);
             }
         }
-        if let [Some((_, s)), Some((_, t))] = near {
-            out.push((o.id, pieces[s][0], pieces[t][0]));
+    }
+    // the boxes of the other structures
+    let mut boxes: HashMap<usize, Box4> = HashMap::new();
+    for a in &doc.atoms {
+        let i = pieces.of[&a.id];
+        if i != ti {
+            let b = boxes
+                .entry(i)
+                .or_insert((f64::MAX, f64::MAX, f64::MIN, f64::MIN));
+            *b = (b.0.min(a.x), b.1.min(a.y), b.2.max(a.x), b.3.max(a.y));
+        }
+    }
+    let mut ordered: Vec<(&usize, &Box4)> = boxes.iter().collect();
+    ordered.sort_by_key(|(i, _)| **i);
+    for (&i, &b) in ordered {
+        if meet(new, b) && !meet(old, b) {
+            return pieces.list[i].first().copied();
+        }
+    }
+    // the objects
+    let mine = |a: u32| tgt.contains(&a);
+    for o in &doc.objects {
+        // an arrow anchored to this structure or to its neighbour follows it (`route`)
+        if o.t == ObjKind::Arrow
+            && (o.from != 0 || o.to != 0)
+            && (mine(o.from)
+                || mine(o.to)
+                || pieces.of.contains_key(&o.from)
+                || pieces.of.contains_key(&o.to))
+        {
+            continue;
+        }
+        let b = if o.t == ObjKind::Arrow {
+            (o.x.min(o.x2), o.y.min(o.y2), o.x.max(o.x2), o.y.max(o.y2))
+        } else {
+            (o.x, o.y, o.x, o.y)
+        };
+        let b = grow(b, REACH);
+        if meet(new, b) && !meet(old, b) {
+            return Some(o.id);
+        }
+    }
+    None
+}
+
+/// The pairs a scheme asks for. Every structure has its roles by the one rule of `to_rxn` and `scheme:row` (`rxn::along`,
+/// `rxn::role`, the middle of the structure along each arrow): it is a reactant of the arrow whose tail is nearest among those it
+/// stands before, a product of the arrow whose head is nearest among those it stands past, and an agent (never turned) of an
+/// arrow it stands alongside. An arrow with both anchors (`from`, `to`) uses its two structures instead. The result is, for each
+/// product in the order of the drawing, `(arrow, product piece, reactant pieces nearest first)`.
+fn pairs(doc: &Document, pieces: &Pieces) -> Vec<(u32, usize, Vec<usize>)> {
+    let at: HashMap<u32, (f64, f64)> = doc.atoms.iter().map(|a| (a.id, (a.x, a.y))).collect();
+    let mid: Vec<(f64, f64)> = pieces
+        .list
+        .iter()
+        .map(|p| {
+            let n = p.len() as f64;
+            p.iter().fold((0.0, 0.0), |c, i| {
+                let a = at[i];
+                (c.0 + a.0 / n, c.1 + a.1 / n)
+            })
+        })
+        .collect();
+    let arrows: Vec<&crate::doc::Obj> = doc
+        .objects
+        .iter()
+        .filter(|o| o.t == ObjKind::Arrow)
+        .collect();
+    let anchored = |o: &crate::doc::Obj| matches!((pieces.of.get(&o.from), pieces.of.get(&o.to)), (Some(a), Some(b)) if a != b);
+    // for each piece: the nearest arrow it is a reactant of, and the nearest it is a product of (distance to tail, to head)
+    let mut react: Vec<Option<(f64, usize)>> = vec![None; pieces.list.len()];
+    let mut prod: Vec<Option<(f64, usize)>> = vec![None; pieces.list.len()];
+    for (k, o) in arrows.iter().enumerate().filter(|(_, o)| !anchored(o)) {
+        if (o.x2 - o.x).abs() + (o.y2 - o.y).abs() < 1e-9 {
+            continue;
+        }
+        for (i, c) in mid.iter().enumerate() {
+            let (slot, d) = match crate::rxn::role(crate::rxn::along(o, c.0, c.1)) {
+                0 => (&mut react[i], m::hypot(c.0 - o.x, c.1 - o.y)),
+                1 => (&mut prod[i], m::hypot(c.0 - o.x2, c.1 - o.y2)),
+                _ => continue,
+            };
+            if slot.is_none_or(|(best, _)| d < best) {
+                *slot = Some((d, k));
+            }
+        }
+    }
+    // the reactants of each arrow, the nearest to its tail first
+    let mut reactants: Vec<Vec<(f64, usize)>> = vec![Vec::new(); arrows.len()];
+    for (i, r) in react.iter().enumerate() {
+        if let Some((d, k)) = r {
+            reactants[*k].push((*d, i));
+        }
+    }
+    for r in &mut reactants {
+        r.sort_by(|a, b| a.0.total_cmp(&b.0));
+    }
+    let mut out = Vec::new();
+    for (k, o) in arrows.iter().enumerate() {
+        if anchored(o) {
+            out.push((o.id, pieces.of[&o.to], vec![pieces.of[&o.from]]));
+            continue;
+        }
+        let near: Vec<usize> = reactants[k].iter().take(REACTANTS).map(|r| r.1).collect();
+        for (ti, p) in prod.iter().enumerate() {
+            if p.is_some_and(|(_, a)| a == k) && !near.is_empty() {
+                out.push((o.id, ti, near.clone()));
+            }
         }
     }
     out
 }
 
-/// The plan for the whole scheme. A pair runs after the pair that gives its source a place (a chain A -> B -> C orients B on A and
-/// then C on the turned B); a structure that is the target of two arrows is oriented by the first only. When any pair would
-/// overlap, no operation is returned and the step says so (the command does not apply).
+/// The plan for the whole scheme: one step per product structure, the operations of the ones oriented. A product is oriented on
+/// its nearest reactant that has a core (a reactant with none is skipped); a reactant that is itself a product of an earlier
+/// arrow is oriented first (a chain A -> B -> C turns B on A, then C on the turned B). When any step would overlap, no operation
+/// is returned and the step says so (the command does not apply).
 pub fn plan(doc: &Document) -> Plan {
-    let mut todo = pairs(doc);
+    let pieces = Pieces::of(doc);
+    let mut todo = pairs(doc, &pieces);
+    let mut waiting: HashSet<usize> = todo.iter().map(|p| p.1).collect();
     let mut work = doc.clone();
     let mut plan = Plan::default();
-    let mut done_targets: Vec<Vec<u32>> = Vec::new();
-    let piece_of = |d: &Document, a: u32| {
-        crate::layout::pieces(d)
-            .into_iter()
-            .find(|p| p.contains(&a))
-            .unwrap_or_default()
-    };
+    let mut spent = 0;
     while !todo.is_empty() {
-        // the first pair whose source is not the target of another pair still waiting
+        // the first product none of whose reactants is a product still waiting
         let at = (0..todo.len())
             .find(|&i| {
-                let src = piece_of(&work, todo[i].1);
-                !(todo.iter().enumerate())
-                    .any(|(j, p)| j != i && piece_of(&work, p.2) == src && p.2 != todo[i].1)
+                !todo[i]
+                    .2
+                    .iter()
+                    .any(|r| waiting.contains(r) && *r != todo[i].1)
             })
             .unwrap_or(0);
-        let (arrow, from, to) = todo.remove(at);
-        let target = piece_of(&work, to);
-        if done_targets.contains(&target) || piece_of(&work, from) == target {
+        let (arrow, ti, from) = todo.remove(at);
+        waiting.remove(&ti);
+        spent += 1;
+        let first = pieces.list[ti][0];
+        if spent > MAX_PRODUCTS {
+            let mut s = blank(0, first, Status::TooLarge);
+            s.arrow = arrow;
+            plan.steps.push(s);
             continue;
         }
-        done_targets.push(target);
-        let (mut step, ops) = solve(&work, from, to);
+        let mut got: Option<(Step, Vec<Op>)> = None;
+        let mut limited = false;
+        for si in from.into_iter().filter(|&s| s != ti) {
+            let (a, b) = (pieces.list[si][0], first);
+            let (step, ops) = solve_in(&work, &pieces, si, ti, a, b);
+            match step.status {
+                Status::NoCore => {}
+                Status::TooLarge => limited = true,
+                _ => {
+                    got = Some((step, ops));
+                    break;
+                }
+            }
+        }
+        let (mut step, ops) = got.unwrap_or_else(|| {
+            let s = if limited {
+                Status::TooLarge
+            } else {
+                Status::NoCore
+            };
+            (blank(0, first, s), Vec::new())
+        });
         step.arrow = arrow;
         if step.status == Status::Oriented {
             let _ = work.apply(&ops);

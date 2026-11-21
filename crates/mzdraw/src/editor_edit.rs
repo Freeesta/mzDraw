@@ -150,12 +150,18 @@ impl Editor {
     }
 
     /// `scheme:orient` from the page: each structure after an arrow is turned onto the one before it, in one undo step. A refusal
-    /// (no common core, already oriented, would overlap) is kept in `error` and changes nothing.
+    /// (no common core, too large, would overlap) is kept in `error` and changes nothing; a scheme that is oriented already is said and not changed.
     pub fn scheme_orient(&mut self) -> u32 {
         match crate::commands::run(self, "scheme:orient", &serde_json::json!({})) {
             Ok(()) => {
                 self.error = "";
-                REPAINT | CHANGED
+                let turned =
+                    (self.orient_steps.iter()).any(|s| s.status == crate::orient::Status::Oriented);
+                if turned {
+                    REPAINT | CHANGED
+                } else {
+                    REPAINT
+                }
             }
             Err(e) => {
                 self.error = e.key;

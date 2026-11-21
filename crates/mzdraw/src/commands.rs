@@ -99,10 +99,13 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     e.session.run(&ops)
 }
 
-/// `scheme:orient`: one undo step with the turns of `orient::plan` (and the route of the arrows that follow). Refused, and nothing
-/// changed, when a pair would overlap itself, when there is no pair with a core, or when every pair is oriented already.
+/// `scheme:orient`: one undo step with the turns of `orient::plan` (and the route of the arrows that follow). Nothing is changed, and
+/// the command is refused, when a structure would overlap (`orientOverlap`), when none has a core (`orientNone`) or is too large
+/// (`orientSize`). A scheme already oriented is not a refusal: the command changes nothing and says so (`changed` false).
+/// The steps of the last run are kept in `e.orient_steps` for the result document.
 fn orient(e: &mut Editor) -> Result<(), OpError> {
     let plan = crate::orient::plan(e.doc());
+    e.orient_steps = plan.steps.clone();
     if let Some(s) = (plan.steps.iter()).find(|s| s.status == Status::Overlap) {
         return Err(OpError {
             key: s.status.key(),
@@ -110,10 +113,15 @@ fn orient(e: &mut Editor) -> Result<(), OpError> {
         });
     }
     if plan.ops.is_empty() {
-        // the reason of the first pair that has one; no pair at all is no core
-        let s = (plan.steps.iter()).find(|s| s.status == Status::Already);
-        let key = s.map_or(Status::NoCore.key(), |s| s.status.key());
-        return Err(OpError { key, id: 0 });
+        let done = (plan.steps.iter()).any(|s| s.status == Status::Already);
+        if !done {
+            let key = (plan.steps.iter())
+                .find(|s| s.status == Status::TooLarge)
+                .map_or(Status::NoCore.key(), |s| s.status.key());
+            return Err(OpError { key, id: 0 });
+        }
+        e.said = ("draw2.say.orientDone", String::new());
+        return Ok(());
     }
     let n = (plan.steps.iter())
         .filter(|s| s.status == Status::Oriented)
