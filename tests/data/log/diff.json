@@ -1541,6 +1541,7 @@
     {
       "error_key": "error.draw2.requestField",
       "request": {
+        "bogus": 1,
         "diff": {
           "a": {
             "atoms": [
@@ -1688,8 +1689,7 @@
               }
             ]
           }
-        },
-        "bogus": 1
+        }
       }
     },
     {

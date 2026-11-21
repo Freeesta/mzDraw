@@ -363,7 +363,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("request", "dry_run", "bool", "run and report everything, write nothing: the document has no `out`; implies `report`"),
     r("request", "expect", "object[]", "postconditions on the final drawing, one arm each; a non-empty list implies `report`"),
     r("request", "id", "string|uint", "echoed as the `id` of the document (default: the index of the request in its batch)"),
-    r("request", "diff", "object", "two documents `{\"a\":DOC,\"b\":DOC}` (each an `mzdraw/1` object or its JSON text): answers the patch from `a` to `b` and its hunks (section `diff`), not a `draw-result/1`; the request stands alone: any other field, `report`, `dry_run`, `expect` and `id` included, is `error.draw2.diffAlone`; an unreadable document is `error.draw2.document`"),
+    r("request", "diff", "object", "two documents `{\"a\":DOC,\"b\":DOC}` (each a document object or its JSON text): answers the patch from `a` to `b` and its hunks (section `diff`), not a `draw-result/1`; the request stands alone: any other field, `report`, `dry_run`, `expect` and `id` included, is `error.draw2.diffAlone`; an unreadable document is `error.draw2.document`"),
     r("diff", "ops", "json[]", "answer: the patch, operations of `draw_edit/1` (`diff::diff(a, b)`): removes, adds, sets, moves, in that order; empty when the drawings are the same"),
     r("diff", "hunks", "object[]", "answer: the patch grouped into hunks (`diff::hunks(a, ops)`), in the order of their first operation; any subset of them applies in order to a valid document"),
     r("hunk", "ids", "uint[]", "the ids (atoms, bonds, objects) the hunk touches, ascending"),
