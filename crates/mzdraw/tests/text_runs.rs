@@ -273,3 +273,10 @@ fn the_formula_face_lowers_the_digits_after_symbols() {
     let r = runs::formula(&[Run::plain("CH3CO2H")]);
     assert_eq!(runs::to_markup(&r), "CH_3CO_2H");
 }
+
+#[test]
+fn the_digest_lists_a_formatted_text_without_breaking() {
+    let d = doc_with(formatted());
+    let text = mzdraw::digest::json(&d, &mzdraw::Style::default()).unwrap();
+    assert!(text.contains("text"));
+}

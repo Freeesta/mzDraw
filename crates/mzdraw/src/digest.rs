@@ -289,7 +289,12 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
             ObjKind::Text => [
                 o.x,
                 o.y - f * 0.5,
-                o.x + crate::scene::width(&o.text, f),
+                o.x + if o.runs.is_empty() {
+                    crate::scene::width(&o.text, f)
+                } else {
+                    // a formatted text: the widest line (the line breaks are not characters)
+                    crate::runs::layout(&o.runs, f, 0.7).width()
+                },
                 o.y + f * 0.5,
             ],
         };
