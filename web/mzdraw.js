@@ -190,7 +190,7 @@ function refresh() {
   $("d2-std-note").textContent = st.std.none ? t("draw2.std.none") : "";
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
   if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
-  else if (st.say.key) $("d2-live").textContent = t(st.say.key, { what: st.say.what });
+  else if (st.say.key) $("d2-live").textContent = t(st.say.key, { what: st.say.what, ...st.say.params });
   document.documentElement.dataset.d2 = JSON.stringify({ focus: st.focus ? st.focus.index : 0, atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, std: std.length, selected: st.selected });
 }
 
@@ -456,29 +456,37 @@ async function styles() {
   const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), note = $("d2-style-note"), NAME = NAMES.settings;
   const schema = JSON.parse(ed.settings_schema()), box = $("d2-style-fields");
   /** @type {Record<string, HTMLInputElement | HTMLSelectElement>} */ const inputs = {};
+  /** the settings that take a word (the schema's `choices`): their value is asked of the module, which knows the default @type {Record<string, true>} */ const words = {};
   for (const name of schema.presets) { const o = document.createElement("option"); o.value = name; o.textContent = t(`draw2.style.${name}`); sel.append(o); }
   /** shows the style the module holds: the preset it was made from and every value */
   const show = () => {
     const style = JSON.parse(ed.style()).style;
     sel.value = style.preset; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
-    for (const [key, input] of Object.entries(inputs)) { input.value = String(style[key]); input.removeAttribute("aria-invalid"); }
+    for (const [key, input] of Object.entries(inputs)) { input.value = key in words ? ed.choice(key) : String(style[key]); input.removeAttribute("aria-invalid"); }
   };
   /** one change asked of the module; a refusal is said in words, the field is marked and nothing changes */
   const ask = (/** @type {() => number} */ change, /** @type {string} */ said, /** @type {Element | null} */ field) => {
     try { after(change() | CHANGED); show(); note.textContent = said; $("d2-live").textContent = t("draw2.say.style", { what: sel.selectedOptions[0].textContent || "" }); keep(); }
     catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; field?.setAttribute("aria-invalid", "true"); }
   };
-  const row = (/** @type {string} */ key, /** @type {HTMLInputElement | HTMLSelectElement} */ input, /** @type {string} */ unit) => {
+  const row = (/** @type {string} */ key, /** @type {HTMLInputElement | HTMLSelectElement} */ input, /** @type {string} */ unit, /** @type {string} */ setting = `style.${key}`) => {
     const label = document.createElement("label"), name = document.createElement("span");
     label.className = "field"; name.textContent = t(`draw2.style.field.${key}`);
     input.id = `d2-style-${key}`; inputs[key] = input;
-    input.addEventListener("change", () => ask(() => ed.set(`style.${key}=${input.value}`), t("draw2.style.custom.note"), input));
+    input.addEventListener("change", () => ask(() => ed.set(`${setting}=${input.value}`), t("draw2.style.custom.note"), input));
     label.append(name, input, unit); box.append(label);
   };
   for (const f of schema.fields) {
     const input = document.createElement("input");
     input.type = "number"; input.min = String(f.min); input.max = String(f.max); input.step = "any"; input.inputMode = "decimal";
     row(f.key, input, t(`draw2.style.unit.${f.unit}`));
+  }
+  // the keys that take a word (the direction and the order of the pathway): the words and the default come from the schema
+  for (const c of schema.choices) {
+    const input = document.createElement("select");
+    for (const v of c.values) { const o = document.createElement("option"); o.value = v; o.textContent = t(`draw2.style.choice.${c.key}.${v}`); input.append(o); }
+    words[c.key] = true;
+    row(c.key, input, "", c.key);
   }
   const colour = document.createElement("select");
   for (const c of schema.colours) { const o = document.createElement("option"); o.value = c; o.textContent = t(`draw2.style.colour.${c}`); colour.append(o); }

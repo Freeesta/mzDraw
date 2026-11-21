@@ -28,6 +28,7 @@ export const ICONS = {
   arrow: '<path d="M3.5 12h16.5M15 7l5 5-5 5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   "scheme-row": '<path d="M2.5 12h4M4.5 10v4M9 12h6M12.5 9.5L15 12l-2.5 2.5M19 12h2.5"/>',
+  "pathway-tree": '<rect x="2.5" y="9.5" width="4" height="5" rx="1"/><rect x="17.5" y="3.5" width="4" height="4" rx="1"/><rect x="17.5" y="16.5" width="4" height="4" rx="1"/><path d="M6.5 12h4v-6h7M10.5 12v6h7"/>',
   text: '<path d="M5 7V4.5h14V7M12 4.5v15M9 19.5h6"/>',
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
