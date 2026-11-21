@@ -1227,6 +1227,86 @@ try {
     await tapPalette(pg, "data", false);
   });
 
+  await step("transformation by mouse and keyboard: parent, arrow and product are drawn, two atoms on each side are mapped by keyboard, trasf/1 is saved and opens again; an unmapped drawing is refused with its atoms", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")), key = k => pg.keyboard.press(k);
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.mouse.click(cx - 288, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "arrow"); await pg.mouse.click(cx - 223, cy); await want(pg, { objects: 1 });
+    await tool(pg, "bond:1"); await pg.mouse.click(cx - 108, cy); await want(pg, { atoms: 4, bonds: 2 });
+    // nothing is mapped yet: the save is refused and the message names the four atoms
+    const ids = (await doc()).atoms.map(a => a.id).join(", ");
+    await saveAs(pg, "#d2-ex-trasf");
+    await until(pg, "document.querySelector('#d2-ex-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-ex-note"), await pg.evaluate(`I18N.t('error.draw2.trasfMap', { atoms: ${JSON.stringify(ids)} })`));
+    // the keyboard walks to each atom; the end atom of the product becomes oxygen
+    await tapPalette(pg, "data", true);
+    if (!(await pg.evaluate("document.querySelector('#d2-data-more').open"))) await pg.locator("#d2-data-more summary").evaluate(el => el.click());
+    const goto = async i => {
+      const a = (await doc()).atoms, base = i >= 2 ? 2 : 0, dx = a[i].x - a[base].x, dy = a[i].y - a[base].y;
+      await pg.locator("#d2-canvas").focus(); await key("Home"); if (base) await key("PageDown");
+      if (i !== base) await key(Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? "ArrowRight" : "ArrowLeft") : (dy > 0 ? "ArrowUp" : "ArrowDown"));
+    };
+    await goto(3); await key("o");
+    for (const [i, n] of [[0, 1], [1, 2], [2, 1], [3, 2]]) {
+      await goto(i); await pg.fill("#d2-map", String(n)); await pg.locator("#d2-map").focus(); await key("Enter");
+      await until(pg, `document.querySelector('#d2-map-note').textContent === I18N.t('draw2.map.done', { n: ${n} })`);
+    }
+    // Save by keyboard: focus the button, Enter
+    await reveal(pg, "#d2-ex-trasf"); await pg.focus("#d2-ex-trasf");
+    const [dl] = await Promise.all([pg.waitForEvent("download"), key("Enter")]);
+    eq(dl.suggestedFilename(), "drawing.trasf.json");
+    const file = readFileSync(await dl.path(), "utf8");
+    eq(file, await pg.evaluate("window.MZDRAW.save('trasf')"));
+    const lines = file.trim().split("\n"), rec = JSON.parse(lines[0]);
+    eq([lines.length, rec.format, rec.delta, rec.map.length, rec.added.length, rec.centre.length], [3, "trasf/1", "+O-CH2", 2, 0, 1]);
+    assert(lines.slice(1).every(l => JSON.parse(l).format === "mol/1"), "the two records beside it");
+    await shot(pg, "trasf-mapped");
+    // opened again: parent, arrow, product, the maps drawn
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.setInputFiles("#d2-file", { name: "drawing.trasf.json", mimeType: "application/json", buffer: Buffer.from(file) }); await want(pg, { atoms: 4, bonds: 2, objects: 1 });
+    eq((await doc()).atoms.map(a => a.map || 0).join(","), "1,2,1,2");
+    eq((await pg.evaluate("window.MZDRAW.save('trasf')")).split("\n")[0], lines[0]);       // the same record (the layout of an opened file is its own, so the coordinates may differ)
+    // a record that is not a pair is refused in words
+    await pg.setInputFiles("#d2-file", { name: "bad.json", mimeType: "application/json", buffer: Buffer.from(lines.slice(0, 2).join("\n") + "\n") });
+    await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-note"), await pg.evaluate("I18N.t('error.draw2.trasf')"));
+    await tapPalette(pg, "data", false);
+  });
+
+  await step("transformation by touch: the maps are set by tapping atoms, the field and Set; trasf/1 is saved by tapping", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    const tap = (x, y) => pg.touchscreen.tap(x, y);       // the tablet: the Data palette, once shown, takes the right of the canvas (x 488 on, y 54 on), so the drawing stays left of it
+    const tapOn = async sel => { await pg.locator(sel).scrollIntoViewIfNeeded(); const b = await pg.locator(sel).boundingBox(); await tap(b.x + b.width / 2, b.y + b.height / 2); };
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await tap(cx - 288, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "arrow"); await tap(cx - 223, cy); await want(pg, { objects: 1 });
+    await tool(pg, "bond:1"); await tap(cx - 108, cy); await want(pg, { atoms: 4, bonds: 2 });
+    const at = async i => { const a = (await doc()).atoms, base = i >= 2 ? 2 : 0, px = base ? cx - 108 : cx - 288; return [px + (a[i].x - a[base].x) * 40, cy - (a[i].y - a[base].y) * 40]; };
+    await tool(pg, "atom:O"); await tap(...await at(3)); await want(pg, { atoms: 4, bonds: 2 });         // the end atom of the product becomes oxygen
+    await tapPalette(pg, "data", true);
+    if (!(await pg.evaluate("document.querySelector('#d2-data-more').open"))) await pg.locator("#d2-data-more summary").evaluate(el => el.click());
+    await tool(pg, "select");
+    for (const [i, n] of [[0, 1], [1, 2], [2, 1], [3, 2]]) {
+      const [x, y] = await at(i);
+      await pg.locator("#d2-canvas").scrollIntoViewIfNeeded(); await tap(x, y); await want(pg, { selected: 1 });
+      await pg.fill("#d2-map", String(n)); await tapOn("#d2-map-set");
+      await until(pg, `document.querySelector('#d2-map-note').textContent === I18N.t('draw2.map.done', { n: ${n} })`);
+    }
+    eq((await doc()).atoms.map(a => a.map || 0).join(","), "1,2,1,2");
+    await reveal(pg, "#d2-ex-trasf");
+    const [dl] = await Promise.all([pg.waitForEvent("download"), tapOn("#d2-ex-trasf")]);
+    const lines = readFileSync(await dl.path(), "utf8").trim().split("\n");
+    eq([lines.length, JSON.parse(lines[0]).format, JSON.parse(lines[0]).delta], [3, "trasf/1", "+O-CH2"]);
+    // the same button pressed with a pen gives the same record
+    const cdp = await pg.context().newCDPSession(pg);
+    await reveal(pg, "#d2-ex-trasf");
+    const bb = await pg.locator("#d2-ex-trasf").boundingBox(), pen = { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2, button: "left", clickCount: 1, pointerType: "pen" };
+    const [dl2] = await Promise.all([pg.waitForEvent("download"), (async () => { await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...pen }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...pen }); })()]);
+    eq(readFileSync(await dl2.path(), "utf8").trim().split("\n")[0], lines[0]);
+    await shot(pg, "trasf-touch");
+    await tapPalette(pg, "data", false);
+  });
+
   await step("tablet with touch: a CDX file is opened by tapping Open", async () => {
     // a page of its own; the Open button of the file palette is on the page from the start
     const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });

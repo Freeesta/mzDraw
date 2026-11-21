@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const wasm = createRequire(import.meta.url)(path.join(root, "target/pkg-node/mzdraw_wasm.js"));
 // the golden files: every *.json of tests/data/log/, sorted by name, each with some of the sections below (as crates/mzdraw/tests/common reads them)
 const logDir = path.join(root, "tests/data/log");
-const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [], diffs: [] };
+const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [], trasf: [], diffs: [] };
 for (const f of readdirSync(logDir).filter(f => f.endsWith(".json")).sort()) {
   const part = JSON.parse(readFileSync(path.join(logDir, f), "utf8"));
   for (const k of Object.keys(part)) {
@@ -67,6 +67,14 @@ for (const c of fx.pdf) {
   check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
   check(a.stdout === c.out && Buffer.from(c.out, "base64").subarray(0, 8).toString("latin1") === "%PDF-1.7", `${c.name}: the recorded bytes`);
+}
+// a drawn parent and product as `trasf/1` with its two records (`out: trasf`): the same bytes from the page and from the replay, the recorded ones, the record's delta
+for (const c of fx.trasf) {
+  const request = JSON.stringify(c.request), a = site(request), b = native(request);
+  check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
+  check(a.stdout === b.stdout, `${c.name}: wasm == native`);
+  const lines = c.out.split("\n").filter(Boolean), record = JSON.parse(lines[0]);
+  check(a.stdout === c.out && lines.length === 3 && record.format === "trasf/1" && record.delta === c.delta, `${c.name}: the recorded record and delta`);
 }
 // the verdict of a request that asks for one (`draw-result/1`): the same bytes on both sides, exit 0 when `ok` and 1 when not; a request number `n` of a batch is the `id` of an answer without one
 for (const c of fx.results) {

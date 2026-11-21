@@ -17,7 +17,7 @@ struct Request {
     /// saved by mzDraw. Read after `import` when both are given.
     import_base64: Option<Vec<u8>>,
     log: Vec<Op>,
-    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `pdf` (the PDF file as base64; the CLI `--raw` writes the file), `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
+    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `trasf` (the record `trasf/1` and its two records, one per line), `sdf`, `svg`, `pdf` (the PDF file as base64; the CLI `--raw` writes the file), `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
     out: Option<String>,
     /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
     style: Option<String>,
@@ -337,8 +337,21 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         .collect();
     let kind = r.out.as_deref().unwrap_or(crate::brand::SLUG);
     let written = produce(&mut e, kind, &flags);
+    // a refused transformation names its first atom, as a refused operation does
+    let fail_out = |key| OpError {
+        key,
+        id: if kind == "trasf" {
+            (e.trasf_problem())
+                .and_then(|p| p.1.first().copied())
+                .unwrap_or(0)
+        } else {
+            0
+        },
+    };
     if !r.envelope() {
-        return written.map_err(fail).map(|text| Reply { text, ok: true });
+        return written
+            .map_err(fail_out)
+            .map(|text| Reply { text, ok: true });
     }
     // an `out` the request cannot mean is an invalid request whatever the verdict; a refusal of the drawing (no arrow, no SMILES) only counts when it is written
     if matches!(written, Err("error.draw2.request")) {
@@ -375,7 +388,7 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
     };
     if outcome.ok() {
         outcome.lost = e.lost_on_save(r.out.as_deref().unwrap_or(crate::brand::SLUG));
-        let text = written.map_err(fail)?;
+        let text = written.map_err(fail_out)?;
         outcome.out = (!r.dry_run).then_some(text);
     }
     Ok(Reply {
