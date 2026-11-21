@@ -147,3 +147,4 @@ p { margin: 4px 0; }
   /* larger handles and buttons take more of the column: its open palettes get less */
   .pal.side { max-height: max(120px, calc((100vh - 350px) / 3)); } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.d2-notice { color: var(--mzd-danger); font-weight: 600; }

@@ -381,6 +381,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("expect", "pieces", "uint", "the atoms form exactly this many connected pieces"),
     r("expect", "smiles", "string", "the SMILES of the whole drawing equals this text"),
     r("expect", "anchored", "object", "`{\"arrow\":ID,\"from\":A,\"to\":B}`: the arrow is anchored to the structures of the atoms A and B (0 or left out: that end is free)"),
+    r("expect", "stereo", "string", "`\"kept\"`: every stereocentre and double bond of the drawing after `import` is arranged as at the end; `detail` names the atoms"),
 ];
 
 /// The row of an operation by name.

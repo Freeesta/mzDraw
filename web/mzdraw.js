@@ -170,6 +170,8 @@ function refresh() {
     if (!on && input.value && (document.activeElement !== input || input.hasAttribute("aria-invalid"))) { input.value = ""; input.removeAttribute("aria-invalid"); }
   }
   $("d2-status").textContent = t(st.objects ? "draw2.count.objects" : "draw2.count", { atoms: st.atoms, bonds: st.bonds, objects: st.objects });
+  // a report Rust keeps until the next step (the stereo guard) is shown beside the counts, as well as said by the live line
+  if (st.notice.key) { const n = document.createElement("span"); n.className = "d2-notice"; n.textContent = " " + t(st.notice.key, { what: st.notice.what }); $("d2-status").append(n); }
   const list = $("d2-warnings"), ws = (st.check && st.check.warnings) || [];
   list.replaceChildren(...ws.map((/** @type {any} */ w) => {
     const li = document.createElement("li"), b = document.createElement("span");

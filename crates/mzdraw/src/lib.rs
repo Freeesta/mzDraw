@@ -42,6 +42,7 @@ pub mod scene;
 pub mod schema;
 pub mod scheme;
 pub mod settings;
+pub mod stereo_guard;
 pub mod svg;
 pub mod trasf;
 pub mod xml;
