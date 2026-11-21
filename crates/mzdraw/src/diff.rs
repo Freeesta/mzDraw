@@ -7,7 +7,7 @@
 
 use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind};
 use crate::ops::{log_text, Op};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// The ends of a bond as an unordered pair.
 fn ends(b: &Bond) -> (u32, u32) {
@@ -66,7 +66,7 @@ fn obj_add(o: &Obj) -> Op {
 
 /// Atoms and objects that move by the same displacement, in the order they were met.
 #[derive(Default)]
-struct Moves(Vec<Group>);
+struct Moves(Vec<Group>, HashMap<(u64, u64), usize>);
 
 /// The bits of a displacement, the atoms and the objects that move by it.
 type Group = ((u64, u64), Vec<u32>, Vec<u32>);
@@ -74,25 +74,53 @@ type Group = ((u64, u64), Vec<u32>, Vec<u32>);
 impl Moves {
     fn put(&mut self, d: (f64, f64), atom: Option<u32>, object: Option<u32>) {
         let key = (d.0.to_bits(), d.1.to_bits());
-        let i = (self.0.iter().position(|m| m.0 == key)).unwrap_or_else(|| {
-            self.0.push((key, Vec::new(), Vec::new()));
-            self.0.len() - 1
+        let groups = &mut self.0;
+        let i = *self.1.entry(key).or_insert_with(|| {
+            groups.push((key, Vec::new(), Vec::new()));
+            groups.len() - 1
         });
         self.0[i].1.extend(atom);
         self.0[i].2.extend(object);
     }
 }
 
+/// The atoms, bonds and objects of a document by id.
+type Pools<'a> = (
+    HashMap<u32, &'a Atom>,
+    HashMap<u32, &'a Bond>,
+    HashMap<u32, &'a Obj>,
+);
+
+fn by_id(d: &Document) -> Pools<'_> {
+    (
+        d.atoms.iter().map(|x| (x.id, x)).collect(),
+        d.bonds.iter().map(|x| (x.id, x)).collect(),
+        d.objects.iter().map(|x| (x.id, x)).collect(),
+    )
+}
+
 /// The patch that turns `a` into `b`; empty when they are the same drawing.
 pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
     let mut out = Vec::new();
-    let (kept_a, kept_b) = (|id| b.atom(id).is_some(), |id| a.atom(id).is_some());
+    // one index per pool, so that the lookups below cost one each on a big document
+    let ((a_atoms, a_bonds, a_objects), (b_atoms, b_bonds, b_objects)) = (by_id(a), by_id(b));
+    let (a_atom, a_bond, a_object) = (
+        |id: u32| a_atoms.get(&id).copied(),
+        |id: u32| a_bonds.get(&id).copied(),
+        |id: u32| a_objects.get(&id).copied(),
+    );
+    let (b_atom, b_bond, b_object) = (
+        |id: u32| b_atoms.get(&id).copied(),
+        |id: u32| b_bonds.get(&id).copied(),
+        |id: u32| b_objects.get(&id).copied(),
+    );
+    let (kept_a, kept_b) = (|id| b_atom(id).is_some(), |id| a_atom(id).is_some());
     // a bond is the same bond when it has the same id and the same two atoms (the ends may be swapped); another pair is another bond
     let same_bond = |x: &Bond, y: &Bond| ends(x) == ends(y);
-    let bond_kept = |x: &Bond| b.bond(x.id).is_some_and(|y| same_bond(x, y));
-    let bond_new = |y: &Bond| a.bond(y.id).is_none_or(|x| !same_bond(x, y));
-    let obj_kept = |o: &Obj| b.object(o.id).is_some_and(|p| p.t == o.t);
-    let obj_new = |p: &Obj| a.object(p.id).is_none_or(|o| o.t != p.t);
+    let bond_kept = |x: &Bond| b_bond(x.id).is_some_and(|y| same_bond(x, y));
+    let bond_new = |y: &Bond| a_bond(y.id).is_none_or(|x| !same_bond(x, y));
+    let obj_kept = |o: &Obj| b_object(o.id).is_some_and(|p| p.t == o.t);
+    let obj_new = |p: &Obj| a_object(p.id).is_none_or(|o| o.t != p.t);
 
     // removes
     let bonds = a
@@ -169,7 +197,7 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
         let mut base = blank(y.id);
         base.el = y.el.clone();
         base.map = y.map;
-        let x = a.atom(y.id).unwrap_or(&base);
+        let x = a_atom(y.id).unwrap_or(&base);
         out.extend(atom_set(x, y));
         if x.data() != y.data() {
             out.push(Op::AtomData {
@@ -186,7 +214,7 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
         }
     }
     for y in &b.bonds {
-        let Some(x) = a.bond(y.id).filter(|x| same_bond(x, y)) else {
+        let Some(x) = a_bond(y.id).filter(|x| same_bond(x, y)) else {
             continue;
         };
         let rev = x.a != y.a;
@@ -201,7 +229,7 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
     }
     let mut moves = Moves::default();
     for y in &b.atoms {
-        if let Some(x) = a.atom(y.id) {
+        if let Some(x) = a_atom(y.id) {
             let d = (round4(y.x - x.x), round4(y.y - x.y));
             if d != (0.0, 0.0) {
                 moves.put(d, Some(y.id), None);
@@ -209,7 +237,7 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
         }
     }
     for p in &b.objects {
-        let Some(o) = a.object(p.id).filter(|o| o.t == p.t) else {
+        let Some(o) = a_object(p.id).filter(|o| o.t == p.t) else {
             continue;
         };
         let d = (round4(p.x - o.x), round4(p.y - o.y));

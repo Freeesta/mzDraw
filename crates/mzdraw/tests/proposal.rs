@@ -332,12 +332,13 @@ fn best(mut f: impl FnMut()) -> f64 {
 }
 
 /// The time of `run` on the input of `n` and of `4n` (built by `setup`, outside the clock) must not differ by more than a factor 8:
-/// linear work gives 4 and quadratic work 16; the floor of 100 ms keeps noise out.
+/// linear work gives 4 and quadratic work 16; the floor of 40 ms keeps noise out, and `n` is large enough that quadratic work is
+/// seconds in a release build too.
 fn scales<T>(what: &str, n: u32, setup: impl Fn(u32) -> T, run: impl Fn(&T)) {
     let (small, big) = (setup(n), setup(4 * n));
     let (a, b) = (best(|| run(&small)), best(|| run(&big)));
     assert!(
-        b <= (a * 8.0).max(100.0),
+        b <= (a * 8.0).max(40.0),
         "{what}: {a:.1} ms for {n}, {b:.1} ms for {}",
         4 * n
     );
@@ -371,8 +372,21 @@ fn one_move_of_all_atoms_is_one_hunk_and_the_ids_are_capped() {
         dx: 1.0,
         dy: 0.0,
     };
+    let at = Instant::now();
     assert_eq!(e.propose(vec![mv]).unwrap(), 1);
+    let held = at.elapsed().as_millis();
+    let before = e.doc().to_json();
+    let at = Instant::now();
     e.accept_all().unwrap();
+    let accepted = at.elapsed().as_millis();
+    let at = Instant::now();
+    assert!(e.undo() != 0);
+    let undone = at.elapsed().as_millis();
+    assert_eq!(e.doc().to_json(), before);
+    assert!(
+        held < 5_000 && accepted < 5_000 && undone < 5_000,
+        "{n} atoms moved: held {held} ms, accepted {accepted} ms, undone {undone} ms"
+    );
     // more ids than the cap in one operation is refused at once, however few operations there are
     let mv = Op::Move {
         atoms: (1..=mzdraw::proposal::MAX_IDS as u32 + 1).collect(),
@@ -383,19 +397,20 @@ fn one_move_of_all_atoms_is_one_hunk_and_the_ids_are_capped() {
     let at = Instant::now();
     assert_eq!(
         e.propose(vec![mv]).unwrap_err().key,
-        "error.draw2.proposalSize"
+        "error.draw2.proposalIds"
     );
     assert!(at.elapsed().as_millis() < 500);
 }
 
 #[test]
-fn grouping_scales_with_the_operations_and_the_ids() {
-    // `diff::hunks` itself (the proposal caps the operations; the function does not): one hunk per operation, then one hunk for a
-    // move and a remove that name the same long list. A search of the hunks so far for each operation, or for each id, is
-    // quadratic here: 80 000 operations are 3 billion comparisons
+fn grouping_and_diffing_scale_with_the_operations_and_the_ids() {
+    // `diff::hunks` and `diff::diff` themselves (the proposal caps the operations; the functions do not). A search of the hunks, of the
+    // groups of moves or of a pool for each operation or each id is quadratic here: 80 000 of them are billions of comparisons, seconds
+    // in a release build too.
+    // n operations in n hunks (one atom each)
     scales(
         "n operations in n hunks",
-        5_000,
+        20_000,
         |n| {
             (
                 grid(n, false),
@@ -406,9 +421,41 @@ fn grouping_scales_with_the_operations_and_the_ids() {
         },
         |(doc, ops)| assert_eq!(mzdraw::diff::hunks(doc, ops).len(), ops.len()),
     );
+    // n hunks of n different displacements: the moves of a patch, each its own group and its own hunk
+    scales(
+        "n moves of n displacements",
+        20_000,
+        |n| {
+            let moves: Vec<Op> = (0..n)
+                .map(|i| Op::Move {
+                    atoms: vec![1 + i],
+                    objects: Vec::new(),
+                    dx: f64::from(i + 1) * 0.001,
+                    dy: 0.0,
+                })
+                .collect();
+            (grid(n, false), moves)
+        },
+        |(doc, ops)| assert_eq!(mzdraw::diff::hunks(doc, ops).len(), ops.len()),
+    );
+    // the patch between two big documents whose atoms all moved by different displacements: n groups of moves, n lookups per pool
+    scales(
+        "diff of n moved atoms",
+        20_000,
+        |n| {
+            let a = grid(n, true);
+            let mut b = a.clone();
+            for (i, x) in b.atoms.iter_mut().enumerate() {
+                x.x += (i as f64 + 1.0) * 0.001;
+            }
+            (a, b)
+        },
+        |(a, b)| assert_eq!(mzdraw::diff::diff(a, b).len(), a.atoms.len()),
+    );
+    // one move and one remove that name the same long list: one hunk, however long the list
     scales(
         "one move and one remove over a list of n ids",
-        5_000,
+        20_000,
         |n| {
             let ids: Vec<u32> = (1..=n).collect();
             (
@@ -429,6 +476,27 @@ fn grouping_scales_with_the_operations_and_the_ids() {
             )
         },
         |(doc, ops)| assert_eq!(mzdraw::diff::hunks(doc, ops).len(), 1),
+    );
+    // the language itself on a long list: a move of every atom, applied and undone
+    scales(
+        "a move of n atoms, applied and undone",
+        10_000,
+        |n| {
+            (
+                grid(n, true),
+                Op::Move {
+                    atoms: (1..=n).collect(),
+                    objects: Vec::new(),
+                    dx: 0.5,
+                    dy: 0.0,
+                },
+            )
+        },
+        |(doc, mv)| {
+            let mut s = Session::new(doc.clone());
+            s.run(std::slice::from_ref(mv)).unwrap();
+            assert!(s.undo());
+        },
     );
 }
 
@@ -475,30 +543,32 @@ fn marking_and_saying_a_proposal_scales() {
 
 #[test]
 fn two_thousand_separate_accepts_through_the_request_are_fast_and_all_or_none() {
+    // a drawing of 20,000 atoms (given as a document: running 20,000 adds is the language's own cost), 2,000 hunks of one atom each
     let n = mzdraw::proposal::MAX_OPS as u32;
-    let log: Vec<Value> = (0..n).map(|i| json!({"op":"atom.add","id":1 + i,"el":"C","x":f64::from(i % 50),"y":f64::from(i / 50)})).collect();
+    let doc = grid(20_000, false).to_json();
     let set: Vec<Value> = (0..n)
-        .map(|i| json!({"op":"atom.set","id":1 + i,"chg":1}))
+        .map(|i| json!({"op":"atom.set","id":1 + 10 * i,"chg":1}))
         .collect();
     let accept: Vec<u32> = (1..=n).collect();
-    let r = json!({"log": log, "propose": set, "accept": accept, "out": "log"});
+    let r = json!({"import": doc, "propose": set, "accept": accept, "out": "log"});
     let at = Instant::now();
     mzdraw::replay::replay(&r.to_string()).unwrap();
-    assert!(at.elapsed().as_millis() < 30_000);
+    let ms = at.elapsed().as_millis();
+    assert!(ms < 20_000, "{ms} ms");
     // one number out of range at the end: nothing at all is accepted
     let mut bad: Vec<u32> = (1..n).collect();
     bad.push(n + 1);
-    let r = json!({"log": log, "propose": set, "accept": bad, "out": "log"});
+    let r = json!({"import": doc, "propose": set, "accept": bad, "out": "log"});
     let e = mzdraw::replay::replay(&r.to_string()).unwrap_err();
     assert_eq!(e.key, "error.draw2.proposalHunk");
-    let r =
-        json!({"log": log, "propose": set, "accept": [1, 2, n + 1], "out": "log", "report": true});
+    let r = json!({"import": doc, "propose": set, "accept": [1, 2, n + 1], "out": "log", "report": true});
     let v: Value = serde_json::from_str(&mzdraw::replay::replay(&r.to_string()).unwrap()).unwrap();
     assert_eq!(
         v["failed"],
         json!({"stage": "proposal", "op": 2, "key": "error.draw2.proposalHunk", "id": n + 1})
     );
 }
+
 #[test]
 fn the_accept_list_of_a_request_is_all_or_none() {
     let mut e = drawing();

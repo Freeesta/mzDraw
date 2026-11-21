@@ -344,6 +344,7 @@ I18N.add("en", {
   "draw2.proposal.select.title": "Give the keyboard to this hunk",
   "error.draw2.proposalEmpty": "The patch has no operation.",
   "error.draw2.proposalSize": "The patch has too many operations to review (at most 2000).",
+  "error.draw2.proposalIds": "The patch names too many atoms, bonds and objects to review (at most 50000 in all).",
   "error.draw2.proposalHunk": "There is no such hunk left to review.",
   "error.draw2.noProposal": "There is no proposal to act on, or the drawing changed since it was made.",
   "error.draw2.proposalPatch": "That text is not a patch: it must be a list of operations (draw_edit/1).",

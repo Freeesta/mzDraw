@@ -135,7 +135,7 @@ impl Editor {
         }
         let ids: usize = ops.iter().map(|o| touched(o).len()).sum();
         if ids > MAX_IDS {
-            return Err(err("error.draw2.proposalSize", 0));
+            return Err(err("error.draw2.proposalIds", 0));
         }
         // the whole patch must apply to the drawing as it is: checked on a copy
         self.doc().clone().apply(&ops)?;

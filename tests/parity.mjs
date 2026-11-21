@@ -110,9 +110,10 @@ for (const c of fx.cases.filter(c => c.request.propose && !c.request.commands)) 
   const a = JSON.parse(R({ ...base, out: "mzdraw" })), b = JSON.parse(R({ ...base, log: [...base.log, ...propose], out: "mzdraw" }));
   const d = JSON.parse(R({ diff: { a, b } }));
   const canon = v => JSON.stringify(v, (_, x) => x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([k], [l]) => k < l ? -1 : 1)) : x);
-  // a patch that `diff` would not write (rotate, an add with no id) is one hunk by the rule of `hunks`: the reference is the whole patch or nothing
+  // a patch that `diff` would not write (rotate, an add with no id) is one hunk by the rule of `hunks`: those cases carry `independent_proof: false` and are only checked for self-consistency (the whole patch or nothing), which is not a proof
   const diffShaped = canon(d.ops) === canon(propose);
-  check(diffShaped || /non-canonical/.test(c.name), `${c.name}: the patch is what diff writes`);
+  // a case that says `"independent_proof": false` is not covered by this proof (its hunking is the rule of `hunks` alone); anything else must be what diff writes
+  check(diffShaped || c.independent_proof === false, `${c.name}: the patch is what diff writes, or the case says it has no independent proof`);
   const plain = { ...base, log: [...base.log, ...(diffShaped ? accept.flatMap(n => d.hunks[n - 1].ops) : accept.length ? propose : [])] };
   for (const out of ["mzdraw", "log"]) {
     const want = R({ ...plain, out }), got = R({ ...c.request, out }), onPage = R({ ...c.request, out }, site);

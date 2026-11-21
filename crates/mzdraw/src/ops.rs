@@ -603,7 +603,61 @@ impl Document {
         }
     }
 
+    /// The pool position of atom `id`: through the index when the operation made one (a long list), else by search (a short list
+    /// must not pay for an index of the whole pool).
+    fn position(&self, index: &Option<HashMap<u32, usize>>, id: u32) -> Option<usize> {
+        match index {
+            Some(m) => m.get(&id).copied(),
+            None => self.atom_index(id),
+        }
+    }
+
+    /// The position of every atom in the pool, by id: for an operation that names a long list of atoms and does not change the pool.
+    fn atom_positions(&self) -> HashMap<u32, usize> {
+        (self.atoms.iter().enumerate())
+            .map(|(i, a)| (a.id, i))
+            .collect()
+    }
+
     pub(crate) fn revert(&mut self, inv: Vec<Inv>) {
+        // a step that only set things (a move, a turn, a mirror) leaves the pools as they are: one index each, not one search per entry
+        if inv.len() > 32
+            && inv.iter().all(|i| {
+                matches!(
+                    i,
+                    Inv::SetAtom(_) | Inv::SetObj(_) | Inv::SetBond(_) | Inv::Next(_)
+                )
+            })
+        {
+            let atoms = self.atom_positions();
+            let objects: HashMap<u32, usize> = (self.objects.iter().enumerate())
+                .map(|(i, o)| (o.id, i))
+                .collect();
+            let bonds: HashMap<u32, usize> = (self.bonds.iter().enumerate())
+                .map(|(i, b)| (b.id, i))
+                .collect();
+            for i in inv.into_iter().rev() {
+                match i {
+                    Inv::SetAtom(a) => {
+                        if let Some(&k) = atoms.get(&a.id) {
+                            self.atoms[k] = a;
+                        }
+                    }
+                    Inv::SetObj(o) => {
+                        if let Some(&k) = objects.get(&o.id) {
+                            self.objects[k] = o;
+                        }
+                    }
+                    Inv::SetBond(b) => {
+                        if let Some(&k) = bonds.get(&b.id) {
+                            self.bonds[k] = b;
+                        }
+                    }
+                    other => self.undo_one(other),
+                }
+            }
+            return;
+        }
         for i in inv.into_iter().rev() {
             self.undo_one(i);
         }
@@ -798,11 +852,9 @@ impl Document {
                 let t = deg * std::f64::consts::PI / 180.0;
                 let (c, s) = (m::cos(t), m::sin(t));
                 // the pool does not change while atoms move: one index for the whole list
-                let index: HashMap<u32, usize> = (self.atoms.iter().enumerate())
-                    .map(|(i, a)| (a.id, i))
-                    .collect();
+                let index = (atoms.len() > 16).then(|| self.atom_positions());
                 for id in atoms {
-                    let Some(&i) = index.get(id) else {
+                    let Some(i) = Self::position(self, &index, *id) else {
                         return err("error.draw2.noAtom", *id);
                     };
                     inv.push(Inv::SetAtom(self.atoms[i].clone()));
@@ -820,8 +872,9 @@ impl Document {
             }
             Op::Flip { atoms, axis, at } => {
                 let at = round4(*at);
+                let index = (atoms.len() > 16).then(|| self.atom_positions());
                 for id in atoms {
-                    let Some(i) = self.atom_index(*id) else {
+                    let Some(i) = Self::position(self, &index, *id) else {
                         return err("error.draw2.noAtom", *id);
                     };
                     inv.push(Inv::SetAtom(self.atoms[i].clone()));
@@ -845,8 +898,17 @@ impl Document {
                 dy,
             } => {
                 let (dx, dy) = (round4(*dx), round4(*dy));
+                let positions: Option<HashMap<u32, usize>> = (objects.len() > 16).then(|| {
+                    (self.objects.iter().enumerate())
+                        .map(|(i, o)| (o.id, i))
+                        .collect()
+                });
                 for id in objects {
-                    let Some(i) = self.objects.iter().position(|o| o.id == *id) else {
+                    let found = match &positions {
+                        Some(m) => m.get(id).copied(),
+                        None => self.objects.iter().position(|o| o.id == *id),
+                    };
+                    let Some(i) = found else {
                         return err("error.draw2.noObject", *id);
                     };
                     inv.push(Inv::SetObj(self.objects[i].clone()));
@@ -856,8 +918,9 @@ impl Document {
                         (o.x2, o.y2) = (round4(o.x2 + dx), round4(o.y2 + dy));
                     }
                 }
+                let index = (atoms.len() > 16).then(|| self.atom_positions());
                 for id in atoms {
-                    let Some(i) = self.atom_index(*id) else {
+                    let Some(i) = Self::position(self, &index, *id) else {
                         return err("error.draw2.noAtom", *id);
                     };
                     inv.push(Inv::SetAtom(self.atoms[i].clone()));

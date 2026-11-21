@@ -2192,7 +2192,7 @@ try {
     eq((await proposing(pg)).hunks.map(h => h.n), [1, 3, 4]);
     eq(await logTail(pg, patch.hunks[1].ops.length), patch.hunks[1].ops);
     await pg.keyboard.press("[");
-    eq((await proposing(pg)).cur, 1 + 0);                                                       // hunk 1 is the one before 3 in the ring
+    eq((await proposing(pg)).cur, 1);                                                           // hunk 1 is the one before 3 in the ring
     await pg.keyboard.press("Delete");                                                          // rejects hunk 1: nothing in the log
     eq((await proposing(pg)).hunks.map(h => h.n), [3, 4]);
     // a mouse click on the number of hunk 4 gives it the keyboard; a click on Accept in the panel accepts it
@@ -2222,6 +2222,39 @@ try {
     eq(await pg.innerText("#d2-patch-note"), await pg.evaluate("I18N.t('error.draw2.proposalPatch')"));
     await pg.fill("#d2-patch", '[{"op":"atom.set","id":99,"el":"N"}]'); await pg.click("#d2-propose");
     assert((await pg.innerText("#d2-patch-note")).length > 0 && await proposing(pg) === null, "refused");
+  });
+  await step("proposal keys: Enter, Delete and Alt+[ act on the DRAWING until a hunk has the keyboard (and end the proposal, said at once); Ctrl+Delete rejects all; Escape ends the review", async () => {
+    const { a, patch } = await proposalSetup(pg);
+    const stale = await pg.evaluate("I18N.t('draw2.say.proposalStale')"), live = () => pg.innerText("#d2-live");
+    const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+    // Enter grows a bond from the focused atom: the drawing, not the proposal
+    await propose(pg, patch); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await pg.keyboard.press("Enter");
+    await want(pg, { atoms: 17 });
+    eq(await proposing(pg), null); eq(await live(), stale); assert(!await pg.isVisible("#d2-proposal"), "no panel");
+    // (each edit is one undo step: Ctrl+Z gives the drawing back, with the ids the patch was written against)
+    await pg.keyboard.press("Control+z"); eq(await doc(), a);
+    // Delete removes the focused atom
+    await propose(pg, patch); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await pg.keyboard.press("Delete");
+    await want(pg, { atoms: 15 });
+    eq(await proposing(pg), null); eq(await live(), stale);
+    await pg.keyboard.press("Control+z"); eq(await doc(), a);
+    // Alt+[ still turns the selection while a proposal is open
+    await propose(pg, patch); await pg.focus("#d2-canvas");
+    await pg.keyboard.press("Control+a"); eq((await proposing(pg)).hunks.length, 4);
+    await pg.keyboard.press("Alt+["); await until(pg, `${STATE}.selected > 0`);
+    assert(await doc() !== a, "the selection was turned");
+    eq(await proposing(pg), null); eq(await live(), stale);
+    await pg.keyboard.press("Control+z"); eq(await doc(), a);
+    // Ctrl+Delete rejects all at any time, with no hunk having the keyboard: the drawing is as it was
+    await propose(pg, patch); await pg.focus("#d2-canvas");
+    await pg.keyboard.press("Control+Delete");
+    eq(await proposing(pg), null); eq(await doc(), a);
+    // with a hunk on the keyboard Enter is the proposal's, even with an atom focused; Escape ends that review and gives Enter back
+    await propose(pg, patch); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await pg.keyboard.press("]");
+    eq((await proposing(pg)).cur, 2);
+    await pg.keyboard.press("Escape"); await pg.keyboard.press("Home"); await pg.keyboard.press("Enter");
+    await want(pg, { atoms: 17 });
+    eq(await proposing(pg), null);
   });
   await ctx.close();
 
