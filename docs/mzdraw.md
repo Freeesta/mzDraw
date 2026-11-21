@@ -120,9 +120,11 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 | request | `style` | string\|object | the style of the SVG: a preset name or a settings file |
 | request | `set` | string[] | settings applied after `style`, each `<section>.<key>=<value>` |
 | set | `display.maps` | on\|off | draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file) |
+| command | `pathway:tree` | object | lay out the whole pathway of the anchored arrows (layers, tidy tree across them, columns, routed arrows) as one undo step, with no `args`; a directed cycle, two arrows between the same structures or no anchored arrow is `error.draw2.schemeCycle`, `error.draw2.schemeDuplicate`, `error.draw2.schemeEmpty` (exit 1, `failed.stage` `command`) |
+| set | `pathway.*` | string\|number | the pathway layout: `dir` (`right`\|`down`), `col_gap` (2.5), `row_gap` (1), `max_angle` (40 degrees), `min_arrow` (1.2), `order` (`id`\|`mz`\|`rt`) and `margin` (0.35), in bond lengths |
 | request | `log` | json[] | the command log, operations of `draw_edit/1` |
 | request | `out` | string | the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings` |
-| request | `commands` | object[] | editor commands `[{"command":NAME,"args":{...}}]` (move, rotate, flip, scheme:row), run after `log` and before `out`; the route of the anchored arrows follows; not with `command` |
+| request | `commands` | object[] | editor commands `[{"command":NAME,"args":{...}}]` (move, rotate, flip, scheme:row, pathway:tree), run after `log` and before `out`; the route of the anchored arrows follows; not with `command` |
 | request | `command` | string | one editor command, with `args`: the same as a `commands` list of length one; not with `commands` |
 | request | `args` | object | the fields of the operation of the same name as `command` (a rotate without x, y or a flip without at works about the centre of its atoms); `scheme:row` takes `gap` (bond lengths between neighbours, default 1.0, above 0), `wrap` (a width in bond lengths that breaks the row after an arrow, default 0: never) and `atoms`, `objects` (the selection, default: everything) and writes `move` and `obj.set` operations |
 | request | `events` | array[] | pointer and key events the page forwards, run after `commands` and before `out`: `["pointer",phase,id,x,y,kind,mods,t]` and `["key",key,mods,t]`; their flags and what they leave are read with `out` `context-state:<w>,<h>` (the context menu of a point is `context:<x>,<y>`) |
@@ -135,6 +137,10 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 | diff | `hunks` | object[] | answer: the patch grouped into hunks (`diff::hunks(a, ops)`), in the order of their first operation; any subset of them applies in order to a valid document |
 | hunk | `ids` | uint[] | the ids (atoms, bonds, objects) the hunk touches, ascending |
 | hunk | `ops` | json[] | the operations of the hunk, in the order of the patch: a self-contained patch of `a` |
+| out | `boxes` | string | `boxes/1`: the label-inclusive box of every structure (by its smallest atom id) and every arrow with the structures it joins, in bond lengths at 4 decimals, ordered by id: the boxes the pathway layout uses |
+| std | `std.scheme.gapRaised` | info | a gap between two columns of a pathway was widened (`pathway:tree`); `atoms`: the first root of the component, `objects`: the primary arrows between the two layers |
+| std | `std.scheme.free` | info | arrows without two structures, plus signs and texts, which `pathway:tree` does not move (`objects`) |
+| std | `std.scheme.crossing` | warn | an arrow whose visible segment meets the route box of a structure other than its two ends (`objects`: the arrow, `atoms`: the structures it meets) |
 | expect | `std` | string | `"none"`: the drawing has no `std/1` finding |
 | expect | `std_absent` | string[] | none of these `std/1` keys is found |
 | expect | `pieces` | uint | the atoms form exactly this many connected pieces |

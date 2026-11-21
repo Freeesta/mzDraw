@@ -5,7 +5,6 @@
 //! `out` text only when the run is good and not a dry run. The document is written by hand, keys in the order of `KEYS`, so the
 //! same request gives the same bytes on every surface; `docs/schemas/draw-result-1.json` describes it.
 
-use crate::conform;
 use crate::doc::Document;
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -146,10 +145,10 @@ pub fn pieces(doc: &Document) -> u32 {
 
 impl Check {
     /// Whether the drawing satisfies it, and when it does not, why (English text for a reader; empty when it holds).
-    pub fn run(&self, doc: &Document) -> (bool, String) {
+    pub fn run(&self, doc: &Document, style: &crate::settings::Style) -> (bool, String) {
         match self {
             Check::StdNone => {
-                let keys = found(doc, None);
+                let keys = found(doc, style, None);
                 if keys.is_empty() {
                     (true, String::new())
                 } else {
@@ -157,7 +156,7 @@ impl Check {
                 }
             }
             Check::StdAbsent(wanted) => {
-                let keys = found(doc, Some(wanted));
+                let keys = found(doc, style, Some(wanted));
                 if keys.is_empty() {
                     (true, String::new())
                 } else {
@@ -182,9 +181,13 @@ impl Check {
 }
 
 /// The distinct `std/1` keys the drawing is reported for (all of them, or only those in `only`), in report order.
-fn found(doc: &Document, only: Option<&Vec<String>>) -> Vec<String> {
+fn found(
+    doc: &Document,
+    style: &crate::settings::Style,
+    only: Option<&Vec<String>>,
+) -> Vec<String> {
     let mut keys: Vec<String> = Vec::new();
-    for f in &conform::report(doc).checks {
+    for f in &crate::pathway::report_with(doc, style).checks {
         let wanted = only.is_none_or(|l| l.iter().any(|k| k == f.key));
         if wanted && !keys.iter().any(|k| k == f.key) {
             keys.push(f.key.to_string());
