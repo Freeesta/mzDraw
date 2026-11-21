@@ -9,6 +9,11 @@
 - Updates `Cargo.lock` (package names) and runs `cargo update --workspace --offline` and `cargo fmt` (imports are sorted by name) when cargo is there.
 - `--dry-run` applies the rename to a temporary copy and prints the files that would change and the diff of `brand.toml`; `--copy-to DIR` writes a renamed copy of the tree and leaves the tree as it is; `--dir DIR` renames another tree. The name is letters and digits and must not be the name in use or an earlier one.
 
+## What the tests do so that a rename does not break them
+- The `id` of an SVG's `title` and `desc` hashes the document under the id of its first version (`FIRST_DOCUMENT_ID`), so the ids in the goldens do not change with the name.
+- The fidelity references (`tests/data/fidelity/reference.json`, `maps.json`) hash our files with the product name and slug masked (`tools/fidelity/run.py` and `maps.py` do the same, reading `brand.toml`): the writers put the name in the header of a molfile, an RXN and a CDXML, and a rename must not look like a change of a writer. The hashes were recomputed once for this (each recorded unmasked hash was first reproduced from our files); what RDKit and Open Babel read is untouched. The Python tools were edited but not run (no RDKit here).
+- `web/names.js` has its comments above the lines, so it does not depend on the length of a name; tests do not assume a slug length.
+
 ## What it does not change
 - The repository and the Pages address (`Freeesta/mzDraw`, `/mzDraw/`): they follow the GitHub repository name, which the owner renames. `brand.toml` keeps `repository`, `pages_url` and `pages_base`; change them with the repository.
 - Ids that are not made from the name (`draw_edit/1`, `draw-bridge/1`).
