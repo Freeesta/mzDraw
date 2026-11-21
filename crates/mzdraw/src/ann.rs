@@ -15,6 +15,35 @@ pub const LEVELS: [&str; 6] = ["1", "2a", "2b", "3", "4", "5"];
 /// The name of that scale, the default `scale` of an entry made here.
 pub const SCALE: &str = "schymanski-2014";
 
+/// The levels of the scale for PFAS of Charbonnet et al. 2022 (Environ. Sci. Technol. Lett. 9, 473), most confident first.
+pub const PFAS_LEVELS: [&str; 12] = [
+    "1a", "1b", "2a", "2b", "2c", "3a", "3b", "3c", "3d", "4", "5a", "5b",
+];
+
+/// The name of that scale.
+pub const PFAS_SCALE: &str = "charbonnet-2022";
+
+/// The scales the page offers, each with its levels: the one table the surfaces read. The meaning of a level is a text of the
+/// surface (`draw2.ann.level.<scale>.<level>`), not held here.
+pub const SCALES: [(&str, &[&str]); 2] = [(SCALE, &LEVELS), (PFAS_SCALE, &PFAS_LEVELS)];
+
+/// The levels of a scale of `SCALES`; `None` for a scale not in the table.
+pub fn levels_of(scale: &str) -> Option<&'static [&'static str]> {
+    SCALES.iter().find(|s| s.0 == scale).map(|s| s.1)
+}
+
+/// The levels the page lists for the chosen `scale`, as (level, of the file): those of the scale (`false`), then `file_level`
+/// (the current level of a structure, as read from a file) when it is not one of them (`true`). A scale that is not in
+/// `SCALES` has no level of its own, so only `file_level` is listed. The empty "not annotated" choice is the surface's.
+pub fn level_list(scale: &str, file_level: &str) -> Vec<(String, bool)> {
+    let own = levels_of(scale).unwrap_or(&[]);
+    let mut list: Vec<(String, bool)> = own.iter().map(|l| (l.to_string(), false)).collect();
+    if !file_level.is_empty() && !own.contains(&file_level) {
+        list.push((file_level.to_string(), true));
+    }
+    list
+}
+
 /// The kinds of evidence the study names; any other kind of the same plain shape is kept.
 pub const KINDS: [&str; 7] = [
     "ms2-library",
@@ -131,10 +160,11 @@ pub fn evidence_lines(entry: &Value) -> String {
     lines.join("\n")
 }
 
-/// An annotation of one entry (its `canon` text) from what a person types or an SDF holds: a level, an identifier (may be empty), the evidence as lines
+/// An annotation of one entry (its `canon` text) from what a person types or an SDF holds: the scale (empty: `SCALE`), a level, an identifier (may be empty), the evidence as lines
 /// `kind: ref` (empty lines are skipped), a note (may be empty) and who decided (`by`, may be empty). `None` when a part is
 /// not of its shape.
 pub fn entry(
+    scale: &str,
     level: &str,
     identifier: &str,
     evidence: &str,
@@ -144,7 +174,7 @@ pub fn entry(
     let q = |s: &str| Value::from(s).to_string();
     let mut parts = vec![
         format!(r#""level":{}"#, q(level.trim())),
-        format!(r#""scale":{}"#, q(SCALE)),
+        format!(r#""scale":{}"#, q(scale)),
     ];
     for (key, text) in [
         ("identifier", identifier.trim()),
@@ -183,8 +213,10 @@ pub fn join<'a>(texts: impl Iterator<Item = &'a str>) -> String {
 /// The current entry of an annotation, as a surface shows it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Current {
+    /// The scale the level is read on (`SCALE` when the entry names none).
+    pub scale: String,
     pub level: String,
-    /// Whether the level is one of `LEVELS`.
+    /// Whether the level is one of the levels of that scale (`SCALES`).
     pub known: bool,
     pub identifier: String,
     /// `evidence_lines` of the entry.
@@ -200,8 +232,12 @@ pub fn current(text: &str) -> Option<Current> {
     let list = v.as_array()?;
     let e = list.last()?;
     let word = |k| e.get(k).and_then(Value::as_str).unwrap_or("").to_string();
+    let scale = Some(word("scale"))
+        .filter(|s| !s.is_empty())
+        .unwrap_or(SCALE.into());
     Some(Current {
-        known: LEVELS.contains(&word("level").as_str()),
+        known: levels_of(&scale).is_some_and(|l| l.contains(&word("level").as_str())),
+        scale,
         level: word("level"),
         identifier: word("identifier"),
         evidence: evidence_lines(e),
