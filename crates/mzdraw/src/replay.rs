@@ -9,7 +9,7 @@ struct Request {
     /// A structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES.
     import: Option<String>,
     log: Vec<Op>,
-    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg` or `log`.
+    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log` or `std` (the drawing checks `std/1`).
     out: Option<String>,
     /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
     style: Option<String>,
@@ -70,5 +70,14 @@ pub fn replay(request: &str) -> Result<String, OpError> {
     for op in &r.log {
         e.session.run(std::slice::from_ref(op))?;
     }
-    e.save(r.out.as_deref().unwrap_or("mzdraw")).map_err(fail)
+    let out = r.out.as_deref().unwrap_or("mzdraw");
+    // `context:<x>,<y>`: the context menu (JSON) of a right-click at that pixel of the default view, for the golden parity of the menu
+    if let Some(at) = out.strip_prefix("context:") {
+        let xy = at
+            .split_once(',')
+            .and_then(|(x, y)| Some((x.trim().parse().ok()?, y.trim().parse().ok()?)));
+        let (x, y) = xy.ok_or_else(|| fail("error.draw2.request"))?;
+        return Ok(e.context_menu(x, y));
+    }
+    e.save(out).map_err(fail)
 }

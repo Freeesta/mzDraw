@@ -139,10 +139,19 @@ function refresh() {
     li.append(b, warningText(w)); li.dataset.code = w.code;
     return li;
   }));
+  // the drawing checks: Rust names the checks that have findings, the page lists them (a line selects what it is about)
+  const std = st.std.lines;
+  $("d2-std-list").replaceChildren(...std.map((/** @type {any} */ c) => {
+    const li = document.createElement("li"), b = document.createElement("button"), g = document.createElement("span");
+    g.className = "lvl"; g.textContent = t(`draw2.std.grade.${c.grade}`);
+    b.type = "button"; b.dataset.key = c.key; b.dataset.grade = c.grade; b.append(g, " ", t(`draw2.${c.key}`, { n: c.n }));
+    li.append(b); return li;
+  }));
+  $("d2-std-note").textContent = st.std.none ? t("draw2.std.none") : "";
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
   if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
   else if (st.say.key) $("d2-live").textContent = t(st.say.key, { what: st.say.what });
-  document.documentElement.dataset.d2 = JSON.stringify({ focus: st.focus ? st.focus.index : 0, atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, selected: st.selected });
+  document.documentElement.dataset.d2 = JSON.stringify({ focus: st.focus ? st.focus.index : 0, atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, std: std.length, selected: st.selected });
 }
 
 /** where the keyboard focus is, in words @param {any} f */
@@ -408,6 +417,12 @@ async function styles() {
 }
 
 function panels() {
+  $("d2-std-list").addEventListener("click", e => {
+    const b = /** @type {HTMLElement} */ (e.target).closest("button");
+    if (!b) return;
+    after(ed.select_check(b.dataset.key || "")); refresh();
+    $("d2-live").textContent = t("draw2.std.selected", { n: JSON.parse(ed.state()).selected });
+  });
   $("d2-add").addEventListener("click", () => add(/** @type {HTMLTextAreaElement} */ ($("d2-text")).value));
   $("d2-open").addEventListener("click", () => $("d2-file").click());
   $("d2-file").addEventListener("change", async e => { const f = /** @type {HTMLInputElement} */ (e.target).files?.[0]; if (f) add(new Uint8Array(await f.arrayBuffer())); });

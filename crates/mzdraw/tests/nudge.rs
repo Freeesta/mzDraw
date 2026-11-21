@@ -247,3 +247,17 @@ fn move_here_works_with_touch() {
     );
     assert!(((x0 + x1) / 2.0 - 4.0).abs() < 1e-9);
 }
+
+#[test]
+fn turning_objects_alone_says_nothing_turns() {
+    let mut e = Editor::default();
+    e.import("CC").unwrap();
+    e.set_tool("select");
+    e.over.sel_atoms.clear();
+    e.over.sel_objs = vec![1];
+    let before = e.doc().to_json();
+    let f = e.key_at("[", ALT, 0.0);
+    assert!(f & HANDLED != 0 && f & CHANGED != 0);
+    assert_eq!(e.said.0, "draw2.announce.noturn");
+    assert_eq!(e.doc().to_json(), before);
+}

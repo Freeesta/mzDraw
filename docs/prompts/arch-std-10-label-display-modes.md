@@ -11,8 +11,9 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- New optional style keys in `mzdraw-settings/1` (through `settings::FIELDS` or a sibling table for enumerations, read by `Style::set`): `carbon_labels` = `none` (default, today) | `terminal` (CH3, CH2 at chain ends) | `all`; `hydrogens` = `hetero` (default, today: H on heteroatoms) | `all` (on every labelled atom) | `none` (no implicit H written; charges and isotopes stay); `hash_style` = `wedge` (default) | `lines` (parallel lines of equal length).
+- New optional style keys in `mzdraw-settings/1` (through `settings::FIELDS` or a sibling table for enumerations, read by `Style::set`): `carbon_labels` = `none` (default, today) | `terminal` (CH3, CH2 at chain ends) | `all`; `hydrogens` = `hetero` (default, today: H on heteroatoms) | `all` (also on every labelled carbon); there is no `none`, because a label without H means an atom without H (IUPAC GR-2.1.1); `hash_style` = `wedge` (default) | `lines` (parallel lines of equal length).
 - The canvas and the SVG follow them through one code path; the presets keep their look (`acs-1996` stays as it is).
+- IUPAC 2008 limits the choices: carbon is always labelled when isolated or between collinear bonds (GR-2.1.2) whatever `carbon_labels` says; `lines` hashing keeps 2-4 bond widths between hashes and at least 3 hashes per bond (GR-1.3), and ST-0.3 allows it only towards terminal atoms: the stereo report of arch-std-01 warns otherwise.
 
 Out (do not do here):
 - Explicit hydrogen atoms as atoms (the record decides), aromatic circles.
@@ -28,6 +29,8 @@ Out (do not do here):
 - Branch `claude/arch-std-10-label-display-modes` from `origin/main`; never push to `main`, never rebase, never force-push; merge `main` only on a real conflict. Open the PR ready for review and never merge it: the coordinator merges.
 - UI changes come with screenshots at deviceScaleFactor 2 in the PR. Keep touch, pen and keyboard in the e2e tests.
 - Keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice, "Not built" said plainly). Size: update `measured` in `tools/wasm-cap.toml` when the module moves. The owner lifted the size limit for now, but `cap` is still the owner's: if the module passes it, send the numbers to the coordinator and raise `cap` only on its answer, with the reason in the PR.
+- Rule 15 of `CLAUDE.md`, in full: 15. CLI-native and agent-first. mzDraw is born usable through the CLI (`mzlab-cli mol draw`) by people and above all by AI agents, to draw canvases of every kind as fast, as safely and as reproducibly as possible. Every feature is first a Rust command with a machine-readable form (`draw_edit/1` JSON ops, `--json` with stable keys, distinct exit codes, data on stdout and diagnostics on stderr, a `--dry-run` / validate mode, batch input and stdin streaming, deterministic bytes, no browser in the path); the page is one client of that same command set. A feature without a CLI route and a test that replays it natively is incomplete.
+- From the CLI rules of the prompts: ids are stable, every operation reports the ids it created and removed, a batch of operations is atomic (all or nothing).
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product.
 
 ## Work

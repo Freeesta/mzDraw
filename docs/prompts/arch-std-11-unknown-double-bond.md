@@ -7,11 +7,11 @@ Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 > DEV arch-std-11 unknown-double-bond: received, starting on branch `claude/arch-std-11-unknown-double-bond`.
 
 ## Role
-DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. 
+DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Coordination: this slice adds to the log language `draw_edit/1` (`bond.set` and `bond.add` with `s: 3` on a bond of order 2); COO-MZDRAW asks COO 16 before queueing it, because `mzlab-mol` (the CLI route of mzLab) must accept the same language. Do not start before the coordinator confirms. Note: this slice touches four formats (molfile V2000/V3000, SMILES, KET); if it does not fit one small PR, finish the document, operation and drawing first and leave the formats to a follow-up, said in the handoff.
 
 ## Scope
 In:
-- A double bond may carry the mark "either" (`s: 3` on a bond of order 2 in the document and in `bond.set`/`bond.add`; today `s` is for single bonds only). How it is drawn is the style's, key `either_double`: `wavy` (default: one single bond at one end of the double bond, the one with the lowest id, is drawn wavy) or `crossed` (the two lines of the double bond cross).
+- A double bond may carry the mark "either" (`s: 3` on a bond of order 2 in the document and in `bond.set`/`bond.add`; today `s` is for single bonds only). How it is drawn is the style's, key `either_double`: `wavy` (default: one single bond at one end of the double bond, the one with the lowest id, is drawn wavy) or `crossed` (the two lines of the double bond cross; offered only because other software reads it, and the stereo report gives `std.stereo.crossedDouble`, info, when it is used).
 - Molfile V2000 out: bond stereo `3` on the double bond; V3000: `CFG=2`; SMILES: no `/` `\` for that bond; KET: the schema's double-bond stereo value; read back from all of them.
 - The stereo check of arch-std-01 does not report `std.stereo.undefined` for a bond marked "either".
 
@@ -19,7 +19,7 @@ Out (do not do here):
 - E/Z labels. A double bond in a ring of fewer than 8 atoms cannot be E/Z (our rule): the mark is refused there with a new key `error.draw2.eitherRing`.
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2 unknown E/Z (IUPAC 2006 `*`: confirm the preferred depiction on https://iupac.qmul.ac.uk/drawing/stereo.html if the host is open), §2.4 molfile row).
+- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2 unknown E/Z (IUPAC 2006 ST-4.4, read: linear or wavy preferred, the crossed double bond not acceptable except where software requires it), §2.4 molfile row).
 - `crates/mzdraw/src/doc.rs` (wedge marks), `crates/mzdraw/src/ops.rs` (`BondSet`), `crates/mzdraw/src/scene.rs`, `crates/mzdraw/src/ket.rs`, the molfile marks code.
 
 ## Rules (from `CLAUDE.md`, binding)
@@ -29,6 +29,8 @@ Out (do not do here):
 - Branch `claude/arch-std-11-unknown-double-bond` from `origin/main`; never push to `main`, never rebase, never force-push; merge `main` only on a real conflict. Open the PR ready for review and never merge it: the coordinator merges.
 - UI changes come with screenshots at deviceScaleFactor 2 in the PR. Keep touch, pen and keyboard in the e2e tests.
 - Keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice, "Not built" said plainly). Size: update `measured` in `tools/wasm-cap.toml` when the module moves. The owner lifted the size limit for now, but `cap` is still the owner's: if the module passes it, send the numbers to the coordinator and raise `cap` only on its answer, with the reason in the PR.
+- Rule 15 of `CLAUDE.md`, in full: 15. CLI-native and agent-first. mzDraw is born usable through the CLI (`mzlab-cli mol draw`) by people and above all by AI agents, to draw canvases of every kind as fast, as safely and as reproducibly as possible. Every feature is first a Rust command with a machine-readable form (`draw_edit/1` JSON ops, `--json` with stable keys, distinct exit codes, data on stdout and diagnostics on stderr, a `--dry-run` / validate mode, batch input and stdin streaming, deterministic bytes, no browser in the path); the page is one client of that same command set. A feature without a CLI route and a test that replays it natively is incomplete.
+- From the CLI rules of the prompts: ids are stable, every operation reports the ids it created and removed, a batch of operations is atomic (all or nothing).
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product.
 
 ## Work

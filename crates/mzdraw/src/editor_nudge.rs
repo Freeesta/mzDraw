@@ -64,7 +64,12 @@ impl Editor {
         let atoms = self.over.sel_atoms.clone();
         let here: Vec<_> = atoms.iter().filter_map(|&i| self.doc().atom(i)).collect();
         if here.is_empty() {
-            return 0;
+            // objects alone cannot be turned: say so rather than do nothing in silence
+            if self.over.sel_objs.is_empty() {
+                return 0;
+            }
+            self.said = ("draw2.announce.noturn", String::new());
+            return REPAINT | CHANGED;
         }
         let n = here.len() as f64;
         let x = here.iter().map(|a| a.x).sum::<f64>() / n;

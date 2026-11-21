@@ -41,6 +41,8 @@ textarea { width: 100%; box-sizing: border-box; color: var(--fg); background: va
 details ul { margin: 4px 0; padding-left: 18px; } summary { cursor: pointer; font-weight: 600; }
 #d2-warnings { margin: 0; padding-left: 18px; } #d2-warnings li { margin: 2px 0; }
 #d2-warnings .lvl { font-weight: 600; }
+#d2-std-list { margin: 0; padding: 0; list-style: none; } #d2-std-list li { margin: 4px 0; }
+#d2-std-list button { width: 100%; text-align: left; } #d2-std-list .lvl { font-weight: 600; }
 p { margin: 4px 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (pointer: coarse) { button { min-height: 40px; min-width: 40px; } }

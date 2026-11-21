@@ -150,8 +150,10 @@ pub fn escape(s: &str) -> String {
             '<' => out.push_str("&lt;"),
             '>' => out.push_str("&gt;"),
             '"' => out.push_str("&quot;"),
-            // a control character has no place in XML 1.0: it is written as a blank
-            c if c < ' ' && c != '\n' && c != '\t' => out.push(' '),
+            // a character outside the `Char` production of XML 1.0 (the control characters, U+FFFE, U+FFFF) is written as a blank
+            c if (c < ' ' && c != '\n' && c != '\t') || c == '\u{fffe}' || c == '\u{ffff}' => {
+                out.push(' ')
+            }
             c => out.push(c),
         }
     }

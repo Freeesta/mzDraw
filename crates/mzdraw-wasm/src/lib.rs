@@ -17,6 +17,10 @@ struct Page {
     scene: Scene,
     /// `check/1` of the drawing as last computed, or empty.
     check: String,
+    /// The drawing checks as the panel lists them (`Report::counts_json`), recomputed after every change.
+    std: String,
+    /// Whether something is drawn and the checks found nothing (the page says so in words).
+    std_none: bool,
 }
 
 thread_local! {
@@ -42,8 +46,16 @@ fn act(f: impl FnOnce(&mut Editor) -> u32) -> u32 {
     })
 }
 
-#[cfg(feature = "mzlab")]
+/// After a change: the drawing checks `std/1` and, with the `mzlab` feature, the structure check.
 fn recheck(p: &mut Page) {
+    let report = mzdraw::conform::report(p.editor.doc());
+    p.std = report.counts_json();
+    p.std_none = !p.editor.doc().atoms.is_empty() && report.checks.is_empty();
+    live_check(p);
+}
+
+#[cfg(feature = "mzlab")]
+fn live_check(p: &mut Page) {
     let doc = p.editor.doc();
     p.check.clear();
     let mut flagged = Vec::new();
@@ -77,7 +89,7 @@ fn recheck(p: &mut Page) {
 }
 
 #[cfg(not(feature = "mzlab"))]
-fn recheck(_p: &mut Page) {}
+fn live_check(_p: &mut Page) {}
 
 #[wasm_bindgen]
 pub fn version() -> String {
@@ -182,6 +194,12 @@ pub fn add_bytes(bytes: &[u8]) -> Result<String, JsValue> {
     })
 }
 
+/// Selects what the findings of one drawing check are about (`key` of an entry of `state().std`); returns flags.
+#[wasm_bindgen]
+pub fn select_check(key: &str) -> u32 {
+    act(|e| e.select_check(key))
+}
+
 /// What an autosaved document holds, as `{"atoms", "bonds", "objects"}`, or the empty text when it is not worth offering (not a
 /// readable document, or an empty one). The page asks this before it offers to restore the drawing of the last visit.
 #[wasm_bindgen]
@@ -194,6 +212,60 @@ pub fn saved_summary(text: &str) -> String {
     }
 }
 
+/// The context menu of a right-click, a long press or the Menu key at (`x`, `y`) pixels, as JSON `{"target", "items": [{"id", "label",
+/// "key"?, "enabled", "checked"?, "children"?}], "notice"?}` (`target`: atom, bond, selection, object or canvas). `kind` is the pointer
+/// kind (0 mouse, 1 pen, 2 finger). The selection follows what is under the pointer, as a click makes it.
+#[wasm_bindgen]
+pub fn context_menu(x: f64, y: f64, kind: u32) -> String {
+    with(|p| p.editor.context_menu_at(x, y, kind))
+}
+
+/// Runs an item of the open menu (one undo step) and closes the menu. Flags as `command`, plus 128 when the page has to finish the
+/// job: read `context_ask`. A menu older than the last change refuses (`error.draw2.contextStale` in `state().error`).
+#[wasm_bindgen]
+pub fn context_run(id: &str) -> u32 {
+    act(|e| e.context_run(id))
+}
+
+/// Closes the menu without running anything.
+#[wasm_bindgen]
+pub fn context_close() {
+    with(|p| p.editor.context_close())
+}
+
+/// What the page has to do after `context_run` answered 128: `element:<atom>`, `label:<atom>`, `data:<atom>`, `annotation:<atom>`,
+/// `text:<object>`, `import`, `fit`, `save-image`, `clipboard` or `copy-as:<molfile|smiles|svg|png>`; read once.
+#[wasm_bindgen]
+pub fn context_ask() -> String {
+    with(|p| p.editor.context_ask())
+}
+
+/// The selection as a text for the clipboard of another program: `molfile`, `smiles` or `svg`.
+#[wasm_bindgen]
+pub fn context_copy_as(kind: &str) -> Result<String, JsValue> {
+    with(|p| p.editor.context_copy_as(kind).map_err(js_err))
+}
+
+/// `png_plan` of the selection; the bytes the page draws go through `context_png_finish`.
+#[wasm_bindgen]
+pub fn context_png_plan() -> String {
+    with(|p| plan_json(p.editor.context_png_plan()))
+}
+
+/// `png_finish` for the selection: the PNG carries the selection as its document.
+#[wasm_bindgen]
+pub fn context_png_finish(png: &[u8]) -> Result<Vec<u8>, JsValue> {
+    with(|p| {
+        let e = &p.editor;
+        mzdraw::png::finish(
+            png,
+            &e.context_selection_doc(),
+            e.context_png_plan().density,
+        )
+        .ok_or_else(|| js_err("error.draw2.pngPlain"))
+    })
+}
+
 /// Opens a saved `mzdraw/1` document in place of the drawing (same bytes, empty history).
 #[wasm_bindgen]
 pub fn open(text: &str) -> Result<u32, JsValue> {
@@ -204,7 +276,7 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg` or `log` (the command log).
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log` (the command log) or `std` (the drawing checks).
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| p.editor.save(kind).map_err(js_err))
@@ -214,16 +286,17 @@ pub fn save(kind: &str) -> Result<String, JsValue> {
 /// size filled with the paper colour). The bytes of the canvas then go through `png_finish`.
 #[wasm_bindgen]
 pub fn png_plan() -> Result<String, JsValue> {
-    with(|p| {
-        let plan = p.editor.png_plan();
-        Ok(format!(
-            r#"{{"svg":{},"width":{},"height":{},"paper":"{}"}}"#,
-            serde_json::Value::from(plan.svg),
-            plan.width,
-            plan.height,
-            plan.paper
-        ))
-    })
+    with(|p| Ok(plan_json(p.editor.png_plan())))
+}
+
+fn plan_json(plan: mzdraw::png::Plan) -> String {
+    format!(
+        r#"{{"svg":{},"width":{},"height":{},"paper":"{}"}}"#,
+        serde_json::Value::from(plan.svg),
+        plan.width,
+        plan.height,
+        plan.paper
+    )
 }
 
 /// The PNG the page drew, with the document inside (it opens again as a drawing) and its resolution.
@@ -337,8 +410,8 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, moveHere, clip, say: {key, what}, error, check}` (`check` is
-/// the `check/1` document or null).
+/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, moveHere, clip, say: {key, what}, error, check, std}` (`check` is
+/// the `check/1` document or null; `std` is `{none, lines}`: `lines` lists the drawing checks that have findings, `[{key, grade, n}]`, as `Editor::save("std")` reports them, and `none` is true when something is drawn and there are none).
 #[wasm_bindgen]
 pub fn state() -> String {
     with(|p| {
@@ -386,7 +459,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -401,6 +474,8 @@ pub fn state() -> String {
             q(&e.said.1),
             q(e.error),
             if p.check.is_empty() { "null" } else { &p.check },
+            p.std_none,
+            if p.std.is_empty() { "[]" } else { &p.std },
         )
     })
 }
