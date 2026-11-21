@@ -335,7 +335,7 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             Event::Key(key, mods, t) => e.key_at(key, *mods, *t),
         })
         .collect();
-    let kind = r.out.as_deref().unwrap_or("mzdraw");
+    let kind = r.out.as_deref().unwrap_or(crate::brand::SLUG);
     let written = produce(&mut e, kind, &flags);
     if !r.envelope() {
         return written.map_err(fail).map(|text| Reply { text, ok: true });
@@ -374,7 +374,7 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         expect,
     };
     if outcome.ok() {
-        outcome.lost = e.lost_on_save(r.out.as_deref().unwrap_or("mzdraw"));
+        outcome.lost = e.lost_on_save(r.out.as_deref().unwrap_or(crate::brand::SLUG));
         let text = written.map_err(fail)?;
         outcome.out = (!r.dry_run).then_some(text);
     }
