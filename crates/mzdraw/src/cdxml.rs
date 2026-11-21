@@ -387,6 +387,12 @@ impl Document {
     /// The whole canvas as a CDXML text: one fragment with every atom (abbreviations expanded, R groups as generic nicknames),
     /// wedges as bond displays from their narrow end, then texts, arrows and plus signs.
     pub fn to_cdxml(&self) -> String {
+        self.to_cdxml_with(&[])
+    }
+
+    /// `to_cdxml` with the lines written under the molecules (`values::captions`) as one centred text object each, below the
+    /// lowest atom of its molecule, one line per row.
+    pub fn to_cdxml_with(&self, captions: &[crate::values::Caption]) -> String {
         let m = self.to_mol();
         let (x0, y1) = self.bounds().map_or((0.0, 0.0), |b| (b.0, b.3));
         // points, y down, one bond length of margin
@@ -600,6 +606,18 @@ impl Document {
                     )
                 }
             }
+        }
+        for c in captions.iter().filter(|c| !c.lines.is_empty()) {
+            // 9 pt text, 11 pt rows; the first row stands one bond length below the lowest atom (two with a level written there)
+            let at = pt(c.x, c.y - if c.below { 1.5 } else { 1.0 });
+            let text = (c.lines.iter())
+                .map(|l| xml::escape(l))
+                .collect::<Vec<_>>()
+                .join("&#xa;");
+            out += &format!(
+                "<t id=\"{}\" p=\"{at}\" Justification=\"Center\" LineHeight=\"auto\"><s font=\"3\" size=\"9\" color=\"0\">{text}</s></t>\n",
+                next()
+            );
         }
         out + "</page>\n</CDXML>\n"
     }

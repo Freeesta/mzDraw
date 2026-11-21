@@ -128,6 +128,11 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 
 | follow-up | source | status | note |
 |---|---|---|---|
+| struct-props: an isotope-pattern line under the molecule | `docs/built/struct-props.md` Not built (`analysis/1` has the pattern) | QUEUED | no prompt file |
+| struct-props: values of a lasso part of a structure pinned on the canvas | `docs/built/struct-props.md` Not built | QUEUED | no prompt file |
+| struct-props: a dedicated values dialog | `docs/built/struct-props.md` Not built | QUEUED | no prompt file |
+| struct-props / mzLab: `sel` reads V2000 only, so a structure of 1000 atoms or more gets mass 0.0000 with no error (mzDraw now says `error.draw2.valuesZero`); the engine should take V3000 or refuse with its own key | `docs/built/struct-props.md` | QUEUED | for mzLab, not fixed here |
+| arch-web-17 values: `values:{"atoms":[99]}` (an atom the drawing lacks) answers `selection: null` with `error: null`; should be a keyed error like `props` (`error.draw2.noAtom`) | `docs/built/struct-props.md` review notes | QUEUED | no prompt file |
 | Five further stereo checks: `std.stereo.fischerCross`, `reentrant`, `ringBond`, `hiddenH`, `relLabel` | built/std-stereo.md | QUEUED | not defined in the study yet |
 | Geometry, label and export checks beyond arch-std-02, annotation and contrast checks, any automatic fix | built/std-stereo.md | QUEUED | partly the prompts arch-std-02, plan-25 |
 | Automatic atom mapping `map:auto`; maps in CDXML and CML | built/atom-maps.md; backlog (deferred) | QUEUED | needs an engine decision |
@@ -137,7 +142,7 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | PDF: embedded TrueType fonts, PDF/A, several pages, characters outside WinAnsi, compressed streams | built/arch-std-18-pdf-writer.md | QUEUED | |
 | CDX writer (CDX inside Office documents, Windows clipboard) | built/std-22-cdx-read.md; backlog (deferred, after std-22) | QUEUED | |
 | Fidelity: InChI 1.07.5 not measured, no KET reader in RDKit or Open Babel | built/fidelity-ref.md | QUEUED | tool work |
-| Values: `Alt+C` dialog, lasso values pinned on the canvas, isotope patterns, copy of a selection with numbers | built/arch-web-17-values.md | QUEUED | |
+| Values: an `Alt+C` key for the values dialog, copy of a selection with numbers (the isotope pattern, the lasso values and the dialog itself are the struct-props rows above) | built/arch-web-17-values.md | QUEUED | |
 | Equal molecules in a TP import freeze the page (6 or more equal molecules) | built/tp-import.md | QUEUED | a bug-shaped follow-up |
 | TP table: adducts beyond the seven of `display.adducts`; the table drawn on the canvas | built/tp-09-tp-table.md; backlog 11.1 (deferred) | QUEUED | |
 | TP table: `InChIKey` is NOT wanted now (owner decision; there is no InChI in `mzlab-mol`): do not build it, do not fake it | built/tp-09-tp-table.md ("Not built") | GATED | reopens only if the owner asks |
@@ -180,3 +185,4 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | CDXML: a committed test that round-trips text-run colours TOGETHER with atom and bond colours (one colour table: white, black, then atom and bond colours, then run colours) | built/text-runs.md; built/colour-selection.md; `crates/mzdraw/tests/cdxml.rs` | QUEUED | test-only |
 | Flaky timing tests: `grouping_and_diffing_scale_with_the_operations_and_the_ids` (83 ms vs 720 ms) and `the_cost_per_arrow_does_not_grow_with_the_atoms` (steplabel) failed once on CI and passed on rerun | `grouping_and_diffing_scale_with_the_operations_and_the_ids` (in the repository: `crates/mzdraw/tests/proposal.rs`): CI run 44904399210, job 136846775258 of PR #98 (reported as `crates/zzz/tests/proposal.rs:340`), 83.4 ms for 20000 vs 720.6 ms for 80000, passed on one rerun. `the_cost_per_arrow_does_not_grow_with_the_atoms` (`crates/mzdraw/tests/steplabel.rs`): reported by the PR authors as failing once under load on PR #96 and PR #99, passed on rerun | QUEUED | count work units or best of N WITHOUT loosening the ratio; prove with a planted slow mutation (rule 5) |
 | `mzlab-cli` calls `replay_with(..., Some(measure))` through one shared function (COO 16 agreement); the mzLab pin move comes last | COO 16 agreement; CLAUDE.md rule 9 | GATED | needs mzLab; `mzlab mol descriptors --json` (`descriptors/1`) is COO 16's small CLI task, not ours |
+| e2e flaky: "atom map by touch" timed out once (waiting for the document state after a tap), passed on rerun | CI run 44912250675, job 136870404702 (the `rename` job of PR #101); `tests/e2e.mjs` | QUEUED | find the timing cause; never loosen the test (rule 5); same family as the step-field touch row |

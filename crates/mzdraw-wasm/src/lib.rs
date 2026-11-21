@@ -461,6 +461,37 @@ pub fn colours_lost(kind: &str) -> u32 {
     with(|p| p.editor.doc().colours_lost(kind) as u32)
 }
 
+/// How many atoms carry a choice of lines under their molecule that `save(kind)` leaves out because the format has no place for it.
+#[wasm_bindgen]
+pub fn captions_lost(kind: &str) -> u32 {
+    with(|p| p.editor.doc().caps_lost(kind) as u32)
+}
+
+/// Adds (`on`) or takes away one line key of `props::LINES` in the choice kept under the molecule of the selection (or the focused
+/// atom); one undo step. A refusal changes nothing (`error` in `state`).
+#[wasm_bindgen]
+pub fn toggle_line(key: &str, on: bool) -> u32 {
+    act(|e| e.toggle_line(key, on))
+}
+
+/// Sets the whole choice from a JSON list of keys; the empty list gives the molecule back to `display.values`.
+#[wasm_bindgen]
+pub fn set_lines(keys: &str) -> u32 {
+    act(|e| e.set_lines_json(keys))
+}
+
+/// `props/1` of the drawing as the editor holds it: the values and the choice of lines of every molecule and of the selection.
+#[wasm_bindgen]
+pub fn props() -> String {
+    with(|p| p.editor.props_json())
+}
+
+/// The values copied as text in a form of `values::FORMS` (`text`, `tsv`, `line`); `""` when there is nothing to copy (see `error`).
+#[wasm_bindgen]
+pub fn copy_values(form: &str) -> String {
+    with(|p| p.editor.copy_values(form).unwrap_or_default())
+}
+
 /// Sets the explicit colour of the selected atoms and bonds (or the focused atom): `#rgb` or `#rrggbb`, or the empty text for
 /// automatic; one undo step. A text that is not a colour, or nothing to colour, changes nothing (`error` in `state`).
 #[wasm_bindgen]
@@ -806,8 +837,11 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         let colour = e.selection_colour().map_or("null".to_string(), |c| q(&c));
+        let lines = e.selection_lines().map_or("null".to_string(), |l| {
+            format!("[{}]", l.iter().map(|k| q(k)).collect::<Vec<_>>().join(","))
+        });
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"text":{},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"lines":{lines},"text":{},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),

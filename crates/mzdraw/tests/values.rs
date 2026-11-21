@@ -33,6 +33,7 @@ fn stand_in(molfile: &str, adducts: &[String]) -> Result<Measured, &'static str>
         mass: atoms,
         average: Some(atoms + 0.5),
         ion_mz: None,
+        pct: Vec::new(),
         mz: (0..adducts.len()).map(|k| Some(atoms + k as f64)).collect(),
     })
 }

@@ -18,6 +18,7 @@ fn engine(_molfile: &str, adducts: &[String]) -> Result<Measured, &'static str> 
         mass: 100.0,
         average: None,
         ion_mz: None,
+        pct: Vec::new(),
         mz: adducts.iter().map(|_| Some(101.0)).collect(),
     })
 }
