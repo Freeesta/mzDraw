@@ -18,7 +18,7 @@ document = "mzdraw/1"           # the saved document
 settings = "mzdraw-settings/1"  # the settings file
 edit = "draw_edit/1"            # the command log: the language of mzLab, independent of the name
 bridge = "draw-bridge/1"        # the contract between the page and the wasm module, independent of the name
-first_document = "mzdraw/1"     # history: the id of the first document version, named by `since` in the edit schema; a rename never changes it
+first_document = "mzdraw/1"     # rename-keep. History: the id of the first document version, named by `since` in the edit schema; a rename never changes it
 # Earlier slugs, oldest first (empty while the codename is the name). A reader accepts `<slug>/N`, `<slug>-settings/N`, a PNG
 # keyword, a PDF attachment, an SVG metadata id and a storage key made with any of them; a writer uses the current slug.
 legacy_ids = []

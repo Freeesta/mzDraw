@@ -399,20 +399,22 @@ const ALLOWED: [(&str, &str, &str); 4] = [
     ("web/index.html", "src=\"mzdraw.js\"", "the name of a file of the page: moved by the rename tool"),
 ];
 
+/// Whether a text writes the codename (the slug of the name in use), in any case.
+fn mentions(text: &str) -> bool {
+    text.to_lowercase().contains(brand::SLUG)
+}
+
 /// The places of a file where the codename is written, as (line, what), the allowed ones taken out (they are counted in `used`).
 fn found(path: &str, hits: Vec<(usize, String)>, used: &mut [bool]) -> Vec<String> {
     let mut bad = Vec::new();
-    for (line, mut text) in hits
-        .into_iter()
-        .filter(|h| h.1.to_lowercase().contains("mzdraw"))
-    {
+    for (line, mut text) in hits.into_iter().filter(|h| mentions(&h.1)) {
         for (k, (file, needle, _)) in ALLOWED.iter().enumerate() {
             if *file == path && text.contains(needle) {
                 used[k] = true;
                 text = text.replace(needle, "");
             }
         }
-        if text.to_lowercase().contains("mzdraw") {
+        if mentions(&text) {
             bad.push(format!(
                 "{path}:{line}: {}",
                 text.trim().chars().take(100).collect::<String>()
@@ -447,11 +449,14 @@ fn files(dir: &str, ext: &str) -> Vec<String> {
 #[test]
 fn brand_no_literals() {
     let (mut used, mut bad) = ([false; ALLOWED.len()], Vec::new());
-    let sources: Vec<String> = ["crates/mzdraw/src", "crates/mzdraw-wasm/src"]
-        .iter()
-        .flat_map(|d| files(d, "rs"))
-        .filter(|f| !f.ends_with("/brand.rs"))
-        .collect();
+    let sources: Vec<String> = [
+        format!("crates/{}/src", brand::CRATE_PREFIX),
+        format!("crates/{}-wasm/src", brand::CRATE_PREFIX),
+    ]
+    .iter()
+    .flat_map(|d| files(d, "rs"))
+    .filter(|f| !f.ends_with("/brand.rs"))
+    .collect();
     assert!(sources.len() > 30, "the Rust sources were found");
     for f in &sources {
         bad.extend(found(f, literals(&read(f), false), &mut used));
@@ -508,26 +513,19 @@ fn the_scanner_finds_a_name_in_a_string_and_not_in_a_comment() {
     let words: Vec<String> = literals(js, true).into_iter().map(|g| g.1).collect();
     assert_eq!(words, ["One", "Three ${x}", "Fo\\\"ur"]);
     // the codename in a string is found, in a comment it is not, and an allowed place is taken out
+    let (slug, name) = (brand::SLUG, brand::NAME.to_uppercase());
     let mut used = [false; ALLOWED.len()];
-    assert_eq!(
-        found(
-            "x.rs",
-            literals("let a = \"MzDraw/1\"; // mzdraw", false),
-            &mut used
-        )
-        .len(),
-        1
-    );
-    assert!(found("x.rs", literals("// mzdraw\nlet a = 1;", false), &mut used).is_empty());
+    let one = literals(&format!("let a = \"{name}/1\"; // {slug}"), false);
+    assert_eq!(found("x.rs", one, &mut used).len(), 1);
     assert!(found(
-        "web/index.html",
-        html_lines("<!-- mzdraw -->\n<link href=\"mzdraw.css\">"),
+        "x.rs",
+        literals(&format!("// {slug}\nlet a = 1;"), false),
         &mut used
     )
     .is_empty());
+    let html = format!("<!-- {slug} -->\n<link href=\"{slug}.css\">");
+    assert!(found("web/index.html", html_lines(&html), &mut used).is_empty());
     assert!(used[1] && !used[0]);
-    assert_eq!(
-        found("web/index.html", html_lines("<h1>mzDraw</h1>"), &mut used).len(),
-        1
-    );
+    let h1 = format!("<h1>{}</h1>", brand::NAME);
+    assert_eq!(found("web/index.html", html_lines(&h1), &mut used).len(), 1);
 }

@@ -153,13 +153,13 @@ mod tests {
             r#"{{"format":"{id}","next":3,"atoms":[{{"id":1,"el":"N","x":0.0,"y":0.0}}],"bonds":[]}}"#
         ))
         .unwrap();
-        let old = file("zzzzzz", &doc);
+        let old = file("legacy", &doc);
         assert_eq!(carried(&old).unwrap().unwrap().to_json(), doc.to_json());
         let now = finish(&old, &doc, 11811).unwrap();
         assert_eq!(carried(&now).unwrap().unwrap().to_json(), doc.to_json());
         assert!(now.windows(6).any(|w| w == crate::brand::SLUG.as_bytes()));
         assert!(
-            !now.windows(6).any(|w| w == b"zzzzzz"),
+            !now.windows(6).any(|w| w == b"legacy"),
             "the chunk of the earlier name is replaced, not kept"
         );
         assert!(carried(&file("other", &doc)).is_none());
