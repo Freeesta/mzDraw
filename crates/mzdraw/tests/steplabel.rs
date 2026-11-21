@@ -246,7 +246,7 @@ fn the_same_atoms_with_another_charge_are_skipped_not_called_an_isomer() {
         a.h = Some(3);
     }
     d.atoms[1].chg = 1;
-    let p = mzdraw::steplabel::plan(&d, Mode::Delta, &Opts::default()).unwrap();
+    let p = mzdraw::steplabel::plan(&d, Mode::Delta, &Opts::default(), None).unwrap();
     assert!(
         p.ops.is_empty() && p.skipped == 1,
         "{:?} {}",
@@ -262,14 +262,14 @@ fn a_free_text_label_is_not_an_element_and_its_arrow_is_skipped() {
     let plain = [("C", "", 0), ("C", "", 0)];
     let mut d = Document::from_json(&pair(&plain, &plain)).unwrap();
     d.atoms[0].lab = "Xyz".into();
-    let p = mzdraw::steplabel::plan(&d, Mode::Delta, &Opts::default()).unwrap();
+    let p = mzdraw::steplabel::plan(&d, Mode::Delta, &Opts::default(), None).unwrap();
     assert!(
         p.ops.is_empty() && (p.labelled, p.kept, p.skipped) == (0, 0, 1),
         "{:?}",
         p.ops
     );
     d.atoms[0].lab = "Ph".into();
-    let p = mzdraw::steplabel::plan(&d, Mode::Delta, &Opts::default()).unwrap();
+    let p = mzdraw::steplabel::plan(&d, Mode::Delta, &Opts::default(), None).unwrap();
     assert_eq!(
         (p.skipped, p.ops.len()),
         (0, 1),
@@ -403,7 +403,7 @@ fn timed(text: &str) -> u128 {
     (0..3)
         .map(|_| {
             let t = std::time::Instant::now();
-            let p = mzdraw::steplabel::plan(&doc, Mode::Delta, &Opts::default()).unwrap();
+            let p = mzdraw::steplabel::plan(&doc, Mode::Delta, &Opts::default(), None).unwrap();
             assert!(!p.ops.is_empty());
             t.elapsed().as_micros()
         })
@@ -477,4 +477,393 @@ fn name_and_delta_writes_the_name_of_the_one_step_with_that_delta_else_the_delta
     let mut e = editor(&scheme(&[&ETHANE, &ETHENE], &[(0, 1, "")]));
     run(&mut e, json!({})).unwrap();
     assert_eq!(texts(&e), ["-H2"]);
+}
+
+// ---- tp-07b: the mass modes. A stand-in engine with made-up weights, so these tests are about the label, never about a mass.
+
+use mzdraw::values::Measured;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// The made-up weight of an element (u): not a real mass. `O` is a binary fraction on purpose: the exact tie `0.03125` has 4-decimal
+/// roundings that differ between the two formatters of this repository.
+fn weight(el: &str) -> f64 {
+    match el {
+        "C" => 12.0,
+        "O" => 16.5,
+        "F" => 0.03125,
+        _ => 1.0,
+    }
+}
+
+/// The stand-in: the sum of the made-up weights of the atom lines of the molfile; an adduct adds 1.5; a charged structure has no adduct;
+/// nitrogen is an element the "engine" refuses (as `sel` refuses `Na+`).
+fn engine(molfile: &str, adducts: &[String]) -> Result<Measured, &'static str> {
+    let atoms: Vec<&str> = molfile
+        .lines()
+        .filter_map(|l| {
+            let t: Vec<&str> = l.split_whitespace().collect();
+            (t.len() >= 4 && t[0].contains('.') && t[3].chars().all(|c| c.is_ascii_alphabetic()))
+                .then(|| t[3])
+        })
+        .collect();
+    if atoms.contains(&"N") {
+        return Err("error.grafo.element");
+    }
+    let mass: f64 = atoms.iter().map(|e| weight(e)).sum();
+    let charged = molfile.contains("M  CHG");
+    Ok(Measured {
+        mass,
+        average: None,
+        ion_mz: None,
+        mz: adducts
+            .iter()
+            .map(|_| (!charged).then_some(mass + 1.5))
+            .collect(),
+    })
+}
+
+fn mass_editor(text: &str, mode: &str) -> Editor {
+    let mut e = editor(text);
+    e.set(&format!("pathway.label={mode}")).unwrap();
+    e.measurer = Some(engine);
+    e
+}
+
+const FLUOROETHANE: S = S(&["C", "C", "F"], &[1, 1]);
+
+#[test]
+fn mass_modes_write_the_shift_of_the_engine_and_the_m_z_of_the_chosen_adduct() {
+    let s = scheme(&[&ETHANE, &ETHANOL], &[(0, 1, "")]);
+    // the structures weigh 24.0 and 40.5 here: shift +16.5, the product's [M+H]+ 40.5 + 1.5
+    for (mode, args, want) in [
+        ("mass", json!({}), "+16.5000"),
+        ("delta+mass", json!({}), "+O +16.5000"),
+        (
+            "mass",
+            json!({"adduct": "[M+H]+"}),
+            "+16.5000 [M+H]+ 42.0000",
+        ),
+        (
+            "delta+mass",
+            json!({"adduct": "[M-H]-"}),
+            "+O +16.5000 [M-H]- 42.0000",
+        ),
+    ] {
+        let mut e = mass_editor(&s, mode);
+        run(&mut e, args.clone()).unwrap();
+        assert_eq!(texts(&e), [want], "{mode} {args}");
+        // the label is ours: a second run is a no-op, and the text is owned (the adduct's number too)
+        let once = e.doc().to_json();
+        run(&mut e, args).unwrap();
+        assert_eq!(e.doc().to_json(), once);
+        assert!(owned(want, "isomer"), "{want}");
+    }
+    // the delta mode is unchanged and does not call the engine
+    let mut e = mass_editor(&s, "delta");
+    run(&mut e, json!({})).unwrap();
+    assert_eq!(texts(&e), ["+O"]);
+    // one undo step restores the empty text
+    e.undo();
+    assert_eq!(texts(&e), [""]);
+}
+
+#[test]
+fn an_isomer_is_its_word_with_no_shift_and_still_gets_the_m_z() {
+    let s = scheme(&[&ETHANOL, &ETHER], &[(0, 1, "")]);
+    let mut e = mass_editor(&s, "mass");
+    run(&mut e, json!({})).unwrap();
+    assert_eq!(texts(&e), ["isomer"]);
+    let mut e = mass_editor(&s, "delta+mass");
+    run(&mut e, json!({"adduct": "[M+Na]+"})).unwrap();
+    assert_eq!(texts(&e), ["isomer [M+Na]+ 42.0000"]);
+}
+
+#[test]
+fn the_label_and_the_table_write_the_same_digits_and_the_panel_rounding_is_pinned() {
+    // an exact binary tie: F weighs 0.03125, so the shift of ethane -> fluoroethane is 0.03125 (4 decimals: 0.0312 or 0.0313)
+    let s = scheme(&[&ETHANE, &FLUOROETHANE], &[(0, 1, "")]);
+    let mut e = mass_editor(&s, "mass");
+    run(&mut e, json!({})).unwrap();
+    // 12 + 12 = 24 and 24.03125: the label is the digits of the table (`{:.4}`, ties to even)
+    assert_eq!(texts(&e), ["+0.0312"]);
+    let t = mzdraw::tptable::build(e.doc(), &e.style, Some(engine)).unwrap();
+    let t: Value = serde_json::from_str(&mzdraw::tptable::json(&t)).unwrap();
+    let rows = t["rows"].as_array().unwrap();
+    let with_parent: Vec<&Value> = rows.iter().filter(|r| r["parent_id"] != "").collect();
+    // no TP_ID data: the parent has an empty name; the pair is the only row with a mass_diff
+    let diffs: Vec<&str> = rows
+        .iter()
+        .filter_map(|r| r["mass_diff"].as_str().filter(|d| !d.is_empty()))
+        .collect();
+    assert_eq!(diffs, ["+0.0312"], "{with_parent:?}");
+    // the shared formatters, and the one rule that differs from the panel of arch-web-17 (`values::four`, half away from zero on an
+    // exact tie): pinned here so the difference is stated, not discovered
+    assert_eq!(mzdraw::tptable::shift4(0.03125), "+0.0312");
+    assert_eq!(mzdraw::tptable::shift4(-0.03125), "-0.0312");
+    assert_eq!(mzdraw::tptable::plain4(0.03125), "0.0312");
+    assert_eq!(mzdraw::values::four(0.03125), "0.0313");
+    // away from an exact tie (every real mass) they agree
+    for v in [15.9949146, 134.109550, 0.12346, 1e-6, 1234.5678499] {
+        assert_eq!(mzdraw::tptable::plain4(v), mzdraw::values::four(v), "{v}");
+    }
+    // a zero and a tiny negative shift have no sign
+    assert_eq!(mzdraw::tptable::shift4(0.0), "0.0000");
+    assert_eq!(mzdraw::tptable::shift4(-0.00001), "0.0000");
+    // the painter shows the true minus in a mass shift as in a delta; the data keeps `-`
+    assert_eq!(
+        display("-14.0157 [M-H]- 1.0000"),
+        "\u{2212}14.0157 [M-H]- 1.0000"
+    );
+}
+
+#[test]
+fn a_negative_shift_keeps_its_sign_and_the_painter_shows_the_true_minus() {
+    let s = scheme(&[&ETHANOL, &ETHANE], &[(0, 1, "")]);
+    let mut e = mass_editor(&s, "delta+mass");
+    run(&mut e, json!({})).unwrap();
+    assert_eq!(texts(&e), ["-O -16.5000"]);
+    assert!(owned("-O -16.5000", "isomer"));
+    assert_eq!(display("-O -16.5000"), "\u{2212}O \u{2212}16.5000");
+}
+
+#[test]
+fn a_structure_the_engine_refuses_is_a_keyed_note_and_its_arrow_is_not_labelled() {
+    // arrow 0: ethane -> ethanol (measurable); arrow 1: ethanol -> a chain with nitrogen (the stand-in refuses it)
+    const AMINE: S = S(&["C", "N"], &[1]);
+    let s = scheme(&[&ETHANE, &ETHANOL, &AMINE], &[(0, 1, ""), (1, 2, "")]);
+    let mut e = mass_editor(&s, "mass");
+    run(&mut e, json!({})).unwrap();
+    assert_eq!(texts(&e), ["+16.5000", ""]);
+    assert_eq!(
+        e.said_params,
+        [("labelled", 1), ("kept", 0), ("skipped", 1)]
+    );
+    assert_eq!(e.label_notes, [("error.grafo.element", 1)]);
+    // the note is in `lost` of a verdict, as a key and a count, and never silently dropped
+    assert!(e
+        .lost_on_save("mzdraw")
+        .contains(&("error.grafo.element", 1)));
+}
+
+#[test]
+fn a_charged_product_has_no_adduct_so_the_shift_is_written_and_the_m_z_is_a_note() {
+    let acid = [("C", "", 0), ("C", "", 0), ("O", "", 0)];
+    let ion = [("C", "", 0), ("C", "", 0), ("O", "", -1)];
+    let mut e = mass_editor(&pair(&acid, &ion), "delta+mass");
+    run(&mut e, json!({"adduct": "[M+H]+"})).unwrap();
+    let t = texts(&e).remove(0);
+    assert!(t.starts_with("-H "), "{t}");
+    assert!(!t.contains("[M+H]+"), "{t}");
+    assert_eq!(e.label_notes, [("draw2.label.mzCharged", 1)]);
+}
+
+#[test]
+fn the_mass_modes_need_the_engine_and_the_adduct_is_checked_before_anything_runs() {
+    let s = scheme(&[&ETHANE, &ETHANOL], &[(0, 1, "")]);
+    // no engine: the key of the refusal, nothing changes
+    let mut e = editor(&s);
+    e.set("pathway.label=mass").unwrap();
+    let before = e.doc().to_json();
+    assert_eq!(
+        run(&mut e, json!({})).unwrap_err().key,
+        "error.draw2.labelMass"
+    );
+    assert_eq!(e.doc().to_json(), before);
+    // an adduct outside the seven, a non-text adduct, or an adduct with the delta mode
+    for args in [json!({"adduct": "[M+2H]2+"}), json!({"adduct": 1})] {
+        let mut e = mass_editor(&s, "mass");
+        assert_eq!(run(&mut e, args).unwrap_err().key, "error.draw2.request");
+    }
+    let mut e = mass_editor(&s, "delta");
+    assert_eq!(
+        run(&mut e, json!({"adduct": "[M+H]+"})).unwrap_err().key,
+        "error.draw2.request"
+    );
+}
+
+#[test]
+fn a_bare_number_is_the_persons_and_only_the_one_after_an_adduct_is_ours() {
+    for t in ["151.1117", "42.0000 [M+H]+", "+O 151.1117", "[M+H]+ 151.11"] {
+        assert!(!owned(t, "isomer"), "{t}");
+    }
+    for t in [
+        "[M+H]+ 151.1117",
+        "+O +15.9949 [M-H]- 1.0000",
+        "isomer [M+K]+ 9.5000",
+    ] {
+        assert!(owned(t, "isomer"), "{t}");
+    }
+    // a person's measured m/z survives the label run
+    let s = scheme(&[&ETHANE, &ETHANOL], &[(0, 1, "151.1117")]);
+    let mut e = mass_editor(&s, "mass");
+    run(&mut e, json!({})).unwrap();
+    assert_eq!(texts(&e), ["151.1117"]);
+    assert_eq!(e.said_params[1], ("kept", 1));
+}
+
+static CALLS: AtomicUsize = AtomicUsize::new(0);
+
+fn counting(molfile: &str, adducts: &[String]) -> Result<Measured, &'static str> {
+    CALLS.fetch_add(1, Ordering::SeqCst);
+    engine(molfile, adducts)
+}
+
+/// `n` arrows over `n + 1` structures of `k` carbons each (a chain; the last atom alternates C and O so every arrow has a delta), the arrow
+/// anchored to the first atoms; `extra` plus signs that are not arrows are listed before the arrows. A scan per arrow of the atoms, of the
+/// structures or of the objects walks `n * k` atoms, `n` structures or `extra` objects.
+fn big_chain(n: usize, k: usize, extra: usize) -> String {
+    let (mut atoms, mut bonds, mut objects) = (vec![], vec![], vec![]);
+    for j in 0..extra {
+        objects.push(json!({"id": 4_000_000 + j, "t": "plus", "x": j as f64, "y": 5}));
+    }
+    for s in 0..=n {
+        let first = s * k + 1;
+        for i in 0..k {
+            let el = if i + 1 == k && s % 2 == 1 { "O" } else { "C" };
+            atoms.push(json!({"id": first + i, "el": el, "x": 4.0 * s as f64 + i as f64 * 0.1, "y": i as f64}));
+            if i > 0 {
+                bonds.push(json!({"id": 1_000_000 + first + i, "a": first + i - 1, "b": first + i, "o": 1}));
+            }
+        }
+        if s < n {
+            objects.push(json!({"id": 2_000_000 + s, "t": "arrow", "x": 4.0 * s as f64 + 2.0, "y": 0, "x2": 4.0 * s as f64 + 3.5, "y2": 0, "from": first, "to": first + k}));
+        }
+    }
+    json!({"format": "mzdraw/1", "next": 9_000_000, "atoms": atoms, "bonds": bonds, "objects": objects}).to_string()
+}
+
+/// The best of five runs of `plan` in a mass mode, in microseconds, the stand-in engine included (the same cheap function for every size).
+fn timed_mass(text: &str) -> u128 {
+    let doc = Document::from_json(text).unwrap();
+    (0..5)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            let p =
+                mzdraw::steplabel::plan(&doc, Mode::Mass, &Opts::default(), Some(engine)).unwrap();
+            assert!(!p.ops.is_empty());
+            t.elapsed().as_micros()
+        })
+        .min()
+        .unwrap()
+}
+
+#[test]
+fn the_mass_labels_ask_the_engine_once_per_structure() {
+    // 999 arrows over 1000 structures: the engine is asked 1000 times, not twice per arrow
+    let doc = Document::from_json(&chain(999, 0)).unwrap();
+    CALLS.store(0, Ordering::SeqCst);
+    let p = mzdraw::steplabel::plan(&doc, Mode::Mass, &Opts::default(), Some(counting)).unwrap();
+    assert_eq!(p.labelled, 999);
+    assert_eq!(CALLS.load(Ordering::SeqCst), 1000);
+    assert_eq!(p.ops.len(), 999);
+    // the cap of the TP table: 1001 structures are refused before the engine is called
+    let doc = Document::from_json(&chain(1000, 0)).unwrap();
+    CALLS.store(0, Ordering::SeqCst);
+    let err =
+        mzdraw::steplabel::plan(&doc, Mode::Mass, &Opts::default(), Some(counting)).unwrap_err();
+    assert_eq!(err.key, "error.draw2.valuesSize");
+    assert_eq!(CALLS.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn the_mass_labels_scale_linearly_in_arrows_atoms_and_objects() {
+    // no floor: 4 times the arrows (and atoms) may cost about 4 times; a scan per arrow of the atoms (14 per structure here, so 14,000
+    // atoms in the large run), of the structures or of the whole scan costs about 16 times
+    let (small, large) = (
+        timed_mass(&big_chain(250, 14, 0)),
+        timed_mass(&big_chain(999, 14, 0)),
+    );
+    assert!(
+        large <= 8 * small,
+        "250 arrows {small} us, 999 arrows {large} us (14 atoms each)"
+    );
+    // a hostile document: 999 arrows and fifty thousand other objects (a scan of the objects per arrow costs 5e7 steps)
+    let (base, crowded) = (
+        timed_mass(&big_chain(999, 2, 0)),
+        timed_mass(&big_chain(999, 2, 50_000)),
+    );
+    assert!(
+        crowded <= 6 * base,
+        "{base} us without, {crowded} us with 50000 plus signs"
+    );
+}
+
+/// Two structures of 7,490 carbons each (14,980 atoms, under the cap of the table) and `n` arrows between them, all anchored to the last
+/// atoms (an early exit of a lookup by id does not hide a scan): the atoms stay the same while the arrows grow, so only a cost per arrow shows.
+fn fan(n: usize) -> String {
+    let (mut atoms, mut bonds, mut objects) = (vec![], vec![], vec![]);
+    let k = 7490;
+    for s in 0..2 {
+        for i in 0..k {
+            let id = s * k + i + 1;
+            let el = if s == 1 && i + 1 == k { "O" } else { "C" };
+            atoms.push(json!({"id": id, "el": el, "x": 40.0 * s as f64 + i as f64 * 0.01, "y": i as f64 * 0.01}));
+            if i > 0 {
+                bonds.push(json!({"id": 1_000_000 + id, "a": id - 1, "b": id, "o": 1}));
+            }
+        }
+    }
+    for j in 0..n {
+        objects.push(json!({"id": 2_000_000 + j, "t": "arrow", "x": 20.0, "y": j as f64, "x2": 25.0, "y2": j as f64, "from": k, "to": 2 * k}));
+    }
+    json!({"format": "mzdraw/1", "next": 9_000_000, "atoms": atoms, "bonds": bonds, "objects": objects}).to_string()
+}
+
+#[test]
+fn the_cost_per_arrow_does_not_grow_with_the_atoms() {
+    // the atoms are fixed, so the run is the same work plus the arrows: a scan of the atoms per arrow (999 x 14,980) adds a third or more
+    let (small, large) = (timed_mass(&fan(250)), timed_mass(&fan(999)));
+    assert!(
+        4 * large <= 5 * small,
+        "250 arrows {small} us, 999 arrows {large} us over 14,980 atoms"
+    );
+}
+
+#[test]
+fn a_note_belongs_to_the_drawing_it_was_made_for() {
+    const AMINE: S = S(&["C", "N"], &[1]);
+    let s = scheme(&[&ETHANE, &ETHANOL, &AMINE], &[(0, 1, ""), (1, 2, "")]);
+    let mut e = mass_editor(&s, "mass");
+    run(&mut e, json!({})).unwrap();
+    let note = ("error.grafo.element", 1);
+    assert!(e.lost_on_save("mzdraw").contains(&note));
+    // an edit hides it (the arrow may have changed); undo brings the drawing, and so the note, back
+    let id = e.doc().objects[1].id;
+    e.session
+        .run(&[mzdraw::ops::Op::ObjSet {
+            id,
+            text: Some("my own".into()),
+            x2: None,
+            y2: None,
+            from: None,
+            to: None,
+        }])
+        .unwrap();
+    assert!(!e.lost_on_save("mzdraw").contains(&note));
+    e.undo();
+    assert!(e.lost_on_save("mzdraw").contains(&note));
+    // a run that fails reports nothing from the run before
+    e.set("pathway.label=delta").unwrap();
+    assert!(run(&mut e, json!({"adduct": "[M+H]+"})).is_err());
+    assert!(e.label_notes.is_empty() && !e.lost_on_save("mzdraw").contains(&note));
+    // a loaded document has none
+    let mut e = mass_editor(&s, "mass");
+    run(&mut e, json!({})).unwrap();
+    e.import(&scheme(&[&ETHANE, &ETHANOL], &[(0, 1, "")]))
+        .unwrap();
+    assert!(e.lost_on_save("mzdraw").iter().all(|l| l.0 != note.0));
+}
+
+#[test]
+fn the_texts_of_the_label_notes_are_on_the_page() {
+    let texts = include_str!("../../../web/lang/mzdraw.js");
+    for key in [
+        "draw2.label.mzCharged",
+        "draw2.label.massMissing",
+        "error.draw2.labelMass",
+        "error.grafo.element",
+        "error.draw2.valuesOpen",
+    ] {
+        assert!(texts.contains(&format!("\"{key}\"")), "{key}");
+    }
 }

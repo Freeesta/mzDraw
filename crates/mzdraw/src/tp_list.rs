@@ -916,12 +916,14 @@ pub fn import_ops(doc: &Document, style: &Style, input: &Input) -> Result<Vec<Op
         scratch.apply(&tree).map_err(key)?;
         ops.extend(tree);
         // the label of each arrow: the formula delta of the two structures (`pathway:label`, the mode `pathway.label`)
-        let labels = crate::steplabel::plan(
-            &scratch,
-            style.pathway_label,
-            &crate::steplabel::Opts::default(),
-        )
-        .map_err(key)?;
+        // (the import writes the delta also when the mode has numbers: it has no engine, and `pathway:label` rewrites the label after it)
+        let mode = match style.pathway_label {
+            m if m.wants_mass() => crate::steplabel::Mode::Delta,
+            m => m,
+        };
+        let labels =
+            crate::steplabel::plan(&scratch, mode, &crate::steplabel::Opts::default(), None)
+                .map_err(key)?;
         scratch.apply(&labels.ops).map_err(key)?;
         ops.extend(labels.ops);
     }
