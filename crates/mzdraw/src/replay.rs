@@ -64,17 +64,22 @@ impl Request {
         }
         let one = |c: &serde_json::Value, args: Option<&serde_json::Value>| {
             let name = c.as_str().ok_or(BAD)?;
-            if !crate::commands::known(name) {
-                return Err("error.draw2.command");
-            }
             let args = args.cloned().unwrap_or_else(|| serde_json::json!({}));
+            crate::commands::check(name, &args)?;
             Ok((name.to_string(), args))
         };
         let commands = match (v.get("command"), v.get("commands")) {
             (Some(_), Some(_)) => return Err(BAD),
             (Some(c), None) => vec![one(c, v.get("args"))?],
             (None, Some(l)) => (l.as_array().ok_or(BAD)?.iter())
-                .map(|c| one(c.get("command").ok_or(BAD)?, c.get("args")))
+                .map(|c| {
+                    // an item is `{"command", "args"}` and nothing else
+                    let item = c.as_object().ok_or(BAD)?;
+                    if item.keys().any(|k| k != "command" && k != "args") {
+                        return Err("error.draw2.requestField");
+                    }
+                    one(c.get("command").ok_or(BAD)?, c.get("args"))
+                })
                 .collect::<Result<_, _>>()?,
             (None, None) => Vec::new(),
         };

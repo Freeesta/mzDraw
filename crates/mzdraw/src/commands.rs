@@ -12,6 +12,28 @@ pub(crate) fn known(name: &str) -> bool {
     matches!(name, "move" | "rotate" | "flip")
 }
 
+/// Checks the shape of a command before any command runs: a known name, `args` an object whose fields are the fields of the
+/// operation of that name, the required ones present (`x`, `y` of a rotate and `at` of a flip may be left out). The error is an
+/// invalid request, never a verdict about a document.
+pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
+    if !known(name) {
+        return Err("error.draw2.command");
+    }
+    let mut v = args.clone();
+    let obj = v.as_object_mut().ok_or("error.draw2.request")?;
+    obj.insert("op".into(), json!(name));
+    for (k, on) in [
+        ("x", name == "rotate"),
+        ("y", name == "rotate"),
+        ("at", name == "flip"),
+    ] {
+        if on {
+            obj.entry(k).or_insert(json!(0.0));
+        }
+    }
+    Op::parse(&v).map(|_| ())
+}
+
 /// Runs one command as one undo step, with the route operations of the arrows that follow. The error is an i18n key and the id it
 /// is about.
 pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpError> {

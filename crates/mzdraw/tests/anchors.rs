@@ -3,7 +3,7 @@
 
 use mzdraw::editor::ALT;
 use mzdraw::route::{clip, exit_distance, route, structure_box};
-use mzdraw::{Document, Editor, Op, Session};
+use mzdraw::{Document, Editor, Op, Session, Style};
 use serde_json::{json, Value};
 
 /// A tiny seeded generator (the same numbers everywhere).
@@ -34,7 +34,6 @@ fn replay(request: Value) -> Value {
     serde_json::from_str(&mzdraw::replay::replay(&request.to_string()).unwrap()).unwrap()
 }
 
-const FONT: f64 = 0.4;
 const MARGIN: f64 = 0.35;
 
 /// The distance of a point to the boundary of an inflated box.
@@ -122,8 +121,8 @@ fn a_bare_move_does_not_follow_and_a_command_does() {
 fn assert_routed(d: &Document, eps: f64) {
     for o in d.objects.iter().filter(|o| o.from != 0 && o.to != 0) {
         let (a, b) = (
-            structure_box(d, o.from, FONT).unwrap(),
-            structure_box(d, o.to, FONT).unwrap(),
+            structure_box(d, o.from, &Style::default()).unwrap(),
+            structure_box(d, o.to, &Style::default()).unwrap(),
         );
         assert!(
             off_boundary(a, MARGIN, (o.x, o.y)) < eps,
@@ -167,7 +166,7 @@ fn after_any_move_rotate_or_flip_command_the_arrows_are_on_their_routed_ends() {
         let out = mzdraw::replay::replay(&json!({"import": scheme(), "commands":[command.clone()], "set":["style.font_size=12"]}).to_string()).unwrap();
         let d = Document::from_json(&out).unwrap();
         let arrow = &d.objects[0];
-        let routed = route(&d, arrow.id, MARGIN, 12.0 / 30.0);
+        let routed = route(&d, arrow.id, &Style::default());
         // a command that leaves the structures with no room for an arrow leaves the arrow where it was (no operation is not "off")
         if !routed.is_empty() {
             panic!("{command}: the arrow is not on its routed ends: {routed:?}");
@@ -193,7 +192,7 @@ fn removing_an_anchored_atom_keeps_the_anchor_and_undo_is_exact() {
     let o = s.doc.object(7).unwrap();
     assert_eq!((o.from, o.to), (2, 3), "a remove never rewrites the anchor");
     // used as a free end: nothing is routed
-    assert!(route(&s.doc, 7, MARGIN, FONT).is_empty());
+    assert!(route(&s.doc, 7, &Style::default()).is_empty());
     assert!(s.undo());
     assert_eq!(s.doc, doc);
     assert_eq!(s.doc.object(7).unwrap().to, 3);
@@ -298,4 +297,104 @@ fn a_refused_command_is_a_verdict_of_stage_command_and_an_unknown_one_an_invalid
     let unknown = json!({"import": scheme(), "report": true, "commands": [{"command":"explode"}]});
     let e = mzdraw::replay::replay(&unknown.to_string()).unwrap_err();
     assert_eq!(e.key, "error.draw2.command");
+}
+
+/// The ink of every label the painter writes (group labels on either side of their bond, hydrogens, charge, mass number) lies inside
+/// the box of its structure, so an arrow clipped at that box never touches a label.
+#[test]
+fn the_painted_ink_of_labels_lies_inside_the_structure_box() {
+    use mzdraw::scene::{build, width, Overlay, View, TEXT};
+    let style = Style::default();
+    let scale = 100.0;
+    for lab in ["CO2Et", "Ph", "NMe2", "OMe", "Boc", "R1"] {
+        for (dx, sense) in [(1.0, "right"), (-1.0, "left")] {
+            let doc = json!({"format":"mzdraw/1","next":4,
+                "atoms":[{"id":1,"el":"C","x":0,"y":0},{"id":2,"el":"C","x":dx,"y":0.5,"lab":lab},{"id":3,"el":"N","x":-dx,"y":0.5,"chg":1,"iso":15}],
+                "bonds":[{"id":4,"a":1,"b":2,"o":1}]});
+            let d = Document::from_json(&doc.to_string().replace(r#""next":4"#, r#""next":5"#))
+                .unwrap();
+            // the bond joins atoms 1 and 2; atom 3 is a lone charged atom with a mass number
+            let view = View {
+                scale,
+                ox: 0.0,
+                oy: 0.0,
+            };
+            let sc = build(&d, view, &Overlay::default(), style.metrics(scale, false));
+            let mut ink = Vec::new();
+            for t in sc.data.chunks(7).filter(|c| c[0] as u32 == TEXT as u32) {
+                let (x, y, size, i, anchor) = (
+                    t[1] as f64,
+                    t[2] as f64,
+                    t[3] as f64,
+                    t[5] as usize,
+                    t[6] as f64,
+                );
+                let w = width(&sc.strings[i], size);
+                let x0 = if anchor == 0.0 { x - w / 2.0 } else { x };
+                ink.push((x0, x0 + w, y - 0.6 * size, y + 0.6 * size));
+            }
+            // each piece of ink belongs to the atom nearest to its middle
+            for r in &ink {
+                let (cx, cy) = ((r.0 + r.1) / 2.0 / scale, -(r.2 + r.3) / 2.0 / scale);
+                let near = d
+                    .atoms
+                    .iter()
+                    .min_by(|p, q| {
+                        let dist = |a: &&mzdraw::Atom| (a.x - cx).hypot(a.y - cy);
+                        dist(p).total_cmp(&dist(q))
+                    })
+                    .unwrap();
+                let b = structure_box(&d, near.id, &style).unwrap();
+                let (x0, x1) = (r.0 / scale, r.1 / scale);
+                let (y0, y1) = (-r.3 / scale, -r.2 / scale);
+                let e = 1e-6;
+                assert!(
+                    x0 >= b[0] - e && x1 <= b[2] + e,
+                    "{lab} {sense}: ink x {x0}..{x1} outside {b:?}"
+                );
+                assert!(
+                    y0 >= b[1] - e && y1 <= b[3] + e,
+                    "{lab} {sense}: ink y {y0}..{y1} outside {b:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_malformed_command_is_an_invalid_request_before_anything_runs() {
+    let bad = |commands: Value| {
+        let r = json!({"import": scheme(), "report": true, "commands": commands});
+        mzdraw::replay::replay(&r.to_string()).unwrap_err().key
+    };
+    // an unknown argument, a missing required one, a typo in the item, an item that is not an object, `args` that is not one
+    let move_ = |args: Value| json!([{"command":"move","args":args}]);
+    assert_eq!(
+        bad(move_(json!({"atoms":[3],"dx":1,"dy":0,"zzz":1}))),
+        "error.draw2.opField"
+    );
+    assert_eq!(
+        bad(move_(json!({"atoms":[3],"dx":1}))),
+        "error.draw2.request"
+    );
+    assert_eq!(
+        bad(json!([{"command":"move","arg":{}}])),
+        "error.draw2.requestField"
+    );
+    assert_eq!(bad(json!(["move"])), "error.draw2.request");
+    assert_eq!(
+        bad(json!([{"command":"rotate","args":[1]}])),
+        "error.draw2.request"
+    );
+    // the first command is fine and the second malformed: nothing runs, the answer is the error, not a verdict
+    let two = json!([{"command":"move","args":{"atoms":[3],"dx":1,"dy":0}}, {"command":"move","args":{"zzz":1}}]);
+    assert_eq!(bad(two), "error.draw2.opField");
+    // the singular form is a list of one: a refusal of the document is failed.op 0
+    let r = json!({"import": scheme(), "report": true, "command": "move", "args": {"atoms":[99],"dx":1,"dy":0}});
+    let reply = mzdraw::replay::replay_at(&r.to_string(), 0).unwrap();
+    let v: Value = serde_json::from_str(&reply.text).unwrap();
+    assert_eq!(
+        (v["failed"]["stage"].as_str(), v["failed"]["op"].as_u64()),
+        (Some("command"), Some(0))
+    );
 }

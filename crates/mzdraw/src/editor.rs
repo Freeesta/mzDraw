@@ -219,14 +219,8 @@ impl Editor {
     /// replay of the log gives the same bytes; an operation sent bare never follows.
     pub(crate) fn following(&self, ops: &[Op]) -> Vec<Op> {
         let s = &self.session.doc;
-        let font = self.style.font_size / self.style.bond_length;
         let mut all = ops.to_vec();
-        all.extend(crate::route::follow(
-            s,
-            ops,
-            self.style.pathway_margin,
-            font,
-        ));
+        all.extend(crate::route::follow(s, ops, &self.style));
         all
     }
 
