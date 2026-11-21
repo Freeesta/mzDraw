@@ -123,3 +123,44 @@ fn an_element_the_engine_does_not_know_and_a_structure_above_its_limit_leave_no_
         assert_eq!(v["structures"][0]["mass"], Value::Null, "{n}");
     }
 }
+
+#[test]
+fn a_charged_structure_through_the_engine_has_its_engine_numbers_and_no_descriptor() {
+    // chloride, methylammonium, acetate, glycine zwitterion (net charge zero, two charged atoms): the engine gives the formula, the mass
+    // and the per cent (they are right for ions), the descriptors say `error.draw2.propsCharged` and are empty
+    for smiles in ["[Cl-]", "C[NH3+]", "CC(=O)[O-]", "[NH3+]CC(=O)[O-]"] {
+        let v = props(json!({"import": smiles, "props": true}));
+        assert_eq!(v["engine"], true, "{smiles}");
+        let b = &v["structures"][0];
+        assert_eq!(b["error"], Value::Null, "{smiles}");
+        assert_eq!(b["propsError"], "error.draw2.propsCharged", "{smiles}");
+        for k in ["logp", "tpsa", "hbd", "hba", "rotb", "heavy"] {
+            assert_eq!(b["values"][k], json!([]), "{smiles} {k}");
+        }
+        for k in ["formula", "exact", "ea"] {
+            assert!(
+                !b["values"][k].as_array().unwrap().is_empty(),
+                "{smiles} {k}"
+            );
+        }
+    }
+    // the per cent of the zwitterion C2H5NO2 (conventional weights 12.011, 1.008, 14.007, 15.999; 75.067): C 24.0220 / 75.067 = 32.00 %
+    let z = props(json!({"import": "[NH3+]CC(=O)[O-]", "props": true}));
+    assert_eq!(
+        z["structures"][0]["values"]["ea"][0],
+        json!(["%C", "32.00"])
+    );
+    // the neutral control keeps every number
+    let c = props(json!({"import": "CCO", "props": true}));
+    let b = &c["structures"][0];
+    assert_eq!(
+        (&b["error"], &b["propsError"]),
+        (&Value::Null, &Value::Null)
+    );
+    for k in ["logp", "tpsa", "hbd", "hba", "rotb", "heavy"] {
+        assert!(!b["values"][k].as_array().unwrap().is_empty(), "{k}");
+    }
+    // sodium has no engine entry at all: the engine's key, not the core's element key
+    let na = props(json!({"import": "[Na+]", "props": true}));
+    assert_eq!(na["structures"][0]["propsError"], "error.grafo.element");
+}
