@@ -339,9 +339,10 @@ impl Document {
         if !m.bonds.is_empty() {
             out += "<bondArray>\n";
         }
+        let index = self.index_map();
         for (k, b) in m.bonds.iter().enumerate() {
             let ends = (self.bonds.get(k).filter(|d| d.s != 0))
-                .and_then(|d| Some((d.s, self.atom_index(d.a)?, self.atom_index(d.b)?)));
+                .and_then(|d| Some((d.s, *index.get(&d.a)?, *index.get(&d.b)?)));
             let order = ["S", "D", "T"][usize::from(b.o.clamp(1, 3)) - 1];
             match ends {
                 Some((s, narrow, wide)) => {
