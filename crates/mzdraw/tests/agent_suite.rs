@@ -181,3 +181,77 @@ fn the_report_line_is_the_same_bytes_every_time_and_refusals_are_failures() {
     );
     assert!(check::check(t, "not json").is_err());
 }
+
+/// Runs `tools/agent-suite/run.py` with the arguments; `None` when python3 is not installed (the test then says so and passes).
+fn run_py(args: &[&str]) -> Option<(i32, String, String)> {
+    let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/agent-suite/run.py");
+    match std::process::Command::new("python3")
+        .arg(script)
+        .args(args)
+        .output()
+    {
+        Ok(o) => Some((
+            o.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&o.stdout).into_owned(),
+            String::from_utf8_lossy(&o.stderr).into_owned(),
+        )),
+        Err(_) => {
+            eprintln!("python3 is not installed: the runner tests are skipped");
+            None
+        }
+    }
+}
+
+#[test]
+fn the_runner_refuses_an_unknown_a_duplicated_and_an_unwritten_arm_with_exit_2_and_a_key() {
+    for (arm, key) in [
+        ("digest", "arm_text_missing:"),
+        ("report+select", "arm_text_missing:"),
+        ("nonsense", "arm_unknown:"),
+        ("report+nonsense", "arm_unknown:"),
+        ("report+report", "arm_duplicate:"),
+        ("plain+report", "arm_unknown:"),
+    ] {
+        let Some((code, _, err)) = run_py(&["--reference", "--no-build", "--arm", arm]) else {
+            return;
+        };
+        assert_eq!(code, 2, "{arm}: {err}");
+        assert!(err.contains(&format!("run.py: {key}")), "{arm}: {err}");
+    }
+}
+
+#[test]
+fn the_runner_writes_an_arm_as_a_sorted_set() {
+    for (arm, want) in [
+        ("plain", "plain"),
+        ("report", "report"),
+        ("select+digest+report", "digest+report+select"),
+        ("grant+plan", "grant+plan"),
+    ] {
+        let Some((code, out, err)) = run_py(&["--parse-arm-only", "--arm", arm]) else {
+            return;
+        };
+        assert_eq!((code, out.trim()), (0, want), "{arm}: {err}");
+    }
+    // a built arm runs: the reference solutions answer, and the result names the arm
+    let Some((code, out, _)) = run_py(&[
+        "--reference",
+        "--no-build",
+        "--arm",
+        "report",
+        "--tasks",
+        "build-02-ethyl-acetate",
+    ]) else {
+        return;
+    };
+    assert_eq!(code, 0);
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(
+        (
+            v["format"].as_str(),
+            v["arm"].as_str(),
+            v["overall"]["passes"].as_u64()
+        ),
+        (Some("agent-suite/1"), Some("report"), Some(1))
+    );
+}

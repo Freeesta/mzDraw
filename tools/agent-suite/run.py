@@ -30,20 +30,21 @@ def fail(msg):
     sys.exit(1)
 
 
-def parse_arm(text):
-    """`plain`, or a `+`-joined set of feature names; order-free, returned sorted."""
+def parse_arm(text, need_text=True):
+    """`plain`, or a `+`-joined set of feature names; order-free, returned sorted. A usage error starts with a stable key:
+    `arm_unknown:`, `arm_duplicate:` or `arm_text_missing:`."""
     if text == "plain":
         return "plain", []
     names = text.split("+")
     for n in names:
         if n not in FEATURES:
-            usage(f"unknown arm feature {n!r}; the list is plain or a + joined set of {', '.join(FEATURES)}")
+            usage(f"arm_unknown: {n!r} is not an arm feature; the list is plain or a + joined set of {', '.join(FEATURES)}")
     if len(set(names)) != len(names):
-        usage("an arm feature is named twice")
+        usage("arm_duplicate: an arm feature is named twice")
     names = sorted(names)
-    for n in names:
+    for n in names if need_text else []:
         if not (ARMS / f"{n}.md").exists():
-            usage(f"the text of the arm feature {n!r} is not written yet (tools/agent-suite/arms/{n}.md is added by the slice that builds it)")
+            usage(f"arm_text_missing: the text of the arm feature {n!r} is not written yet (tools/agent-suite/arms/{n}.md is added by the slice that builds it)")
     return "+".join(names), names
 
 
@@ -126,8 +127,12 @@ def main():
     ap.add_argument("--model", default=None, help="the model name written in the result")
     ap.add_argument("--date", default=None, help="the date written in the result (default today, UTC)")
     ap.add_argument("--timeout", type=int, default=900, help="seconds for one model call")
+    ap.add_argument("--parse-arm-only", action="store_true", help="print the sorted arm and exit (names are checked, texts are not)")
     ap.add_argument("--no-build", action="store_true", help="do not run cargo build")
     a = ap.parse_args()
+    if a.parse_arm_only:
+        print(parse_arm(a.arm, need_text=False)[0])
+        return
     if bool(a.model_cmd) == a.reference:
         usage("give exactly one of --model-cmd and --reference")
     if a.runs < 1:
