@@ -1,0 +1,13 @@
+smiles,name,parent,mz,rt,adduct,level
+CCCCc1ccccc1,P,,135.1168,14.2,[M+H]+,1
+OCCCCc1ccccc1,M1,P,151.1117,11.6,[M+H]+,2a
+CCC(O)Cc1ccccc1,M2,P,151.1117,12.3,[M+H]+,2b
+CCCCc1ccc(O)cc1,M3,P,151.1117,12.9,[M+H]+,3
+CCC(O)Cc1ccc(O)cc1,,M2;M3,167.1067,9.8,[M+H]+,3
+OC(=O)CCCc1ccccc1,ACID,M1,163.0754,10.4,[M-H]-,2b
+OC(=O)CCc1ccccc1,,ACID,149.0597,9.7,[M-H]-,4
+OCCCCc1ccc(O)cc1,,M1,167.1067,8.9,[M+H]+,3
+CCCC(O)c1ccc(O)cc1,"Q, special",M3,167.1067,9.2,[M+H]+,4
+CCCCc1ccc(O)c(O)c1,CAT,M3,167.1067,10.1,[M+H]+,3
+OCCCCc1ccc(O)c(O)c1,,CAT,183.1016,7.5,[M+H]+,5
+OC(=O)CCCc1ccc(O)cc1,,ACID,179.0703,8.2,[M-H]-,5

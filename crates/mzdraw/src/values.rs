@@ -138,7 +138,7 @@ pub struct Structure {
     pub iso: String,
     /// Whether an atom has no element (an R group or another label): the formula is then not a mass.
     pub open: bool,
-    /// Whether some atom carries an annotation (the level is drawn under the structure, above the caption).
+    /// Whether the painter writes a name or a level under the structure (an annotation, or the data field `TP_ID`): the caption goes below it.
     pub annotated: bool,
     /// Its box in the document, `[x0, y0, x1, y1]`, y up.
     pub bbox: [f64; 4],
@@ -276,7 +276,8 @@ pub fn scan(doc: &Document) -> Scan {
                         bbox[2].max(a.x),
                         bbox[3].max(a.y),
                     ];
-                    annotated |= !a.ann().is_empty();
+                    annotated |= !a.ann().is_empty()
+                        || a.data().iter().any(|(k, v)| k == "TP_ID" && !v.is_empty());
                 }
             }
             Structure {

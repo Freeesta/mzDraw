@@ -277,11 +277,12 @@ fn a_damaged_document_inside_says_so() {
     let file = pdf::to_pdf(&d, &Style::default());
     // same length, so the table stays exact: the format name of the document is changed
     let mut bytes = file.clone();
+    let id = format!("\"{}\"", mzdraw::brand::DOCUMENT_ID);
     let at = bytes
-        .windows(10)
-        .position(|w| w == b"\"mzdraw/1\"")
+        .windows(id.len())
+        .position(|w| w == id.as_bytes())
         .unwrap();
-    bytes[at + 8] = b'9';
+    bytes[at + id.len() - 2] = b'9';
     assert_eq!(
         import_bytes(&bytes).unwrap_err(),
         "error.draw2.documentNewer"

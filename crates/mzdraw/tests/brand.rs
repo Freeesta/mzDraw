@@ -93,6 +93,7 @@ fn brand_toml_and_brand_rs_say_the_same() {
         ("formats.edit", brand::EDIT_ID),
         ("formats.bridge", brand::BRIDGE_ID),
         ("formats.first_document", brand::FIRST_DOCUMENT_ID),
+        ("formats.schema_key", brand::SCHEMA_KEY),
         ("site.repository", brand::REPOSITORY),
         ("site.pages_url", brand::PAGES_URL),
         ("site.pages_base", brand::PAGES_BASE),
@@ -226,24 +227,38 @@ fn names_js_with(legacy: &[&str]) -> String {
 const NAMES_JS: &str = r#"// GENERATED from brand.toml by crates/mzdraw/tests/brand.rs (MZDRAW_BLESS=1 cargo test -p mzdraw --test brand): do not edit.
 // Every name of the product the page uses, in one place: the name will change. The ids of the page carry the prefix `d2-`
 // (HTML, CSS and tests), the i18n keys `draw2.`; what the scripts write or store is named here only. The `*Old` lists are the
-// names of earlier products: read when the current one is not there, never written.
+// names of earlier products: read when the current one is not there, never written. (The comments are above the lines, not after
+// them, so that the file does not depend on the length of a name.)
 export const NAMES = Object.freeze({
-  name: "@NAME@",                             // the visible name (the texts say {app}, see appname.js)
-  slug: "@SLUG@",                             // the `out` kind of the document
-  version: "@DOC@",                           // the document format of the day
-  bridge: "@BRIDGE@",                         // what the module must speak to this page
-  global: "@APP@",                            // the editor module on window, for hosts and the tests
-  tag: "@TAG@",                               // the custom element
-  wasm: "@WASM@",                             // the module of pkg/
-  autosave: "@SLUG@-autosave.json",           // the drawing kept in the browser's private file system (OPFS)
+  // the visible name (the texts say {app}, see appname.js)
+  name: "@NAME@",
+  // the `out` kind of the document
+  slug: "@SLUG@",
+  // the document format of the day
+  version: "@DOC@",
+  // what the module must speak to this page
+  bridge: "@BRIDGE@",
+  // the editor module on window, for hosts and the tests
+  global: "@APP@",
+  // the custom element
+  tag: "@TAG@",
+  // the module of pkg/
+  wasm: "@WASM@",
+  // the drawing kept in the browser's private file system (OPFS), then the names of earlier products
+  autosave: "@SLUG@-autosave.json",
   autosaveOld: @AUTOSAVE_OLD@,
-  settings: "@SLUG@-settings.json",           // the settings file kept there, and its download name
+  // the settings file kept there, and its download name
+  settings: "@SLUG@-settings.json",
   settingsOld: @SETTINGS_OLD@,
-  clip: "application/x-@SLUG@+json",          // our own clipboard type: the document
+  // our own clipboard type: the document
+  clip: "application/x-@SLUG@+json",
   clipOld: @CLIP_OLD@,
-  doc: "drawing.@SLUG@.json",                 // the download name of the document
-  id: "d2-",                                  // the prefix of the ids the scripts make
-  tokens: "@TOKENS@",                           // the prefix of the colour tokens (web/mzdraw.css), which a host may set
+  // the download name of the document
+  doc: "drawing.@SLUG@.json",
+  // the prefix of the ids the scripts make
+  id: "d2-",
+  // the prefix of the colour tokens (web/mzdraw.css), which a host may set
+  tokens: "@TOKENS@",
 });
 "#;
 
@@ -276,6 +291,19 @@ fn the_page_learns_the_name_from_files_written_from_brand_rs() {
 }
 
 #[test]
+fn the_schema_key_is_the_first_name_whatever_the_name_in_use() {
+    // `out: schema` says for each operation whether this editor reads it, under a stable key for agents: the first name, never renamed
+    let json = mzdraw::schema::json();
+    let key = format!("\"{}\":true", brand::SCHEMA_KEY);
+    assert!(json.contains(&key), "{key}");
+    assert!(json.contains(&format!("\"since\":\"{}\"", brand::FIRST_DOCUMENT_ID)));
+    if brand::SLUG != brand::SCHEMA_KEY {
+        // a renamed tree: the name in use is not a key of the schema
+        assert!(!json.contains(&format!("\"{}\":", brand::SLUG)));
+    }
+}
+
+#[test]
 fn the_files_of_the_page_list_the_earlier_names_when_there_are_some() {
     // a rename in the future: two earlier slugs, oldest first
     let js = names_js_with(&["first", "second"]);
@@ -297,9 +325,12 @@ fn the_files_of_the_page_list_the_earlier_names_when_there_are_some() {
     }
     // the current names are written once, from the slug in use, and none of the earlier ones leaks into them
     assert!(js.contains(&format!("autosave: \"{}-autosave.json\"", brand::SLUG)));
-    // with no earlier name the lists are empty, as in the file of the page
-    assert_eq!(names_js_with(&[]), names_js());
-    assert!(names_js().contains("autosaveOld: [],"));
+    // with no earlier name the lists are empty; the file of the page has the lists of the earlier names there are
+    assert!(names_js_with(&[]).contains("  autosaveOld: [],\n"));
+    assert_eq!(
+        names_js().contains("  autosaveOld: [],\n"),
+        brand::LEGACY_IDS.is_empty()
+    );
 }
 
 // ---- brand_no_literals
@@ -392,27 +423,40 @@ fn html_lines(src: &str) -> Vec<(usize, String)> {
 }
 
 /// Where the codename may stay for now: (file, text of the occurrence, why). Every entry must match something.
-const ALLOWED: [(&str, &str, &str); 4] = [
-    ("crates/mzdraw/src/schema.rs", "\"mzdraw\":{}", "a stable key of the schema JSON (the reader of mzLab is named by it): renaming it changes the bytes of `out: schema` and is the owner's decision"),
-    ("web/index.html", "href=\"mzdraw.css\"", "the name of a file of the page: moved by the rename tool"),
-    ("web/index.html", "src=\"lang/mzdraw.js\"", "the name of a file of the page: moved by the rename tool"),
-    ("web/index.html", "src=\"mzdraw.js\"", "the name of a file of the page: moved by the rename tool"),
+const ALLOWED: [(&str, &str, &str); 3] = [
+    (
+        "web/index.html",
+        "href=\"mzdraw.css\"",
+        "the name of a file of the page: moved by the rename tool",
+    ),
+    (
+        "web/index.html",
+        "src=\"lang/mzdraw.js\"",
+        "the name of a file of the page: moved by the rename tool",
+    ),
+    (
+        "web/index.html",
+        "src=\"mzdraw.js\"",
+        "the name of a file of the page: moved by the rename tool",
+    ),
 ];
+
+/// Whether a text writes the codename (the slug of the name in use), in any case.
+fn mentions(text: &str) -> bool {
+    text.to_lowercase().contains(brand::SLUG)
+}
 
 /// The places of a file where the codename is written, as (line, what), the allowed ones taken out (they are counted in `used`).
 fn found(path: &str, hits: Vec<(usize, String)>, used: &mut [bool]) -> Vec<String> {
     let mut bad = Vec::new();
-    for (line, mut text) in hits
-        .into_iter()
-        .filter(|h| h.1.to_lowercase().contains("mzdraw"))
-    {
+    for (line, mut text) in hits.into_iter().filter(|h| mentions(&h.1)) {
         for (k, (file, needle, _)) in ALLOWED.iter().enumerate() {
             if *file == path && text.contains(needle) {
                 used[k] = true;
                 text = text.replace(needle, "");
             }
         }
-        if text.to_lowercase().contains("mzdraw") {
+        if mentions(&text) {
             bad.push(format!(
                 "{path}:{line}: {}",
                 text.trim().chars().take(100).collect::<String>()
@@ -447,11 +491,14 @@ fn files(dir: &str, ext: &str) -> Vec<String> {
 #[test]
 fn brand_no_literals() {
     let (mut used, mut bad) = ([false; ALLOWED.len()], Vec::new());
-    let sources: Vec<String> = ["crates/mzdraw/src", "crates/mzdraw-wasm/src"]
-        .iter()
-        .flat_map(|d| files(d, "rs"))
-        .filter(|f| !f.ends_with("/brand.rs"))
-        .collect();
+    let sources: Vec<String> = [
+        format!("crates/{}/src", brand::CRATE_PREFIX),
+        format!("crates/{}-wasm/src", brand::CRATE_PREFIX),
+    ]
+    .iter()
+    .flat_map(|d| files(d, "rs"))
+    .filter(|f| !f.ends_with("/brand.rs"))
+    .collect();
     assert!(sources.len() > 30, "the Rust sources were found");
     for f in &sources {
         bad.extend(found(f, literals(&read(f), false), &mut used));
@@ -508,26 +555,19 @@ fn the_scanner_finds_a_name_in_a_string_and_not_in_a_comment() {
     let words: Vec<String> = literals(js, true).into_iter().map(|g| g.1).collect();
     assert_eq!(words, ["One", "Three ${x}", "Fo\\\"ur"]);
     // the codename in a string is found, in a comment it is not, and an allowed place is taken out
+    let (slug, name) = (brand::SLUG, brand::NAME.to_uppercase());
     let mut used = [false; ALLOWED.len()];
-    assert_eq!(
-        found(
-            "x.rs",
-            literals("let a = \"MzDraw/1\"; // mzdraw", false),
-            &mut used
-        )
-        .len(),
-        1
-    );
-    assert!(found("x.rs", literals("// mzdraw\nlet a = 1;", false), &mut used).is_empty());
+    let one = literals(&format!("let a = \"{name}/1\"; // {slug}"), false);
+    assert_eq!(found("x.rs", one, &mut used).len(), 1);
     assert!(found(
-        "web/index.html",
-        html_lines("<!-- mzdraw -->\n<link href=\"mzdraw.css\">"),
+        "x.rs",
+        literals(&format!("// {slug}\nlet a = 1;"), false),
         &mut used
     )
     .is_empty());
-    assert!(used[1] && !used[0]);
-    assert_eq!(
-        found("web/index.html", html_lines("<h1>mzDraw</h1>"), &mut used).len(),
-        1
-    );
+    let html = format!("<!-- {slug} -->\n<link href=\"{slug}.css\">");
+    assert!(found("web/index.html", html_lines(&html), &mut used).is_empty());
+    assert!(used[0] && !used[1]);
+    let h1 = format!("<h1>{}</h1>", brand::NAME);
+    assert_eq!(found("web/index.html", html_lines(&h1), &mut used).len(), 1);
 }
