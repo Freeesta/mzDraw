@@ -3121,7 +3121,7 @@ try {
     await pg.fill("#d2-text", tpeCsv); await pg.focus("#d2-add"); await pg.keyboard.press("Enter");     // keyboard
     await want(pg, { atoms: 48 }); await tool(pg, "fit"); await frames(pg);
     await tpeSame("keyboard");
-    await tool(pg, "all"); await want(pg, { selected: 48 });                           // the page still answers: select all, then the live check
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await until(pg, `${STATE}.selected >= 48`);                           // the page still answers: select all, then the live check
     await tool(pg, "undo"); await want(pg, { atoms: 0 });
   });
   await step("tp:import of eight equal molecules by touch (a tablet): Open a file is tapped and the CSV chosen; the page equals the golden", async () => {

@@ -70,7 +70,10 @@ fn assert_star(doc: &Document, n: usize) {
     kids.sort_by(|a, b| a.2.total_cmp(&b.2));
     let names: Vec<_> = kids.iter().map(|k| k.0.clone()).collect();
     let want: Vec<_> = (1..n).map(|i| format!("TP{i}")).collect();
-    assert_eq!(names, want, "numbered 1..n-1 from the top, by the layout");
+    assert_eq!(
+        names, want,
+        "numbered 1..n-1 by the layout (smallest y first)"
+    );
     assert!(
         kids.iter().all(|k| k.1 > root.1 + 1.0),
         "children right of the root"
