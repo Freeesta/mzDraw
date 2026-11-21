@@ -386,6 +386,8 @@ impl Editor {
             "sdf" => self.doc().to_sdf(),
             "svg" => self.svg(),
             "log" => self.session.log_json(),
+            // the settings file: the style, the layout of the palettes and the export defaults
+            "settings" => self.settings_json(),
             _ => return Err("error.draw2.request"),
         })
     }
