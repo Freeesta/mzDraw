@@ -26,6 +26,10 @@ jobs:
             target
             tools/.bin
           key: ci-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'tools/install_tools.sh') }}
+      - name: Prompt queue (every prompt has a row in docs/plan/queue.md, and the check finds the two failures)
+        run: |
+          tools/test_queue_check.sh
+          tools/queue_check.sh
       - name: Format and lints
         run: |
           cargo fmt --check
