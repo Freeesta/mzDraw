@@ -65,6 +65,15 @@ fn every_case_replays_to_the_recorded_bytes() {
         let menu: Value = serde_json::from_str(&got).unwrap();
         assert!(menu["target"].is_string() && menu["items"].is_array());
     }
+    // the table of the operations (`draw-edit-schema/1`): the CLI twin of the language reader
+    for case in fx["schemas"].as_array_mut().unwrap() {
+        let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+        if bless {
+            case["out"] = json!(got);
+        }
+        assert_eq!(case["out"], json!(got), "{}", case["name"]);
+        assert_eq!(got, mzdraw::schema::json());
+    }
     if bless {
         std::fs::write(fixture(), serde_json::to_string_pretty(&fx).unwrap() + "\n").unwrap();
     }
