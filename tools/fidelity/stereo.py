@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Independent check of the stereo guard (plan-21), in the layout of plan-03 (tools/fidelity/run.py, tests/data/fidelity/).
 
-For each stereo structure of tests/data/fidelity/set.smi (the lines with `@`), two geometry edits are replayed natively (the `replay`
+For each stereo structure of tests/data/fidelity/set.smi (the lines with `@`, `/` or `\\`: centres and double bonds), two geometry edits are replayed natively (the `replay`
 example): a plain flip of the whole drawing, and a drag of one neighbour of every wedged centre (moved to the point mirrored through the
-centre). For each, our signature (the SMILES of the drawing, `{"stereo":"kept"}` of `draw-result/1`) is compared with the stereo layer
+centre) and of one neighbour of every double bond (moved to the mirror point across its line). For each, our signature (the SMILES of the drawing, `{"stereo":"kept"}` of `draw-result/1`) is compared with the stereo layer
 of the InChI RDKit writes from the molfile of the drawing before and after: the layer must change exactly when our signature changes.
 Data (the reference JSON) goes to stdout, diagnostics to stderr.
 
@@ -52,7 +52,7 @@ def main():
     cases = []
     for line in open(SET):
         smi, name = line.split()
-        if "@" not in smi:
+        if not any(c in smi for c in "@/\\"):
             continue
         start = json.loads(run(a.replay, {"import": smi, "out": "mzdraw"}))
         atoms = {x["id"]: x for x in start["atoms"]}
@@ -65,6 +65,19 @@ def main():
             if n is not None:
                 p, q = atoms[c], atoms[n]
                 drag.append({"op": "move", "atoms": [n], "dx": 2 * (p["x"] - q["x"]), "dy": 2 * (p["y"] - q["y"])})
+        # a double bond: one neighbour of its first atom goes to the mirror point across the line of the bond
+        for b in start["bonds"]:
+            if b.get("o") != 2:
+                continue
+            p, q = atoms[b["a"]], atoms[b["b"]]
+            n = next((x["b"] if x["a"] == b["a"] else x["a"] for x in start["bonds"] if b["a"] in (x["a"], x["b"]) and x["id"] != b["id"]), None)
+            if n is None or not any(b["b"] in (x["a"], x["b"]) and x["id"] != b["id"] for x in start["bonds"]):
+                continue
+            r = atoms[n]
+            ux, uy = q["x"] - p["x"], q["y"] - p["y"]
+            t = ((r["x"] - p["x"]) * ux + (r["y"] - p["y"]) * uy) / (ux * ux + uy * uy)
+            fx, fy = p["x"] + t * ux, p["y"] + t * uy
+            drag.append({"op": "move", "atoms": [n], "dx": 2 * (fx - r["x"]), "dy": 2 * (fy - r["y"])})
         edits.append(("drag", drag))
         base = run(a.replay, {"import": smi, "out": "molfile"})
         for edit, log in edits:

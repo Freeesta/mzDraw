@@ -27,7 +27,7 @@
     },
     {
       "name": "a plain flip of a chiral piece changes it",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed: atoms 1 changed: [Br][C@@H]([Cl])[F] became [Br][C@H]([Cl])[F]\"}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 1\"}]}",
       "request": {
         "expect": [
           {
@@ -52,7 +52,7 @@
     },
     {
       "name": "dragging one neighbour across the others changes it",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed: atoms 1 changed: [Br][C@@H]([Cl])[F] became [Br][C@H]([Cl])[F]\"}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 1\"}]}",
       "request": {
         "expect": [
           {
@@ -74,7 +74,7 @@
     },
     {
       "name": "the flip command of the page gives the same verdict",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed: atoms 1 changed: [Br][C@@H]([Cl])[F] became [Br][C@H]([Cl])[F]\"}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 1\"}]}",
       "request": {
         "commands": [
           {
@@ -129,7 +129,7 @@
     },
     {
       "name": "an imported SMILES mirrored as drawn changes it",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed: atoms 2 changed: [C@H]([CH3])([Cl])[F] became [C@@H]([CH3])([Cl])[F]\"}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 2\"}]}",
       "request": {
         "commands": [
           {
@@ -151,6 +151,345 @@
           }
         ],
         "import": "C[C@H](F)Cl"
+      }
+    },
+    {
+      "name": "a mirror then a substituent on the methyl is still said",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{\"atoms\":[100],\"bonds\":[101]},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 2\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C[C@H](F)Cl.O",
+        "log": [
+          {
+            "at": 0.0,
+            "atoms": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "axis": "h",
+            "op": "flip"
+          },
+          {
+            "el": "O",
+            "id": 100,
+            "op": "atom.add",
+            "x": 9.0,
+            "y": 9.0
+          },
+          {
+            "a": 1,
+            "b": 100,
+            "o": 1,
+            "op": "bond.add",
+            "s": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "a mirror then a substituent on the centre is still said",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{\"atoms\":[100],\"bonds\":[101]},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 2\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C[C@H](F)Cl.O",
+        "log": [
+          {
+            "at": 0.0,
+            "atoms": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "axis": "h",
+            "op": "flip"
+          },
+          {
+            "el": "O",
+            "id": 100,
+            "op": "atom.add",
+            "x": 9.0,
+            "y": 9.0
+          },
+          {
+            "a": 2,
+            "b": 100,
+            "o": 1,
+            "op": "bond.add",
+            "s": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "a mirror then the piece joined to another is still said",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{\"bonds\":[9]},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 2\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C[C@H](F)Cl.O",
+        "log": [
+          {
+            "at": 0.0,
+            "atoms": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "axis": "h",
+            "op": "flip"
+          },
+          {
+            "a": 1,
+            "b": 5,
+            "o": 1,
+            "op": "bond.add",
+            "s": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "a mirror then the methyl removed is not kept",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{\"atoms\":[1],\"bonds\":[6]},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 2\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C[C@H](F)Cl.O",
+        "log": [
+          {
+            "at": 0.0,
+            "atoms": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "axis": "h",
+            "op": "flip"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "bonds": [],
+            "objects": [],
+            "op": "remove"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a substituent without a mirror keeps it",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":102,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0},{\\\"id\\\":3,\\\"el\\\":\\\"F\\\",\\\"x\\\":1.5,\\\"y\\\":-0.866},{\\\"id\\\":4,\\\"el\\\":\\\"Cl\\\",\\\"x\\\":1.5,\\\"y\\\":0.866},{\\\"id\\\":5,\\\"el\\\":\\\"O\\\",\\\"x\\\":3.5,\\\"y\\\":0.0},{\\\"id\\\":100,\\\"el\\\":\\\"O\\\",\\\"x\\\":9.0,\\\"y\\\":9.0}],\\\"bonds\\\":[{\\\"id\\\":6,\\\"a\\\":2,\\\"b\\\":1,\\\"o\\\":1,\\\"s\\\":1},{\\\"id\\\":7,\\\"a\\\":2,\\\"b\\\":3,\\\"o\\\":1},{\\\"id\\\":8,\\\"a\\\":2,\\\"b\\\":4,\\\"o\\\":1},{\\\"id\\\":101,\\\"a\\\":1,\\\"b\\\":100,\\\"o\\\":1}]}\",\"created\":{\"atoms\":[100],\"bonds\":[101]},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":true,\"detail\":\"\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C[C@H](F)Cl.O",
+        "log": [
+          {
+            "el": "O",
+            "id": 100,
+            "op": "atom.add",
+            "x": 9.0,
+            "y": 9.0
+          },
+          {
+            "a": 1,
+            "b": 100,
+            "o": 1,
+            "op": "bond.add",
+            "s": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "dry run: the verdict without out",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"dry_run\":true,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 2\"}]}",
+      "request": {
+        "dry_run": true,
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C[C@H](F)Cl",
+        "log": [
+          {
+            "at": 0.0,
+            "atoms": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "axis": "h",
+            "op": "flip"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a failed log: the arm is not checked",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"log\",\"op\":1,\"key\":\"error.draw2.noAtom\",\"id\":99},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"not checked: the log failed\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C[C@H](F)Cl",
+        "log": [
+          {
+            "at": 0.0,
+            "atoms": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "axis": "h",
+            "op": "flip"
+          },
+          {
+            "a": 1,
+            "b": 99,
+            "o": 1,
+            "op": "bond.add",
+            "s": 0
+          }
+        ],
+        "report": true
+      }
+    },
+    {
+      "name": "the mirror of a meso compound is the same molecule",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":20,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"O\\\",\\\"x\\\":-1.0,\\\"y\\\":-1.2991},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":-1.5,\\\"y\\\":-0.433},{\\\"id\\\":3,\\\"el\\\":\\\"C\\\",\\\"x\\\":-1.0,\\\"y\\\":0.433},{\\\"id\\\":4,\\\"el\\\":\\\"O\\\",\\\"x\\\":0.0,\\\"y\\\":0.433},{\\\"id\\\":5,\\\"el\\\":\\\"O\\\",\\\"x\\\":-1.5,\\\"y\\\":1.2991},{\\\"id\\\":6,\\\"el\\\":\\\"C\\\",\\\"x\\\":-2.5,\\\"y\\\":-0.433},{\\\"id\\\":7,\\\"el\\\":\\\"O\\\",\\\"x\\\":-3.0,\\\"y\\\":-1.2991},{\\\"id\\\":8,\\\"el\\\":\\\"C\\\",\\\"x\\\":-3.0,\\\"y\\\":0.433},{\\\"id\\\":9,\\\"el\\\":\\\"O\\\",\\\"x\\\":-4.0,\\\"y\\\":0.433},{\\\"id\\\":10,\\\"el\\\":\\\"O\\\",\\\"x\\\":-2.5,\\\"y\\\":1.2991}],\\\"bonds\\\":[{\\\"id\\\":11,\\\"a\\\":2,\\\"b\\\":1,\\\"o\\\":1,\\\"s\\\":2},{\\\"id\\\":12,\\\"a\\\":2,\\\"b\\\":3,\\\"o\\\":1},{\\\"id\\\":13,\\\"a\\\":2,\\\"b\\\":6,\\\"o\\\":1},{\\\"id\\\":14,\\\"a\\\":3,\\\"b\\\":4,\\\"o\\\":2},{\\\"id\\\":15,\\\"a\\\":3,\\\"b\\\":5,\\\"o\\\":1},{\\\"id\\\":16,\\\"a\\\":6,\\\"b\\\":7,\\\"o\\\":1,\\\"s\\\":2},{\\\"id\\\":17,\\\"a\\\":6,\\\"b\\\":8,\\\"o\\\":1},{\\\"id\\\":18,\\\"a\\\":8,\\\"b\\\":9,\\\"o\\\":2},{\\\"id\\\":19,\\\"a\\\":8,\\\"b\\\":10,\\\"o\\\":1}]}\",\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":true,\"detail\":\"\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "O[C@H](C(=O)O)[C@@H](O)C(=O)O",
+        "log": [
+          {
+            "at": 0.0,
+            "atoms": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "axis": "h",
+            "op": "flip"
+          }
+        ]
+      }
+    },
+    {
+      "name": "the chiral twin mirrored is not",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 2, 6\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "O[C@H](C(=O)O)[C@H](O)C(=O)O",
+        "log": [
+          {
+            "at": 0.0,
+            "atoms": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "axis": "h",
+            "op": "flip"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a methyl across a double bond (E to Z) is said with the bond atoms",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed at atoms 2, 3\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C/C=C/C",
+        "log": [
+          {
+            "atoms": [
+              1
+            ],
+            "dx": 1.4999779990319575,
+            "dy": 0.8660381056766498,
+            "op": "move"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a rigid move of a double bond keeps it",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":8,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":1.433},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":2.0,\\\"y\\\":1.433},{\\\"id\\\":3,\\\"el\\\":\\\"C\\\",\\\"x\\\":2.5,\\\"y\\\":0.567},{\\\"id\\\":4,\\\"el\\\":\\\"C\\\",\\\"x\\\":3.5,\\\"y\\\":0.567}],\\\"bonds\\\":[{\\\"id\\\":5,\\\"a\\\":1,\\\"b\\\":2,\\\"o\\\":1},{\\\"id\\\":6,\\\"a\\\":2,\\\"b\\\":3,\\\"o\\\":2},{\\\"id\\\":7,\\\"a\\\":3,\\\"b\\\":4,\\\"o\\\":1}]}\",\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":true,\"detail\":\"\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C/C=C/C",
+        "log": [
+          {
+            "atoms": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "dx": 1.0,
+            "dy": 1.0,
+            "op": "move"
+          }
+        ]
       }
     }
   ]

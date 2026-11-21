@@ -48,7 +48,7 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
         let opts = crate::scheme::Opts::parse(args).map_err(bad)?;
         let ops = crate::scheme::row(e.doc(), &e.style, &opts).map_err(bad)?;
         let ops = e.following(&ops);
-        return e.session.run(&ops);
+        return e.run_guarded(&ops);
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or(bad("error.draw2.request"))?;
@@ -82,5 +82,5 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     }
     let op = Op::parse(&v).map_err(bad)?;
     let ops = e.following(&[op]);
-    e.session.run(&ops)
+    e.run_guarded(&ops)
 }

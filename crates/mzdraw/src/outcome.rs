@@ -7,7 +7,7 @@
 
 use crate::conform;
 use crate::doc::Document;
-use crate::stereo_guard::{self, Piece};
+use crate::stereo_guard::{self, Snapshot};
 use serde_json::Value;
 use std::collections::BTreeSet;
 
@@ -150,24 +150,19 @@ pub fn pieces(doc: &Document) -> u32 {
 
 impl Check {
     /// Whether the drawing satisfies it, and when it does not, why (English text for a reader; empty when it holds).
-    /// `start` is the signature of the pieces at the start of the request (`stereo_guard::signature` of all pieces).
-    pub fn run(&self, doc: &Document, start: &[(Piece, String)]) -> (bool, String) {
+    /// `start` is every stereo element of the drawing at the start of the request (`Snapshot::all`), for `stereo`.
+    pub fn run(&self, doc: &Document, start: Option<&Snapshot>) -> (bool, String) {
         match self {
             Check::StereoKept => {
-                let diff = stereo_guard::differing(start, doc);
-                if diff.is_empty() {
+                let atoms =
+                    start.map_or_else(Vec::new, |then| stereo_guard::changed(doc, then, true));
+                if atoms.is_empty() {
                     (true, String::new())
                 } else {
-                    let parts: Vec<String> = diff
-                        .iter()
-                        .map(|(atoms, was, now)| {
-                            let ids: Vec<String> = atoms.iter().map(u32::to_string).collect();
-                            format!("atoms {} changed: {was} became {now}", ids.join(", "))
-                        })
-                        .collect();
+                    let ids: Vec<String> = atoms.iter().map(u32::to_string).collect();
                     (
                         false,
-                        format!("the configuration changed: {}", parts.join("; ")),
+                        format!("the configuration changed at atoms {}", ids.join(", ")),
                     )
                 }
             }

@@ -46,6 +46,23 @@ async function step(name, fn) {
     steps.push([name, "FAIL " + lines.slice(0, 8).join(" | ").slice(0, 900) + (at ? " @ " + at.trim().replace(/^at /, "").replace(/^.*\//, "") : "")]);
   }
 }
+/** a chiral centre drawn with the tools at (cx, cy): a wedge to an O, two plain bonds to an N and a C; returns the id of the centre and
+ * `px(id)`, the pixel of an atom (the view is at its start: 40 px to the bond length, y up in the document) */
+async function chiral(pg, cx, cy, tapAt) {
+  const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+  await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  await tool(pg, "bond:up"); await tapAt(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+  const d0 = await doc(), a = d0.bonds[0].a, o = d0.bonds[0].b;
+  const px = async id => { const d = await doc(), A = d.atoms.find(x => x.id === a), P = d.atoms.find(x => x.id === id); return [cx + 40 * (P.x - A.x), cy - 40 * (P.y - A.y)]; };
+  await tool(pg, "bond:1"); await tapAt(cx, cy); await tapAt(cx, cy); await want(pg, { atoms: 4, bonds: 3 });
+  const ids = (await doc()).atoms.map(x => x.id).filter(id => id !== a && id !== o), [n, c] = ids;
+  await tool(pg, "atom:O"); await tapAt(...await px(o));
+  await tool(pg, "atom:N"); await tapAt(...await px(n));
+  const smiles = await pg.evaluate("window.MZDRAW.save('smiles')");
+  assert(/@/.test(smiles) && smiles.includes("N") && smiles.includes("O"), "a chiral centre is drawn: " + smiles);
+  return { centre: a, o, n, c, px, smiles: () => pg.evaluate("window.MZDRAW.save('smiles')") };
+}
+
 const STATE = "JSON.parse(document.documentElement.dataset.d2 || '{}')";
 
 /** waits until a JS expression of the page is true (polled with evaluate: the page's CSP forbids the string eval of waitForFunction) */
@@ -602,24 +619,31 @@ try {
     eq((await state(pg)).atoms, 16);
   });
 
-  await step("stereo guard by keyboard and buttons: a rigid nudge and a turn say nothing, a plain mirror of a wedged centre says where the configuration changed, and undo takes it back", async () => {
-    const smiles = () => pg.evaluate("window.MZDRAW.save('smiles')");
-    await tool(pg, "clear"); await want(pg, { atoms: 0 });
-    await pg.focus("#d2-canvas");
-    await pg.evaluate("(() => { const d = new DataTransfer(); d.setData('text/plain', 'C[C@H](F)Cl'); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()");
-    await want(pg, { atoms: 4 });
-    const was = await smiles();
-    await pg.keyboard.press("Control+a");
-    await pg.keyboard.press("ArrowRight");
-    assert(!(await pg.innerText("#d2-live")).includes("onfiguration"), "a nudge of the whole piece says nothing about the configuration");
-    await tool(pg, "rotate-l");
-    assert(!(await pg.innerText("#d2-live")).includes("onfiguration"), "a turn says nothing about the configuration");
-    eq(await smiles(), was);
+  await step("stereo guard, mouse and keyboard: a rigid nudge and a turn say nothing, a mirror and a drag of one neighbour say where the configuration changed (said and shown), and undo takes it back", async () => {
+    const say = what => pg.evaluate(`I18N.t('draw2.say.stereoChanged', { what: ${JSON.stringify(String(what))} })`);
+    const shown = () => pg.evaluate("document.querySelector('#d2-status .d2-notice')?.textContent.trim() || ''");
+    const g = await chiral(pg, cx, cy, (x, y) => pg.mouse.click(x, y)), was = await g.smiles();
+    await pg.focus("#d2-canvas"); await tool(pg, "select");
+    await pg.keyboard.press("Control+a"); await pg.keyboard.press("ArrowRight");
+    eq(await shown(), ""); assert(!(await pg.innerText("#d2-live")).includes("onfiguration"), "a nudge of the whole piece says nothing");
+    await tool(pg, "rotate-l"); eq(await shown(), "");
+    eq(await g.smiles(), was);
+    const mid = await pg.evaluate("window.MZDRAW.save('mzdraw')");
     await tool(pg, "flip-h");
-    assert((await pg.innerText("#d2-live")).startsWith("Configuration changed at atoms"), "the live line names the change");
-    assert((await smiles()) !== was, "the mirror image is the other enantiomer");
-    await pg.keyboard.press("Control+z");
-    eq(await smiles(), was);
+    eq(await shown(), await say(g.centre)); eq(await pg.innerText("#d2-live"), await say(g.centre));
+    assert((await g.smiles()) !== was, "the mirror image is the other enantiomer");
+    await shot(pg, "plan-21-stereo-guard");
+    await pg.keyboard.press("Control+z"); eq(await shown(), "");
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), mid); eq(await g.smiles(), was);
+    // the mouse: the C neighbour is dragged to the other side of the centre
+    await pg.mouse.click(cx + 250, cy + 250);
+    const from = await g.px(g.c), at = await g.px(g.centre);
+    await pg.mouse.move(...from); await pg.mouse.down();
+    for (let i = 1; i <= 8; i++) await pg.mouse.move(from[0] + (2 * (at[0] - from[0])) * i / 8, from[1] + (2 * (at[1] - from[1])) * i / 8);
+    eq(await shown(), "", "nothing is said while the drag is under way");
+    await pg.mouse.up();
+    assert((await g.smiles()) !== was, "the drag changed the configuration");
+    eq(await shown(), await say(g.centre));
   });
 
   await step("labels: an abbreviation and an R group are chosen, typed, refused in words, drawn and expanded in the molfile", async () => {
@@ -1173,16 +1197,36 @@ try {
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
   });
-  await step("stereo guard by touch: the mirror button of a wedged centre says where the configuration changed", async () => {
-    await tool(pg, "clear"); await want(pg, { atoms: 0 });
-    await pg.evaluate("(() => { const d = new DataTransfer(); d.setData('text/plain', 'C[C@H](F)Cl'); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()");
-    await want(pg, { atoms: 4 });
-    const was = await pg.evaluate("window.MZDRAW.save('smiles')");
+  await step("stereo guard by touch and pen: a tap on the mirror button, a finger drag and a pen drag of one neighbour across the others say where the configuration changed", async () => {
+    const say = what => pg.evaluate(`I18N.t('draw2.say.stereoChanged', { what: ${JSON.stringify(String(what))} })`);
+    const shown = () => pg.evaluate("document.querySelector('#d2-status .d2-notice')?.textContent.trim() || ''");
+    const tapOn = async sel => { await reveal(pg, sel); await pg.locator(sel).scrollIntoViewIfNeeded(); const b = await pg.locator(sel).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+    const g = await chiral(pg, cx, cy, (x, y) => pg.touchscreen.tap(x, y)), was = await g.smiles();
     await tool(pg, "select"); await pg.keyboard.press("Control+a");
-    await tool(pg, "flip-h");
-    assert((await pg.innerText("#d2-live")).startsWith("Configuration changed at atoms"), "the live line names the change");
-    await tool(pg, "undo");
-    eq(await pg.evaluate("window.MZDRAW.save('smiles')"), was);
+    await tapOn('[data-testid="d2-flip-h"]');
+    eq(await shown(), await say(g.centre)); assert((await g.smiles()) !== was, "the mirror image");
+    await tapOn('[data-testid="d2-undo"]'); eq(await shown(), ""); eq(await g.smiles(), was);
+    // a finger drags the C neighbour to the other side of the centre
+    const cdp = await pg.context().newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    await tool(pg, "select"); await pg.touchscreen.tap(cx + 250, cy + 250);
+    const from = await g.px(g.c), at = await g.px(g.centre), to = i => [from[0] + 2 * (at[0] - from[0]) * i / 8, from[1] + 2 * (at[1] - from[1]) * i / 8];
+    await touch("touchStart", [from]); for (let i = 1; i <= 8; i++) await touch("touchMove", [to(i)]);
+    eq(await shown(), "", "nothing is said while the finger is down");
+    await touch("touchEnd", []);
+    assert((await g.smiles()) !== was, "the finger drag changed the configuration"); eq(await shown(), await say(g.centre));
+    // (after a synthetic touch drag the test protocol drops the click of the next tap: the next presses are clicks)
+    await tool(pg, "undo"); eq(await g.smiles(), was);
+    // the pen does the same
+    await pg.mouse.click(cx + 250, cy + 250);
+    const pen = (type, x, y, buttons) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: "left", buttons, clickCount: 1 });
+    await pen("mouseMoved", ...from, 0); await pen("mousePressed", ...from, 1);
+    for (let i = 1; i <= 8; i++) await pen("mouseMoved", ...to(i), 1);
+    eq(await shown(), "", "nothing is said while the pen is down");
+    await pen("mouseReleased", ...to(8), 0);
+    assert((await g.smiles()) !== was, "the pen drag changed the configuration"); eq(await shown(), await say(g.centre));
+    // (the tap that follows a synthetic drag is dropped: an empty-canvas tap with the select tool takes it, so the next step starts clean)
+    await tool(pg, "select"); await pg.touchscreen.tap(cx + 250, cy + 250);
   });
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];

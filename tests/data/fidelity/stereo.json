@@ -4,10 +4,10 @@
  "programs": {
   "rdkit": "2026.09.2"
  },
- "cases": 72,
- "agree": 72,
+ "cases": 116,
+ "agree": 116,
  "flips_changed": 31,
- "drags_changed": 33,
+ "drags_changed": 48,
  "results": [
   {
    "name": "s095-stereo",
@@ -117,8 +117,8 @@
   {
    "name": "s102-stereo",
    "edit": "drag",
-   "ours_changed": true,
-   "inchi_changed": true,
+   "ours_changed": false,
+   "inchi_changed": false,
    "agree": true
   },
   {
@@ -243,8 +243,8 @@
   {
    "name": "s111-stereo",
    "edit": "drag",
-   "ours_changed": true,
-   "inchi_changed": true,
+   "ours_changed": false,
+   "inchi_changed": false,
    "agree": true
   },
   {
@@ -257,8 +257,8 @@
   {
    "name": "s112-stereo",
    "edit": "drag",
-   "ours_changed": true,
-   "inchi_changed": true,
+   "ours_changed": false,
+   "inchi_changed": false,
    "agree": true
   },
   {
@@ -508,6 +508,314 @@
   },
   {
    "name": "s130-stereo",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s131-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s131-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s132-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s132-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s133-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s133-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s134-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s134-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s135-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s135-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s136-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s136-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s137-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s137-ez",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s138-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s138-ez",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s139-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s139-ez",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s140-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s140-ez",
+   "edit": "drag",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s141-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s141-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s142-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s142-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s143-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s143-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s144-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s144-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s145-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s145-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s146-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s146-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s147-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s147-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s148-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s148-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s149-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s149-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s150-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s150-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s151-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s151-ez",
+   "edit": "drag",
+   "ours_changed": true,
+   "inchi_changed": true,
+   "agree": true
+  },
+  {
+   "name": "s152-ez",
+   "edit": "flip",
+   "ours_changed": false,
+   "inchi_changed": false,
+   "agree": true
+  },
+  {
+   "name": "s152-ez",
    "edit": "drag",
    "ours_changed": true,
    "inchi_changed": true,
