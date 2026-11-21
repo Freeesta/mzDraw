@@ -260,6 +260,12 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
                 ann,
             });
         }
+        if !a.cap().is_empty() {
+            ops.push(Op::AtomCap {
+                id: base + a.id,
+                lines: a.cap(),
+            });
+        }
         if !a.col().is_empty() {
             ops.push(Op::Colour {
                 atoms: vec![base + a.id],
@@ -618,7 +624,12 @@ impl Editor {
             "molfile-v3000" => self.doc().to_molfile_v3000(),
             "smiles" => self.doc().to_smiles()?,
             "ket" => self.doc().to_ket(),
-            "cdxml" => self.doc().to_cdxml(),
+            "cdxml" => self.doc().to_cdxml_with(&crate::values::captions(
+                self.doc(),
+                self.style.values,
+                &self.style.adducts,
+                &self.measured,
+            )),
             "cml" => self.doc().to_cml(),
             "rxn" => self.doc().to_rxn()?,
             "trasf" => self.doc().to_trasf().map_err(|e| e.key)?,
@@ -675,6 +686,7 @@ impl Editor {
         [
             ("draw2.export.mapsLost", self.doc().maps_lost(kind)),
             ("draw2.export.coloursLost", self.doc().colours_lost(kind)),
+            ("draw2.export.captionsLost", self.doc().caps_lost(kind)),
         ]
         .into_iter()
         .filter(|l| l.1 > 0)

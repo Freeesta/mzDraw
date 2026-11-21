@@ -403,6 +403,24 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             // colour of atoms and bonds: set (short and long hex, any case), changed, cleared (automatic), and refused ones
             // (not a colour, an id the document lacks) that must leave the document as it was
             let cols = ["#d00000", "#0F8", "#1F3FD0", "", "red", "#12345", "#7b2fbe"];
+            // the lines kept under a molecule: set, reordered, repeated keys, an unknown key (kept), cleared (empty), and a refused
+            // one (a key of 41 characters, an atom the document lacks)
+            if r.next(3) == 0 {
+                let keys = [
+                    "formula",
+                    "logp",
+                    "mw",
+                    "formula",
+                    "future",
+                    "",
+                    &"k".repeat(41),
+                ];
+                let lines: Vec<String> = (0..r.next(4))
+                    .map(|_| keys[r.next(keys.len())].into())
+                    .collect();
+                let id = if r.next(6) == 0 { 9999 } else { atom(r) };
+                return vec![Op::AtomCap { id, lines }];
+            }
             vec![Op::Colour {
                 atoms: (0..r.next(4)).map(|_| atom(r)).collect(),
                 bonds: (0..r.next(3)).map(|_| bond_id(r)).collect(),
@@ -1052,6 +1070,7 @@ fn the_patch_is_in_the_fixed_order() {
         Op::ObjAdd { .. } => 5,
         Op::AtomSet { .. } | Op::AtomData { .. } | Op::AtomAnn { .. } => 6,
         // the colour of an atom is said with the atom, the colour of a bond with the bond
+        Op::AtomCap { .. } => 6,
         Op::Colour { atoms, .. } if !atoms.is_empty() => 6,
         Op::Colour { objects, .. } if !objects.is_empty() => 8,
         Op::BondSet { .. } | Op::Colour { .. } => 7,

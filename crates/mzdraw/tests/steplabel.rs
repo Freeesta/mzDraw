@@ -515,6 +515,7 @@ fn engine(molfile: &str, adducts: &[String]) -> Result<Measured, &'static str> {
         mass,
         average: None,
         ion_mz: None,
+        pct: Vec::new(),
         mz: adducts
             .iter()
             .map(|_| (!charged).then_some(mass + 1.5))

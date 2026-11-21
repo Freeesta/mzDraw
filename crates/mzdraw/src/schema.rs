@@ -179,6 +179,23 @@ pub const OPS: &[OpSpec] = &[
         mzlab: false,
     },
     OpSpec {
+        name: "atom.cap",
+        fields: &[
+            nf("id", "uint", true, "", "an atom of the molecule; the choice is kept on it"),
+            nf(
+                "lines",
+                "json[]",
+                true,
+                "",
+                "the line keys written under the molecule, in order: `formula`, `mw`, `exact`, `ea`, `mz`, `logp`, `tpsa`, `hbd`, `hba`, `rotb`, `heavy`; at most 24, each at most 40 characters; the empty list takes the choice away (the molecule follows `display.values`); a key this version does not know is kept and writes no line",
+            ),
+        ],
+        inverse: "SetAtom",
+        since: crate::brand::FIRST_DOCUMENT_ID,
+        mzdraw: true,
+        mzlab: false,
+    },
+    OpSpec {
         name: "colour",
         fields: &[
             nf("atoms", "uint[]", false, "", "atom ids"),
@@ -414,6 +431,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("request", "propose", "json[]", "a patch of `draw_edit/1` held as a proposal after `commands` and before `events` (`Editor::propose`): not in the drawing and not in the log until a hunk is accepted. It must apply to the drawing as it is (else the refusal of its operation), have 1 to 2000 operations (`error.draw2.proposalEmpty`, `error.draw2.proposalSize`) that name at most 50000 ids in all (every atom, bond and object an operation names counts, so one `remove` or `move` with a long list does too: `error.draw2.proposalIds`); its hunks are those of `diff::hunks`, numbered from 1 in the order of their first operation"),
     r("request", "accept", "uint[]", "with `propose`: the hunks (numbers from 1) accepted in that order, one undo step each, with exactly the operations of the hunk (no route operation follows), so the log holds those and nothing else; the hunks left are dropped, `[]` or no `accept` leaves the drawing and the log as they were; a number outside the hunks, or one given twice, is `error.draw2.proposalHunk` (a verdict at `failed.stage` `proposal`, `op` the index in `accept`; a refused `propose` has no `op`); without `propose` it is an invalid request (`error.draw2.request`)"),
     r("request", "values", "true|object", "the answer is `values/1` (the calculated values), not a drawing: for each structure the Hill formula, the composition, the charge, and, from the engine `sel` of mzLab, the monoisotopic mass, the average mass, the m/z of the adducts of `display.adducts` (null for a charged structure, which has its own `ionMz`), as strings with 4 decimals; `{\"atoms\":[ID,...]}` adds the selection of those atoms as one structure, a bond cut by the selection closed with hydrogen. Stands alone: with `out`, `report`, `dry_run` or `expect` it is `error.draw2.valuesAlone`. `engine` says whether the engine was there (false: formulas only, every number null); `error` is `error.draw2.valuesSize` above 5000 atoms or 200 structures; a structure with an R group has `error.draw2.valuesOpen`, no number"),
+    r("request", "props", "true|object", "the answer is `props/1`, not a drawing: for each structure (and, with `atoms`, for those atoms as one selection) every line of `atom.cap` as `[name, value]` pairs: `formula`, `mw`, `exact`, `ea` (mass per cent of each element), `mz` (one pair per adduct of `display.adducts`), `logp` (Crippen), `tpsa`, `hbd`, `hba`, `rotb`, `heavy`, with the choice of lines kept under the molecule (`cap`); the numbers of the first four need the engine `sel`/`analysis` of mzLab (the page and the glue replay have it; the plain core replay gives the other lines and `\"engine\": false`). The object is `{\"atoms\": [ID...], \"text\": \"text|tsv|line\", \"lines\": [KEY...]}`, each optional: with `text` the answer is the values copied as plain text (blocks of `name: value` lines, tab-separated rows with a header, or one line per structure), of the keys in `lines`, else of the choice kept under each molecule, else of every line; a form that is none, a key list that is not one or nothing to copy is `error.draw2.props` or `error.draw2.propsCopy`. The answer also has `methods` (per line key: a stable `id` and the `text` of the method) and, per structure, `propsError`: the key that says why there is no descriptor number (`error.draw2.propsElement`, `error.draw2.valuesOpen`, `error.draw2.valuesSize`, or the engine key); the engine lines of a structure the engine refused, or gave a mass of zero for (`error.draw2.valuesZero`), are empty and so are its descriptors. The `text` and `tsv` copies end a block with `note` and that key, and carry the method id (`[id]` after the value, a fourth column); the `line` form has no method. An id the drawing lacks is `error.draw2.noAtom`, a key of `lines` that is none `error.draw2.propsLines`. It stands alone, as `values` does (`error.draw2.valuesAlone`)"),
     r("request", "feedback", "string|object", "the answer is `feedback/1`: a prefilled new issue (`url`, `template`, `title`, `body`, `truncated`, `notes`); `\"bug\"`, `\"improvement\"` or `{\"kind\", \"log\", \"agent\", \"lang\"}`; `log` puts the command log in the URL if it fits 6000 bytes; stands alone: no `out`, `report`, `dry_run`, `expect`, `values`, `propose` or `id` (`error.draw2.feedbackAlone`)"),
     r("request", "diff", "object", "two documents `{\"a\":DOC,\"b\":DOC}` (each a document object or its JSON text): answers the patch from `a` to `b` and its hunks (section `diff`), not a `draw-result/1`; the request stands alone: any other field, `report`, `dry_run`, `expect` and `id` included, is `error.draw2.diffAlone`; an unreadable document is `error.draw2.document`"),
     r("diff", "ops", "json[]", "answer: the patch, operations of `draw_edit/1` (`diff::diff(a, b)`): removes, adds, sets, moves, in that order; empty when the drawings are the same"),
