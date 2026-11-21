@@ -1016,6 +1016,34 @@ try {
     await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });
     await tool(pg, "bond:1"); await want(pg, { tool: "bond:1" });
   });
+  await step("side palette: a click on its title is not undone by a layout that runs before the toggle event arrives", async () => {
+    // The disclosure changes at once when the title is clicked, but the module hears of it in the `toggle` event, which comes in a later task.
+    // A layout that runs in between (a resize, here) must not put the old state back. All in one evaluate, so there is no timing to hope for.
+    const r = await pg.evaluate(async () => {
+      const d = /** @type {HTMLDetailsElement} */ (document.querySelector("#d2-data-more")), summary = /** @type {HTMLElement} */ (d.querySelector(":scope > summary"));
+      const was = d.open;
+      summary.click();
+      window.dispatchEvent(new Event("resize"));                                   // a layout, before the toggle event
+      const during = d.open;
+      await new Promise(done => d.addEventListener("toggle", done, { once: true }));
+      await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)));
+      const data = JSON.parse(window.MZDRAW.palettes(innerWidth, innerHeight, "")).palettes.find((/** @type {any} */ p) => p.id === "data");
+      return { was, during, after: d.open, module_collapsed: data.collapsed };
+    });
+    eq(r, { was: false, during: true, after: true, module_collapsed: false });
+    // and the same going back: closed by a click, it stays closed through a layout before the event
+    const back = await pg.evaluate(async () => {
+      const d = /** @type {HTMLDetailsElement} */ (document.querySelector("#d2-data-more"));
+      /** @type {HTMLElement} */ (d.querySelector(":scope > summary")).click();
+      window.dispatchEvent(new Event("resize"));
+      const during = d.open;
+      await new Promise(done => d.addEventListener("toggle", done, { once: true }));
+      await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)));
+      const data = JSON.parse(window.MZDRAW.palettes(innerWidth, innerHeight, "")).palettes.find((/** @type {any} */ p) => p.id === "data");
+      return { during, after: d.open, module_collapsed: data.collapsed };
+    });
+    eq(back, { during: false, after: false, module_collapsed: true });
+  });
   await step("autosave: the drawing is saved in the browser, offered on the next visit, restored with the same bytes, or discarded; the style is remembered", async () => {
     const ready = () => until(pg, "document.documentElement.dataset.d2Ready === '1'");
     const saves = () => pg.evaluate("Number(document.documentElement.dataset.d2Saved || 0)");
