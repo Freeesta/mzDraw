@@ -87,6 +87,7 @@ I18N.add("en", {
   "draw2.std.scheme.anchor": "{n, plural, one {# arrow is anchored to an atom that is gone; it is used as a free end.} other {# arrows are anchored to an atom that is gone; they are used as free ends.}}",
   "draw2.std.scheme.gapRaised": "{n, plural, one {# gap between two columns of a pathway was widened so that the arrows are not too steep or too short, and do not touch a neighbouring structure.} other {# gaps between columns of a pathway were widened so that the arrows are not too steep or too short, and do not touch a neighbouring structure.}}",
   "draw2.std.scheme.free": "{n, plural, one {# object is not part of the pathway and was not moved.} other {# objects are not part of the pathway and were not moved.}}",
+  "draw2.std.scheme.gapLimit": "{n, plural, one {# gap between two columns of a pathway could not be widened enough, so some arrows still touch a neighbouring structure.} other {# gaps between columns of a pathway could not be widened enough, so some arrows still touch a neighbouring structure.}}",
   "draw2.std.scheme.crossing": "{n, plural, one {# arrow passes through the box of another structure.} other {# arrows pass through the box of another structure.}}",
   "draw2.tool.select": "Select",
   "draw2.tool.select.title": "Select and move (V)",

@@ -1,7 +1,7 @@
 //! tp-05b: the gap rule `crossing` of the pathway layout (step 5): a gap between two columns is widened until no primary arrow meets
 //! the route box of another structure of its two layers. Synthetic structures only.
 
-use mzdraw::pathway::{self, Layout};
+use mzdraw::pathway::{self, Col, Gap, Layout};
 use mzdraw::{Document, Style};
 use serde_json::json;
 
@@ -170,24 +170,115 @@ fn property_deterministic_never_overlapping_and_primary_arrows_clean() {
     }
 }
 
-/// The caps are checked before the work (1000 arrows, a cycle); the rule's own work is bounded by `CROSSING_STEPS` per gap, so the
-/// widest allowed fan (999 leaves) and a chain of 1000 stay fast.
+/// The caps are checked before any work: one arrow too many is refused whatever the layout would be.
 #[test]
-fn scaling_the_widest_fan_and_a_chain_stay_fast() {
+fn the_caps_are_checked_before_the_work() {
     let s = style(&[]);
-    let d = fan(pathway::MAX_NODES - 1);
-    let t = std::time::Instant::now();
-    let lay = pathway::layout(&d, &s).unwrap();
-    let ms = t.elapsed().as_secs_f64() * 1000.0;
-    println!(
-        "fan of {} leaves: layout {ms:.0} ms, gaps {:?}",
-        pathway::MAX_NODES - 1,
-        lay.gaps.iter().map(|g| (g.rule, g.gap)).collect::<Vec<_>>()
-    );
-    if !cfg!(debug_assertions) {
-        assert!(ms < 2000.0, "{ms} ms");
-    }
-    // one more is refused before any work
     let e: Vec<(usize, usize)> = (1..=pathway::MAX_ARROWS + 1).map(|i| (0, i)).collect();
     assert!(pathway::layout(&synthetic(pathway::MAX_ARROWS + 2, &e), &s).is_err());
+    let cycle = synthetic(3, &[(0, 1), (1, 2), (2, 0)]);
+    assert!(pathway::layout(&cycle, &s).is_err());
+}
+
+/// A fan so steep that no gap within the bound clears it: the gap is left as it was, the keyed note `std.scheme.gapLimit` says so,
+/// and the arrows that meet a box are still listed (as `std.scheme.crossing`).
+#[test]
+fn when_the_bound_is_hit_the_gap_is_unchanged_and_the_failure_is_reported() {
+    let (d, s) = (fan(300), style(&["max_angle=89"]));
+    let lay = pathway::layout(&d, &s).unwrap();
+    assert!(
+        lay.gaps.iter().all(|g| g.rule != "crossing"),
+        "{:?}",
+        lay.gaps
+    );
+    assert_eq!(lay.limits.len(), 1, "{:?}", lay.limits);
+    let lim = &lay.limits[0];
+    assert_eq!((lim.comp, lim.k, lim.rule), (0, 0, "crossing"));
+    assert_eq!(lim.arrows.len(), 300);
+    // the gap kept is the column spacing really laid out (not a widened one)
+    let (x0, x1) = (lay.centres[0].0, lay.centres[1].0);
+    let (w0, w1) = (
+        lay.nodes[0].rect[2] - lay.nodes[0].rect[0],
+        lay.nodes[1].rect[2] - lay.nodes[1].rect[0],
+    );
+    assert!(((x1 - x0) - w0 / 2.0 - w1 / 2.0 - lim.gap).abs() < 1e-9);
+    // nothing is silent: the crossings are listed and the report carries both keys
+    assert!(!lay.crossings.is_empty());
+    let rep = pathway::report_with(&d, &s).to_json();
+    assert!(
+        rep.contains("std.scheme.gapLimit") && rep.contains("std.scheme.crossing"),
+        "{rep}"
+    );
+    // a fan that is cleared has no such note
+    let ok = pathway::layout(&fan(5), &style(&[])).unwrap();
+    assert!(ok.limits.is_empty());
+}
+
+#[test]
+fn the_new_key_has_its_english_text_and_a_schema_row() {
+    let lang = std::fs::read_to_string(format!(
+        "{}/../../web/lang/mzdraw.js",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .unwrap();
+    assert!(lang.contains("\"draw2.std.scheme.gapLimit\":"));
+    assert!(mzdraw::schema::REQUEST
+        .iter()
+        .any(|r| r.key == "std.scheme.gapLimit"));
+}
+
+/// Columns whose last arrow meets a wider box at the same height whatever the gap: every one of the `CROSSING_STEPS + 1` checks
+/// runs through all the clean arrows before it fails, so the work is the rule's worst case.
+fn forced(n: usize) -> (Vec<Col>, Vec<Col>, Vec<(usize, usize)>) {
+    let left: Vec<Col> = (0..n).map(|i| (2.0 * i as f64, 1.0, 1.0)).collect();
+    let mut right = left.clone();
+    right.push((2.0 * (n - 1) as f64, 6.0, 3.0)); // the wide box on top of the last one
+    let edges = (0..n).map(|i| (i, i)).collect();
+    (left, right, edges)
+}
+
+fn forced_time(n: usize) -> f64 {
+    let (l, r, e) = forced(n);
+    (0..3)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            let g = pathway::crossing_gap(&l, &r, &e, (1.0, 6.0), 2.5, 0.35);
+            assert_eq!(g, Gap::Bound);
+            t.elapsed().as_secs_f64()
+        })
+        .fold(f64::MAX, f64::min)
+}
+
+/// The cost of the rule, alone, when it runs all its steps: four times the structures must cost about four times (a linear scan of
+/// the column per arrow would cost sixteen), in debug as in release, best of three, no floor.
+#[test]
+fn scaling_the_rule_alone_at_its_bound_is_linear_in_the_arrows() {
+    let (small, big) = (forced_time(250), forced_time(1000));
+    let ratio = big / small;
+    println!("rule at its bound: 250 -> {small:.4} s, 1000 -> {big:.4} s, ratio {ratio:.2}");
+    assert!(ratio < 7.0, "ratio {ratio}");
+    // and it stops at the first step that is clean when one exists
+    let (l, r, e) = forced(3);
+    let r: Vec<Col> = r[..3].to_vec();
+    assert_eq!(
+        pathway::crossing_gap(&l, &r, &e, (1.0, 1.0), 2.5, 0.35),
+        Gap::Clean(0)
+    );
+}
+
+/// The rule adds at most `CROSSING_STEPS * CROSSING_STEP` (20 bond lengths) to a gap, so it cannot push a layout off the page by
+/// itself: a fan of 999 at 1 degree already has a slope gap near 50,000 and is laid out (the page limit is `MAX_COORD`, 1e6); a
+/// layout that does leave the page is refused by `pathway::ops` with the document's own key, as before (`tests/pathway.rs`,
+/// `a_layout_that_leaves_the_page_is_refused_with_a_key_and_changes_nothing`). The rule does not clamp a gap to the page.
+#[test]
+fn the_rule_adds_a_bounded_amount_and_the_page_limit_is_the_documents_own() {
+    assert!((f64::from(pathway::CROSSING_STEPS) * pathway::CROSSING_STEP - 20.0).abs() < 1e-9);
+    let (d, s) = (fan(pathway::MAX_NODES - 1), style(&["max_angle=1"]));
+    let lay = pathway::layout(&d, &s).unwrap();
+    assert!(
+        lay.gaps.iter().any(|g| g.rule == "slope" && g.gap > 4.0e4),
+        "{:?}",
+        lay.gaps
+    );
+    assert!(pathway::ops(&d, &s, &lay).is_ok());
 }
