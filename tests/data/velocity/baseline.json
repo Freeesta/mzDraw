@@ -120,6 +120,19 @@
    "pointer": "mouse",
    "actions": 8,
    "ok": true
+  },
+  {
+   "task": "parent-five-tps",
+   "pointer": "mouse",
+   "actions": 28,
+   "ok": true
+  },
+  {
+   "task": "parent-five-tps",
+   "variant": "copy-paste",
+   "pointer": "mouse",
+   "actions": 34,
+   "ok": true
   }
  ]
 }

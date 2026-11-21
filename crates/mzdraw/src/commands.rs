@@ -25,6 +25,7 @@ pub(crate) fn known(name: &str) -> bool {
             | "pathway:route"
             | "pathway:tree"
             | "scheme:orient"
+            | "tp:derive"
     )
 }
 
@@ -37,6 +38,9 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     }
     if name == "pathway:anchor" || name == "pathway:route" {
         return pathway_args(name, args).map(|_| ());
+    }
+    if name == "tp:derive" {
+        return derive_args(args).map(|_| ());
     }
     if name == "scheme:orient" {
         // no argument: it orients every structure after an arrow on the one before it
@@ -85,6 +89,70 @@ fn pathway_args(name: &str, args: &Value) -> Result<Option<u32>, &'static str> {
     }
 }
 
+/// The arguments of `tp:derive`: `{"of": atom id, "patch": [operations on the parent's ids], "at": [x, y]}` (`patch` and `at` may be
+/// left out). In a patch a negative id names a new atom of the patch: `-1` the first `atom.add`, `-2` the second, and so on.
+type Derive = (u32, Vec<Op>, Option<(f64, f64)>);
+
+fn derive_args(args: &Value) -> Result<Derive, &'static str> {
+    const BAD: &str = "error.draw2.request";
+    let obj = args.as_object().ok_or(BAD)?;
+    if !obj
+        .keys()
+        .all(|k| matches!(k.as_str(), "of" | "patch" | "at"))
+    {
+        return Err(BAD);
+    }
+    let of = match obj.get("of").and_then(Value::as_u64) {
+        Some(i) if i > 0 && i < u64::from(crate::doc::MAX_ID) => i as u32,
+        _ => return Err(BAD),
+    };
+    let at = match obj.get("at") {
+        None => None,
+        Some(v) => match v.as_array().map(Vec::as_slice) {
+            Some([x, y]) => match (x.as_f64(), y.as_f64()) {
+                (Some(x), Some(y))
+                    if x.abs() <= crate::doc::MAX_COORD && y.abs() <= crate::doc::MAX_COORD =>
+                {
+                    Some((x, y))
+                }
+                _ => return Err(BAD),
+            },
+            _ => return Err(BAD),
+        },
+    };
+    let list = match obj.get("patch") {
+        None => &Vec::new(),
+        Some(v) => v.as_array().ok_or(BAD)?,
+    };
+    if list.len() > crate::tp::MAX_PATCH {
+        return Err("error.draw2.tpPatch");
+    }
+    let named = |v: &Value| match v.as_i64() {
+        Some(n) if (-1_000_000..0).contains(&n) => {
+            json!(crate::tp::new_ref(n.unsigned_abs() as u32))
+        }
+        _ => v.clone(),
+    };
+    let mut patch = Vec::with_capacity(list.len());
+    for item in list {
+        let mut op = item.clone();
+        if let Some(o) = op.as_object_mut() {
+            for k in ["id", "a", "b"] {
+                if let Some(v) = o.get_mut(k) {
+                    *v = named(v);
+                }
+            }
+            for k in ["atoms"] {
+                if let Some(l) = o.get_mut(k).and_then(Value::as_array_mut) {
+                    l.iter_mut().for_each(|v| *v = named(v));
+                }
+            }
+        }
+        patch.push(Op::parse(&op)?);
+    }
+    Ok((of, patch, at))
+}
+
 /// Runs one command as one undo step, with the route operations of the arrows that follow. The error is an i18n key and the id it
 /// is about.
 pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpError> {
@@ -101,6 +169,11 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     }
     if name == "scheme:orient" {
         return orient(e);
+    }
+    if name == "tp:derive" {
+        let (of, patch, at) = derive_args(args).map_err(bad)?;
+        let ops = crate::tp::derive(e.doc(), &e.style, of, &patch, at).map_err(bad)?;
+        return e.run_guarded(&ops);
     }
     if name == "scheme:row" {
         let opts = crate::scheme::Opts::parse(args).map_err(bad)?;

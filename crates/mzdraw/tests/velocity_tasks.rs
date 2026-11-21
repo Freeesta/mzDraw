@@ -95,7 +95,7 @@ fn identity_of(request: Value) -> (String, Vec<String>) {
 fn every_target_is_a_smiles_mzlab_mol_reads() {
     let tasks = read("tasks.json");
     let tasks = tasks["tasks"].as_array().unwrap();
-    assert_eq!(tasks.len(), 15);
+    assert_eq!(tasks.len(), 16);
     let mut ids = std::collections::BTreeSet::new();
     for t in tasks {
         let (id, smiles) = (

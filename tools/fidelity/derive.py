@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Independent check of `tp:derive` (tp-03). For each parent -> TP pair of the synthetic cases below, mzDraw derives the TP and writes the
+drawing as an RXN V2000 (with maps); RDKit reads that RXN. Two checks, both on OUR output as RDKit reads it:
+  1. the scaffold, as RDKit reads it: with the atom maps, the heavy atoms and bonds of the parent that the patch does not touch are in the
+     product with the same element and bond order, and the product has exactly the removed / added atoms and bonds named below (written
+     here by hand from the patch, in map numbers, not computed by mzDraw), so the edited atom is the one the patch names;
+  2. the product formula minus the reactant formula equals the delta of the edit, written here by hand from the patch.
+What it does NOT show: that the coordinates are right (RDKit reads connectivity, not our geometry), that the arrow is well routed, or
+that the maps are the ones a chemist would assign (they are our own numbering of the parent, read back).
+Usage:  cargo build -p mzdraw --example replay
+        python3 tools/fidelity/derive.py --replay target/debug/examples/replay --out tests/data/fidelity/derive.json
+Exit 0 all agree, 1 a disagreement, 2 tool error, 3 RDKit missing. RDKit is installed at run time (pip install rdkit), never committed;
+the committed reference has the program name and version, the date and the success rate."""
+import argparse, collections, datetime, json, math, subprocess, sys
+
+
+def lactam():
+    atoms = [{"id": i + 1, "el": e, "x": round(math.cos(math.radians(60 * i)), 4), "y": round(math.sin(math.radians(60 * i)), 4)} for i, e in enumerate("NCCCCC")]
+    atoms += [{"id": 7, "el": "C", "x": 2.0, "y": 0.0}, {"id": 8, "el": "O", "x": 0.5, "y": 1.7321}]
+    bonds = [{"id": 9 + i, "a": i + 1, "b": (i + 1) % 6 + 1, "o": 1} for i in range(6)] + [{"id": 15, "a": 1, "b": 7, "o": 1}, {"id": 16, "a": 2, "b": 8, "o": 2}]
+    return json.dumps({"format": "mzdraw/1", "next": 17, "atoms": atoms, "bonds": bonds})
+
+# (name, patch, formula delta, removed maps, added {map: element}, removed bonds, added bonds); maps of the parent are its atom ids (1..8),
+# the new atom of a patch takes 9; bonds are (map, map, order)
+CASES = [
+    ("hydroxylation", [{"op": "atom.add", "el": "O", "x": -1.0, "y": -1.7321}, {"op": "bond.add", "a": 5, "b": -1, "o": 1}], {"O": 1},
+     set(), {9: "O"}, set(), {(5, 9, 1)}),
+    ("demethylation", [{"op": "remove", "atoms": [7], "bonds": [15]}], {"C": -1, "H": -2},
+     {7}, {}, {(1, 7, 1)}, set()),
+    ("ring opening (hydrolysis)", [{"op": "remove", "atoms": [], "bonds": [9]}, {"op": "atom.add", "el": "O", "x": 1.366, "y": 1.366}, {"op": "bond.add", "a": 2, "b": -1, "o": 1}], {"H": 2, "O": 1},
+     set(), {9: "O"}, {(1, 2, 1)}, {(2, 9, 1)}),
+]
+
+
+def main():
+    ap = argparse.ArgumentParser(); ap.add_argument("--replay", required=True); ap.add_argument("--out", help="write the reference JSON here (default: stdout)"); args = ap.parse_args()
+    try:
+        from rdkit import Chem, rdBase
+        from rdkit.Chem import AllChem, rdMolDescriptors
+    except ImportError:
+        print("RDKit is not installed: not measured (pip install rdkit)", file=sys.stderr); return 3
+
+    def replay(req):
+        r = subprocess.run([args.replay], input=json.dumps(req), capture_output=True, text=True)
+        if r.returncode != 0: raise SystemExit("replay failed: " + r.stdout + r.stderr)
+        return r.stdout
+
+    def counts(m):
+        f = collections.Counter()
+        for a in Chem.AddHs(m).GetAtoms(): f[a.GetSymbol()] += 1
+        return f
+
+    results, bad = [], 0
+    for name, patch, delta, gone, new, cut, made in CASES:
+        rxn_text = replay({"import": lactam(), "commands": [{"command": "tp:derive", "args": {"of": 1, "patch": patch}}], "out": "rxn"})
+        rxn = AllChem.ReactionFromRxnBlock(rxn_text)
+        (r,), (p,) = list(rxn.GetReactants()), list(rxn.GetProducts())
+        for m in (r, p): Chem.SanitizeMol(m)
+        def scaffold(m):
+            atoms = {a.GetAtomMapNum(): a.GetSymbol() for a in m.GetAtoms() if a.GetAtomMapNum()}
+            bonds = {(min(x, y), max(x, y), int(b.GetBondTypeAsDouble())) for b in m.GetBonds()
+                     for x, y in [(b.GetBeginAtom().GetAtomMapNum(), b.GetEndAtom().GetAtomMapNum())]}
+            return atoms, bonds
+        (ra, rb), (pa, pb) = scaffold(r), scaffold(p)
+        # the reactant as RDKit reads it is the parent we drew: the map of an atom is its id, so the bonds by map are the bonds of lactam()
+        drawn = json.loads(lactam())
+        parent_bonds = {(min(b["a"], b["b"]), max(b["a"], b["b"]), b["o"]) for b in drawn["bonds"]}
+        parent_atoms = {a["id"]: a["el"] for a in drawn["atoms"]}
+        reactant_is_parent = rb == parent_bonds and ra == parent_atoms
+        every = len(ra) == r.GetNumAtoms() and len(pa) == p.GetNumAtoms()
+        norm = lambda bs: {(min(x, y), max(x, y), o) for x, y, o in bs}
+        same_atoms = (every
+                      and {k: v for k, v in ra.items() if k not in gone} | new == pa
+                      and set(ra) - set(gone) | set(new) == set(pa)
+                      and (rb - norm(cut)) | norm(made) == pb)
+        got = counts(p); got.subtract(counts(r))
+        got = {k: v for k, v in got.items() if v}
+        ok = same_atoms and reactant_is_parent and got == delta
+        bad += not ok
+        print(("ok   " if ok else "FAIL ") + name, got, file=sys.stderr)
+        results.append({"case": name, "reactant": rdMolDescriptors.CalcMolFormula(r), "product": rdMolDescriptors.CalcMolFormula(p), "delta": got, "expected": delta, "reactant_is_the_parent_drawn": reactant_is_parent, "scaffold_as_named": same_atoms, "ok": ok})
+    ref = {"format": "fidelity-derive/1", "date": datetime.date.today().isoformat(), "programs": {"rdkit": rdBase.rdkitVersion}, "success": f"{len(results) - bad}/{len(results)}", "results": results}
+    out = open(args.out, "w") if args.out else sys.stdout
+    json.dump(ref, out, indent=1); out.write("\n")
+    return 1 if bad else 0
+
+if __name__ == "__main__": sys.exit(main())
