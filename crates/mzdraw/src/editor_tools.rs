@@ -3,9 +3,10 @@
 use crate::build;
 use crate::doc::ObjKind;
 use crate::editor::{
-    Editor, Hit, Press, Tool, ASK_LABEL, ASK_TEXT, CHANGED, CTRL, FOCUS, HANDLED, PALETTES,
+    Editor, Hit, Press, Tool, ALT, ASK_LABEL, ASK_TEXT, CHANGED, CTRL, FOCUS, HANDLED, PALETTES,
     REPAINT, SHIFT, TOOL,
 };
+use crate::editor_nudge::{NUDGE_LARGE, NUDGE_SMALL, TURN_STEP};
 use crate::m;
 use crate::ops::Op;
 use std::f64::consts::PI;
@@ -17,7 +18,8 @@ impl Editor {
     pub fn pointer_down(&mut self, px: f64, py: f64, kind: u32, mods: u32) -> u32 {
         let hit = self.hit(px, py, kind);
         let shift = mods & SHIFT != 0;
-        if self.tool == Tool::Select {
+        // a click on an empty spot in "move here" mode keeps the selection it is about to bring there
+        if self.tool == Tool::Select && !(hit == Hit::None && self.move_here_ready()) {
             self.select_press(hit, shift);
         }
         self.press = Some(Press {
@@ -267,6 +269,10 @@ impl Editor {
         drag: (f64, f64),
         band: Option<(f64, f64, f64, f64)>,
     ) -> u32 {
+        if p.hit == Hit::None && !p.moved && self.move_here_ready() {
+            let (x, y) = self.view.to_doc(p.now.0, p.now.1);
+            return self.move_centre_to(x, y);
+        }
         if let Some((x, y, w, h)) = band {
             let d = &self.session.doc;
             let inside = |id: u32| {
@@ -566,11 +572,59 @@ impl Editor {
         REPAINT
     }
 
+    /// Selects what the findings of one check (`key`, as the report names it) are about: their atoms, bonds and objects together,
+    /// as the select tool would. The selection is the user's view and no step of the history. A key with no finding changes nothing.
+    pub fn select_check(&mut self, key: &str) -> u32 {
+        let report = crate::conform::report(&self.session.doc);
+        let found = report.checks.iter().filter(|f| f.key == key);
+        let (mut atoms, mut bonds, mut objects) = (Vec::new(), Vec::new(), Vec::new());
+        let mut any = false;
+        for f in found {
+            any = true;
+            atoms.extend(&f.atoms);
+            bonds.extend(&f.bonds);
+            objects.extend(&f.objects);
+        }
+        if !any {
+            return 0;
+        }
+        for ids in [&mut atoms, &mut bonds, &mut objects] {
+            crate::m::sort(ids);
+            ids.dedup();
+        }
+        (self.over.sel_atoms, self.over.sel_bonds, self.over.sel_objs) = (atoms, bonds, objects);
+        REPAINT
+    }
+
     /// A key press (`key` as the browser names it). Returns `HANDLED` when the page must not let the browser act on it.
     pub fn key(&mut self, key: &str, mods: u32) -> u32 {
+        self.key_at(key, mods, 0.0)
+    }
+
+    /// `key` with the time stamp `t` of the press in milliseconds, which joins repeated nudges into one undo step.
+    pub fn key_at(&mut self, key: &str, mods: u32, t: f64) -> u32 {
         let ctrl = mods & CTRL != 0;
         let shift = mods & SHIFT != 0;
         let lower = key.to_ascii_lowercase();
+        if mods & ALT != 0 && !ctrl {
+            // Alt+Arrow moves the selection, Alt+[ and Alt+] turn it; the page must not let the browser go back or forward
+            let f = match lower.as_str() {
+                "arrowright" | "arrowleft" | "arrowup" | "arrowdown" => {
+                    let s = if shift { NUDGE_LARGE } else { NUDGE_SMALL };
+                    let (dx, dy) = match lower.as_str() {
+                        "arrowright" => (s, 0.0),
+                        "arrowleft" => (-s, 0.0),
+                        "arrowup" => (0.0, s),
+                        _ => (0.0, -s),
+                    };
+                    self.nudge(dx, dy, t)
+                }
+                "[" | "{" => self.turn(TURN_STEP, t),
+                "]" | "}" => self.turn(-TURN_STEP, t),
+                _ => return 0,
+            };
+            return f | HANDLED;
+        }
         if !ctrl && let Some(f) = self.focus_key(&lower, shift) {
             return f | HANDLED;
         }
@@ -600,6 +654,7 @@ impl Editor {
             (false, "y") => self.set_tool("bond:wavy"),
             (false, "+" | "-") => self.set_tool(&format!("charge:{lower}")),
             (false, "v") => self.set_tool("select"),
+            (false, "m") => self.set_move_here(!self.move_here),
             (false, "e") => self.set_tool("erase"),
             (false, "l") => ASK_LABEL,
             (false, "t") => ASK_TEXT,

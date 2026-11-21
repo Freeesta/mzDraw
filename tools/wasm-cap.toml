@@ -4,8 +4,12 @@
 # 2026-11-20: the owner lifted the size limit for now. `cap` is a generous guard (4000000) that only catches a runaway; revisit
 # before the first release.
 # 2026-11-21: measured 568004 (group label reversal, +2668 B on 565336).
-# 2026-11-21: measured 597565 (palettes and export defaults in the settings, R1, +29561 B on 568004).
 # 2026-11-20: raised from 512000 to 540000 by the owner's decision, for the 2D layout of mzlab-mol (the module measured 536722 B
 # with it linked, 500659 B without).
 cap = 4000000
-measured = 597565
+# 2026-11-21: 584638 B with the drawing checks std/1 (stereo family, +16634 B over 568004 B).
+# 2026-11-21: 589976 B with drag-free editing (keys, Move here; +5338 B over 584638 B).
+# 2026-11-21: 592912 B with the annotation scales (arch-std-14; +2936 B over 589976 B).
+# 2026-11-21: 739519 B with the engine glue (cip, cut, mech +102.8 kB, hilite +38.0 kB, sel +11.4 kB; +146607 B over 592912 B).
+# 2026-11-21: measured 769039 (palettes and export defaults in the settings, R1, +29520 B on 739519).
+measured = 769039

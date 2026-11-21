@@ -25,6 +25,8 @@ pub const PALETTES: u32 = 128;
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
 pub const CTRL: u32 = 2;
+/// Bit 4 of a pointer event is the eraser end of a pen; bit 8 is Alt (Option) on a key.
+pub const ALT: u32 = 8;
 
 /// Pointer kinds: mouse, pen, finger. A finger needs a wider reach.
 pub const MOUSE: u32 = 0;
@@ -154,6 +156,10 @@ pub struct Editor {
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
     pub(crate) clip: String,
     pub(crate) pasted: u32,
+    /// The last nudge or turn by keys, to join the next press to it as one undo step.
+    pub(crate) nudge: Option<crate::editor_nudge::Nudge>,
+    /// The "move here" mode: with a selection, a click on an empty spot brings the selection there.
+    pub move_here: bool,
     /// The open context menu and what the page was asked to do after its last item (`context`).
     pub(crate) ctx: crate::context::Context,
 }
@@ -179,6 +185,8 @@ impl Default for Editor {
             export: Default::default(),
             clip: String::new(),
             pasted: 0,
+            nudge: None,
+            move_here: false,
             ctx: Default::default(),
         }
     }
@@ -372,7 +380,7 @@ impl Editor {
     }
 
     /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `sdf` (one record per structure, with its data),
-    /// `svg` (in the style of the editor) or `log` (the command log). The error is an i18n key.
+    /// `svg` (in the style of the editor), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
             "mzdraw" => self.doc().to_json(),
@@ -388,6 +396,7 @@ impl Editor {
             "log" => self.session.log_json(),
             // the settings file: the style, the layout of the palettes and the export defaults
             "settings" => self.settings_json(),
+            "std" => crate::conform::report(self.doc()).to_json(),
             _ => return Err("error.draw2.request"),
         })
     }
@@ -512,6 +521,7 @@ impl Editor {
         self.session = Session::new(doc);
         self.over = Overlay::default();
         self.press = None;
+        self.nudge = None;
         self.said = ("draw2.say.opened", self.doc().atoms.len().to_string());
         self.error = "";
         Ok(())
@@ -605,16 +615,21 @@ impl Editor {
 
     /// Annotates the structure the atom `anchor` belongs to, as one undo step: a new entry (`ann::entry`: the level, an
     /// identifier, the evidence as lines `kind: ref`, a note; decided by the chemist) is added after the entries the structure
-    /// has, and the whole annotation is kept on `anchor`. An empty `level` takes the annotation of the structure away. An entry
+    /// has, and the whole annotation is kept on `anchor`. The `scale` the level is read on (`ann::SCALES`; empty: the default) is
+    /// written with the entry. An empty `level` takes the annotation of the structure away. An entry
     /// that is not of its shape is refused (`error.draw2.ann` in `error`) and changes nothing.
     pub fn annotate(
         &mut self,
         anchor: u32,
+        scale: &str,
         level: &str,
         identifier: &str,
         evidence: &str,
         note: &str,
     ) -> u32 {
+        let scale = Some(scale.trim())
+            .filter(|s| !s.is_empty())
+            .unwrap_or(crate::ann::SCALE);
         let piece = crate::layout::pieces(self.doc())
             .into_iter()
             .find(|p| p.contains(&anchor))
@@ -625,7 +640,7 @@ impl Editor {
             .filter(|a| !a.1.is_empty())
             .collect();
         let level = level.trim();
-        let new = crate::ann::entry(level, identifier, evidence, note, "chemist");
+        let new = crate::ann::entry(scale, level, identifier, evidence, note, "chemist");
         let list = if level.is_empty() {
             "[]".to_string()
         } else {
