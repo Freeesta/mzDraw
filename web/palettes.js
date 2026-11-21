@@ -248,16 +248,20 @@ function shape(r) {
   p.el.hidden = r.hidden; p.el.dataset.dock = r.dock; p.el.dataset.orient = r.horizontal ? "h" : "v";
   p.el.setAttribute("aria-orientation", r.horizontal ? "horizontal" : "vertical");
   if (p.spec) fold(p, r.collapsed);
-  else if (p.body.open === r.collapsed) p.body.open = !r.collapsed;
+  else if (!p.pending && p.body.open === r.collapsed) p.body.open = !r.collapsed;
 }
 
 /** a side palette of index.html: its handle, and its disclosure as the collapsed state of the module @param {HTMLElement} el */
 function side(el) {
   const id = el.dataset.pal || "", body = /** @type {HTMLDetailsElement} */ (el.querySelector(":scope > details"));
-  pals[id] = { id, el, body, spec: null };
+  const p = pals[id] = { id, el, body, spec: null, pending: false };
   el.setAttribute("aria-label", ctx.t(`draw2.pal.${id}`));
   el.prepend(grip(id));
+  // a click on the title opens or closes the disclosure at once, but the `toggle` event that tells the module comes later: until it has,
+  // a layout that runs in between must not put the old state back (that closed a palette the user had just opened)
+  body.querySelector(":scope > summary")?.addEventListener("click", () => { p.pending = true; });
   body.addEventListener("toggle", () => {
+    p.pending = false;
     const r = last?.palettes.find((/** @type {any} */ x) => x.id === id);
     if (r && r.collapsed === body.open) after(ed().palette("collapsed", id, 0, 0, false), true);
   });

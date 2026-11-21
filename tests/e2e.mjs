@@ -1268,6 +1268,8 @@ try {
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, permissions: ["clipboard-read", "clipboard-write"] }));
   await step("context menu, mouse: each target has its menu, the items run as one undo step, the keys are shown, the menu closes on any change and a stale one is refused", async () => {
     const live = () => pg.innerText("#d2-live");
+    // an empty spot of the canvas, 60 px inside its left edge (the palettes at the sides take as much as they need, so it is not cx - 450)
+    const box = await pg.locator("#d2-canvas").boundingBox(), empty = [box.x + 60, cy - 300];
     const open = async (x, y, target) => { await pg.mouse.click(x, y, { button: "right" }); await shown(pg); eq((await menuNow(pg)).target, target); };
     // the menu of the browser never opens on the canvas (the event is cancelled) and the page opens nothing for it: the module decides
     const cancelled = sel => pg.evaluate(`(() => { const e = new MouseEvent("contextmenu", { cancelable: true, bubbles: true }); document.querySelector(${JSON.stringify(sel)}).dispatchEvent(e); return e.defaultPrevented; })()`);
@@ -1333,14 +1335,16 @@ try {
     // a right-button drag pans the view and opens no menu; a click in place does
     await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas");
     const where = (await firstLine(pg)).atom;
-    await pg.mouse.move(cx - 450, cy - 300); await pg.mouse.down({ button: "right" }); await pg.mouse.move(cx - 390, cy - 280, { steps: 5 }); await pg.mouse.up({ button: "right" });
+    // (the drag starts inside the canvas, 60 px from its left edge: the palettes at the sides take as much as they need)
+    const [px, py] = empty;
+    await pg.mouse.move(px, py); await pg.mouse.down({ button: "right" }); await pg.mouse.move(px + 60, py + 20, { steps: 5 }); await pg.mouse.up({ button: "right" });
     await shown(pg, false);
     const moved = (await firstLine(pg)).atom; eq([moved[0] - where[0], moved[1] - where[1]], [60, 20]);
-    await pg.mouse.move(cx - 390, cy - 280); await pg.mouse.down({ button: "middle" }); await pg.mouse.move(cx - 360, cy - 280, { steps: 3 }); await pg.mouse.up({ button: "middle" });
+    await pg.mouse.move(px + 60, py + 20); await pg.mouse.down({ button: "middle" }); await pg.mouse.move(px + 90, py + 20, { steps: 3 }); await pg.mouse.up({ button: "middle" });
     await shown(pg, false); eq((await firstLine(pg)).atom[0] - moved[0], 30);
     await pg.keyboard.press("Control+a"); await pg.keyboard.press("Escape");
     // an empty spot: the canvas menu; the menu closes on any change (here the wheel) and a stale one is refused
-    await open(cx - 450, cy - 300, "canvas"); eq((await state(pg)).selected, 0);
+    await open(...empty, "canvas"); eq((await state(pg)).selected, 0);
     await pg.mouse.move(cx, cy); await pg.mouse.wheel(0, -120); await shown(pg, false);
     const atom2 = (await firstLine(pg)).atom;                           // the wheel moved the view
     await open(...atom2, "atom");
@@ -1350,14 +1354,14 @@ try {
     eq(await doc(), after); eq(await live(), await pg.evaluate("I18N.err({ error_key: 'error.draw2.contextStale', params: {} }).message"));
     await pg.keyboard.press("Control+Shift+z");
     // Clear all, then the empty document: no export item, a notice in words instead
-    await open(cx - 450, cy - 300, "canvas"); await pg.click(item("canvas.clear")); await want(pg, { atoms: 0, objects: 0 });
-    await open(cx - 450, cy - 300, "canvas");
+    await open(...empty, "canvas"); await pg.click(item("canvas.clear")); await want(pg, { atoms: 0, objects: 0 });
+    await open(...empty, "canvas");
     assert(!(await menuNow(pg)).ids.includes("canvas.save"), "no export on an empty canvas");
     eq(await pg.innerText("#d2-menu .note"), await pg.evaluate("I18N.t('draw2.ctx.empty')"));
     eq(await pg.getAttribute(item("canvas.clear"), "aria-disabled"), "true");
     await pg.keyboard.press("Escape");
     await ring(pg, cx, cy);
-    await open(cx - 450, cy - 300, "canvas"); eq((await menuNow(pg)).ids.includes("canvas.save"), true);
+    await open(...empty, "canvas"); eq((await menuNow(pg)).ids.includes("canvas.save"), true);
     await shot(pg, "context-menu-light");
     await pg.keyboard.press("Escape");
   });
