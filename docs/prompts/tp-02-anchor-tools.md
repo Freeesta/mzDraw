@@ -63,7 +63,7 @@ No `draw_edit/1` op or field (tp-01 added the fields). Request rows only (D13).
 Correctness must not rest on our own claims. The velocity task of tp-01's kill test, counted before and after (plan-02), and parity wasm == native on the new log cases. Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date. If a reference cannot be installed in the container, say so in the PR and leave the script runnable.
 
 ## Kill test
-Report tp-01's kill test here (action counts before and after). Only one of plan-02's 12 velocity tasks has an arrow (the two-component reaction), so add three synthetic arrow tasks to `tests/data/velocity/tasks.json` in this slice: tp-01's "parent with three TPs", a two-step chain, and a star of four. If the tool anchors a wrong structure in any of these four tasks, change the rule to "anchor only on release inside a box" (not "nearest") and say so.
+Report tp-01's kill test here (action counts before and after). Only one of plan-02's 12 velocity tasks has an arrow (the two-component reaction), so add two synthetic arrow tasks to `tests/data/velocity/tasks.json` in this slice, a two-step chain and a star of four, next to tp-01's "parent with three TPs" (added by tp-01's kill test). With the reaction task that makes four arrow tasks. If the tool anchors a wrong structure in any of these four, change the rule to "anchor only on release inside a box" (not "nearest") and say so.
 
 ## Acceptance (all green before the PR)
 ```

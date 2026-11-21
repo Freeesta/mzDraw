@@ -37,7 +37,7 @@ Out (do not do here):
 ## CLI twin (rule 15)
 - `{"log":[{"op":"obj.add","t":"arrow","x":0,"y":0,"x2":2,"y2":0,"from":1,"to":12}]}` and `{"log":[{"op":"obj.set","id":30,"to":0}]}` replay natively.
 - `{"import":DOC,"commands":[{"command":"move","args":{"atoms":[1,2,3],"dx":1,"dy":0}}],"out":"mzdraw"}` moves and routes. `"out":"std"` lists dangling anchors. With `"report":true` (plan-20), the answer is `draw-result/1`.
-- Request rows (plan-01 `request` section, D13): `commands`, `command`, `args`; the stage `command` of `draw-result/1`, with `failed.op` = index in `commands` (backlog E29: the plan-20 key table and `docs/schemas/draw-result-1.json` gain them; `id` stays the second key, E26). Op-table rows: the fields `obj.add.from`, `obj.add.to`, `obj.set.from`, `obj.set.to`, with `mzlab:false` until mzLab's reader adopts them.
+- Request rows (plan-01 `request` section, D13): `commands`, `command`, `args`; the `std/1` key `std.scheme.anchor`; the stage `command` of `draw-result/1`, with `failed.op` = index in `commands` (backlog E29: the plan-20 key table and `docs/schemas/draw-result-1.json` gain them; `id` stays the second key, E26). Op-table rows: the fields `obj.add.from`, `obj.add.to`, `obj.set.from`, `obj.set.to`, with `mzlab:false` until mzLab's reader adopts them.
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/plan/backlog.md` (sections 0, 4, 5, 9), `docs/study/tp-draw.md` (sections 3 and 4).

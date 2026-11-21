@@ -567,11 +567,11 @@ Same columns as §4, §9.4 and §10.3. "request row" has the meaning of §9.4 (D
 
 | # | id | item | status | size | depends on | zone | COO 16 | proof |
 |---|---|---|---|---|---|---|---|---|
-| 81 | tp-01 | arrow anchors `from`/`to`; follow on commands; `commands` in the request | N | M | plan-01, plan-20 (E29) | document objects + `replay.rs` (`commands`) | **yes** (fields `from`, `to` on `obj.add`/`obj.set`, `mzlab:false`); request rows | brute-force clip sampler; parity |
-| 82 | tp-02 | anchoring by hand: arrow tool, `pathway:anchor`, `pathway:route` | N | S | tp-01; CTX-MENU page | input + `context.rs` arms | request row | velocity/1 (three new arrow tasks) |
+| 81 | tp-01 | arrow anchors `from`/`to`; follow on commands; `commands` in the request | N | M | plan-01, plan-20 (E29) | document objects + `replay.rs` (`commands`) | **yes** (fields `from`, `to` on `obj.add`/`obj.set`, `mzlab:false`); request rows (incl. `std.scheme.anchor`) | brute-force clip sampler; parity |
+| 82 | tp-02 | anchoring by hand: arrow tool, `pathway:anchor`, `pathway:route` | N | S | tp-01; CTX-MENU page | input + `context.rs` arms | request row | velocity/1 (two new arrow tasks, four in all) |
 | 83 | tp-03 | `tp:derive`: copy the parent, keep its scaffold, maps and patch | N | M | tp-01, tp-02, tp-05 (settings), plan-11, plan-20; CTX-MENU page | new `tp.rs` | request row | RDKit mapped RXN, formula delta |
-| 84 | tp-04 | diff lens, `lens/1`, `display.lens` | N | S | tp-03 | `tp.rs` + scene | request row (`lens`, `std.tp.unmapped`) | RDKit mapped sets |
-| 85 | tp-05 | pathway layout core `pathway:tree`, properties P1–P14 | N | M | tp-01, plan-20 | new `pathway.rs` | request row (`pathway:tree`, `pathway.*`, `std.scheme.*`) | independent Python re-check of the properties |
+| 84 | tp-04 | diff lens, `lens/1`, `display.lens` | N | S | tp-03 | `tp.rs` + scene | request row (`lens`, `display.lens`, `std.tp.unmapped`) | RDKit mapped sets |
+| 85 | tp-05 | pathway layout core `pathway:tree`, properties P1–P14 | N | M | tp-01, plan-20 | new `pathway.rs` | request row (`pathway:tree`, `boxes`, `pathway.*`, `std.scheme.*`) | independent Python re-check of the properties |
 | 86 | tp-06 | pathway layout on the page; Graphviz proof | N | S | tp-05, tp-02; CTX-MENU page | page + `palettes.rs`/`context.rs` arms + `tools/fidelity` | no | Graphviz `dot` ranks and crossings (optional) |
 | 87 | tp-07 | arrow labels computed: Δ formula, Δ mass | N | S | tp-01, tp-05, arch-web-17; arch-web-13 optional; tp-10 for names | `pathway.rs` | request row | RDKit formula and `ExactMolWt` |
 | 88 | tp-08 | `tp:import` of a TP list, `tp:number` | N | M | tp-01, tp-05, plan-20 (E29); tp-07 and plan-14 optional | new `tp_list.rs` | request row (`failed.rows`, reserved data names) | Python `csv` + RDKit canonical SMILES |
