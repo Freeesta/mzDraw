@@ -296,3 +296,35 @@ fn a_newer_file_with_unknown_keys_is_read_and_written_back_never_an_error() {
     // the schema says its format version
     assert_eq!(schema()["format"], "mzdraw-settings/1");
 }
+
+#[test]
+fn a_stored_file_with_a_bad_ui_object_is_taken_without_it_and_says_so() {
+    for bad in [r#"{"theme":"sepia"}"#, r#"{"theme":3}"#, "5"] {
+        let file = format!(
+            r#"{{"format":"mzdraw-settings/1","style":{{"colour":"mono"}},"layout":{{"preset":"tablet"}},"ui":{bad}}}"#
+        );
+        // the explicit way refuses the whole file, as before
+        assert!(Editor::default().set_style(&file).is_err(), "{bad}");
+        // the stored way keeps the style and the layout and says what it dropped
+        let mut ed = Editor::default();
+        assert_eq!(
+            ed.set_style_stored(&file).map(|r| r.1),
+            Ok("error.draw2.ui"),
+            "{bad}"
+        );
+        assert_eq!(ed.get("style.colour").unwrap(), "mono");
+        assert_eq!(ed.get("ui.theme").unwrap(), "auto");
+        assert!(ed.settings_json().contains("tablet"));
+    }
+    // a good file is taken with no note; a file that is none is refused whole
+    let mut ed = Editor::default();
+    let good = r#"{"format":"mzdraw-settings/1","ui":{"theme":"dark"}}"#;
+    assert_eq!(ed.set_style_stored(good).map(|r| r.1), Ok(""));
+    assert_eq!(ed.ui.attr(), "dark");
+    assert!(ed.set_style_stored("not json").is_err());
+    // an explicit set of a bad theme stays an error
+    assert_eq!(ed.set("ui.theme=sepia"), Err("error.draw2.ui"));
+    // the attribute the page applies is the module's: none for auto
+    ed.set("ui.theme=auto").unwrap();
+    assert_eq!(ed.ui.attr(), "");
+}

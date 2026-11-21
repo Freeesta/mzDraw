@@ -312,6 +312,16 @@ impl Ui {
         Ok(())
     }
 
+    /// The value the page puts in `data-theme` for the theme: `light` or `dark`, empty for `auto` (the page leaves the attribute to the
+    /// system or to the host).
+    pub fn attr(&self) -> &'static str {
+        match self.theme.as_str() {
+            "light" => "light",
+            "dark" => "dark",
+            _ => "",
+        }
+    }
+
     /// The `ui` object as JSON text, `None` when it holds only the defaults.
     pub fn to_text(&self) -> Option<String> {
         let mut pairs = self.unknown.clone();

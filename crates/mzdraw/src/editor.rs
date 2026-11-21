@@ -813,6 +813,25 @@ impl Editor {
         Ok(flags)
     }
 
+    /// `set_style` for a settings file kept in the browser: a `ui` object that is not one this version can read (a theme that is none, a
+    /// value that is not text) is dropped with the note `error.draw2.ui` and the rest of the file is taken; a file that is refused for
+    /// any other reason is refused whole. An explicit `set` of a bad value stays an error. Returns the flags and the note ("" for none).
+    pub fn set_style_stored(&mut self, text: &str) -> Result<(u32, &'static str), &'static str> {
+        let mut note = "";
+        let mut text = text.to_string();
+        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&text) {
+            let bad = v
+                .get("ui")
+                .is_some_and(|ui| crate::prefs::Ui::read(ui).is_err());
+            if let (true, Some(o)) = (bad, v.as_object_mut()) {
+                o.remove("ui");
+                text = v.to_string();
+                note = "error.draw2.ui";
+            }
+        }
+        self.set_style(&text).map(|f| (f, note))
+    }
+
     /// The settings file of the editor: the style, the layout of the palettes and the export defaults (the last two only
     /// when they differ from their defaults).
     pub fn settings_json(&self) -> String {

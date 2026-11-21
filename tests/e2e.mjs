@@ -73,8 +73,10 @@ async function until(pg, expr, ms = 10000) {
     await new Promise(r => setTimeout(r, 25));
   }
 }
-async function context(browser, opts) {
-  const ctx = await browser.newContext({ acceptDownloads: true, ...opts }), pg = await ctx.newPage();
+async function context(browser, opts, init = null) {
+  const ctx = await browser.newContext({ acceptDownloads: true, ...opts });
+  if (init) await ctx.addInitScript(init);
+  const pg = await ctx.newPage();
   pg.on("pageerror", e => errs.push(["pageerror", String(e)]));
   pg.on("console", m => { if (m.type() === "error") errs.push(["console.error", m.text()]); });
   pg.on("response", r => { if (r.status() >= 400) errs.push(["http " + r.status(), r.url()]); });
@@ -2441,6 +2443,7 @@ try {
     await pg.touchscreen.tap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
     await pfSame(pfGold[0].out.svg, "reset by a tap");
     await pg.touchscreen.tap(...await pfAt("#d2-prefs-close")); await pfShown(false);
+    eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-prefs", "Close gives the focus back to the gear");
   });
   await step("preferences by pen: a pen tap on the gear, on the colours and on the reset of the group Display; the page equals the goldens", async () => {
     const cdp = await ctx.newCDPSession(pg);
@@ -2452,9 +2455,41 @@ try {
     await pfSame(pfGold[1].out.svg, "one colour");
     await tap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
     await pfSame(pfGold[0].out.svg, "reset by a pen tap");
+    await shot(pg, "prefs-pen");
     await tap(...await pfAt("#d2-prefs-close")); await pfShown(false);
+    eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-prefs", "Close gives the focus back to the gear");
   });
   await ctx.close();
+
+  await step("preferences: a stored dark theme is on the page before the first paint and before the module loads; a corrupt stored theme drops only itself with a note; without storage the page still starts", async () => {
+    // the stored word is on the root when the body appears, before the module is ready
+    let c = await context(browser, { viewport: { width: 1280, height: 800 }, colorScheme: "light" }, () => {
+      localStorage.setItem("d2-theme", "dark");
+      new MutationObserver((_, o) => { if (document.body) { /** @type {any} */ (window).__atBody = [document.documentElement.dataset.theme || "", document.documentElement.dataset.d2Ready || ""]; o.disconnect(); } }).observe(document, { childList: true, subtree: true });
+    });
+    eq(await c.pg.evaluate("window.__atBody"), ["dark", ""], "the first paint has the stored theme, the module is not ready yet");
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), "dark");
+    await c.ctx.close();
+    // a corrupt stored theme: the file's style and layout are kept, the note says what was dropped
+    c = await context(browser, { viewport: { width: 1280, height: 800 } });
+    await c.pg.evaluate(async name => { const w = await (await (await navigator.storage.getDirectory()).getFileHandle(name, { create: true })).createWritable(); await w.write(JSON.stringify({ format: "mzdraw-settings/1", style: { colour: "mono" }, layout: { preset: "tablet" }, ui: { theme: "sepia" } })); await w.close(); }, "mzdraw-settings.json");
+    await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
+    eq(JSON.parse(await c.pg.evaluate("window.MZDRAW.style()")).style.colour, "mono");
+    eq(await c.pg.evaluate("window.MZDRAW.get('ui.theme')"), "auto");
+    eq(await c.pg.innerText("#d2-style-note"), await c.pg.evaluate("I18N.t('error.draw2.ui')"));
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined);
+    await c.ctx.close();
+    // storage that throws: the page starts, in the theme of the system
+    c = await context(browser, { viewport: { width: 1280, height: 800 } }, () => {
+      const boom = () => { throw new Error("no storage"); };
+      Object.defineProperty(window, "localStorage", { get: boom });
+      Object.defineProperty(navigator, "storage", { get: () => ({ getDirectory: boom }) });
+    });
+    eq(await c.pg.evaluate("document.documentElement.dataset.d2Ready"), "1");
+    await c.pg.click('[data-testid="d2-prefs"]'); await c.pg.selectOption('#d2-fly-prefs [data-setting="ui.theme"]', "dark");
+    await until(c.pg, "document.documentElement.dataset.theme === 'dark'");
+    await c.ctx.close();
+  });
 
   // tp-04: the diff lens (display.lens: off, tint, tint+ghost) on the products of anchored arrows, from the keyboard (Shift+L), the
   // Style panel, the canvas menu by touch and by pen; the page equals the goldens of tests/data/log/tp-lens.json after each way

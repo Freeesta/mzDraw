@@ -536,6 +536,22 @@ pub fn get(setting: &str) -> String {
     with(|p| p.editor.get(setting).unwrap_or_default())
 }
 
+/// The value for `data-theme` of the theme preference (`light`, `dark`), empty for `auto`: the page applies what the module says.
+#[wasm_bindgen]
+pub fn theme_attr() -> String {
+    with(|p| p.editor.ui.attr().to_string())
+}
+
+/// `set_style` for the settings file kept in the browser: a bad `ui` object is dropped with a note and the rest is taken. The answer is
+/// `{"flags": N, "note": KEY}` (`note` empty for none).
+#[wasm_bindgen]
+pub fn set_style_stored(text: &str) -> Result<String, JsValue> {
+    with(|p| {
+        let (flags, note) = p.editor.set_style_stored(text).map_err(js_err)?;
+        Ok(format!(r#"{{"flags":{flags},"note":"{note}"}}"#))
+    })
+}
+
 /// Puts a group of the preferences back to its defaults; the flags like `set`.
 #[wasm_bindgen]
 pub fn reset_group(group: &str) -> Result<u32, JsValue> {

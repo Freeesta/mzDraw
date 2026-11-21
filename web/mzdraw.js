@@ -637,19 +637,22 @@ async function styles() {
     if (f) { const text = await f.text(); ask(() => ed.set_style(text), t("draw2.style.opened.note"), null); }
     /** @type {HTMLInputElement} */ (e.target).value = "";
   });
+  let stored = "";       // what the module dropped of the stored settings, in words
   for (const name of [NAME, ...NAMES.settingsOld]) {       // the file of the name in use, else one an earlier name wrote
-    try { ed.set_style(await (await (await (await navigator.storage.getDirectory()).getFileHandle(name)).getFile()).text()); break; } catch { /* nothing kept, or a file the module refuses */ }
+    let text = "";
+    try { text = await (await (await navigator.storage.getDirectory()).getFileHandle(name)).getFile().then(f => f.text()); } catch { continue; }       // nothing kept, or no storage
+    try { const r = JSON.parse(ed.set_style_stored(text)); if (r.note) stored = t(r.note); break; } catch { /* a file the module refuses */ }
   }
   restyle = show;
   show();
-  note.textContent = t(`draw2.style.${sel.value}.note`);
+  note.textContent = stored || t(`draw2.style.${sel.value}.note`);
 }
 
 /** the Preferences panel (prefs.js), a flyout of the File palette: its rows come from the module's schema; a change is one `set` (or a reset of a group)
  * asked of the module, then the screen, the style panel and the stored settings follow */
 function preferences() {
   const note = () => $("d2-prefs-note");
-  prefsSync = buildPrefs($("d2-fly-prefs"), { ed, t, close: () => { open("prefs", false); cv.focus({ preventScroll: true }); },
+  prefsSync = buildPrefs($("d2-fly-prefs"), { ed, t, close: () => { open("prefs", false); /** @type {HTMLElement} */ (document.querySelector('[data-testid="d2-prefs"]')).focus(); },
     change: (/** @type {() => number} */ fn, /** @type {string} */ said, /** @type {Element | null} */ field) => {
       try { after(fn() | CHANGED); prefsSync(); applyTheme(ed); restyle(); keep(); note().textContent = said; $("d2-live").textContent = said; }
       catch (e) { note().textContent = I.err(JSON.parse(String(e))).message; field?.setAttribute("aria-invalid", "true"); }

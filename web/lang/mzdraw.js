@@ -468,6 +468,7 @@ I18N.add("en", {
   "error.draw2.styleValue": "This value is outside what the style allows: nothing was changed.",
   "error.draw2.styleKey": "This is not a setting of the style.",
   "error.draw2.layout": "This layout of the palettes cannot be read: a dock, an orientation, a number or a preset that is none.",
+  "error.draw2.ui": "This is not a theme (auto, light or dark); a stored one was ignored and the rest of the settings were taken.",
   "error.draw2.export": "This is not a format a drawing is saved in, or not a background (white or none).",
   "error.draw2.set": "A setting is written section.key=value, for example style.line_width=1.",
   "error.draw2.smilesSize": "This drawing is too large to be written as SMILES.",
