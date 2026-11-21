@@ -2897,7 +2897,7 @@ try {
       eq(await fp.getAttribute("#d2-about-licence", "href"), a.licence);
       eq(await fp.getAttribute("#d2-about-repo", "rel"), "noopener noreferrer");
       const text = await fp.innerText("#d2-about");
-      assert(text.includes("works offline and sends nothing") && text.includes("Report a bug / suggest an improvement"), text);
+      assert(text.includes("Once the page is loaded it works offline and sends nothing") && text.includes("Report a bug / suggest an improvement"), text);
       await shot(fp, "feedback-about");
       await fp.keyboard.press("Tab"); await fp.keyboard.press("Tab");
       // the report button of the box opens the report box in its place
@@ -2906,6 +2906,9 @@ try {
       await fp.focus("#d2-about-open"); await fp.keyboard.press("Enter"); await shown("d2-about");
       await fp.keyboard.press("Escape"); await shown("d2-about", false);
       eq(await fp.evaluate("document.activeElement.id"), "d2-about-open");
+      // Escape closes an open box also when the focus is elsewhere (on the canvas); the focus stays there
+      await fp.keyboard.press("Enter"); await shown("d2-about"); await fp.focus("#d2-canvas"); await fp.keyboard.press("Escape"); await shown("d2-about", false);
+      eq(await fp.evaluate("document.activeElement.id"), "d2-canvas");
       eq(ghReq, [], "the page asked nothing of GitHub");
     });
     await step("feedback by touch: tap About, tap its report button, tap Improvement, tap Open on GitHub; the targets are 44 px; the issue is the improvement form", async () => {

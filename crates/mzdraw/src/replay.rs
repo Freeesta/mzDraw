@@ -259,6 +259,8 @@ impl Request {
         };
         if feedback.is_some()
             && (values.is_some()
+                || propose.is_some()
+                || v.get("id").is_some()
                 || v.get("out").is_some()
                 || flag("report")?
                 || flag("dry_run")?
@@ -454,6 +456,10 @@ pub fn replay_with(
         .iter()
         .any(|c| crate::commands::reports_change(&c.0));
     let before_commands = (r.envelope() && reports).then(|| e.doc().to_json());
+    // the mass modes of `pathway:label` take their numbers from the engine
+    if engine.is_some() && r.commands.iter().any(|c| c.0 == "pathway:label") {
+        e.measurer = engine;
+    }
     if failed.is_none() {
         for (i, (name, args)) in r.commands.iter().enumerate() {
             if let Err(err) = crate::commands::run(&mut e, name, args) {

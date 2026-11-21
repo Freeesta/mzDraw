@@ -39,7 +39,11 @@ export function feedbackBoxes(h) {
   $("d2-about-report").addEventListener("click", () => { show("report", $("d2-report-open")); });
   $("d2-about-close").addEventListener("click", () => shut(about));
   $("d2-report-close").addEventListener("click", () => shut(report));
-  for (const b of [report, about]) b.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); shut(b); } });
+  // Escape closes the open box wherever the focus is (in the box: the focus goes back to the opener; elsewhere it stays where it is)
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    for (const b of [report, about]) if (!b.hidden) { const inside = b.contains(document.activeElement); if (inside) e.preventDefault(); shut(b, inside); }
+  });
 
   const kind = () => /** @type {HTMLInputElement} */ (report.querySelector("input[name='d2-report-kind']:checked")).value;
   const withLog = () => /** @type {HTMLInputElement} */ ($("d2-report-log")).checked;

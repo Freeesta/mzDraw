@@ -1,7 +1,7 @@
 name: Improvement
 description: Something the editor could do, or do better.
 title: "Improvement:"
-labels: ["improvement"]
+labels: ["enhancement"]
 body:
   - type: markdown
     attributes:

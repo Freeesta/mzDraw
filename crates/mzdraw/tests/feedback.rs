@@ -134,6 +134,26 @@ fn the_request_field_gives_the_same_bytes_as_the_page_call() {
         r(r#"{"feedback":"bug","report":true}"#),
         Err("error.draw2.feedbackAlone")
     );
+    assert_eq!(
+        r(r#"{"feedback":"bug","values":true}"#),
+        Err("error.draw2.feedbackAlone")
+    );
+    assert_eq!(
+        r(r#"{"feedback":"bug","id":7}"#),
+        Err("error.draw2.feedbackAlone")
+    );
+    assert_eq!(
+        r(r#"{"feedback":"bug","propose":[]}"#),
+        Err("error.draw2.feedbackAlone")
+    );
+    assert_eq!(
+        r(r#"{"feedback":"bug","dry_run":true}"#),
+        Err("error.draw2.feedbackAlone")
+    );
+    assert_eq!(
+        r(r#"{"feedback":"bug","expect":[]}"#),
+        Err("error.draw2.feedbackAlone")
+    );
     assert_eq!(r(r#"{"feedback":"nope"}"#), Err("error.draw2.feedback"));
     assert_eq!(
         r(r#"{"feedback":{"kind":"bug","x":1}}"#),

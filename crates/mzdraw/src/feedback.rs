@@ -7,6 +7,11 @@
 
 use crate::brand::{NAME, REPOSITORY, VERSION};
 
+/// The repository on GitHub (the one place `brand::REPOSITORY` is turned into a URL).
+fn repo_url() -> String {
+    format!("https://github.com/{REPOSITORY}")
+}
+
 /// The longest URL the page opens, in bytes (a browser, a proxy or GitHub may refuse a longer one). The command log goes in only below it.
 pub const LIMIT: usize = 6000;
 
@@ -84,7 +89,8 @@ pub fn build(p: &Params) -> Result<Feedback, &'static str> {
     let title = prefix.trim_end().to_string();
     let url_of = |log: Option<&str>| {
         let mut url = format!(
-            "https://github.com/{REPOSITORY}/issues/new?template={template}&title={}&page={}",
+            "{}/issues/new?template={template}&title={}&page={}",
+            repo_url(),
             encode(&title),
             encode(&page)
         );
@@ -127,7 +133,7 @@ impl Feedback {
 
 /// What the About box shows besides its sentences (`about/1`): the name, the version, the repository and the licence.
 pub fn about_json() -> String {
-    let repo = format!("https://github.com/{REPOSITORY}");
+    let repo = repo_url();
     serde_json::json!({
         "format": "about/1", "name": NAME, "version": VERSION,
         "repository": repo, "licence": format!("{repo}/blob/main/LICENSE"),
