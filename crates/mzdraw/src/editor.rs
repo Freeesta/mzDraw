@@ -163,6 +163,9 @@ pub struct Editor {
     pub said_params: Vec<(&'static str, u32)>,
     /// What the last `pathway:label` left out for a reason, as (i18n key, arrows): said by `lost_on_save` (`lost` of a `draw-result/1`).
     pub label_notes: Vec<(&'static str, usize)>,
+    /// The document (`to_json`) as the last `pathway:label` left it: its notes are reported only while the drawing is that very document, so
+    /// an edit, an undo or a load that changes it hides them (they are about arrows that may be gone).
+    pub(crate) label_notes_doc: String,
     /// A report that stays visible until the next step (the stereo guard), as an i18n key with one parameter; empty when none.
     pub notice: (&'static str, String),
     /// The last refused operation, an i18n key.
@@ -295,6 +298,7 @@ impl Default for Editor {
             said: ("", String::new()),
             said_params: Vec::new(),
             label_notes: Vec::new(),
+            label_notes_doc: String::new(),
             notice: ("", String::new()),
             error: "",
             gesture: Default::default(),
@@ -634,7 +638,12 @@ impl Editor {
         Some(("draw2.export.mapsLost", self.doc().maps_lost(kind)))
             .filter(|l| l.1 > 0)
             .into_iter()
-            .chain(self.label_notes.iter().copied())
+            .chain(
+                self.label_notes
+                    .iter()
+                    .copied()
+                    .filter(|_| self.doc().to_json() == self.label_notes_doc),
+            )
             .collect()
     }
 

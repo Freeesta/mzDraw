@@ -434,6 +434,7 @@ I18N.add("en", {
   "error.draw2.valuesEngine": "The mass engine gave an answer that could not be read.",
   "error.draw2.valuesAdduct": "This adduct is not known to the mass engine.",
   "error.draw2.labelMass": "Labels with masses need the engine of mzLab, and this run has none: set the arrow label to the formula difference.",
+  "draw2.label.massMissing": "An arrow was left unlabelled: the structure it ends in could not be found for the engine.",
   "draw2.label.mzCharged": "An arrow whose product has a charge has no m/z for an adduct: its mass shift is written and the m/z is left out.",
   "error.draw2.schemeSize": "The pathway is too large to lay out (more than 1000 arrows or structures).",
   "error.draw2.schemeEmpty": "There is no arrow between two structures to lay out.",

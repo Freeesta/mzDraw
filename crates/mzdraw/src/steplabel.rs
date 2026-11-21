@@ -441,7 +441,10 @@ pub fn plan(
         if let Some((owner, m)) = &measured {
             // the two structures the arrow joins, by the atoms it is anchored to
             let (Some(from), Some(to)) = (owner.get(&af), owner.get(&at)) else {
+                // not reachable: every atom an anchored arrow ends in is in a structure of the scan (both read the same record); if it
+                // ever is, the arrow is skipped and says so, never silently
                 out.skipped += 1;
+                note(&mut out.notes, "draw2.label.massMissing");
                 continue;
             };
             let (a, b) = match (&m[*from].result, &m[*to].result) {

@@ -708,10 +708,34 @@ fn counting(molfile: &str, adducts: &[String]) -> Result<Measured, &'static str>
     engine(molfile, adducts)
 }
 
-/// The best of three runs of `plan` in a mass mode, in microseconds, the stand-in engine included (it is the same cheap function for both sizes).
+/// `n` arrows over `n + 1` structures of `k` carbons each (a chain; the last atom alternates C and O so every arrow has a delta), the arrow
+/// anchored to the first atoms; `extra` plus signs that are not arrows are listed before the arrows. A scan per arrow of the atoms, of the
+/// structures or of the objects walks `n * k` atoms, `n` structures or `extra` objects.
+fn big_chain(n: usize, k: usize, extra: usize) -> String {
+    let (mut atoms, mut bonds, mut objects) = (vec![], vec![], vec![]);
+    for j in 0..extra {
+        objects.push(json!({"id": 4_000_000 + j, "t": "plus", "x": j as f64, "y": 5}));
+    }
+    for s in 0..=n {
+        let first = s * k + 1;
+        for i in 0..k {
+            let el = if i + 1 == k && s % 2 == 1 { "O" } else { "C" };
+            atoms.push(json!({"id": first + i, "el": el, "x": 4.0 * s as f64 + i as f64 * 0.1, "y": i as f64}));
+            if i > 0 {
+                bonds.push(json!({"id": 1_000_000 + first + i, "a": first + i - 1, "b": first + i, "o": 1}));
+            }
+        }
+        if s < n {
+            objects.push(json!({"id": 2_000_000 + s, "t": "arrow", "x": 4.0 * s as f64 + 2.0, "y": 0, "x2": 4.0 * s as f64 + 3.5, "y2": 0, "from": first, "to": first + k}));
+        }
+    }
+    json!({"format": "mzdraw/1", "next": 9_000_000, "atoms": atoms, "bonds": bonds, "objects": objects}).to_string()
+}
+
+/// The best of five runs of `plan` in a mass mode, in microseconds, the stand-in engine included (the same cheap function for every size).
 fn timed_mass(text: &str) -> u128 {
     let doc = Document::from_json(text).unwrap();
-    (0..3)
+    (0..5)
         .map(|_| {
             let t = std::time::Instant::now();
             let p =
@@ -724,7 +748,7 @@ fn timed_mass(text: &str) -> u128 {
 }
 
 #[test]
-fn the_mass_labels_ask_the_engine_once_per_structure_and_scale_linearly() {
+fn the_mass_labels_ask_the_engine_once_per_structure() {
     // 999 arrows over 1000 structures: the engine is asked 1000 times, not twice per arrow
     let doc = Document::from_json(&chain(999, 0)).unwrap();
     CALLS.store(0, Ordering::SeqCst);
@@ -739,11 +763,107 @@ fn the_mass_labels_ask_the_engine_once_per_structure_and_scale_linearly() {
         mzdraw::steplabel::plan(&doc, Mode::Mass, &Opts::default(), Some(counting)).unwrap_err();
     assert_eq!(err.key, "error.draw2.valuesSize");
     assert_eq!(CALLS.load(Ordering::SeqCst), 0);
-    // 4 times the arrows may cost about 4 times; a per-arrow scan of the structures or of the objects costs 16 times (the floor keeps a
-    // very fast small run from making the ratio noise)
-    let (small, large) = (timed_mass(&chain(250, 0)), timed_mass(&chain(999, 0)));
-    assert!(
-        large <= 9 * small.max(3000),
-        "250 arrows {small} us, 999 arrows {large} us"
+}
+
+#[test]
+fn the_mass_labels_scale_linearly_in_arrows_atoms_and_objects() {
+    // no floor: 4 times the arrows (and atoms) may cost about 4 times; a scan per arrow of the atoms (14 per structure here, so 14,000
+    // atoms in the large run), of the structures or of the whole scan costs about 16 times
+    let (small, large) = (
+        timed_mass(&big_chain(250, 14, 0)),
+        timed_mass(&big_chain(999, 14, 0)),
     );
+    assert!(
+        large <= 8 * small,
+        "250 arrows {small} us, 999 arrows {large} us (14 atoms each)"
+    );
+    // a hostile document: 999 arrows and fifty thousand other objects (a scan of the objects per arrow costs 5e7 steps)
+    let (base, crowded) = (
+        timed_mass(&big_chain(999, 2, 0)),
+        timed_mass(&big_chain(999, 2, 50_000)),
+    );
+    assert!(
+        crowded <= 6 * base,
+        "{base} us without, {crowded} us with 50000 plus signs"
+    );
+}
+
+/// Two structures of 7,490 carbons each (14,980 atoms, under the cap of the table) and `n` arrows between them, all anchored to the last
+/// atoms (an early exit of a lookup by id does not hide a scan): the atoms stay the same while the arrows grow, so only a cost per arrow shows.
+fn fan(n: usize) -> String {
+    let (mut atoms, mut bonds, mut objects) = (vec![], vec![], vec![]);
+    let k = 7490;
+    for s in 0..2 {
+        for i in 0..k {
+            let id = s * k + i + 1;
+            let el = if s == 1 && i + 1 == k { "O" } else { "C" };
+            atoms.push(json!({"id": id, "el": el, "x": 40.0 * s as f64 + i as f64 * 0.01, "y": i as f64 * 0.01}));
+            if i > 0 {
+                bonds.push(json!({"id": 1_000_000 + id, "a": id - 1, "b": id, "o": 1}));
+            }
+        }
+    }
+    for j in 0..n {
+        objects.push(json!({"id": 2_000_000 + j, "t": "arrow", "x": 20.0, "y": j as f64, "x2": 25.0, "y2": j as f64, "from": k, "to": 2 * k}));
+    }
+    json!({"format": "mzdraw/1", "next": 9_000_000, "atoms": atoms, "bonds": bonds, "objects": objects}).to_string()
+}
+
+#[test]
+fn the_cost_per_arrow_does_not_grow_with_the_atoms() {
+    // the atoms are fixed, so the run is the same work plus the arrows: a scan of the atoms per arrow (999 x 14,980) adds a third or more
+    let (small, large) = (timed_mass(&fan(250)), timed_mass(&fan(999)));
+    assert!(
+        4 * large <= 5 * small,
+        "250 arrows {small} us, 999 arrows {large} us over 14,980 atoms"
+    );
+}
+
+#[test]
+fn a_note_belongs_to_the_drawing_it_was_made_for() {
+    const AMINE: S = S(&["C", "N"], &[1]);
+    let s = scheme(&[&ETHANE, &ETHANOL, &AMINE], &[(0, 1, ""), (1, 2, "")]);
+    let mut e = mass_editor(&s, "mass");
+    run(&mut e, json!({})).unwrap();
+    let note = ("error.grafo.element", 1);
+    assert!(e.lost_on_save("mzdraw").contains(&note));
+    // an edit hides it (the arrow may have changed); undo brings the drawing, and so the note, back
+    let id = e.doc().objects[1].id;
+    e.session
+        .run(&[mzdraw::ops::Op::ObjSet {
+            id,
+            text: Some("my own".into()),
+            x2: None,
+            y2: None,
+            from: None,
+            to: None,
+        }])
+        .unwrap();
+    assert!(!e.lost_on_save("mzdraw").contains(&note));
+    e.undo();
+    assert!(e.lost_on_save("mzdraw").contains(&note));
+    // a run that fails reports nothing from the run before
+    e.set("pathway.label=delta").unwrap();
+    assert!(run(&mut e, json!({"adduct": "[M+H]+"})).is_err());
+    assert!(e.label_notes.is_empty() && !e.lost_on_save("mzdraw").contains(&note));
+    // a loaded document has none
+    let mut e = mass_editor(&s, "mass");
+    run(&mut e, json!({})).unwrap();
+    e.import(&scheme(&[&ETHANE, &ETHANOL], &[(0, 1, "")]))
+        .unwrap();
+    assert!(e.lost_on_save("mzdraw").iter().all(|l| l.0 != note.0));
+}
+
+#[test]
+fn the_texts_of_the_label_notes_are_on_the_page() {
+    let texts = include_str!("../../../web/lang/mzdraw.js");
+    for key in [
+        "draw2.label.mzCharged",
+        "draw2.label.massMissing",
+        "error.draw2.labelMass",
+        "error.grafo.element",
+        "error.draw2.valuesOpen",
+    ] {
+        assert!(texts.contains(&format!("\"{key}\"")), "{key}");
+    }
 }
