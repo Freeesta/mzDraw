@@ -2223,6 +2223,9 @@ try {
     await pg.fill("#d2-patch", '[{"op":"atom.set","id":99,"el":"N"}]'); await pg.click("#d2-propose");
     assert((await pg.innerText("#d2-patch-note")).length > 0 && await proposing(pg) === null, "refused");
   });
+  // a fresh page: Clear leaves the id counter where it was, and the patch is written against the ids of a fresh import
+  await ctx.close();
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
   await step("proposal keys: Enter, Delete and Alt+[ act on the DRAWING until a hunk has the keyboard (and end the proposal, said at once); Ctrl+Delete rejects all; Escape ends the review", async () => {
     const { a, patch } = await proposalSetup(pg);
     const stale = await pg.evaluate("I18N.t('draw2.say.proposalStale')"), live = () => pg.innerText("#d2-live");
