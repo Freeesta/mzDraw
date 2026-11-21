@@ -458,3 +458,48 @@ None of these touch the page except plan-21's live-line key and plan-26's one co
 | D16 | stereo guard | Report-only in the page; enforced only when a request lists `{"stereo":"kept"}`. | COO-MZDRAW |
 | D17 | abbreviation folding | A deferred row with its kill test, no prompt. | COO-MZDRAW |
 | D18 | waves | plan-19 and plan-20 go in the wave 1 tail, after plan-01. | COO-MZDRAW |
+
+## 10. Third and fourth external reports (ARCH PLAN-2, second pass, 2026-11-21)
+Input: two more external research outputs. They are **not in the repository**: this section works from the coordinator's summaries (COO-MZDRAW, 2026-11-21) and does not quote them. Their novelty and patent claims are not evidence. Their figures (among them an "Open Babel 37%") are not verified and are used nowhere.
+
+### 10.1 Sources checked for this pass
+| claim or fact used | verdict | source read | note |
+|---|---|---|---|
+| V2000 chiral flag: on = a single isomer of known absolute configuration at every wedged centre; off = the drawn isomer and its enantiomer | verified | BIOVIA, CTfile Formats, Chemistry 2026, https://www.3ds.com/assets/invest/2026-01/biovia_chemistry_2026_ctfile_formats.pdf (read as text extracted locally; the PDF did not render through the fetch tool) | Counts line: "0=not chiral, 1=chiral". |
+| V3000 collections `MDLV30/STEABS` (absolute), `STERACn` (relative configuration known, mixture of both enantiomers), `STERELn` (relative known, one enantiomer, unknown which) | verified | same | Collections take precedence over the chiral flag. Wedged centres in no collection take the flag "globally". |
+| IUPAC 2006 ST-6: no marks = unknown; mixtures said in words; the chiral-flag behaviour is not followed | verified (earlier) | `docs/study/arch-std.md` §2.2 (second pass) | Read for arch-std-12. |
+| FIPS 180-4 Secure Hash Standard | partly | https://csrc.nist.gov/pubs/fips/180-4/upd1/final | Published August 2015. The landing page does not name SHA-256 (the standard does). The example vectors were not read: plan-30's DEV reads them. |
+| mzLab records runs with SHA-256 fields (`prov/1`) and links the crate `sha2` | verified | mzLab `docs/schemi/prov-1.json` and `crates/*/Cargo.toml` at the pin `ccd4680` | mzDraw may not add `sha2` (dependency guard), so plan-30 implements SHA-256 itself. |
+| InChI `/s1` `/s2` `/s3` meanings | not read | https://www.inchi-trust.org/technical-faq-2/ | 301 to a page that answered 404. `docs/study/arch-std.md` has `/s1` and `/s2` from the InChI manual (earlier pass). |
+| mzDraw has FNV-1a only (SVG element names) | verified | `crates/mzdraw/src/svg.rs` | Not a hash for provenance. |
+
+### 10.2 Verdicts
+| idea | report | verdict | where | reason |
+|---|---|---|---|---|
+| `plan`: one goal in, a canonical reversible patch out, under a step budget | third | **KEEP** → plan-27 | `goal`, `budget` | Fewer calls for agents. It uses table ops only, so inverses and parity hold. Goal kinds are gated on their engines (templates, scheme, selectors); an unsupported kind is an explicit error. |
+| `grant`: scope envelope checked per op, one transaction | third | **KEEP** → plan-28 | `grant` | Not covered: plan-20 checks the end of a log, not what each op touches. The page side reuses plan-16's accept/reject. |
+| per-op drawing contracts (pre/postconditions per op) | fourth | **MERGE** into plan-28 (`grant.each`) | — | They are plan-20's `expect` arms run after each op. No new op. |
+| stereo tier per centre, never defaulted silently | fourth | **KEEP, small** → plan-29 | derived from `stg` | arch-std-12 stores the groups. The gaps are wedged centres with no group, reader defaults that nobody is told about (chiral flag), and mixed tiers in V2000. No new field. |
+| provenance ledger (hash-chained log, head in the picture) | fourth | **KEEP, small** → plan-30 | `chain/1`, `verify` | Cheap given byte parity. The head goes in the SVG and PNG metadata and could be recorded in mzLab's `prov/1` (COO 16's call). |
+| stable handles / selectors | third, fourth | = plan-24 | — | Already planned. |
+| loss ledger | third | = plan-22 | — | Already planned. |
+| public conformance suite, expert-verified corpus | third, fourth | = plan-03 (+ E19) and plan-19 | — | Only gold files and invariants, fetched at run time (D5). |
+
+### 10.3 Rows
+Same columns as §4 and §9.4.
+
+| # | id | item | status | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|---|
+| 76 | plan-27 | goal → canonical patch (`goal`, `budget`) | N | M | plan-01, plan-20; kinds gated (plan-13, web-19/18, plan-24) | new `plan.rs` | request row (`goal`, `budget`, key `patch`, stage `plan`) | RDKit canonical SMILES |
+| 77 | plan-28 | scope grant + per-op contracts | N | M | plan-20; plan-24 optional; plan-16 for the page part | new `grant.rs` + one `touches` arm per op in `ops.rs` | request row (`grant`, op classes, stage `grant`) | property: bytes outside the scope unchanged |
+| 78 | plan-29 | stereo tier, reader defaults said, V2000 flag | N | S | std-12, std-19, plan-22, plan-23 | readers + writers (`io.rs`), conform | request row (`expect` arm, digest key) | InChI stereo flags (RDKit) |
+| 79 | plan-30 | hash chain of the log, head in pictures | N | S | plan-20 | new `sha256.rs` + `svg.rs` / `png.rs` | request row (`chain`, `verify`, stage `verify`) | FIPS 180-4 examples, Python `hashlib` |
+
+Totals after this section: 79 rows to run, 27 new prompts in all (12 from PLAN-2).
+
+### 10.4 Waves
+- **Wave 3:** plan-30 (after plan-20; it touches `svg.rs`, so serialize with arch-std-16 and arch-std-10 in that wave).
+- **Wave 4:** plan-27, then plan-28 (both after plan-20; plan-28 after plan-24 if its selector scope is wanted).
+- **Wave 5:** plan-29 (after arch-std-19 and plan-22; it touches `io.rs`, so serialize with arch-std-19 and plan-12).
+
+`ops.rs` gets one `touches` arm per op from plan-28. From then on, every prompt that adds an op adds its `touches` arm too: this is append-only, like the other match arms.
