@@ -381,5 +381,6 @@ One small slice each, in the order a coordinator can run them; none repeats a bu
 | 19 | enhanced-stereo-files (V3000, KET; after 12) | 13 | SHOULD |
 | 20 | enhanced-stereo-cxsmiles (after 12) | 13, 21 | SHOULD |
 | 21 | text-runs (sub/superscripts, lines; KET, CDXML) | 23 | MUST |
+| 22 | cdx-read (binary ChemDraw files) | §2.8 | MUST |
 Slices that add to the log language `draw_edit/1` (11 `bond.set` s:3, 12 `stereo.group`, 15 `atoms.xy`, 21 `runs`) carry a coordination line: COO-MZDRAW asks COO 16 before queueing, because `mzlab-mol` must accept the same language.
 Not prompted here: rows that belong to other studies (arrow kinds, CIP, InChI), row 31 (no readable source), the formats of §2.8 that belong in `mzlab-mol` (their prompts go through COO 16), and rows rated LATER.
