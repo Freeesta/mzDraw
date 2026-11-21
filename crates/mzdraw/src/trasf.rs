@@ -25,6 +25,10 @@ pub const LABEL: &str = "error.draw2.trasfLabel";
 pub const RECORD: &str = "error.draw2.trasfRecord";
 /// The file is not a `trasf/1` record with its two records.
 pub const READ: &str = "error.draw2.trasf";
+/// A record without a product (the uncertain form) has nothing to draw after the arrow.
+pub const UNCERTAIN: &str = "error.draw2.trasfUncertain";
+/// The record carries `rule_set`, `rule_version`, `stereo_rule`, `level` or `evidence`, which a drawing cannot keep.
+pub const FIELDS: &str = "error.draw2.trasfFields";
 
 /// Why a drawing is not a transformation: an i18n key and the atoms (ids of the drawing) the key is about.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -107,7 +111,15 @@ fn bonds_of(m: &Mol, i: u32) -> Vec<(u32, u8)> {
 impl Document {
     /// The two structures of a drawing with one arrow: the one before its tail and the one past its head. Anything else (no arrow
     /// or two, several structures on a side, a structure alongside the arrow) is `SHAPE`; nothing is left out silently.
-    fn trasf_sides(&self) -> Result<(Document, Document), TrasfError> {
+    fn trasf_sides(&self) -> Result<(Document, Document, String), TrasfError> {
+        // a plus sign or a text has no place in the record: named, never left out silently
+        let others: Vec<u32> = (self.objects.iter())
+            .filter(|o| o.t != ObjKind::Arrow)
+            .map(|o| o.id)
+            .collect();
+        if !others.is_empty() {
+            return fail(SHAPE, others);
+        }
         let mut arrows = self.objects.iter().filter(|o| o.t == ObjKind::Arrow);
         let (Some(arrow), None) = (arrows.next(), arrows.next()) else {
             return fail(SHAPE, Vec::new());
@@ -136,7 +148,7 @@ impl Document {
             before.is_empty(),
             after.is_empty(),
         ) {
-            (Some(p), Some(q), true, true) => Ok((p, q)),
+            (Some(p), Some(q), true, true) => Ok((p, q, arrow.text.clone())),
             _ => fail(SHAPE, Vec::new()),
         }
     }
@@ -144,7 +156,7 @@ impl Document {
     /// The transformation of the drawing: the record of `mzlab-mol` and its two records. The errors are `SHAPE`, `LABEL`, `MAP` (with
     /// the atoms that have no partner) and `RECORD`.
     pub fn trasf(&self) -> Result<Trasf, TrasfError> {
-        let (p, q) = self.trasf_sides()?;
+        let (p, q, rule) = self.trasf_sides()?;
         let labelled: Vec<u32> = (p.atoms.iter().chain(&q.atoms))
             .filter(|a| !a.lab.is_empty())
             .map(|a| a.id)
@@ -189,7 +201,7 @@ impl Document {
             parent: pm.core_hash_hex(),
             product: Some(qm.core_hash_hex()),
             delta: formula_delta(&pm, &qm),
-            rule: String::new(),
+            rule,
             rule_set: String::new(),
             rule_version: String::new(),
             map,
@@ -278,6 +290,18 @@ pub(crate) fn from_trasf(text: &str, info: &mut Imported) -> Result<Document, &'
         }
     }
     let t = record.ok_or(READ)?;
+    // what a drawing cannot keep is refused, not dropped: only `rule` has a place (the text of the arrow)
+    if t.product.is_none() {
+        return Err(UNCERTAIN);
+    }
+    if !(t.rule_set.is_empty()
+        && t.rule_version.is_empty()
+        && t.stereo_rule.is_none()
+        && t.level.is_none()
+        && t.evidence.is_empty())
+    {
+        return Err(FIELDS);
+    }
     let find = |hash: &str| mols.iter().find(|m| m.core_hash_hex() == hash);
     let parent = find(&t.parent).ok_or(READ)?;
     // an uncertain record has no product: there is nothing to draw after the arrow
@@ -304,6 +328,9 @@ pub(crate) fn from_trasf(text: &str, info: &mut Imported) -> Result<Document, &'
         n += 1;
         d.atoms[a as usize].map = n;
         d.atoms[np + b as usize].map = n;
+    }
+    if let Some(arrow) = d.objects.iter_mut().find(|o| o.t == ObjKind::Arrow) {
+        arrow.text = t.rule.clone();
     }
     info.format = "trasf";
     Ok(d)

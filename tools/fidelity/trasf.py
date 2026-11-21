@@ -17,7 +17,7 @@ Exit 0 when every case agrees, 1 when one does not, 2 on a tool error, 3 when RD
 run time (`pip install rdkit`) and never committed; what is committed is the reference output: the program name and version, the date and
 per case the InChIKey RDKit made, the delta and an FNV-1a hash of our file.
 """
-import argparse, datetime, json, os, re, subprocess, sys
+import argparse, json, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -76,45 +76,60 @@ def main():
             print("replay failed:", line, r.stdout, r.stderr, file=sys.stderr)
             return 2
         rec, parent, product = [json.loads(l) for l in r.stdout.strip().split("\n")]
-        pairs = [(a, b) for a, b in rec["map"] if b is not None]
-        pm = {a: k + 1 for k, (a, b) in enumerate(pairs)}
-        qm = {b: k + 1 for k, (a, b) in enumerate(pairs)}
-        # the reaction from OUR record: atoms by element and bonds only, the map numbers of the record's pairs; the hydrogens are RDKit's own
-        def skeleton(rec, maps):
-            m = Chem.RWMol()
-            for i, a in enumerate(rec["atoms"]):
-                at = Chem.Atom(a["el"])
-                at.SetAtomMapNum(maps.get(i, 0))
-                m.AddAtom(at)
-            for b in rec["bonds"]:
-                m.AddBond(b["a"], b["b"], {1: Chem.BondType.SINGLE, 2: Chem.BondType.DOUBLE, 3: Chem.BondType.TRIPLE}[b["o"]])
-            return Chem.MolToSmarts(m.GetMol())
-        template = AllChem.ReactionFromSmarts(skeleton(parent, pm) + ">>" + skeleton(product, qm))
-        p_plain = mol_of(parent, {})
-        p_free = Chem.MolFromSmiles(Chem.MolToSmiles(p_plain))        # hydrogens recomputed from the valence, not copied
+        # what RDKit says about the INPUT reaction (not about our records): the products of RunReactants on the input reactant, the
+        # elements of the mapped pairs, of the lost and of the added atoms, the reaction centre, the formula change
+        react, prod = line.split(">>")
+        rr, pp = Chem.MolFromSmiles(react), Chem.MolFromSmiles(prod)
+        by_map = lambda m: {a.GetAtomMapNum(): a for a in m.GetAtoms() if a.GetAtomMapNum()}
+        rm, pm_ = by_map(rr), by_map(pp)
+        exp_pairs = sorted((rm[k].GetSymbol(), pm_[k].GetSymbol()) for k in rm if k in pm_)
+        exp_lost = sorted(a.GetSymbol() for a in rr.GetAtoms() if not a.GetAtomMapNum())
+        exp_added = sorted(a.GetSymbol() for a in pp.GetAtoms() if not a.GetAtomMapNum())
+
+        def around(a):
+            """what an atom stands in: element, hydrogens, charge, and its bonds by the map of the other end (0: not mapped)"""
+            m = a.GetOwningMol()
+            return (a.GetSymbol(), a.GetTotalNumHs(), a.GetFormalCharge(),
+                    sorted((n.GetAtomMapNum(), str(m.GetBondBetweenAtoms(a.GetIdx(), n.GetIdx()).GetBondType())) for n in a.GetNeighbors()))
+        exp_centre = sorted(rm[k].GetSymbol() for k in rm if k in pm_ and around(rm[k]) != around(pm_[k]))
+        for a_ in rr.GetAtoms():
+            a_.SetAtomMapNum(0)
+        r_free = Chem.MolFromSmiles(Chem.MolToSmiles(rr))
         made = set()
-        for x in template.RunReactants((p_free,)):
+        for x in AllChem.ReactionFromSmarts(line).RunReactants((r_free,)):
             try:
                 Chem.SanitizeMol(x[0])
                 made.add(MolToInchiKey(x[0]))
             except Exception:
                 pass
-        want = MolToInchiKey(Chem.MolFromSmiles(Chem.MolToSmiles(mol_of(product, {}))))
-        # the delta: formula of the product minus the formula of the parent, element by element
+        # what OUR record says
+        els = lambda recd: [a["el"] for a in recd["atoms"]]
+        pe, qe = els(parent), els(product)
+        got_pairs = sorted((pe[a], qe[b]) for a, b in rec["map"] if b is not None)
+        got_lost = sorted(pe[a] for a, b in rec["map"] if b is None)
+        got_added = sorted(qe[b] for b in rec["added"])
+        got_centre = sorted(pe[a] for a in rec["centre"])
+        got_key = MolToInchiKey(Chem.MolFromSmiles(Chem.MolToSmiles(mol_of(product, {}))))
+        # the delta: formula change of the input reaction, element by element
         def counts(m):
             f = rdMolDescriptors.CalcMolFormula(Chem.AddHs(m))
             return {e: int(n or 1) for e, n in re.findall(r"([A-Z][a-z]?)(\d*)", f)}
-        cp, cq = counts(p_plain), counts(mol_of(product, {}))
+        cp, cq = counts(rr), counts(pp)
         diff = {e: cq.get(e, 0) - cp.get(e, 0) for e in set(cp) | set(cq)}
         written = {}
         for sign, body in re.findall(r"([+-])([A-Za-z0-9]+)", rec["delta"]):
             for e, n in re.findall(r"([A-Z][a-z]?)(\d*)", body):
                 written[e] = written.get(e, 0) + (1 if sign == "+" else -1) * int(n or 1)
-        ok = want in made and {k: v for k, v in diff.items() if v} == written
+        checks = {"product": got_key in made, "pairs": got_pairs == exp_pairs, "lost": got_lost == exp_lost, "added": got_added == exp_added,
+                  "centre": got_centre == exp_centre, "delta": {k: v for k, v in diff.items() if v} == written}
+        ok = all(checks.values())
         bad += not ok
-        rows.append({"reaction": line, "delta": rec["delta"], "inchikey": want, "rdkit_reproduces": want in made, "ok": ok, "file_hash": fnv1a(r.stdout)})
+        want = got_key
+        if not ok:
+            print("   ", {k: v for k, v in checks.items() if not v}, file=sys.stderr)
+        rows.append({"reaction": line, "delta": rec["delta"], "inchikey": want, "checks": checks, "ok": ok, "file_hash": fnv1a(r.stdout)})
         print(("ok   " if ok else "FAIL ") + line + "  " + rec["delta"], file=sys.stderr)
-    out = {"program": "RDKit", "version": rdBase.rdkitVersion, "date": datetime.date.today().isoformat(), "cases": rows}
+    out = {"program": "RDKit", "version": rdBase.rdkitVersion, "cases": rows}
     print(json.dumps(out, indent=2))
     return 1 if bad else 0
 

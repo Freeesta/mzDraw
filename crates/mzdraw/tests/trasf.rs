@@ -254,3 +254,162 @@ fn the_records_beside_the_record_come_in_any_order() {
     assert!(import(&format!("{}\n{}\n{}\n", l[0], l[1], l[1])).is_err());
     assert!(import(&format!("{}\n{}\n{}\n{}\n", l[0], l[0], l[1], l[2])).is_err());
 }
+
+/// A molfile of a reaction file with coordinates and bond stereo: atoms (element, map, x, y), bonds (a, b, order, stereo).
+fn mol_xy(atoms: &[(&str, u16, f64, f64)], bonds: &[(usize, usize, u8, u8)]) -> String {
+    let mut t = format!(
+        "$MOL\nsynthetic\n  mzdraw\n\n{:>3}{:>3}  0  0  0  0  0  0  0  0999 V2000\n",
+        atoms.len(),
+        bonds.len()
+    );
+    for (el, m, x, y) in atoms {
+        t += &format!(
+            "{x:>10.4}{y:>10.4}{:>10.4} {el:<3} 0  0  0  0  0  0  0  0  0{m:>3}  0  0\n",
+            0.0
+        );
+    }
+    for (a, b, o, s) in bonds {
+        t += &format!("{a:>3}{b:>3}{o:>3}{s:>3}\n");
+    }
+    t + "M  END\n"
+}
+
+fn key(d: &Document) -> &'static str {
+    d.to_trasf().unwrap_err().key
+}
+
+#[test]
+fn a_stereo_centre_of_the_change_drawn_as_defined_is_refused_by_the_record() {
+    // CH3-CH(OH)-F with a wedge to the oxygen; the product has an ethyl on the centre and the wedge is kept: the centre is touched
+    // and its stereo is defined, which `trasf/1` allows only with a stereo_rule
+    let parent = mol_xy(
+        &[
+            ("C", 1, 0.0, 0.0),
+            ("C", 2, 1.0, 0.0),
+            ("O", 3, -0.7, 0.7),
+            ("F", 4, -0.7, -0.7),
+        ],
+        &[(1, 2, 1, 0), (1, 3, 1, 1), (1, 4, 1, 0)],
+    );
+    let product = mol_xy(
+        &[
+            ("C", 1, 0.0, 0.0),
+            ("C", 2, 1.0, 0.0),
+            ("O", 3, -0.7, 0.7),
+            ("F", 4, -0.7, -0.7),
+            ("C", 0, 0.2, -1.0),
+            ("C", 0, 1.2, -1.0),
+        ],
+        &[
+            (1, 2, 1, 0),
+            (1, 3, 1, 1),
+            (1, 4, 1, 0),
+            (1, 5, 1, 0),
+            (5, 6, 1, 0),
+        ],
+    );
+    let text = format!("$RXN\n\n  synthetic\n\n  1  1\n{parent}{product}");
+    assert_eq!(key(&doc(&text)), "error.draw2.trasfRecord");
+}
+
+#[test]
+fn a_label_is_refused_with_its_atom() {
+    let mut d = doc(&hydroxylation());
+    d.atoms[0].lab = "Ph".into();
+    let e = d.to_trasf().unwrap_err();
+    assert_eq!(
+        (e.key, e.atoms),
+        ("error.draw2.trasfLabel", vec![d.atoms[0].id])
+    );
+}
+
+#[test]
+fn a_plus_or_a_text_or_a_structure_on_the_arrow_is_refused() {
+    for kind in [mzdraw::ObjKind::Plus, mzdraw::ObjKind::Text] {
+        let mut d = doc(&hydroxylation());
+        let at = d.objects[0].clone();
+        d.objects.push(mzdraw::Obj {
+            id: 99,
+            t: kind,
+            ..at
+        });
+        let e = d.to_trasf().unwrap_err();
+        assert_eq!((e.key, e.atoms), ("error.draw2.trasfShape", vec![99]));
+    }
+    // the head of the arrow is moved past the product: the product stands on the arrow
+    let mut d = doc(&hydroxylation());
+    d.objects[0].x2 += 100.0;
+    assert_eq!(key(&d), "error.draw2.trasfShape");
+}
+
+#[test]
+fn the_text_of_the_arrow_is_the_rule_and_comes_back() {
+    let mut d = doc(&hydroxylation());
+    d.objects[0].text = "CYP3A4".into();
+    let file = d.to_trasf().unwrap();
+    let (t, _, _) = read_back(&file);
+    assert_eq!(t.rule, "CYP3A4");
+    assert_eq!(import(&file).unwrap().0.objects[0].text, "CYP3A4");
+}
+
+#[test]
+fn a_record_that_a_drawing_cannot_keep_is_refused_in_words() {
+    let file = doc(&hydroxylation()).to_trasf().unwrap();
+    let l: Vec<&str> = file.lines().collect();
+    let with = |f: &dyn Fn(&mut serde_json::Value)| {
+        let mut v: serde_json::Value = serde_json::from_str(l[0]).unwrap();
+        f(&mut v);
+        format!("{v}\n{}\n{}\n", l[1], l[2])
+    };
+    for (name, text) in [
+        ("rule_set", with(&|v| v["rule_set"] = "set".into())),
+        ("rule_version", with(&|v| v["rule_version"] = "1".into())),
+        (
+            "stereo_rule",
+            with(&|v| v["stereo_rule"] = "retention".into()),
+        ),
+        ("level", with(&|v| v["level"] = "2b".into())),
+        (
+            "evidence",
+            with(&|v| {
+                v["evidence"] = serde_json::json!([{"kind": "frag", "atoms": [0], "on": "parent"}])
+            }),
+        ),
+    ] {
+        assert_eq!(
+            import(&text).unwrap_err(),
+            "error.draw2.trasfFields",
+            "{name}"
+        );
+    }
+    // the uncertain form: no product
+    let unsure = with(&|v| {
+        let o = v.as_object_mut().unwrap();
+        for k in ["product", "map", "added", "centre"] {
+            o.remove(k);
+        }
+        v["sites"] = serde_json::json!([{"atom": 0, "p": 0.5}]);
+    });
+    assert_eq!(import(&unsure).unwrap_err(), "error.draw2.trasfUncertain");
+}
+
+#[test]
+fn the_record_is_in_a_report_and_absent_from_a_dry_run() {
+    let req = |extra: &str| {
+        format!(
+            r#"{{"import":{},"out":"trasf",{extra}}}"#,
+            serde_json::Value::from(hydroxylation())
+        )
+    };
+    let run: serde_json::Value =
+        serde_json::from_str(&mzdraw::replay::replay(&req(r#""report":true"#)).unwrap()).unwrap();
+    assert_eq!(run["ok"], true);
+    assert!(run["out"]
+        .as_str()
+        .unwrap()
+        .starts_with(r#"{"format":"trasf/1""#));
+    let dry: serde_json::Value =
+        serde_json::from_str(&mzdraw::replay::replay(&req(r#""dry_run":true"#)).unwrap()).unwrap();
+    assert_eq!(dry["ok"], true);
+    assert!(dry.get("out").is_none(), "nothing is written by a dry run");
+}
