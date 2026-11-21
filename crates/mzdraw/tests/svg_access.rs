@@ -79,7 +79,7 @@ fn an_annotated_structure_says_its_level() {
         .iter()
         .map(|p| p.anchor)
         .collect();
-    e.annotate(at[0], "2b", "ethanol", "", "");
+    e.annotate(at[0], "", "2b", "ethanol", "", "");
     let s = svg::to_svg(e.doc());
     assert_eq!(text_of(&s, "desc"), "C2H6O (level 2b) and C3H6O.");
     assert_eq!(text_of(&s, "title"), "C2H6O and C3H6O");
