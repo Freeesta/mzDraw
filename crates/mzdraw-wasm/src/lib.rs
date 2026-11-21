@@ -2,6 +2,9 @@
 //! the display list (`scene` + `strings`) and shows what `state` says. All decisions are in the crate `mzdraw`; `replay` is the same
 //! function the native side runs, for the parity test. With the `mzlab` feature `state` carries the `check/1` warnings of the drawing
 //! (`mzlab_feat::chem::check`, the bytes of `mzlab-cli mol check`). Errors are JSON `{"error_key", "params"}` strings.
+#[cfg(feature = "mzlab")]
+pub mod glue;
+
 use mzdraw::editor::{Editor, CHANGED};
 use mzdraw::scene::Scene;
 use mzdraw::Axis;
@@ -59,31 +62,28 @@ fn live_check(p: &mut Page) {
     let doc = p.editor.doc();
     p.check.clear();
     let mut flagged = Vec::new();
-    if !doc.atoms.is_empty() {
-        let molfile = serde_json::Value::from(doc.to_molfile_for_check());
-        let request = format!(r#"{{"molfile":{molfile}}}"#);
-        if let Ok(j) = mzlab_feat::chem::check::check_json(&request) {
-            let v: serde_json::Value = serde_json::from_str(&j).unwrap_or_default();
-            for w in v["warnings"]
+    if let Some(j) = glue::check(doc) {
+        let v: serde_json::Value = serde_json::from_str(&j).unwrap_or_default();
+        let ids = glue::ids(doc);
+        for w in v["warnings"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|w| w["level"] == "warn")
+        {
+            for i in w["atoms"]
                 .as_array()
                 .into_iter()
                 .flatten()
-                .filter(|w| w["level"] == "warn")
+                .filter_map(|i| i.as_u64())
             {
-                for i in w["atoms"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|i| i.as_u64())
-                {
-                    // check/1 counts atoms from 0 in molfile order, which is the pool order
-                    if let Some(a) = doc.atoms.get(i as usize) {
-                        flagged.push(a.id);
-                    }
+                // check/1 counts atoms from 0 in molfile order, which is the pool order
+                if let Some(id) = ids.get(i as usize) {
+                    flagged.push(*id);
                 }
             }
-            p.check = j;
         }
+        p.check = j;
     }
     p.editor.set_warnings(flagged);
 }
@@ -110,13 +110,15 @@ pub fn pointer(phase: u32, x: f64, y: f64, kind: u32, mods: u32, id: u32, t: f64
     act(|e| e.pointer_event(phase, id, x, y, kind, mods, t))
 }
 
+/// A key press: `mods` bit 1 Shift, bit 2 Ctrl/Cmd, bit 8 Alt/Option; `t` the time stamp of the event in milliseconds (repeated
+/// nudges within a second are one undo step).
 #[wasm_bindgen]
-pub fn key(key: &str, mods: u32) -> u32 {
-    act(|e| e.key(key, mods))
+pub fn key(key: &str, mods: u32, t: f64) -> u32 {
+    act(|e| e.key_at(key, mods, t))
 }
 
 /// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
-/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, or a tool name (`select`, `atom:N`, `bond:2`,
+/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
 /// `bond:up`, `label:Ph`, `arrow`, `plus`, `text:<one line>`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
@@ -134,6 +136,7 @@ pub fn command(what: &str) -> u32 {
         "rotate-r" => e.rotate(-15.0),
         "flip-h" => e.flip(Axis::H),
         "flip-v" => e.flip(Axis::V),
+        "move-here" => e.set_move_here(!e.move_here),
         tool => e.set_tool(tool),
     })
 }
@@ -347,24 +350,54 @@ pub fn set_data(anchor: u32, json: &str) -> u32 {
     })
 }
 
-/// Annotates the structure of the atom `anchor` with a new entry: a confidence level (`ann_schema` lists those of the scale;
+/// Annotates the structure of the atom `anchor` with a new entry: a scale (`ann_schema` lists them; empty: the default) and a
+/// confidence level (`ann_schema` lists those of each scale;
 /// an empty one takes the annotation away), an identifier, the evidence as lines `kind: reference`, a note. An entry that is not
 /// of its shape changes nothing (`error` in `state`).
 #[wasm_bindgen]
-pub fn annotate(anchor: u32, level: &str, identifier: &str, evidence: &str, note: &str) -> u32 {
-    with(|p| p.editor.annotate(anchor, level, identifier, evidence, note))
+pub fn annotate(
+    anchor: u32,
+    scale: &str,
+    level: &str,
+    identifier: &str,
+    evidence: &str,
+    note: &str,
+) -> u32 {
+    with(|p| {
+        p.editor
+            .annotate(anchor, scale, level, identifier, evidence, note)
+    })
 }
 
-/// What an annotation can say, for a surface that builds its fields: `{"scale", "levels": [...], "kinds": [...]}`.
+/// What an annotation can say, for a surface that builds its fields: `{"scale", "levels": [...], "scales": [{"name",
+/// "levels"}], "kinds": [...]}` (`scale` and `levels` are the default scale and its levels). The levels to list for a chosen
+/// scale are `ann_levels`.
 #[wasm_bindgen]
 pub fn ann_schema() -> String {
     let list = |l: &[&str]| format!(r#"["{}"]"#, l.join(r#"",""#));
     format!(
-        r#"{{"scale":"{}","levels":{},"kinds":{}}}"#,
+        r#"{{"scale":"{}","levels":{},"scales":[{}],"kinds":{}}}"#,
         mzdraw::ann::SCALE,
         list(&mzdraw::ann::LEVELS),
+        (mzdraw::ann::SCALES.iter())
+            .map(|s| format!(r#"{{"name":"{}","levels":{}}}"#, s.0, list(s.1)))
+            .collect::<Vec<_>>()
+            .join(","),
         list(&mzdraw::ann::KINDS)
     )
+}
+
+/// The levels to list for the scale `scale` and the current level `file_level` of a structure: `[{"level", "ofFile"}]`,
+/// those of the scale first, then `file_level` flagged `ofFile` when it is not in the scale.
+#[wasm_bindgen]
+pub fn ann_levels(scale: &str, file_level: &str) -> String {
+    let items: Vec<String> = (mzdraw::ann::level_list(scale, file_level).into_iter())
+        .map(|(l, f)| {
+            let level = serde_json::Value::from(l);
+            format!(r#"{{"level":{level},"ofFile":{f}}}"#)
+        })
+        .collect();
+    format!("[{}]", items.join(","))
 }
 
 /// Sets one setting, `<section>.<key>=<value>` (for the style: `style.line_width=2`, `style.colour=mono`).
@@ -407,7 +440,7 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check, std}` (`check` is
+/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, moveHere, clip, say: {key, what}, error, check, std}` (`check` is
 /// the `check/1` document or null; `std` is `{none, lines}`: `lines` lists the drawing checks that have findings, `[{key, grade, n}]`, as `Editor::save("std")` reports them, and `none` is true when something is drawn and there are none).
 #[wasm_bindgen]
 pub fn state() -> String {
@@ -423,7 +456,8 @@ pub fn state() -> String {
                     .collect();
                 let ann = s.ann.map_or("null".to_string(), |a| {
                     format!(
-                        r#"{{"level":{},"known":{},"identifier":{},"evidence":{},"note":{},"entries":{}}}"#,
+                        r#"{{"scale":{},"level":{},"known":{},"identifier":{},"evidence":{},"note":{},"entries":{}}}"#,
+                        q(&a.scale),
                         q(&a.level),
                         a.known,
                         q(&a.identifier),
@@ -456,7 +490,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -465,6 +499,7 @@ pub fn state() -> String {
             e.doc().objects.len(),
             e.session.can_undo(),
             e.session.can_redo(),
+            e.move_here,
             !e.clipboard("mzdraw").is_empty(),
             q(e.said.0),
             q(&e.said.1),
@@ -476,6 +511,14 @@ pub fn state() -> String {
     })
 }
 
+/// Headless with engines: a replay request plus `"engines": [{"engine", "args"?}]` gives `{"engines": [...]}` (`glue::replay`), the same bytes
+/// as the native example `replay_glue`.
+#[cfg(feature = "mzlab")]
+#[wasm_bindgen]
+pub fn replay_glue(request: &str) -> Result<String, JsValue> {
+    glue::replay(request).map_err(|e| JsValue::from_str(&e.to_json()))
+}
+
 /// Headless: `{"import", "log", "out"}` gives the output text, the same bytes as the native `mzdraw::replay::replay`.
 #[wasm_bindgen]
 pub fn replay(request: &str) -> Result<String, JsValue> {
@@ -485,4 +528,46 @@ pub fn replay(request: &str) -> Result<String, JsValue> {
             e.key, e.id
         ))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{json, Value};
+
+    #[test]
+    fn the_annotation_schema_lists_the_scales_and_their_levels() {
+        let v: Value = serde_json::from_str(&ann_schema()).unwrap();
+        assert_eq!(v["scale"], "schymanski-2014");
+        assert_eq!(v["levels"], json!(["1", "2a", "2b", "3", "4", "5"]));
+        assert_eq!(v["scales"][0]["name"], "schymanski-2014");
+        assert_eq!(v["scales"][0]["levels"], v["levels"]);
+        assert_eq!(v["scales"][1]["name"], "charbonnet-2022");
+        assert_eq!(
+            v["scales"][1]["levels"],
+            json!(["1a", "1b", "2a", "2b", "2c", "3a", "3b", "3c", "3d", "4", "5a", "5b"])
+        );
+        assert_eq!(v["scales"].as_array().unwrap().len(), 2);
+        assert!(v["kinds"].as_array().unwrap().contains(&json!("formula")));
+    }
+
+    #[test]
+    fn the_levels_to_list_follow_the_scale_and_flag_the_level_of_the_file() {
+        let list = |s: &str, l: &str| serde_json::from_str::<Value>(&ann_levels(s, l)).unwrap();
+        let pfas = list("charbonnet-2022", "");
+        assert_eq!(pfas.as_array().unwrap().len(), 12);
+        assert!(pfas
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|x| x["ofFile"] == false));
+        // a level of the chosen scale is not "of the file"; one that is not in it is, once, last
+        assert_eq!(list("charbonnet-2022", "3b"), pfas);
+        let other = list("schymanski-2014", "3b");
+        assert_eq!(other.as_array().unwrap().len(), 7);
+        assert_eq!(other[6], json!({"level": "3b", "ofFile": true}));
+        assert_eq!(other[0], json!({"level": "1", "ofFile": false}));
+        // a scale of no table has only the level of the file
+        assert_eq!(list("mine", "x"), json!([{"level": "x", "ofFile": true}]));
+    }
 }

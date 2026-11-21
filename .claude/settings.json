@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install --prefix tools/velocity/.cache:*)",
+      "Bash(python3 -m venv tools/velocity/.venv)",
+      "Bash(tools/velocity/.venv/bin/pip install:*)"
+    ]
+  }
+}

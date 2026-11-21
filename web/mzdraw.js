@@ -5,7 +5,7 @@ const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
 const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64;
 // toolbar: [command or tool name, key of the short label, key of the tooltip]; "|" is a separator
-const TOOLS = ["select", "erase", "|", "bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
+const TOOLS = ["select", "move-here", "erase", "|", "bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
   "ring:6a", "ring:6", "ring:5", "|", "label", "|", "arrow", "plus", "text", "|", "charge:+", "charge:-", "|", "undo", "redo", "|", "copy", "cut", "paste", "duplicate", "|", "rotate-l", "rotate-r", "flip-h", "flip-v", "|", "zoom-in", "zoom-out", "fit", "|", "clear"];
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus"];
 
@@ -80,21 +80,32 @@ function annFields(outline) {
   $("d2-ann-kinds").textContent = t("draw2.ann.kinds", { list: schema.kinds.join(", ") });
   box.replaceChildren(...outline.map((s, i) => {
     const set = document.createElement("fieldset"), legend = document.createElement("legend"), apply = document.createElement("button");
-    const level = document.createElement("select"), id = document.createElement("input"), evidence = document.createElement("textarea"), note = document.createElement("textarea");
-    const a = s.ann || { level: "", known: true, identifier: "", evidence: "", note: "", entries: 0 };
+    const scale = document.createElement("select"), level = document.createElement("select"), id = document.createElement("input"), evidence = document.createElement("textarea"), note = document.createElement("textarea");
+    const a = s.ann || { scale: schema.scale, level: "", known: true, identifier: "", evidence: "", note: "", entries: 0 };
     legend.textContent = t("draw2.data.piece", { n: i + 1, formula: s.formula });
-    // a level of another scale is kept and shown as it is written
-    for (const l of ["", ...schema.levels, ...(a.known ? [] : [a.level])]) level.append(new Option(l ? t("draw2.ann.level.n", { level: l }) : t("draw2.ann.level.none"), l));
-    level.value = a.level; id.type = "text"; id.value = a.identifier; id.maxLength = 200; evidence.value = a.evidence; note.value = a.note;
+    // the scales are those of the module (and the scale of a file, as it is written); the levels follow the scale, and a level
+    // not of the scale (as read from a file) is kept and offered as "of the file"
+    const scales = schema.scales.map((/** @type {any} */ x) => x.name);
+    for (const n of [...scales, ...(scales.includes(a.scale) ? [] : [a.scale])]) scale.append(new Option(scales.includes(n) ? t(`draw2.ann.scale.${n}`) : t("draw2.ann.scale.file", { scale: n }), n));
+    scale.value = a.scale;
+    const fill = (/** @type {string} */ keep = level.value) => {
+      // the list (and which level is "of the file") is the module's; the chosen level stays if the new list has it
+      const list = JSON.parse(ed.ann_levels(scale.value, a.level));
+      level.replaceChildren(new Option(t("draw2.ann.level.none"), ""), ...list.map((/** @type {any} */ x) => new Option(x.ofFile ? t("draw2.ann.level.file", { level: x.level }) : t("draw2.ann.level.m", { level: x.level, meaning: t(`draw2.ann.level.${scale.value}.${x.level}`) }), x.level)));
+      level.value = list.some((/** @type {any} */ x) => x.level === keep) ? keep : "";
+    };
+    scale.addEventListener("change", () => fill());
+    fill(a.level);
+    id.type = "text"; id.value = a.identifier; id.maxLength = 200; evidence.value = a.evidence; note.value = a.note;
     evidence.rows = 2; note.rows = 1;
     const field = (/** @type {string} */ key, /** @type {HTMLElement} */ el) => { const l = document.createElement("label"); l.className = "d2-annf"; l.append(t(key), el); return l; };
     apply.type = "button"; apply.textContent = t("draw2.data.apply");
     apply.addEventListener("click", () => {
-      const f = after(ed.annotate(s.anchor, level.value, id.value, evidence.value.replace(/\r/g, ""), note.value.replace(/\r/g, ""))), st = JSON.parse(ed.state());
+      const f = after(ed.annotate(s.anchor, scale.value, level.value, id.value, evidence.value.replace(/\r/g, ""), note.value.replace(/\r/g, ""))), st = JSON.parse(ed.state());
       $("d2-ann-note").textContent = f & CHANGED ? t(level.value ? "draw2.ann.done" : "draw2.ann.gone", { level: level.value }) : t(st.error || "error.draw2.ann");
     });
     const history = document.createElement("p"); history.className = "hint"; history.textContent = a.entries > 1 ? t("draw2.ann.history", { n: a.entries }) : "";
-    set.append(legend, field("draw2.ann.level", level), field("draw2.ann.identifier", id), field("draw2.ann.evidence", evidence), field("draw2.ann.note", note), apply, history);
+    set.append(legend, field("draw2.ann.scale", scale), field("draw2.ann.level", level), field("draw2.ann.identifier", id), field("draw2.ann.evidence", evidence), field("draw2.ann.note", note), apply, history);
     return set;
   }));
 }
@@ -110,6 +121,7 @@ function refresh() {
   for (const b of $("d2-tools").querySelectorAll("button")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
     if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
+    if (c === "move-here") b.setAttribute("aria-pressed", String(st.moveHere));
     if (c === "undo") /** @type {HTMLButtonElement} */ (b).disabled = !st.undo;
     if (c === "redo") /** @type {HTMLButtonElement} */ (b).disabled = !st.redo;
     if (c === "copy" || c === "cut" || c === "duplicate") /** @type {HTMLButtonElement} */ (b).disabled = !st.selected;
@@ -149,7 +161,7 @@ function refresh() {
   $("d2-std-note").textContent = st.std.none ? t("draw2.std.none") : "";
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
   if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
-  else if (st.say.key) $("d2-live").textContent = t(`draw2.say.${st.say.key.slice(10)}`, { what: st.say.what });
+  else if (st.say.key) $("d2-live").textContent = t(st.say.key, { what: st.say.what });
   document.documentElement.dataset.d2 = JSON.stringify({ focus: st.focus ? st.focus.index : 0, atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, std: std.length, selected: st.selected });
 }
 
@@ -287,8 +299,8 @@ function toolbar() {
   }
 }
 
-// bit 4: the eraser end or eraser button of a pen (button 5, buttons bit 32)
-const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
+// bit 8: Alt (Option); bit 4: the eraser end or eraser button of a pen (button 5, buttons bit 32)
+const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | (e.altKey ? 8 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
 const kind = (/** @type {PointerEvent} */ e) => (e.pointerType === "pen" ? 1 : e.pointerType === "touch" ? 2 : 0);
 
 function events() {
@@ -315,7 +327,7 @@ function events() {
   cv.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = at(e); after(ed.zoom(x, y, e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
   cv.addEventListener("keydown", e => {
-    const f = ed.key(e.key, mods(e));
+    const f = ed.key(e.key, mods(e), e.timeStamp);
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
     if (f & (ASK_LABEL | ASK_TEXT)) { const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
   });

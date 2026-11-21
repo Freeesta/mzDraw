@@ -73,7 +73,7 @@ A collapsed palette shows only its head. The head shows the kind last used from 
 
 Every button has a twin in the log, in the replay request or in the settings file.
 
-A planned key must be free in `Editor::key` (`editor_tools.rs`, `key` and `element_key`), which lowercases the key and reads Shift only with `W`, `A`, `C`, `B` and `S`. So `Shift+E` is erase and `Shift+P` is phosphorus today, and neither is planned: `X` and `K` are bound to nothing, with or without Shift. Alt is not read yet, so `Alt+H` and `Alt+V` would set hydrogen and pick select until the slice that binds them makes `key` handle Alt before the letters.
+A planned key must be free in `Editor::key` (`editor_tools.rs`, `key` and `element_key`), which lowercases the key and reads Shift only with `W`, `A`, `C`, `B` and `S`. So `Shift+E` is erase and `Shift+P` is phosphorus today, and neither is planned: `X` and `K` are bound to nothing, with or without Shift. `Editor::key_at` handles Alt before the letters (drag-free editing: `Alt+Arrow`, `Alt+[`, `Alt+]`, bit 8 of `mods`), so an Alt chord that is not one of those returns 0 and never reaches the element keys: `Alt+H` and `Alt+V` do nothing today.
 
 ## 4. Palettes
 Every group of actions is a small palette with a drag handle (44 px on touch). The user drags a palette anywhere over the page, docks it on any of the four edges, collapses it to its head, or closes it. The Palettes menu of the File palette reopens a closed palette, and its Reset layout entry brings back the default below.
