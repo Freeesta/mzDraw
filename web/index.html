@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <script src="appname.js"></script>
+<script src="theme.js"></script>
 <title data-i18n="draw2.name"></title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="mzdraw.css">
@@ -115,6 +116,7 @@
 </div>
 <!-- the flyouts of the palettes, over everything; the save formats are written here, the rest is built -->
 <div id="d2-flys">
+  <div id="d2-fly-prefs" role="group" data-i18n-aria-label="draw2.fly.prefs" aria-label="Preferences"></div>
   <div id="d2-fly-saveas">
     <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
         <button id="d2-ex-v3000" type="button" data-i18n="draw2.export.v3000" title="Save the drawing as a V3000 molfile" data-i18n-title="draw2.export.v3000.title">Molfile V3000</button>

@@ -5,6 +5,7 @@ import { build, layout, show, open, PALETTES } from "./palettes.js";
 import { NAMES } from "./names.js";
 import { contextMenu } from "./context.js";
 import { feedbackBoxes } from "./feedback.js";
+import { buildPrefs, applyTheme } from "./prefs.js";
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
@@ -563,6 +564,10 @@ function keep() {
 
 /** shows the adducts the module holds in the checkboxes of the style panel (set by `styles`) @type {() => void} */
 let box_sync = () => {};
+/** shows what the module holds in the Preferences panel (set by `preferences`) @type {() => void} */
+let prefsSync = () => {};
+/** shows what the module holds in the style panel (set by `styles`) @type {() => void} */
+let restyle = () => {};
 
 async function styles() {
   const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), note = $("d2-style-note"), NAME = NAMES.settings;
@@ -575,7 +580,7 @@ async function styles() {
     const style = JSON.parse(ed.style()).style;
     sel.value = style.preset; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
     for (const [key, input] of Object.entries(inputs)) { input.value = key in words ? ed.choice(key) : String(style[key]); input.removeAttribute("aria-invalid"); }
-    box_sync();
+    box_sync(); prefsSync(); applyTheme(ed);
   };
   /** one change asked of the module; a refusal is said in words, the field is marked and nothing changes */
   const ask = (/** @type {() => number} */ change, /** @type {string} */ said, /** @type {Element | null} */ field) => {
@@ -633,11 +638,27 @@ async function styles() {
     if (f) { const text = await f.text(); ask(() => ed.set_style(text), t("draw2.style.opened.note"), null); }
     /** @type {HTMLInputElement} */ (e.target).value = "";
   });
+  let stored = "";       // what the module dropped of the stored settings, in words
   for (const name of [NAME, ...NAMES.settingsOld]) {       // the file of the name in use, else one an earlier name wrote
-    try { ed.set_style(await (await (await (await navigator.storage.getDirectory()).getFileHandle(name)).getFile()).text()); break; } catch { /* nothing kept, or a file the module refuses */ }
+    let text = "";
+    try { text = await (await (await navigator.storage.getDirectory()).getFileHandle(name)).getFile().then(f => f.text()); } catch { continue; }       // nothing kept, or no storage
+    try { const r = JSON.parse(ed.set_style_stored(text)); if (r.note) stored = t(r.note); break; } catch { /* a file the module refuses */ }
   }
+  restyle = show;
   show();
-  note.textContent = t(`draw2.style.${sel.value}.note`);
+  note.textContent = stored || t(`draw2.style.${sel.value}.note`);
+}
+
+/** the Preferences panel (prefs.js), a flyout of the File palette: its rows come from the module's schema; a change is one `set` (or a reset of a group)
+ * asked of the module, then the screen, the style panel and the stored settings follow */
+function preferences() {
+  const note = () => $("d2-prefs-note");
+  prefsSync = buildPrefs($("d2-fly-prefs"), { ed, t, close: () => { open("prefs", false); /** @type {HTMLElement} */ (document.querySelector('[data-testid="d2-prefs"]')).focus(); },
+    change: (/** @type {() => number} */ fn, /** @type {string} */ said, /** @type {Element | null} */ field) => {
+      try { after(fn() | CHANGED); prefsSync(); applyTheme(ed); restyle(); keep(); note().textContent = said; $("d2-live").textContent = said; }
+      catch (e) { note().textContent = I.err(JSON.parse(String(e))).message; field?.setAttribute("aria-invalid", "true"); }
+    } });
+  prefsSync(); applyTheme(ed);
 }
 
 function panels() {
@@ -665,7 +686,7 @@ try {
   mapField(); proposalEvents(); stepEvents(); feedbackBoxes({ ed, t, focusCanvas: () => cv.focus({ preventScroll: true }) });
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
-  events(); clipboardEvents(); panels(); await styles(); layout(); refresh();
+  events(); clipboardEvents(); panels(); await styles(); preferences(); layout(); refresh();
   document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });
   await autosave.offer();
   document.documentElement.dataset.d2Ready = "1";
