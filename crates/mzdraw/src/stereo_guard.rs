@@ -201,6 +201,10 @@ fn sub_document(doc: &Document, set: &BTreeSet<u32>) -> Document {
 /// as drawn (the path of `save("smiles")`, before its text is made).
 fn canonical_text(doc: &Document) -> Option<String> {
     COMPUTED.fetch_add(1, Ordering::Relaxed);
+    // the writer recurses along a chain: a piece above the limit is refused as the other ways to a SMILES are (`Document::to_smiles`)
+    if crate::formats::smiles_too_large(doc) {
+        return None;
+    }
     let mol = doc.to_mol_stereo().canonical();
     mol.to_smiles_with_order().ok().map(|(text, _)| text)
 }

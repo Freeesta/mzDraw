@@ -81,9 +81,10 @@ impl Document {
             atoms.push(w.0 + "}");
         }
         let mut bonds = Vec::new();
+        let index = self.index_map();
         for (k, b) in m.bonds.iter().enumerate() {
             let ends = (self.bonds.get(k).filter(|d| d.s != 0))
-                .and_then(|d| Some((d.s, self.atom_index(d.a)?, self.atom_index(d.b)?)));
+                .and_then(|d| Some((d.s, *index.get(&d.a)?, *index.get(&d.b)?)));
             bonds.push(match ends {
                 // a wedge starts at its narrow end
                 Some((s, narrow, wide)) => {

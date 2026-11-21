@@ -153,6 +153,8 @@ pub struct Editor {
     pub(crate) press: Option<Press>,
     /// What the last change did, as an i18n key with one parameter, for the screen reader line.
     pub said: (&'static str, String),
+    /// The numbers of a line that has more than one (`draw2.say.pathway`: structures, arrows, gaps), by name; valid only with the `said` they were set with.
+    pub said_params: Vec<(&'static str, u32)>,
     /// A report that stays visible until the next step (the stereo guard), as an i18n key with one parameter; empty when none.
     pub notice: (&'static str, String),
     /// The last refused operation, an i18n key.
@@ -190,6 +192,7 @@ impl Default for Editor {
             over: Overlay::default(),
             press: None,
             said: ("", String::new()),
+            said_params: Vec::new(),
             notice: ("", String::new()),
             error: "",
             gesture: Default::default(),
@@ -448,7 +451,7 @@ impl Editor {
     }
 
     /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `trasf` (the record `trasf/1` of one structure before and one after the arrow, with its two `mol/1` records), `sdf` (one record per structure, with its data),
-    /// `svg` (in the style of the editor), `pdf` (base64 of the PDF file), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
+    /// `svg` (in the style of the editor), `pdf` (base64 of the PDF file), `log` (the command log), `std` (the drawing checks, `conform::report`, read-only) or `loss:FORMAT` (what that format drops of the drawing, `loss/1`). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
             k if crate::brand::is_doc_kind(k) => self.doc().to_json(),
@@ -469,6 +472,11 @@ impl Editor {
             "std" => crate::pathway::report_with(self.doc(), &self.style).to_json(),
             "boxes" => crate::pathway::boxes_json(self.doc(), &self.style),
             "schema" => crate::schema::json(),
+            // `loss:FORMAT`: what that format would drop or change of this drawing (`loss/1`)
+            k if k.starts_with("loss:") => {
+                let target = &k["loss:".len()..];
+                crate::loss::json(target, &crate::loss::loss(self.doc(), target)?)
+            }
             _ => return Err("error.draw2.request"),
         })
     }

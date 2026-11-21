@@ -205,6 +205,10 @@ fn known(key: &str) -> bool {
     ) || FIELDS.iter().any(|f| f.key == key)
 }
 
+/// The keys of the settings that take a word: the key, the words (the first is the default) as `--set` and the settings file read
+/// them. `pathway.order` has `id`, `mz` and `rt` here; `reverse-id` is for the tests of the layout and is not offered.
+const CHOICES: &str = r#"{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"}"#;
+
 /// The schema of the settings file as JSON, for the surfaces that show or document it (the fields of the page, the help of the
 /// CLI): `{"format", "presets", "colours", "fields": [{"key", "unit", "min", "max", "default"}]}`, the defaults being the ones of
 /// the preset `mzlab`.
@@ -225,7 +229,7 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"]}},"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"]}},"choices":[{CHOICES}],"fields":[{}]}}"#,
         PRESETS.join("\",\""),
         fields.join(",")
     )
@@ -394,6 +398,15 @@ impl Style {
             }
         }
         Ok(())
+    }
+
+    /// The effective word of a key of `CHOICES` (`pathway.dir`, `pathway.order`), the default when the file leaves it out; `None` for any other key.
+    pub fn choice(&self, key: &str) -> Option<&'static str> {
+        match key {
+            "pathway.dir" => Some(if self.pathway_down { "down" } else { "right" }),
+            "pathway.order" => Some(self.pathway_order.name()),
+            _ => None,
+        }
     }
 
     /// A style from a preset name or from the text of a settings file (`{"format": "mzdraw-settings/1", "style": {...}}`; the
