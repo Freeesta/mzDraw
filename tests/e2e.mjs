@@ -2553,8 +2553,10 @@ try {
     // the text is still selected: Escape again clears the selection and the panel goes
     await pg.keyboard.press("Escape"); await txShown(false);
     // the replay of the log of the session is the document of the page (rule 15)
-    const log = await pg.evaluate("window.MZDRAW.save('log')"), again = await pg.evaluate(([l, d]) => { const m = /** @type {any} */ (window).MZDRAW; return m.replay(JSON.stringify({ log: JSON.parse(l), out: "log" })); }, [log, txDoc]);
-    assert(typeof again === "string" && again.includes('"obj.set"') || log.includes("obj.set"), "the log holds the text ops");
+    const log = await pg.evaluate("window.MZDRAW.save('log')");
+    assert(log.includes('"obj.set"'), "the log holds the text ops");
+    const again = await pg.evaluate(([l, d]) => /** @type {any} */ (window).MZDRAW.replay(JSON.stringify({ import: d, log: JSON.parse(l), out: "mzdraw" })), [log, txDoc]);
+    eq(again, await txSave());
   });
   await step("text panel by mouse: a drag inside the text selects a range, the buttons, the font, the size and the colour change only that range; a double click selects a word; the font and size lists come from the module", async () => {
     const [ox, oy] = await txOpen();
@@ -2594,6 +2596,8 @@ try {
     await pg.touchscreen.tap(...await center(pg, "#d2-text-edit")); await until(pg, "window.MZDRAW.state().includes('\"editing\":true')");
     await touch("touchStart", [[ox + 1, oy]]); for (let k = 1; k <= 6; k++) await touch("touchMove", [[ox + 1 + k * 12, oy]]); await touch("touchEnd", []); await frames(pg);
     const x = await txText(); eq(x.from, 0); assert(x.to >= 3 && x.to < 11, "a range by a finger: " + JSON.stringify([x.from, x.to]));
+    // (after a drag the emulated touch needs one tap on the bar's own edge before the next tap is a click: a quirk of the emulation, no page code)
+    const bar = await pg.locator("#d2-textbar").boundingBox(); await pg.touchscreen.tap(bar.x + 2, bar.y + 2);
     await pg.touchscreen.tap(...await center(pg, '#d2-textbar [data-text="b"]')); await frames(pg);
     const runs = await txRuns(); eq([!!runs[0].b, runs[1] ? !!runs[1].b : null], [true, false]);
     await shot(pg, "text-panel-touch");
