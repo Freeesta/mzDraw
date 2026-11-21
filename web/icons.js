@@ -27,6 +27,7 @@ export const ICONS = {
   label: '<path d="M5.5 19V5h5a4 4 0 0 1 0 8h-5M10 13l4.5 6"/><path d="M17.5 14.5l1.5-1v6"/>',
   arrow: '<path d="M3.5 12h16.5M15 7l5 5-5 5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  "scheme-row": '<path d="M2.5 12h4M4.5 10v4M9 12h6M12.5 9.5L15 12l-2.5 2.5M19 12h2.5"/>',
   text: '<path d="M5 7V4.5h14V7M12 4.5v15M9 19.5h6"/>',
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',

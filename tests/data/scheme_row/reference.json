@@ -1,0 +1,51 @@
+{
+  "program": "RDKit",
+  "version": "2026.09.2",
+  "date": "2026-11-21",
+  "cases": [
+    {
+      "case": "a messy two-component scheme on one line",
+      "compared": true,
+      "same": true,
+      "reactants": 2,
+      "products": 1,
+      "agents": 1
+    },
+    {
+      "case": "a wider gap, the same scheme",
+      "compared": true,
+      "same": true,
+      "reactants": 2,
+      "products": 1,
+      "agents": 1
+    },
+    {
+      "case": "a three-step scheme wrapped after an arrow",
+      "compared": false
+    },
+    {
+      "case": "a right-to-left scheme is laid out leftwards",
+      "compared": false
+    },
+    {
+      "case": "an anchored arrow is routed, not set",
+      "compared": true,
+      "same": true,
+      "reactants": 2,
+      "products": 1,
+      "agents": 1
+    },
+    {
+      "case": "the selection alone is laid out",
+      "compared": false
+    },
+    {
+      "case": "an agent far from the arrow line is brought next to it",
+      "compared": true,
+      "same": true,
+      "reactants": 2,
+      "products": 1,
+      "agents": 1
+    }
+  ]
+}

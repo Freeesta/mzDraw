@@ -182,6 +182,28 @@ pub(crate) fn from_rxn(text: &str, info: &mut Imported) -> Result<Document, &'st
     Ok(all)
 }
 
+/// Where a point stands along an arrow: 0 at the tail, 1 at the head (the projection on the shaft). A zero-length arrow gives 0.
+pub(crate) fn along(arrow: &Obj, x: f64, y: f64) -> f64 {
+    let (dx, dy) = (arrow.x2 - arrow.x, arrow.y2 - arrow.y);
+    let l2 = dx * dx + dy * dy;
+    if l2 < 1e-12 {
+        return 0.0;
+    }
+    ((x - arrow.x) * dx + (y - arrow.y) * dy) / l2
+}
+
+/// The role of a structure whose centre stands at `t` along the arrow: 0 reactant (before the tail), 1 product (past the head),
+/// 2 agent (alongside). The one rule of `to_rxn` and of the layout `scheme::row`.
+pub(crate) fn role(t: f64) -> usize {
+    if t < 0.0 {
+        0
+    } else if t > 1.0 {
+        1
+    } else {
+        2
+    }
+}
+
 impl Document {
     /// The atoms `ids` with the bonds between them, as a document of their own.
     pub(crate) fn part(&self, ids: &[u32]) -> Document {
@@ -208,7 +230,6 @@ impl Document {
         let (Some(arrow), None) = (arrows.next(), arrows.next()) else {
             return Err("error.draw2.rxnArrow");
         };
-        let (dx, dy) = (arrow.x2 - arrow.x, arrow.y2 - arrow.y);
         let mut roles: [Vec<(f64, String)>; 3] = Default::default();
         for ids in crate::layout::pieces(self) {
             let piece = self.part(&ids);
@@ -217,15 +238,8 @@ impl Document {
                 .atoms
                 .iter()
                 .fold((0.0, 0.0), |c, a| (c.0 + a.x / n, c.1 + a.y / n));
-            // where the middle of the structure stands along the arrow: 0 at the tail, 1 at the head
-            let t = ((cx - arrow.x) * dx + (cy - arrow.y) * dy) / (dx * dx + dy * dy);
-            let role = if t < 0.0 {
-                0
-            } else if t > 1.0 {
-                1
-            } else {
-                2
-            };
+            let t = along(arrow, cx, cy);
+            let role = role(t);
             let mut mol = piece.to_molfile();
             if !mol.ends_with('\n') {
                 mol.push('\n');

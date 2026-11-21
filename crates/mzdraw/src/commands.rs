@@ -1,6 +1,6 @@
 //! The editor commands of a request (`"commands":[{"command":NAME,"args":{...}}]`): the same commands the page runs, so a raw-op
 //! agent gets the follow of anchored arrows (`route`) that a bare operation of the log does not give. The commands of this slice
-//! are `move`, `rotate` and `flip`; their `args` are the fields of the operation of the same name, and a `rotate` without `x`,
+//! are `move`, `rotate`, `flip` and `scheme:row` (plan-13: the one-line scheme layout, `gap`, `wrap`, `atoms`, `objects`); their `args` are the fields of the operation of the same name, and a `rotate` without `x`,
 //! `y` (or a `flip` without `at`) works about the centre of the bounding box of its atoms, as the buttons of the page do.
 
 use crate::editor::Editor;
@@ -10,7 +10,10 @@ use serde_json::{json, Value};
 
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
-    matches!(name, "move" | "rotate" | "flip" | "scheme:orient")
+    matches!(
+        name,
+        "move" | "rotate" | "flip" | "scheme:row" | "scheme:orient"
+    )
 }
 
 /// Checks the shape of a command before any command runs: a known name, `args` an object whose fields are the fields of the
@@ -26,6 +29,9 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
             Some(o) if o.is_empty() => Ok(()),
             _ => Err("error.draw2.request"),
         };
+    }
+    if name == "scheme:row" {
+        return crate::scheme::Opts::parse(args).map(|_| ());
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or("error.draw2.request")?;
@@ -51,6 +57,12 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     }
     if name == "scheme:orient" {
         return orient(e);
+    }
+    if name == "scheme:row" {
+        let opts = crate::scheme::Opts::parse(args).map_err(bad)?;
+        let ops = crate::scheme::row(e.doc(), &e.style, &opts).map_err(bad)?;
+        let ops = e.following(&ops);
+        return e.session.run(&ops);
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or(bad("error.draw2.request"))?;

@@ -734,6 +734,31 @@ try {
     await tool(pg, "undo"); await want(pg, { objects: 4 });
   });
 
+  await step("scheme row: a messy scheme is laid out on one line by the button, with the keyboard (select all, Enter on the button) and with the mouse; one undo step, the SVG equals the golden, a second press says it is done", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
+    // the drawing is opened with its ids (as a saved file is), so the bytes can be the golden ones
+    const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)
+    await openMessy();
+    const messy = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    // keyboard: select all, the button reached by its focus, Enter
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 16 });
+    await reveal(pg, '[data-testid="d2-scheme-row"]'); await pg.focus('[data-testid="d2-scheme-row"]'); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), gold.out.svg);
+    await shot(pg, "plan-13-scheme-row");
+    await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);          // one step
+    // mouse: nothing selected, everything is laid out
+    await tool(pg, "select"); await pg.mouse.click(cx, cy + 300); await want(pg, { selected: 0 });
+    await tool(pg, "scheme-row"); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), gold.out.svg);
+    // a second press changes nothing and says so: no new undo step
+    await tool(pg, "scheme-row"); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.schemeRowDone')"));
+    await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
+  });
+
   await step("style: a preset or your own values change the screen and the saved SVG, in points, and not the document; the settings file is saved and opened", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0, style: "mzlab" });
     await pg.fill("#d2-text", "C[C@H](N)C(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 6 });
@@ -1029,6 +1054,34 @@ try {
     await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });
     await tool(pg, "bond:1"); await want(pg, { tool: "bond:1" });
   });
+  await step("side palette: a click on its title is not undone by a layout that runs before the toggle event arrives", async () => {
+    // The disclosure changes at once when the title is clicked, but the module hears of it in the `toggle` event, which comes in a later task.
+    // A layout that runs in between (a resize, here) must not put the old state back. All in one evaluate, so there is no timing to hope for.
+    const r = await pg.evaluate(async () => {
+      const d = /** @type {HTMLDetailsElement} */ (document.querySelector("#d2-data-more")), summary = /** @type {HTMLElement} */ (d.querySelector(":scope > summary"));
+      const was = d.open;
+      summary.click();
+      window.dispatchEvent(new Event("resize"));                                   // a layout, before the toggle event
+      const during = d.open;
+      await new Promise(done => d.addEventListener("toggle", done, { once: true }));
+      await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)));
+      const data = JSON.parse(window.MZDRAW.palettes(innerWidth, innerHeight, "")).palettes.find((/** @type {any} */ p) => p.id === "data");
+      return { was, during, after: d.open, module_collapsed: data.collapsed };
+    });
+    eq(r, { was: false, during: true, after: true, module_collapsed: false });
+    // and the same going back: closed by a click, it stays closed through a layout before the event
+    const back = await pg.evaluate(async () => {
+      const d = /** @type {HTMLDetailsElement} */ (document.querySelector("#d2-data-more"));
+      /** @type {HTMLElement} */ (d.querySelector(":scope > summary")).click();
+      window.dispatchEvent(new Event("resize"));
+      const during = d.open;
+      await new Promise(done => d.addEventListener("toggle", done, { once: true }));
+      await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)));
+      const data = JSON.parse(window.MZDRAW.palettes(innerWidth, innerHeight, "")).palettes.find((/** @type {any} */ p) => p.id === "data");
+      return { during, after: d.open, module_collapsed: data.collapsed };
+    });
+    eq(back, { during: false, after: false, module_collapsed: true });
+  });
   await step("autosave: the drawing is saved in the browser, offered on the next visit, restored with the same bytes, or discarded; the style is remembered", async () => {
     const ready = () => until(pg, "document.documentElement.dataset.d2Ready === '1'");
     const saves = () => pg.evaluate("Number(document.documentElement.dataset.d2Saved || 0)");
@@ -1137,6 +1190,28 @@ try {
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
+  });
+  await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
+    const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)
+    await openMessy();
+    const messy = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await tool(pg, "all"); await want(pg, { selected: 16 });             // by tapping the select-all button
+    await reveal(pg, '[data-testid="d2-scheme-row"]'); await pg.tap('[data-testid="d2-scheme-row"]'); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), gold.out.svg);
+    await shot(pg, "plan-13-scheme-row-touch");
+    await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
+    // a pen: the pointer of the pen presses the same button
+    const cdp = await pg.context().newCDPSession(pg);
+    await reveal(pg, '[data-testid="d2-scheme-row"]');
+    const b = await pg.locator('[data-testid="d2-scheme-row"]').boundingBox(), px = b.x + b.width / 2, py = b.y + b.height / 2;
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: px, y: py, pointerType: "pen", button: "none", buttons: 0 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: px, y: py, pointerType: "pen", button: "left", buttons: 1, clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: px, y: py, pointerType: "pen", button: "left", buttons: 0, clickCount: 1 });
+    await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
+    await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
   });
 
   await step("atom map by touch: tap the atom, tap the field, type, tap Set; the number is drawn and written to SMILES and RXN files", async () => {
