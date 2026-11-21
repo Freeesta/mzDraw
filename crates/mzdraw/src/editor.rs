@@ -199,7 +199,8 @@ impl Editor {
 
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
     pub(crate) fn run(&mut self, ops: &[Op], say: &'static str, what: &str) -> u32 {
-        match self.session.run(ops) {
+        let ops = self.following(ops);
+        match self.session.run(&ops) {
             Ok(()) => {
                 self.said = (say, what.to_string());
                 self.error = "";
@@ -211,6 +212,16 @@ impl Editor {
                 REPAINT
             }
         }
+    }
+
+    /// The operations of a command and, after them, the route operations of the anchored arrows whose structures they change
+    /// (`route::follow`): the one place where a command makes the arrows follow. The log carries the route operations, so a
+    /// replay of the log gives the same bytes; an operation sent bare never follows.
+    pub(crate) fn following(&self, ops: &[Op]) -> Vec<Op> {
+        let s = &self.session.doc;
+        let mut all = ops.to_vec();
+        all.extend(crate::route::follow(s, ops, &self.style));
+        all
     }
 
     /// Drops selection, hover and flags that point at things that no longer exist.
@@ -505,6 +516,8 @@ impl Editor {
                 x2: if arrow { o.x2 + dx } else { 0.0 },
                 y2: if arrow { o.y2 + dy } else { 0.0 },
                 text: o.text.clone(),
+                from: if o.from == 0 { 0 } else { base + o.from },
+                to: if o.to == 0 { 0 } else { base + o.to },
             });
         }
         self.session.run(&ops).map_err(|e| e.key)?;

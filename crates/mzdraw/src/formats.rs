@@ -366,6 +366,8 @@ pub(crate) fn assemble(
                 x2,
                 y2,
                 text: line.chars().take(200).collect(),
+                from: 0,
+                to: 0,
                 more: Vec::new(),
             };
             // what a document cannot hold (an arrow without length) is counted with the things left out

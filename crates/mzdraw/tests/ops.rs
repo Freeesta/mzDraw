@@ -331,6 +331,17 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 } else {
                     String::new()
                 },
+                // anchors on arrows: an atom of the document, or none; a wild one is anchored on a plus or a text (refused whole)
+                from: if (arrow || wild) && r.next(2) == 1 {
+                    atom(r)
+                } else {
+                    0
+                },
+                to: if (arrow || wild) && r.next(2) == 1 {
+                    atom(r)
+                } else {
+                    0
+                },
             }]
         }
         15 => vec![Op::ObjSet {
@@ -338,6 +349,9 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             text: (r.next(2) == 1).then(|| ["Pd/C", "", "Δ"][r.next(3)].to_string()),
             x2: (r.next(3) == 1).then(|| xy(r).0),
             y2: None,
+            // set, change and clear (0) the anchors; a set on a plus or a text is refused whole
+            from: (r.next(3) == 1).then(|| if r.next(2) == 1 { atom(r) } else { 0 }),
+            to: (r.next(3) == 1).then(|| if r.next(2) == 1 { atom(r) } else { 0 }),
         }],
         9 => vec![Op::BondSet {
             id: bond_id(r),
@@ -763,6 +777,8 @@ fn hostile_input_is_refused_without_a_panic() {
             x2: f64::INFINITY,
             y2: 0.0,
             text: String::new(),
+            from: 0,
+            to: 0,
         },
         Op::AtomAdd {
             id: Some(u32::MAX),

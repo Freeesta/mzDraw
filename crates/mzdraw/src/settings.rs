@@ -26,6 +26,8 @@ pub struct Style {
     pub font_size: f64,
     /// Size of subscripts and superscripts relative to the font.
     pub subscript_scale: f64,
+    /// Gap between a routed arrow (`route`) and the box of the structure it leaves or reaches, in bond lengths.
+    pub pathway_margin: f64,
     /// One ink for every element instead of the element colours.
     pub mono: bool,
     /// What the settings file held that this version does not know, kept to be written back: the unknown keys of the file and of
@@ -73,7 +75,7 @@ impl Field {
 
 /// The numbers of the style. Next to them the `style` object holds `preset` (the built-in preset the other fields start from)
 /// and `colour` (`element` or `mono`).
-pub const FIELDS: [Field; 8] = [
+pub const FIELDS: [Field; 9] = [
     Field {
         key: "bond_length",
         unit: "pt",
@@ -138,6 +140,14 @@ pub const FIELDS: [Field; 8] = [
         get: |s| s.subscript_scale,
         put: |s, v| s.subscript_scale = v,
     },
+    Field {
+        key: "pathway.margin",
+        unit: "of_bond",
+        min: 0.0,
+        max: 5.0,
+        get: |s| s.pathway_margin,
+        put: |s, v| s.pathway_margin = v,
+    },
 ];
 
 /// Whether `key` is a key of the `style` object this version reads and writes.
@@ -198,6 +208,7 @@ impl Default for Style {
             margin: 2.04,
             font_size: 12.0,
             subscript_scale: 0.7,
+            pathway_margin: 0.35,
             mono: false,
             unknown: Unknown::default(),
         }
@@ -233,6 +244,7 @@ impl Style {
             margin: 1.6,
             font_size: 10.0,
             subscript_scale: 0.7,
+            pathway_margin: 0.35,
             mono: true,
             unknown: Unknown::default(),
         };
