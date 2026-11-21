@@ -442,10 +442,10 @@ fn a_drawing_at_the_cap_with_wedges_is_listed_in_time_and_one_above_it_is_refuse
     }
 }
 
-/// The cost is linear in the drawing: twice the atoms take about twice the time, never four times (a bound in seconds does not fail a
-/// quadratic step that is merely slow; a ratio does).
+/// The cost is linear in the drawing: four times the atoms take about four times the time (a quadratic step makes it sixteen; a bound in
+/// seconds does not fail a step that is merely slow, a ratio does, and a ratio of eight leaves room for a noisy machine).
 #[test]
-fn twice_the_drawing_takes_about_twice_the_time() {
+fn four_times_the_drawing_takes_about_four_times_the_time() {
     let best = |n: u32, format: &str| {
         let d = chain(n, true);
         (0..2)
@@ -457,10 +457,10 @@ fn twice_the_drawing_takes_about_twice_the_time() {
             .fold(f64::MAX, f64::min)
     };
     for format in ["molfile", "cdxml", "ket"] {
-        let (small, big) = (best(12_500, format), best(25_000, format));
+        let (small, big) = (best(6_250, format), best(25_000, format));
         // below this the clock is noise and the bound above is all there is
-        if small > 0.05 {
-            assert!(big / small < 3.0, "{format}: {small:.3} s then {big:.3} s");
+        if small > 0.02 {
+            assert!(big / small < 8.0, "{format}: {small:.3} s then {big:.3} s");
         }
         assert!(big < f64::from(bound() as u32), "{format}: {big:.3} s");
     }
