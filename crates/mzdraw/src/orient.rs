@@ -345,8 +345,9 @@ fn find(q: &Document, t: &Document, budget: &mut Budget) -> Result<Rows, Stop> {
                     .filter(|r: &Vec<(u32, u32)>| r.len() >= MIN_CORE)
                     .collect());
             }
-            // the step cap of `mzlab-mol` is its `Query` error (an exact query has no feature to refuse)
-            Err(mzlab_mol::MolError::Query(_)) => {}
+            // the step cap of `mzlab-mol` is its `Query` error "the search stopped after N steps ...". An exact query has no feature
+            // to refuse (that is `SubQuery::from_molfile`), so `matches` returns no other error; one that did come would be no core
+            Err(mzlab_mol::MolError::Query(m)) if m.starts_with("the search stopped after") => {}
             Err(_) => return Err(Stop::Other),
         }
     }
@@ -780,10 +781,17 @@ pub fn plan(doc: &Document) -> Plan {
         (0..todo.len()).filter(|&i| waits[i] == 0).collect();
     let mut order = Vec::with_capacity(todo.len());
     let mut placed = vec![false; todo.len()];
+    // what is left in a cycle is taken in the order of the drawing: a cursor that only moves forward (linear in all)
+    let mut cursor = 0;
     while order.len() < todo.len() {
         let next = match ready.pop_first() {
             Some(i) => i,
-            None => (0..todo.len()).find(|&i| !placed[i]).unwrap_or(0),
+            None => {
+                while cursor < todo.len() && placed[cursor] {
+                    cursor += 1;
+                }
+                cursor
+            }
         };
         if placed[next] {
             continue;

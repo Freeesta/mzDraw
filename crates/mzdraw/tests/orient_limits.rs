@@ -116,15 +116,23 @@ fn a_drawing_of_thousands_of_pieces_has_a_bounded_cost() {
     let t = Instant::now();
     let p = plan(&d);
     assert!(t.elapsed().as_secs() < 10, "{:?}", t.elapsed());
-    // single atoms have no core of three atoms: no pair is oriented, and the budget of products is said
+    // 60 rows of 24 columns lie past the head (1440 products), 25 columns before the tail: single atoms have no core of three atoms,
+    // so no pair is oriented; the first 200 products are `no_core` and the 1240 over the cap are `too_large`, each with a step
     assert!(p.ops.is_empty());
-    assert!(
+    assert_eq!(p.steps.len(), 1440);
+    assert_eq!(
+        p.steps
+            .iter()
+            .filter(|s| s.status == Status::NoCore)
+            .count(),
+        MAX_PRODUCTS
+    );
+    assert_eq!(
         p.steps
             .iter()
             .filter(|s| s.status == Status::TooLarge)
-            .count()
-            > 0
-            || p.steps.is_empty()
+            .count(),
+        1440 - MAX_PRODUCTS
     );
 }
 
@@ -300,14 +308,10 @@ fn the_step_budget_of_a_command_is_one_and_the_rest_is_said() {
         "{:?}",
         p.steps.iter().map(|s| s.status).collect::<Vec<_>>()
     );
-    assert!(
-        p.steps.iter().any(|s| s.status == Status::TooLarge),
-        "the budget is spent before the last product"
-    );
-    assert!(
-        p.steps.iter().any(|s| s.status == Status::Oriented),
-        "and spent after the first"
-    );
+    // the split is exact (the search of `mzlab-mol` is deterministic): a 10 x 10 grid costs 111,000 of the budget (1,000 + 10,000 +
+    // 100,000 of caps before it is found), so 9 products are oriented and the other 111 are reported
+    let count = |st: Status| p.steps.iter().filter(|s| s.status == st).count();
+    assert_eq!((count(Status::Oriented), count(Status::TooLarge)), (9, 111));
 }
 
 /// Only the nearest 8 reactants are tried: with 8 reactants that have no core the real one (the 9th) is not reached.
@@ -430,4 +434,72 @@ fn the_arrows_over_the_cap_are_reported() {
         mzdraw::orient::MAX_ARROWS
     );
     assert_eq!(p.steps.len(), 250 + 50);
+}
+
+/// A cycle of anchored arrows (every structure is the product of the next): planned in order, with a step for each, in linear time.
+#[test]
+fn a_long_cycle_of_anchored_arrows_is_planned_once_each() {
+    let n = 150u32;
+    let (mut atoms, mut bonds, mut arrows) = (Vec::new(), Vec::new(), Vec::new());
+    for i in 0..n {
+        small(
+            100 * (i + 1),
+            10.0 * i as f64,
+            0.0,
+            17.0 + (i * 37 % 300) as f64,
+            &mut atoms,
+            &mut bonds,
+        );
+        arrows.push(json!({"id": 800_000 + i, "t": "arrow", "x": 10.0 * i as f64 + 4.0, "y": 0, "x2": 10.0 * i as f64 + 6.5, "y2": 0,
+            "from": 100 * (i + 1), "to": 100 * ((i + 1) % n + 1)}));
+    }
+    let t = Instant::now();
+    let p = plan(&drawing(atoms, bonds, arrows));
+    assert!(t.elapsed().as_secs() < 30, "{:?}", t.elapsed());
+    assert_eq!(p.steps.len(), n as usize, "one step per product");
+    // the structures of a cycle are each oriented on their predecessor in the order of the drawing; none is left out
+    assert!(
+        p.steps
+            .iter()
+            .all(|s| matches!(s.status, Status::Oriented | Status::Already)),
+        "{:?}",
+        p.steps.iter().map(|s| s.status).collect::<Vec<_>>()
+    );
+}
+
+/// The live line says what was not done as well as what was.
+#[test]
+fn the_live_line_says_the_structures_that_were_too_large() {
+    let big = grids(24, 0.0, 40.0);
+    let (mut atoms, mut bonds) = (Vec::new(), Vec::new());
+    small(1, 0.0, 0.0, 0.0, &mut atoms, &mut bonds);
+    for (name, deg, key, what) in [
+        ("one turned", 70.0, "draw2.say.orientedPart", "1/2"),
+        ("none to turn", 0.0, "draw2.say.orientDonePart", "1"),
+    ] {
+        let (mut a, mut b) = (atoms.clone(), bonds.clone());
+        small(100, 15.0, 0.0, deg, &mut a, &mut b);
+        // the big grid, as a product too (its first copy left out)
+        a.extend(
+            big.atoms
+                .iter()
+                .filter(|x| x.id > 576)
+                .map(|x| json!({"id": x.id, "el": "C", "x": x.x, "y": x.y})),
+        );
+        b.extend(
+            big.bonds
+                .iter()
+                .filter(|x| x.a > 576)
+                .map(|x| json!({"id": x.id, "a": x.a, "b": x.b, "o": 1})),
+        );
+        let d = drawing(
+            a,
+            b,
+            vec![json!({"id": 899_999, "t": "arrow", "x": 3, "y": 0, "x2": 7, "y2": 0})],
+        );
+        let mut e = mzdraw::Editor::default();
+        e.import(&d.to_json()).unwrap();
+        e.scheme_orient();
+        assert_eq!((e.said.0, e.said.1.as_str()), (key, what), "{name}");
+    }
 }

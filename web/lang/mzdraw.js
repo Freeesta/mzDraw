@@ -272,6 +272,8 @@ I18N.add("en", {
   "draw2.say.wedge": "Wedge set.",
   "draw2.say.rotated": "Turned by {what} degrees.",
   "draw2.say.orientDone": "Already oriented: nothing to change.",
+  "draw2.say.orientDonePart": "Nothing to turn; {what} structure(s) are too large or share no core.",
+  "draw2.say.orientedPart": "{what} structures oriented; the others are too large or share no core.",
   "draw2.say.oriented": "{what} structure(s) oriented on the one before the arrow.",
   "draw2.say.flipped": "Mirrored.",
   "draw2.say.schemeRow": "Scheme laid out on one line.",

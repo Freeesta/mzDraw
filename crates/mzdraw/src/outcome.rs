@@ -280,7 +280,8 @@ pub struct Outcome {
     /// What the output format `out` cannot hold, as (i18n key, count): `draw2.export.mapsLost` for atom maps. Empty: nothing lost.
     pub lost: Vec<(&'static str, usize)>,
     pub failed: Option<Failed>,
-    /// Only when a command of the request was `scheme:orient`: whether the commands changed the drawing.
+    /// Only when a command of the request reports whether it changed the drawing (`commands::reports_change`): whether the commands
+    /// changed it.
     pub changed: Option<bool>,
     /// Only when a command was `scheme:orient`: the result of each product structure of its last run (`orient::Step`).
     pub orient: Option<Vec<crate::orient::Step>>,

@@ -150,7 +150,7 @@ A replay request with `"report":true`, `"dry_run":true` or a non-empty `"expect"
 | `created` | object | always | `{"atoms":[ids],"bonds":[ids],"objects":[ids]}` = ids after minus before, ascending; empty lists left out, `{}` if none |
 | `removed` | object | always | the same for ids before minus after |
 | `failed` | object | the run stopped | `{"stage","op","key","id","candidates","rows"}`: `stage` is `log` (an op of the log), `select` (plan-24), `plan` (plan-27), `grant` (plan-28) or `command` (tp-01); `op` the 0-based index in `log` (or in `commands` for stage `command`); `key` the i18n key; `id` the id it is about (0 when none); `candidates` (stage `select`) the matched atom ids per match; `rows` (stage `command`, commands that read rows) `[{"line","key"}]`, last |
-| `changed` | bool | a command was `scheme:orient` | whether the commands changed the drawing |
+| `changed` | bool | a command reports whether it changed the drawing (today `scheme:orient`) | whether the commands changed it |
 | `orient` | array | a command was `scheme:orient` | one `{"arrow","from","to","status","core","flip","deg","before","after"[,"at"]}` per product structure of its last run; `status` is `oriented`, `already`, `no_core`, `too_large` or `overlap` (`at`: the atom or object it would run into) |
 | `expect` | array | the request had `expect` | one `{"check":<the request object>,"ok","detail"}` per expectation, in request order; `detail` is empty when `ok`; after a failed log every entry is `ok:false`, "not checked" |
 

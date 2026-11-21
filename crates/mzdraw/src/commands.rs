@@ -8,6 +8,11 @@ use crate::ops::{Op, OpError};
 use crate::orient::Status;
 use serde_json::{json, Value};
 
+/// Whether a command tells, in the result document, whether it changed the drawing (`changed`): `scheme:orient` does.
+pub(crate) fn reports_change(name: &str) -> bool {
+    name == "scheme:orient"
+}
+
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
     matches!(
@@ -112,22 +117,39 @@ fn orient(e: &mut Editor) -> Result<(), OpError> {
             id: s.at,
         });
     }
+    let count = |st: Status| plan.steps.iter().filter(|s| s.status == st).count();
+    let (turned, same, big, none) = (
+        count(Status::Oriented),
+        count(Status::Already),
+        count(Status::TooLarge),
+        count(Status::NoCore),
+    );
     if plan.ops.is_empty() {
-        let done = (plan.steps.iter()).any(|s| s.status == Status::Already);
-        if !done {
-            let key = (plan.steps.iter())
-                .find(|s| s.status == Status::TooLarge)
-                .map_or(Status::NoCore.key(), |s| s.status.key());
+        if same == 0 {
+            let key = if big > 0 {
+                Status::TooLarge.key()
+            } else {
+                Status::NoCore.key()
+            };
             return Err(OpError { key, id: 0 });
         }
-        e.said = ("draw2.say.orientDone", String::new());
+        // nothing to turn: oriented already, and the ones that could not be said as well
+        e.said = if big + none == 0 {
+            ("draw2.say.orientDone", String::new())
+        } else {
+            ("draw2.say.orientDonePart", (big + none).to_string())
+        };
         return Ok(());
     }
-    let n = (plan.steps.iter())
-        .filter(|s| s.status == Status::Oriented)
-        .count();
     let ops = e.following(&plan.ops);
     e.session.run(&ops)?;
-    e.said = ("draw2.say.oriented", n.to_string());
+    e.said = if big + none == 0 {
+        ("draw2.say.oriented", turned.to_string())
+    } else {
+        (
+            "draw2.say.orientedPart",
+            format!("{turned}/{}", turned + same + big + none),
+        )
+    };
     Ok(())
 }

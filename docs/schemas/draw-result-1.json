@@ -40,7 +40,7 @@
         "properties": { "key": { "type": "string", "description": "the i18n key, draw2.export.mapsLost for atom maps" }, "n": { "type": "integer", "minimum": 1 } }
       }
     },
-    "changed": { "type": "boolean", "description": "only when a command was scheme:orient: whether the commands changed the drawing (false: it was oriented already, or nothing was done)" },
+    "changed": { "type": "boolean", "description": "present when a command of the request reports whether it changed the drawing (today scheme:orient): whether the commands changed it (false: nothing was changed)" },
     "orient": {
       "type": "array",
       "description": "only when a command was scheme:orient: one item per product structure of its last run, in the order the plan took them",

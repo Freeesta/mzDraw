@@ -286,7 +286,11 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         }
     }
     let orients = r.commands.iter().any(|c| c.0 == "scheme:orient");
-    let before_commands = (r.envelope() && orients).then(|| e.doc().to_json());
+    let reports = r
+        .commands
+        .iter()
+        .any(|c| crate::commands::reports_change(&c.0));
+    let before_commands = (r.envelope() && reports).then(|| e.doc().to_json());
     if failed.is_none() {
         for (i, (name, args)) in r.commands.iter().enumerate() {
             if let Err(err) = crate::commands::run(&mut e, name, args) {
