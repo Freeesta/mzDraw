@@ -1,6 +1,6 @@
 # tp-10: named transformation steps at a chosen site (table, sites, derive by step)
 
-Proposed by `docs/study/tp-draw.md` (verdict V5, idea 5 "arrow-pull mass-shift autocomplete", reduced, part 1). Size M. Depends on: tp-03 (derive). Wave: after tp-09 (second round of the TP work).
+Proposed by `docs/plan/backlog.md` §11 (row 90) and `docs/study/tp-draw.md` (verdict V5, idea 5 "arrow-pull mass-shift autocomplete", reduced, part 1). Size M. Depends on: tp-03 (derive). Wave: after tp-09 (second round of the TP work).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
@@ -14,7 +14,9 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- **The step table.** A fixed table `STEPS` in `tp.rs` (name, delta, site test, edit). Each row cites in a comment the public list it was checked against (study §1 T11; a row whose delta no source lists says "computed").
+- **The step table.** A fixed table `STEPS` in `tp.rs` (name, delta, site kind, site test, edit). Each row cites in a comment the public list it was checked against (study §1 T11; a row whose delta no source lists says "computed").
+
+  The **site kind** is `atom` or `bond`: dehydrogenation, hydration and hydrolysis act on a bond, the others on an atom.
 
   | step | delta | site | edit |
   |---|---|---|---|
@@ -32,8 +34,8 @@ In:
   | `glucuronidation` | +C6H8O6 | an O–H, N–H or COOH | a new atom labelled with a glucuronide abbreviation, added to `label.rs`'s table in this slice with its expansion |
   | `decarboxylation` | −CO2 | the carbon of a CO2H | remove the C and its two O |
 
-- **Sites.** `fn sites(doc, structure, step) -> Vec<atom id>` returns every atom where the site test holds, by ascending id. It is a list to choose from, never a ranking. Hydrogen counts come from the record of `mzlab-mol`, not from the drawing.
-- **Derive by step.** `tp:derive` (tp-03) takes `"step":"hydroxylation","at":7` in place of a `patch`, and the step's edit becomes the patch. A site where the test fails is refused with `error.draw2.tpSite` (exit 1, `failed.stage` `command`) and changes nothing. The delta of the result is checked against the table (`delta.rs`), so a wrong edit cannot ship.
+- **Sites.** `fn sites(doc, structure, step) -> Sites` returns the step's site kind and every atom id (kind `atom`) or bond id (kind `bond`) where the site test holds, by ascending id. It is a list to choose from, never a ranking. Hydrogen counts come from the record of `mzlab-mol`, not from the drawing.
+- **Derive by step.** `tp:derive` (tp-03) takes `"step":"hydroxylation","site":7` in place of a `patch`; `site` is an atom id or a bond id, as the step's site kind says (`at` stays tp-03's placement point), and the step's edit becomes the patch. A site where the test fails is refused with `error.draw2.tpSite` (exit 1, `failed.stage` `command`) and changes nothing. The delta of the result is checked against the table (`delta.rs`), so a wrong edit cannot ship.
 
 Out (do not do here):
 - The page field and its overlay (tp-11).
@@ -41,10 +43,10 @@ Out (do not do here):
 - A typed delta that matches no row, and a free search from mass to formula.
 
 ## CLI twin (rule 15)
-- `{"commands":[{"command":"tp:derive","args":{"of":1,"step":"o-demethylation","at":14}}]}`.
-- `{"out":"sites","args":{"of":1,"step":"hydroxylation"}}` returns `{"format":"sites/1","step":"hydroxylation","delta":"+O","atoms":[...]}`.
+- `{"commands":[{"command":"tp:derive","args":{"of":1,"step":"o-demethylation","site":14}}]}`; `{"commands":[{"command":"tp:derive","args":{"of":1,"step":"hydrolysis","site":23}}]}` (23 a bond id)`.
+- `{"out":"sites","args":{"of":1,"step":"hydroxylation"}}` returns `{"format":"sites/1","step":"hydroxylation","delta":"+O","kind":"atom","ids":[...]}`.
 - `{"out":"steps"}` returns the table: name, delta, and the mass shift when arch-web-17 is there.
-- Request rows (plan-01 `request` section, D13): the `tp:derive` args `step` and `at`; the outputs `sites` (and its arg) and `steps`; the formats `sites/1` and `steps/1`.
+- Request rows (plan-01 `request` section, D13): the `tp:derive` args `step` and `site`; the outputs `sites` (and its arg) and `steps`; the formats `sites/1` and `steps/1`.
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Built state"), `docs/plan/backlog.md` (sections 0, 4, 5, 9), `docs/study/tp-draw.md` (§1 T11 for the sources of the table).
@@ -72,7 +74,7 @@ No `draw_edit/1` op or field: steps expand to existing ops. Request rows only (D
 
 ## Tests to add
 - For every row: on a synthetic parent that has the site, the derived TP's formula equals the parent plus the delta; on one that lacks it, `sites` is empty and the derive is refused (exit 1).
-- `sites` is in ascending id order and equals a brute-force check of the site test over all atoms.
+- `sites` is in ascending id order and equals a brute-force check of the site test over all atoms (atom steps) or all bonds (bond steps).
 - Undo of a step derive returns the identical document. Parity cases for three steps.
 - **Fails without the change**: `"step"` is an unknown argument on `main` (exit 2).
 

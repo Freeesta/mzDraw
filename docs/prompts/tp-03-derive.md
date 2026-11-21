@@ -1,6 +1,6 @@
 # tp-03: derive a transformation product from its parent (scaffold kept)
 
-Proposed by `docs/study/tp-draw.md` (verdict V1, idea 1 "ghost-parent scaffold lock", part 1). Size M. Depends on: tp-01, tp-02, plan-11 (atom maps), plan-20. Wave: after plan-11 merges.
+Proposed by `docs/plan/backlog.md` §11 (row 83) and `docs/study/tp-draw.md` (verdict V1, idea 1 "ghost-parent scaffold lock", part 1). Size M. Depends on: tp-01, tp-02, tp-05 (the settings `pathway.col_gap` and `pathway.row_gap`), plan-11 (atom maps), plan-20, the CTX-MENU page PR (the "Derive TP" item; without it, `Shift+D` and the CLI only). Wave: after plan-11 merges.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:

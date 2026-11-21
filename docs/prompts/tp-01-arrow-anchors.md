@@ -1,6 +1,6 @@
 # tp-01: arrows that know their structures (anchors and follow)
 
-Proposed by `docs/study/tp-draw.md` (verdict V2, idea 2 "Δm/z metro map", part 1: the base of every automatic arrow). Size M. Depends on: plan-01 (op table and its `request` section), plan-20 (`draw-result/1`). Wave: the first free slot after both merge. Order with plan-13: see "Scope", last item.
+Proposed by `docs/plan/backlog.md` §11 (row 81) and `docs/study/tp-draw.md` (verdict V2, idea 2 "Δm/z metro map", part 1: the base of every automatic arrow). Size M. Depends on: plan-01 (op table and its `request` section), plan-20 (`draw-result/1`; this slice applies E29 to it if plan-20 has merged, else plan-20 includes E29). Wave: the first free slot after both merge. Order with plan-13: see "Scope", last item.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
@@ -22,12 +22,12 @@ In:
   - a native replay of the page's log gives the page's bytes;
   - a bare `{"op":"move"}` in a request's `log` stays a bare move, natively and in the page alike, and leaves anchored arrows where they were;
   - an agent that writes raw ops runs `pathway:route` (tp-02) or sends its edit as a command (`commands`, below) to get the follow.
-- **Commands in the request.** `"commands":[{"command":NAME,"args":{...}}]` runs after `log` and before `out`. Each command's ops are appended to the log, and a refused command stops the request: nothing is written, exit 1, `draw-result/1` with `failed.stage` `command`, `failed.op` the 0-based index in `commands`, `failed.key` the i18n key. plan-13 and plan-14 prompts write `{"command":...,"args":...}`. This slice adds the request rows `commands`, `command` and `args`, and plan-13/14 use the same rows. Whoever merges first adds them; the later prompt reuses them. In this slice the editor's existing `move`, `rotate` and `flip` commands become callable as commands, so a raw-op agent has a following move.
+- **Commands in the request.** `"commands":[{"command":NAME,"args":{...}}]` runs after `log` and before `out`. Each command's ops are appended to the log, and a refused command stops the request: nothing is written, exit 1, `draw-result/1` with `failed.stage` `command`, `failed.op` the 0-based index in `commands`, `failed.key` the i18n key. Two shapes are accepted, one rule: the top-level singular `"command":NAME,"args":{...}` (the shape plan-13 and plan-14 write) is exactly a `commands` list of length one; a request with both `command` and `commands` is invalid (exit 2). This slice adds the request rows `commands`, `command` and `args` (backlog E27); if plan-13 merges first with the singular shape, this slice adds `commands` next to it. In this slice the editor's existing `move`, `rotate` and `flip` commands become callable as commands, so a raw-op agent has a following move.
 - **Order with plan-13.** plan-13's `scheme:row` sets arrow ends with `obj.set`.
   - If tp-01 merges first, plan-13 routes anchored arrows through `route` instead of setting their ends itself.
   - If plan-13 merges first, this slice makes `scheme:row` call `route` for anchored arrows (one test: an anchored arrow is on its routed ends after `scheme:row`).
   - Free arrows keep plan-13's behaviour either way.
-  - The backlog edit E20 says the same.
+  - The backlog edit E27 says the same.
 - **Formats.** KET, CDXML and RXN have no such field; `docs/mzdraw-formats.md` lists the anchors as "kept only in `mzdraw/1`". `save("mzdraw")` and the pictures that carry the document keep them.
 
 Out (do not do here):
@@ -37,7 +37,7 @@ Out (do not do here):
 ## CLI twin (rule 15)
 - `{"log":[{"op":"obj.add","t":"arrow","x":0,"y":0,"x2":2,"y2":0,"from":1,"to":12}]}` and `{"log":[{"op":"obj.set","id":30,"to":0}]}` replay natively.
 - `{"import":DOC,"commands":[{"command":"move","args":{"atoms":[1,2,3],"dx":1,"dy":0}}],"out":"mzdraw"}` moves and routes. `"out":"std"` lists dangling anchors. With `"report":true` (plan-20), the answer is `draw-result/1`.
-- Request rows (plan-01 `request` section, D13): `commands`, `command`, `args`, the stage `command` of `draw-result/1`. Op-table rows: the fields `obj.add.from`, `obj.add.to`, `obj.set.from`, `obj.set.to`, with `mzlab:false` until mzLab's reader adopts them.
+- Request rows (plan-01 `request` section, D13): `commands`, `command`, `args`; the stage `command` of `draw-result/1`, with `failed.op` = index in `commands` (backlog E29: the plan-20 key table and `docs/schemas/draw-result-1.json` gain them; `id` stays the second key, E26). Op-table rows: the fields `obj.add.from`, `obj.add.to`, `obj.set.from`, `obj.set.to`, with `mzlab:false` until mzLab's reader adopts them.
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/plan/backlog.md` (sections 0, 4, 5, 9), `docs/study/tp-draw.md` (sections 3 and 4).

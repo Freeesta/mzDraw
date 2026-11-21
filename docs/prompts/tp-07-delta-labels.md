@@ -1,6 +1,6 @@
 # tp-07: arrow labels computed from the two structures (+O, +15.9949)
 
-Proposed by `docs/study/tp-draw.md` (verdict V2, part 5). Size S. Depends on:
+Proposed by `docs/plan/backlog.md` §11 (row 87) and `docs/study/tp-draw.md` (verdict V2, part 5). Size S. Depends on:
 - tp-01 (anchors);
 - arch-web-17 (masses through the glue, E6: `selection/1` of `mzlab-feat` feature `sel`);
 - arch-web-13 (the `below` text slot of an arrow; without it, the mass goes on a second line of `text`).
@@ -22,13 +22,12 @@ In:
 - **Command `pathway:label`.** One undo step, written as `obj.set` of `text` (and of `below`, once arch-web-13 adds it). For each anchored arrow `P → T` it computes:
   - the **formula delta** `T − P`, in the canonical spelling of `mzlab-mol` `delta::print` on the two Hill counts of `outline.rs` (`+O`, `-CH2`, `-Cl+OH`); the drawing shows a true minus sign (U+2212), the data ASCII `-`;
   - optionally, the **monoisotopic mass shift** with its sign, to 4 decimals (`+15.9949`). It is the difference of the two monoisotopic masses that arch-web-17 takes from `selection/1` through the glue (E6: there is no mass table in `mzlab-mol`, and none is typed here). If arch-web-17 has not merged, the mass modes are refused with `error.draw2.labelMass` and `delta` works alone.
-- **Setting `pathway.label`** = `delta` (default) | `mass` | `delta+mass` | `name+delta`. `name` comes from tp-10's table when the delta matches exactly one named step; otherwise only the delta is written.
-- **Whose label it is, with no new field.** A label is rewritten only when it is empty, or when it consists only of tokens this command writes:
-  - a delta that `delta::parse` reads;
-  - a signed number with 4 decimals;
-  - a step name of tp-10's table;
+- **Setting `pathway.label`** = `delta` (default) | `mass` | `delta+mass` | `name+delta`. `name` comes from tp-10's table when the delta matches exactly one named step; otherwise only the delta is written. **Without tp-10** (not merged), `name+delta` is refused with `error.draw2.labelSteps` (exit 1, `failed.stage` `command`) and step names are not tokens (below).
+- **Whose label it is, with no new field.** The label (`text`, and `below` when it exists) is split into tokens on line breaks and white space. A label is rewritten only when it is empty, or when **every** token is one this command writes:
+  - a **signed** delta: a `+`, an ASCII `-` or a U+2212 minus first, then a text that `delta::parse` reads after the sign is mapped to ASCII. An unsigned formula is never a token, so reagent labels such as `H2O`, `O3` or `NaBH4` stay the person's;
+  - a signed number with exactly 4 decimals (`+15.9949`, `−14.0157`);
+  - a step name of tp-10's table, only when tp-10 is merged;
   - the `isomer` word of the page's language.
-
   Any other text is the person's and is kept; `"force":true` rewrites all labels. So no flag is stored, and no `draw_edit/1` field is added.
 - **Isomers.** A TP whose formula equals its parent's is labelled `isomer` (i18n key) instead of an empty delta.
 - **Room for labels.** tp-05's step 5 reserves room for the widest label in `g_k`; it is wired here, and the goldens of tp-05 with labels move (bless and list them).
@@ -39,7 +38,7 @@ Out (do not do here):
 ## CLI twin (rule 15)
 - `{"set":["pathway.label=delta+mass"],"commands":[{"command":"pathway:label"}]}`. The log gets the `obj.set` ops. `"out":"lens"` (tp-04) already gives the delta in data form.
 - A refusal is exit 1 with `failed.stage` `command` (`error.draw2.labelMass`).
-- Request rows (plan-01 `request` section, D13): the command `pathway:label` with arg `force`, and the setting `pathway.label`.
+- Request rows (plan-01 `request` section, D13): the command `pathway:label` with arg `force`, the setting `pathway.label`, and the keys `error.draw2.labelMass`, `error.draw2.labelSteps`.
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Built state"), `docs/plan/backlog.md` (sections 0, 4, 5, 7 E6, 9), `docs/study/tp-draw.md`.
@@ -68,7 +67,7 @@ No `draw_edit/1` op or field: the ownership rule replaces a stored flag. The `be
 ## Tests to add
 - Property: for 50 seeded random derive patches (tp-03), `delta::add(P, label) == T` on the formulas.
 - Values: `+O` → `+15.9949`, `-CH2` → `-14.0157`, `+C6H8O6` → `+176.0321`, `+SO3` → `+79.9568`, `-H2` → `-2.0157`, `+H2O` → `+18.0106`. Each is checked in the test against the masses the glue returns, not only against these typed numbers (study §1 T11).
-- Ownership: a label typed as "hydroxylation (CYP)" survives `pathway:label`, and `force` rewrites it. A label `+O` on an arrow whose TP changed is rewritten.
+- Ownership: labels typed as `hydroxylation (CYP)`, `H2O`, `O3` and `+O, 37 °C` survive `pathway:label`, and `force` rewrites them. A label `+O` (ASCII), `−O` (U+2212) or `+O` newline `+15.9949` on an arrow whose TP changed is rewritten. Without tp-10, `name+delta` is refused.
 - Undo returns the identical document.
 - e2e: the command from the palette by mouse and touch, and from the keyboard; the SVG equals the golden.
 - Screenshots at deviceScaleFactor 2 in the PR: the pathway in `delta` and in `delta+mass`.

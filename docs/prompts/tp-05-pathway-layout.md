@@ -1,6 +1,6 @@
 # tp-05: pathway layout core: arrows that organise themselves (deterministic, symmetric)
 
-Proposed by `docs/study/tp-draw.md` (verdict V2, part 3; the owner's first pain). Size M. Depends on: tp-01 (anchors, routing, `commands`), plan-20 (`draw-result/1`). Reads plan-13's `scheme.rs` if merged (box helpers), and writes its own module. Wave: right after tp-01. The page, the e2e test and the Graphviz proof are tp-06.
+Proposed by `docs/plan/backlog.md` §11 (row 85) and `docs/study/tp-draw.md` (verdict V2, part 3; the owner's first pain). Size M. Depends on: tp-01 (anchors, routing, `commands`), plan-20 (`draw-result/1`). Reads plan-13's `scheme.rs` if merged (box helpers), and writes its own module. Wave: right after tp-01. The page, the e2e test and the Graphviz proof are tp-06.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
@@ -52,15 +52,16 @@ In:
    - A parent's centre is the middle of its first and last child's centres.
    - Neighbouring subtrees are pushed together until their contours are `row_gap` apart.
    - Smaller subtrees that lie between two larger ones are spaced evenly.
-   - If P8 fails for that algorithm on any test tree: place the tree twice (left-to-right and right-to-left sibling scan), take the mean of the two placements, and say so in the PR.
-5. **Columns in x.** All boxes of layer `k` share the centre `X_k`, and `W_k` is the widest box of layer `k`. Then `X_{k+1} = X_k + W_k/2 + g_k + W_{k+1}/2`.
+   - If P7 or P8 fails for that algorithm on any test tree: place the tree twice (left-to-right and right-to-left sibling scan), take the mean of the two placements, and say so in the PR. With that fallback P13 is weakened, as P13 states.
+5. **Columns in x, per component.** Columns are computed for each component on its own, so a raised gap in one component never moves another. In a component, all boxes of layer `k` share the centre `X_k`, and `W_k` is the widest box of layer `k` in that component. Then `X_{k+1} = X_k + W_k/2 + g_k + W_{k+1}/2`, and `X_0` is the x of the component's first root after step 6.
    - `g_k` is the least value ≥ `col_gap` for which every primary edge between layers `k` and `k+1` has a slope of at most `max_angle` (on the line between box centres) and a visible length of at least `min_arrow` after clipping. Once tp-07 exists, `g_k` must also leave room for the edge's label.
-   - The report says, per `k`, whether `g_k` was raised and by which rule.
+   - The report says, per component and `k`, whether `g_k` was raised and by which rule.
+   - A primary arrow that, after this, still meets an inflated box other than its two ends (a narrow box next to a wide one in the same column) is reported as `std.scheme.crossing` (warn). No gap is raised for it, since a wider gap would not remove a crossing inside a column.
 6. **Anchor and stacking**, one rule:
    - The **first** component is translated so that its first root's box centre stays where it was before the command.
    - Each later component is placed below the one before it, `2·row_gap` apart box to box. Its own first root has the same x as the first component's first root.
    - So only the first root is a fixed point.
-7. **Arrows.** Every edge is routed by tp-01 (straight, on the centre line, clipped). A secondary edge whose segment meets an inflated box other than its two ends is reported as `std.scheme.crossing` (warn). Polyline routing is not in this slice.
+7. **Arrows.** Every edge is routed by tp-01 (straight, on the centre line, clipped). Any edge, primary or secondary, whose segment meets an inflated box other than its two ends is reported as `std.scheme.crossing` (warn). Polyline routing is not in this slice.
 8. **Output.**
    - One `move` per structure whose displacement is not zero, ordered by the structure's smallest atom id. The displacement is the rounded target minus the current position, both components at 4 decimals, the document's precision.
    - Then the arrow ops, ordered by arrow id.
@@ -71,16 +72,16 @@ In:
 - **P2 order independence**: shuffling the atom, bond and object arrays of the document (same ids) gives the same ops.
 - **P3 translation**: translating the input by (a, b), with a and b multiples of 1e-4 (the document's grid), translates the output by (a, b) and gives byte-identical ops. Other translations are not claimed, because rounding breaks them.
 - **P4 idempotence**: `pathway:tree` on its own output gives no op.
-- **P5 columns**: every node of layer `k` has box centre x = `X_k`. The gap between columns `k` and `k+1` is `g_k` ≥ `col_gap`, and equals `col_gap` when the report says it was not raised.
+- **P5 columns**: in each component, every node of layer `k` has box centre x = `X_k` of that component. The gap between columns `k` and `k+1` is `g_k` ≥ `col_gap`, and equals `col_gap` when the report says it was not raised.
 - **P6 centring**: every parent's centre y is the mean of its first and last primary child's centre y. A node with one primary child is on that child's line, so its arrow is horizontal.
-- **P7 fan symmetry**: if children `v_i` and `v_{m+1-i}` of `u` head subtrees that are mirror images in shape, then `y(v_i) + y(v_{m+1-i}) = 2·y(u)`. For an odd `m`, the middle child is then on `u`'s line.
-- **P8 mirror**: for a component with **one** root, reversing every sibling order (the test-only key `order=reverse-id`) reflects the component about its root's line: `y' = 2·y_root − y`, `x' = x`, for every node. The order of components is not reversed, and multi-root components are not claimed.
+- **P7 fan symmetry**: if the whole child sequence of `u` is mirror-symmetric in shape (for every `i`, the subtrees of `v_i` and `v_{m+1-i}` are mirror images, and for an odd `m` the middle child's subtree is its own mirror image), then `y(v_i) + y(v_{m+1-i}) = 2·y(u)` for every `i`, and for an odd `m` the middle child is on `u`'s line. Nothing is claimed for a sequence that is not mirror-symmetric as a whole.
+- **P8 mirror**: for a component that is a tree (one root, every node with at most one parent, so no tie-break of step 2 is involved), reversing every sibling order (the test-only key `order=reverse-id`) reflects the component about its root's line: `y' = 2·y_root − y`, `x' = x`, for every node. The order of components is not reversed. Multi-root components and DAGs are not claimed: under the reversed key, step 2's tie-break may choose another primary parent.
 - **P9 arrow symmetry**: under P7, the arrows `u → v_i` and `u → v_{m+1-i}` have direction vectors (dx, dy) and (dx, −dy), and equal visible lengths when the two boxes are equal.
 - **P10 even leaves**: when every child of a node is a leaf and all have equal box heights, neighbouring children have centre spacing `h + row_gap`.
 - **P11 bounded slope and length**: every primary arrow has |slope angle| ≤ `max_angle` and a visible length ≥ `min_arrow`.
-- **P12 no collision**: boxes inflated by `row_gap/2` are pairwise disjoint. No primary arrow meets an inflated box other than its two ends. Primary arrows never cross each other.
-- **P13 compact**: for every node with at least two children, no two neighbouring child subtrees are closer than `row_gap` at any shared column, and at least one neighbouring pair is exactly `row_gap` apart (the pair that set the spacing). Pairs spaced evenly between larger subtrees may be farther apart; P10 is the only spacing claimed for leaves.
-- **P14 locality**: adding a TP to component `k` leaves every node of components before `k` where it was. Components after `k` move only by one common translation in y.
+- **P12 no collision**: boxes inflated by `row_gap/2` are pairwise disjoint (steps 4 and 5 enforce it). Primary arrows never cross each other (the forest is drawn in sibling order between adjacent columns). An arrow that meets an inflated box other than its two ends is always reported as `std.scheme.crossing`; the claim is that the report is exact (every such meeting is listed, and nothing else), and each synthetic pathway's test states the crossings it expects (none for the trees of equal box sizes).
+- **P13 compact**: for every node with at least two children, no two neighbouring child subtrees are closer than `row_gap` at any shared column, and at least one neighbouring pair is exactly `row_gap` apart (the pair that set the spacing). Pairs spaced evenly between larger subtrees may be farther apart; P10 is the only spacing claimed for leaves. If step 4's two-pass mean is used, only the first half (never closer than `row_gap`) is claimed, and the PR says so.
+- **P14 locality**: adding a TP to component `k` leaves every node of components before `k` where it was. Components after `k` move only by one common translation in y (columns are per component, step 5).
 
 Out (do not do here):
 - The page button, the e2e test and the Graphviz proof (tp-06).
@@ -135,7 +136,7 @@ No `draw_edit/1` op or field: only moves and tp-01's fields. Request rows only (
 - **Fails without the change**: P6, P11 and P12 fail on the messy star as committed.
 
 ## Independent proof
-Correctness must not rest on our own claims. Here: the properties are re-checked by an independent script on our output (tp-06 adds `tools/fidelity/pathway.py` with Graphviz). In this slice, `tests/pathway_props.py` is a 60-line Python check that reads the saved documents and re-computes P5–P12 without the Rust code; it is run in CI if Python is present, else it is skipped and listed. Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date. If a reference cannot be installed in the container, say so in the PR and leave the script runnable.
+Correctness must not rest on our own claims. Here: the properties are re-checked by an independent script on our output (tp-06 adds `tools/fidelity/pathway.py` with Graphviz). In this slice, `tools/fidelity/pathway_props.py` (about 250 lines of Python, no Rust shared) reads the saved documents, re-derives the graph from the anchors, the layers and the primary forest by the rules of steps 1–3, and re-checks P5, P6, P7, P9, P10, P11 and P12. For P8 it runs the native replay twice (key `id` and `reverse-id`) and compares. P1–P4, P13 and P14 stay with the Rust tests. It runs where Python 3 is installed; otherwise it says `skipped` and the PR lists it. Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date. If a reference cannot be installed in the container, say so in the PR and leave the script runnable.
 
 ## Kill test
 If any of P6–P13 cannot hold together on the synthetic set, the spec is wrong and is fixed before the slice ships: stop and report which property and which pathway. Do not loosen ε or drop the property. If the tidy tree is slower than 100 ms on 200 nodes in release, report it; there is no fallback layout.

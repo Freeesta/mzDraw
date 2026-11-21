@@ -1,6 +1,6 @@
 # tp-11: the step field on the page (type a step, pick a site, derive)
 
-Proposed by `docs/study/tp-draw.md` (verdict V5, part 2). Size S. Depends on: tp-10, and tp-10's kill test passed. Wave: after tp-10.
+Proposed by `docs/plan/backlog.md` §11 (row 91) and `docs/study/tp-draw.md` (verdict V5, part 2). Size S. Depends on: tp-10, and tp-10's kill test passed; the CTX-MENU page PR (the item that opens the field by touch and pen). Wave: after tp-10.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
@@ -14,14 +14,14 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- **Opening the field.** On a focused or selected structure, key `.` opens the step field: a one-line input listing tp-10's table, filtered as you type. The filter matches the name and the delta (`+O`), and the mass shift too when arch-web-17 is there (`+15.99`). The filter is `fn filter(text) -> Vec<step>` in Rust.
-- **Sites of the chosen step**: they are ringed on the canvas (overlay), and the focused site also shows a ghost of the added atoms. The overlay is not in the document and makes no op until `Enter`.
+- **Opening the field.** On a focused or selected structure, key `Shift+T` opens the step field (`.` is the radical key, `docs/mzdraw.md` keyboard map; `Shift+T` is unbound today and goes in arch-std-06's command table). The context menu of a structure gets the item "Apply step…" (`context.rs` id `tp.step`), which opens the same field: that is the way in for touch and pen. The field is a one-line input listing tp-10's table, filtered as you type. The filter matches the name and the delta (`+O`), and the mass shift too when arch-web-17 is there (`+15.99`). The filter is `fn filter(text) -> Vec<step>` in Rust.
+- **Sites of the chosen step** (atoms, or bonds for bond steps): they are ringed on the canvas (overlay), and the focused site also shows a ghost of the added atoms. The overlay is not in the document and makes no op until `Enter`.
 - **Keys, only while the step field is open:**
   - `[` / `]` move to the previous / next site;
-  - `Enter` derives (`tp:derive` with `step` and `at`; one undo step);
+  - `Enter` derives (`tp:derive` with `step` and `site`; one undo step);
   - `Escape` closes the field.
   
-  Outside the field, `[` and `]` keep their meaning of today (`Alt+[` / `Alt+]` rotate the selection, `editor_tools.rs`, arch-std-05), and nothing changes. The scoping is decided in Rust (the editor's key handler knows the field is open), not in JS. `Tab` is **not** used: the canvas never traps it (Built state).
+  Outside the field, bare `[` and `]` stay unbound, as they are today; `Alt+[` / `Alt+]` keep rotating the selection (`editor_tools.rs`, arch-std-05), field open or not. The scoping is decided in Rust (the editor's key handler knows the field is open), not in JS. `Tab` is **not** used: the canvas never traps it (Built state).
 - **Touch and pen**: tap a ringed site, then tap "Derive".
 - **Live line**: it says the step, the delta, the site ("hydroxylation, +O, at C7, site 2 of 5").
 
@@ -57,21 +57,21 @@ None: no op, field or request row.
 3. Page field (paint and forward); live-line text.
 
 ## Tests to add
-- Unit: with the field closed, `[`/`]` do what they did before (the existing tests stay green). With it open, they move between sites and do not rotate.
+- Unit: with the field closed, bare `[`/`]` do nothing and `Alt+[`/`Alt+]` rotate (the existing tests stay green). With it open, bare `[`/`]` move between sites.
 - `filter("+O")` lists hydroxylation and n-oxidation, in table order.
 - e2e:
-  - keyboard: `.`, type `+O`, `]` twice, `Enter`;
-  - touch: open from the context menu, tap the second ring, tap "Derive";
+  - keyboard: `Shift+T`, type `+O`, `]` twice, `Enter`;
+  - touch: long press the structure, "Apply step…", tap the second ring, tap "Derive";
   - pen: the same;
   the SVG equals the golden each time.
 - Screenshots at deviceScaleFactor 2 in the PR: the field open with the rings and the ghost.
-- **Fails without the change**: `.` does nothing on `main`.
+- **Fails without the change**: `Shift+T` does nothing on `main`.
 
 ## Independent proof
 Correctness must not rest on our own claims. The velocity task of tp-03's kill test (plan-02), done with the field against `tp:derive` from the context menu plus editing: the action counts are committed. Parity wasm == native on the step-derive log cases. Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date. If a reference cannot be installed in the container, say so in the PR and leave the script runnable.
 
 ## Kill test
-If the field does not cut the velocity task's actions by at least 30% against derive-then-edit, remove the key `.` and keep the field behind the context menu only (say so in the PR).
+If the field does not cut the velocity task's actions by at least 30% against derive-then-edit, remove the key `Shift+T` and keep the field behind the context menu only (say so in the PR).
 
 ## Acceptance (all green before the PR)
 ```

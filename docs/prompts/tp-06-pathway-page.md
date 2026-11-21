@@ -1,6 +1,6 @@
 # tp-06: pathway layout on the page, and the Graphviz proof
 
-Proposed by `docs/study/tp-draw.md` (verdict V2, part 4). Size S. Depends on: tp-05, tp-02. Wave: right after tp-05.
+Proposed by `docs/plan/backlog.md` §11 (row 86) and `docs/study/tp-draw.md` (verdict V2, part 4). Size S. Depends on: tp-05, tp-02. Wave: right after tp-05.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:

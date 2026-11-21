@@ -1,6 +1,6 @@
 # tp-09: the TP table out (JSON, CSV) and the SDF round trip
 
-Proposed by `docs/study/tp-draw.md` (verdict V6, part 2). Size S. Depends on: tp-08, tp-07 (deltas), arch-web-17 (masses and adduct m/z through the glue, E6). Wave: after tp-08.
+Proposed by `docs/plan/backlog.md` §11 (row 89) and `docs/study/tp-draw.md` (verdict V6, part 2). Size S. Depends on: tp-08, tp-07 (deltas), arch-web-17 (masses and adduct m/z through the glue, E6). Wave: after tp-08.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
@@ -14,6 +14,7 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
+- **Module.** A new module `crates/mzdraw/src/tptable.rs` (its own zone).
 - **`save("tptable")`** gives `tptable/1` JSON with stable keys. **`save("tptable-csv")`** gives the same rows as CSV.
 - **Columns**, in this order:
   - `tp_id`, `parent_id`, `generation` (the tp-05 layer);

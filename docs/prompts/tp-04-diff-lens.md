@@ -1,6 +1,6 @@
 # tp-04: the diff lens (what changed from the parent, shown on the TP)
 
-Proposed by `docs/study/tp-draw.md` (verdict V1, idea 1, part 2). Size S. Depends on: tp-03. Wave: after tp-03.
+Proposed by `docs/plan/backlog.md` §11 (row 84) and `docs/study/tp-draw.md` (verdict V1, idea 1, part 2). Size S. Depends on: tp-03. Wave: after tp-03.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
@@ -34,7 +34,7 @@ Out (do not do here):
 - `{"set":["display.lens=tint+ghost"],"out":"svg"}` gives the tinted SVG.
 - `{"out":"lens"}` gives the machine form, `lens/1`: `{"format":"lens/1","arrows":[{"arrow":ID,"added":[ids],"changed":[ids],"cleaved":[[a,b]],"lost":[maps],"delta":"+O"}]}`, with ids ascending and arrows by id. An unmapped pair is listed in `std/1`, never a partial lens.
 - Both outputs are deterministic, with parity wasm == native.
-- Request rows (plan-01 `request` section, D13): the output `lens`, the setting `display.lens`.
+- Request rows (plan-01 `request` section, D13): the output `lens`, the setting `display.lens`, and the `std/1` key `std.tp.unmapped`.
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Built state"), `docs/plan/backlog.md` (sections 0, 4, 5, 9), `docs/study/tp-draw.md`.

@@ -1,6 +1,6 @@
 # tp-08: import a TP list and number the TPs
 
-Proposed by `docs/study/tp-draw.md` (verdict V6, idea 6 "live-linked SI table", part 1). Size M. Depends on: tp-01, tp-05 (layout after import), plan-20. tp-07 is optional: when it is merged, the import also labels the arrows. Wave: after tp-05.
+Proposed by `docs/plan/backlog.md` §11 (row 88) and `docs/study/tp-draw.md` (verdict V6, idea 6 "live-linked SI table", part 1). Size M. Depends on: tp-01, tp-05 (layout after import), plan-20. tp-07 is optional: when it is merged, the import also labels the arrows. Wave: after tp-05.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
@@ -14,6 +14,7 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
+- **Module.** A new module `crates/mzdraw/src/tp_list.rs` (its own zone) holds the import and the numbering.
 - **Data per TP**, kept in the structure's existing SDF data (`atom.data`; no new op), under fixed names:
   - `TP_ID`: the shown name, e.g. `TP3`;
   - `MZ`: the observed m/z, a number written as text;
@@ -25,11 +26,10 @@ In:
 - **Import, `tp:import`** (one undo step).
   - **Rows.** Each row is `{smiles, name?, parent?, mz?, rt?, adduct?, level?}`, given as JSON, or as CSV with the header `smiles,name,parent,mz,rt,adduct,level` (comma-separated, RFC 4180 quoting). `parent` is the `name` of another row; an empty `parent` makes a root.
   - **What each row becomes.** A structure through the same door as a SMILES (coordinates computed), with its data fields and annotation. Each `parent` link becomes an anchored arrow (tp-01).
-  - **Same undo step.** `scheme:orient` (plan-14) runs on each parent → TP pair when plan-14 exists (backlog E21), then `pathway:tree` (tp-05), then `pathway:label` (tp-07) when it exists.
+  - **Same undo step.** `scheme:orient` (plan-14) runs on each parent → TP pair when plan-14 exists (backlog E28), then `pathway:tree` (tp-05), then `pathway:label` (tp-07) when it exists.
 - **Bounds.** At most 10,000 rows and 1 MB.
 - **Row failures** (a bad SMILES, an unknown parent, a cycle of parents, a bad number) are never dropped silently.
-  - Without `"partial":true`, nothing is applied: exit 1, with `draw-result/1` `failed.stage` `command` and a new key `failed.rows`, `[{"line":n,"key":"error.draw2.tpRow..."}]` in line order.
-  - With `"partial":true`, the good rows are applied and `failed.rows` still lists the rest (exit 1, `ok:false`, `out` written; plan-20's rule for a partial run is stated in the PR).
+  - The import is atomic, as plan-20 is: if any row fails, nothing is applied and no `out` is written. The answer is exit 1, with `draw-result/1` `failed.stage` `command` and a new key `failed.rows`, `[{"line":n,"key":"error.draw2.tpRow..."}]` listing **every** failing row in line order, so one run reports all of them (backlog E29, D31). There is no partial import.
 - **Numbering, `tp:number`** (one undo step, `atom.data`). It sets `TP_ID` = `TP1`, `TP2`, ... in the order of `pathway.number`:
   - `layout` (default): by layer, then by position in the layer;
   - `mz`;
@@ -46,7 +46,7 @@ Out (do not do here):
 - `{"commands":[{"command":"tp:import","args":{"csv":"smiles,name,parent,mz\nCCO,P,,47.0491\n..."}}],"out":"mzdraw"}`. The CSV can stream on stdin as the replay request's `-` input. `"dry_run":true` validates the rows and returns only `draw-result/1`.
 - `{"commands":[{"command":"tp:number","args":{"force":false}}]}`.
 - Request rows (plan-01 `request` section, D13):
-  - the commands `tp:import` (args `csv`, `rows`, `partial`) and `tp:number` (arg `force`);
+  - the commands `tp:import` (args `csv`, `rows`) and `tp:number` (arg `force`);
   - the setting `pathway.number`;
   - the `draw-result/1` key `failed.rows`;
   - the reserved data names.
@@ -76,7 +76,7 @@ No `draw_edit/1` op or field. Request rows only (D13). Tell the coordinator in t
 3. Goldens: a synthetic 12-row list (a parent, two generations, one convergent TP).
 
 ## Tests to add
-- Import of the 12 rows gives the golden document. A row with a bad SMILES, an unknown parent or a cycle of parents is refused with its line and key; `partial` applies the rest.
+- Import of the 12 rows gives the golden document. A list with a bad SMILES, an unknown parent and a cycle of parents is refused as a whole, and `failed.rows` names all three lines with their keys; nothing is written.
 - `tp:number` in each order. A typed name survives, and `force` replaces it.
 - Undo of `tp:import` and of `tp:number` returns the identical document.
 - e2e: paste the CSV in the Add field (keyboard); the same CSV through the file button (touch); the SVG equals the golden.

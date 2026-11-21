@@ -80,18 +80,18 @@ Each property is checked twice: on the unrounded layout with ε = 1e-9, and on t
 
 Graphviz `dot` (tp-06) is the independent check of layers and crossings. It is optional: without it, the script says "skipped".
 
-## 5. Backlog lines (for the coordinator)
-- **Rows for tp-01..11:** numbered 81 and up, after #55's §10 (rows 76-80). They are added after the coordinator's «go».
-- **Edits to existing prompts**, for §9.5 of the backlog. They are added there after the coordinator's «go» (below):
-  - **E20 plan-13:** for an arrow with `from`/`to` (tp-01), `scheme:row` sets no end itself and calls tp-01's `route`; free arrows keep plan-13's own rule. plan-13's `gap` argument (1.0) is not tp-05's `pathway.col_gap` (2.5); keep the names apart. If plan-13 merges before tp-01, tp-01 makes this change (its prompt says so).
-  - **E21 plan-14 (E18 stays; decided by COO-MZDRAW 2026-11-21):** series orientation is **not** covered by the TP prompts. tp-03 inherits the parent's coordinates, so a TP made by `tp:derive` needs no orientation, and tp-05 only moves whole structures. E18 (`scheme:orient-series`) stays for structures drawn or imported separately (tp-08 imports SMILES, whose computed coordinates are not oriented). After tp-08, `tp:import` runs `scheme:orient` on each parent → TP pair when plan-14 exists. plan-14 must not duplicate tp-05's layout: it rotates and flips, and never places structures.
-  - **E22 plan-20:** `draw-result/1` gains the stage `command` for `failed.stage`. With it, `failed.op` is the 0-based index in the request's `commands`, and `failed.key` is the command's refusal key (tp-01). It also gains the key `failed.rows`, a list `[{"line","key"}]` in line order, for row-wise refusals of `tp:import` (tp-08); with `"partial":true` it is reported next to a written `out`. These must agree with the request `id` of E26 (#55) once that is on `main`.
-- **Zones**, for §5 of the backlog (added with the rows, not before): `tp` = `crates/mzdraw/src/tp.rs` (tp-03, tp-04, tp-10, in that order); `pathway` = `crates/mzdraw/src/pathway.rs` (tp-05, then tp-07 for the label room).
-- **When:** the coordinator says «go» once #55 is merged. This branch then merges `origin/main` once and adds rows 81+, these edits and the waves to the backlog. Until then, the backlog is not touched here.
+## 5. Backlog lines
+They are in `docs/plan/backlog.md` §11:
+- **rows 81–91**, one for each of tp-01..11;
+- **the waves**;
+- **the edits to existing prompts**: E27 (plan-13: the two command shapes, anchored arrows routed by tp-01), E28 (plan-14: amends E18, and E18 stays) and E29 (plan-20: stage `command`, exit 1 for a refused command, `failed.rows`, atomic, `id` second as E26);
+- **the decisions** D31 (atomic TP import) and D32 (E18 stays).
+
+The zones `tp`, `pathway`, `tp-list` and `tp-table` are in §5.
 
 ## 6. Risks and limits stated
 - tp-03 and tp-04 depend on plan-11 (atom maps, wave 4). Without maps the lens refuses and never guesses.
 - Masses (tp-07, tp-09) come from arch-web-17 (`selection/1` through the glue, E6). They are never typed in `mzdraw`. The electron mass of tp-09's proof (CODATA 2022) is taken from backlog §1.1 and was not re-read here `*`.
 - No InChIKey column until `mzlab-mol` has InChI (a COO 16 question).
-- tp-01 adds two `draw_edit/1` fields (`from`, `to`) and needs COO 16 agreement first. The other prompts add no op or field. They add request rows (D13): commands, `out` values, settings, `draw-result/1` keys (`failed.stage` `command`, `failed.rows`), and reserved data names. tp-07 marks its labels by a rule on their text, not by a stored flag.
+- tp-01 adds two `draw_edit/1` fields (`from`, `to`) and needs COO 16 agreement first. The other prompts add no op or field. They add request rows (D13): commands, `out` values, settings, `draw-result/1` keys (`failed.stage` `command`, `failed.rows`, E29), and reserved data names. tp-07 marks its labels by a rule on their text (signed deltas only), not by a stored flag.
 - Novelty: none is claimed. T9 is prior art for Δm/z edge labels. The absence of a generation × Δm/z layout in the tools searched proves nothing.
