@@ -128,6 +128,8 @@ pub struct Row {
     pub adduct: String,
     pub level: String,
     pub area: String,
+    /// The identifier of the annotation (only a TP table, `tptable`, has this column).
+    pub identifier: String,
 }
 
 /// Why a list is not imported.
@@ -155,7 +157,41 @@ pub fn looks_like(text: &str) -> bool {
         .split(',')
         .map(|c| c.trim().to_ascii_lowercase())
         .collect();
-    cols.len() > 1 && cols[0] == "smiles" && cols.iter().all(|c| COLUMNS.contains(&c.as_str()))
+    let list =
+        cols.len() > 1 && cols[0] == "smiles" && cols.iter().all(|c| COLUMNS.contains(&c.as_str()));
+    list || is_table_header(&cols)
+}
+
+/// The columns of a TP table (`tptable`, tp-09) in the order it writes them. A TP table is read as a list: `tp_id` is the name,
+/// `parent_id` the parent, `mz_obs` the m/z; the columns in `DERIVED` are recomputed by the table and are not read.
+pub const TABLE_COLUMNS: [&str; 15] = crate::tptable::COLUMNS;
+
+/// The columns of a TP table that the table computes from the drawing: they are never read back.
+pub const DERIVED: [&str; 7] = crate::tptable::DERIVED;
+
+/// Whether the (lower-cased) columns are the header of a TP table: `tp_id` and `smiles` among them, and only columns of the table.
+fn is_table_header(cols: &[String]) -> bool {
+    cols.iter().any(|c| c == "tp_id")
+        && cols.iter().any(|c| c == "smiles")
+        && cols.iter().all(|c| TABLE_COLUMNS.contains(&c.as_str()))
+}
+
+/// How many derived columns (`DERIVED`) the header of a TP table has: they are not read, and the page says so. 0 for a list.
+pub fn table_ignored(text: &str) -> usize {
+    let t = text.trim_start_matches('\u{feff}').trim_start();
+    let cols: Vec<String> = t
+        .lines()
+        .next()
+        .unwrap_or("")
+        .split(',')
+        .map(|c| c.trim().to_ascii_lowercase())
+        .collect();
+    if !is_table_header(&cols) {
+        return 0;
+    }
+    cols.iter()
+        .filter(|c| DERIVED.contains(&c.as_str()))
+        .count()
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
@@ -234,13 +270,16 @@ fn set_cell(row: &mut Row, col: &str, value: &str) {
     let v = value.trim();
     match col {
         "smiles" => row.smiles = v.to_string(),
-        "name" => row.name = v.to_string(),
-        "parent" => row.parents = split_parents(v),
-        "mz" => row.mz = v.to_string(),
+        "name" | "tp_id" => row.name = v.to_string(),
+        "parent" | "parent_id" => row.parents = split_parents(v),
+        "mz" | "mz_obs" => row.mz = v.to_string(),
         "rt" => row.rt = v.to_string(),
         "adduct" => row.adduct = v.to_string(),
         "level" => row.level = v.to_string(),
-        _ => row.area = v.to_string(),
+        "identifier" => row.identifier = v.to_string(),
+        "area" => row.area = v.to_string(),
+        // a derived column of a TP table: not read
+        _ => {}
     }
 }
 
@@ -265,9 +304,11 @@ fn read_csv(text: &str) -> Read {
     };
     let cols: Vec<String> = head.iter().map(|c| c.trim().to_ascii_lowercase()).collect();
     let uniq: HashSet<&String> = cols.iter().collect();
+    // a TP table (`tptable`) has its own column names; a header that mixes the two kinds is refused
+    let table = is_table_header(&cols);
     if uniq.len() != cols.len()
         || !cols.iter().any(|c| c == "smiles")
-        || !cols.iter().all(|c| COLUMNS.contains(&c.as_str()))
+        || !(table || cols.iter().all(|c| COLUMNS.contains(&c.as_str())))
     {
         return Err(Failure::Key(KEY_HEADER, 0));
     }
@@ -289,7 +330,74 @@ fn read_csv(text: &str) -> Read {
         }
         rows.push(row);
     }
+    if table {
+        // the spreadsheet guard of the table writer: a `'` before `=`, `+`, `-` or `@` in a text cell is taken off again
+        for r in &mut rows {
+            let mut cells = vec![&mut r.name, &mut r.adduct, &mut r.level, &mut r.identifier];
+            cells.extend(r.parents.iter_mut());
+            for c in cells {
+                if c.strip_prefix('\'')
+                    .is_some_and(|t| t.starts_with(['=', '+', '-', '@']))
+                {
+                    c.remove(0);
+                }
+            }
+        }
+        merge_pairs(&mut rows, &mut bad);
+    }
     Ok((rows, bad))
+}
+
+/// A TP table has one row per parent-TP pair, so a product with two parents is on two rows with the same `tp_id`. Rows with the
+/// same non-empty name become one: the parents are joined, every other cell that two rows both have must be equal (a row that
+/// says otherwise is a failing row, `tpRowDup`, as two different rows with one name are in a list).
+fn merge_pairs(rows: &mut Vec<Row>, bad: &mut Vec<(u32, String)>) {
+    let mut at: HashMap<String, usize> = HashMap::new();
+    let mut out: Vec<Row> = Vec::with_capacity(rows.len());
+    for r in std::mem::take(rows) {
+        let first = (!r.name.is_empty())
+            .then(|| at.get(&r.name).copied())
+            .flatten();
+        let Some(k) = first else {
+            if !r.name.is_empty() {
+                at.insert(r.name.clone(), out.len());
+            }
+            out.push(r);
+            continue;
+        };
+        let m = &mut out[k];
+        let same = |a: &str, b: &str| a.is_empty() || b.is_empty() || a == b;
+        if !(same(&m.smiles, &r.smiles)
+            && same(&m.mz, &r.mz)
+            && same(&m.rt, &r.rt)
+            && same(&m.adduct, &r.adduct)
+            && same(&m.level, &r.level)
+            && same(&m.identifier, &r.identifier)
+            && same(&m.area, &r.area))
+        {
+            bad.push((r.line, ROW_DUP.to_string()));
+            continue;
+        }
+        for (a, b) in [
+            (&mut m.smiles, &r.smiles),
+            (&mut m.mz, &r.mz),
+            (&mut m.rt, &r.rt),
+            (&mut m.adduct, &r.adduct),
+            (&mut m.level, &r.level),
+            (&mut m.identifier, &r.identifier),
+            (&mut m.area, &r.area),
+        ] {
+            if a.is_empty() {
+                a.clone_from(b);
+            }
+        }
+        for p in r.parents {
+            if !m.parents.contains(&p) {
+                m.parents.push(p);
+            }
+        }
+    }
+    *rows = out;
 }
 
 /// The rows of a JSON list: an array of objects with the keys of `COLUMNS`; a value is a string or a number (`parent` may also be
@@ -366,14 +474,14 @@ fn row_data(id: &str, row: &Row) -> Data {
 
 /// The annotation text of a level (`ann::canon`): on the scale of Schymanski et al. when the level belongs to it, on the scale for
 /// PFAS when it belongs to that one, else on the first (a level of neither is kept as written, which the page shows as "of the file").
-fn level_ann(level: &str) -> Option<String> {
+fn level_ann(level: &str, identifier: &str) -> Option<String> {
     let scale = if crate::ann::PFAS_LEVELS.contains(&level) && !crate::ann::LEVELS.contains(&level)
     {
         crate::ann::PFAS_SCALE
     } else {
         crate::ann::SCALE
     };
-    crate::ann::entry(scale, level, "", "", "", "")
+    crate::ann::entry(scale, level, identifier, "", "", "")
 }
 
 /// The first key a row fails on, without its structure (read separately) and its parents (read for the whole list).
@@ -393,7 +501,10 @@ fn row_problem(row: &Row) -> Option<&'static str> {
     if !row.adduct.is_empty() && !adduct_ok(&row.adduct) {
         return Some(ROW_ADDUCT);
     }
-    if !row.level.is_empty() && level_ann(&row.level).is_none() {
+    // an identifier belongs to the annotation, which has a level
+    if (!row.level.is_empty() && level_ann(&row.level, &row.identifier).is_none())
+        || (row.level.is_empty() && !row.identifier.is_empty())
+    {
         return Some(ROW_LEVEL);
     }
     None
@@ -581,18 +692,23 @@ fn field(ix: &Index, atoms: &[u32], name: &str) -> Option<f64> {
     None
 }
 
-/// The products of the drawing (the structures that an anchored arrow reaches), in the order `number` gives, as the atoms of each.
-/// The error is the key of the layout's refusal (no anchored arrow, a cycle...).
-fn products(
+/// The structures of a pathway in an order: the atoms of each and its layer.
+pub type Ordered = Vec<(Vec<u32>, usize)>;
+
+/// The structures of the pathway (a root only when `roots`; else the products, the structures an anchored arrow reaches), in the
+/// order `number` gives, as the atoms of each with its layer (tp-05). The error is the key of the layout's refusal (no anchored arrow,
+/// a cycle...).
+fn ordered(
     doc: &Document,
     style: &Style,
     number: Number,
-) -> Result<Vec<Vec<u32>>, (&'static str, u32)> {
+    roots: bool,
+) -> Result<Ordered, (&'static str, u32)> {
     let lay = crate::pathway::layout(doc, style).map_err(|r| (r.key(), r.id()))?;
     let ix = index(doc);
     let reached: HashSet<usize> = lay.edges.iter().map(|e| e.to).collect();
     let mut list: Vec<usize> = (0..lay.nodes.len())
-        .filter(|i| reached.contains(i))
+        .filter(|i| roots || reached.contains(i))
         .collect();
     // the key of each node, computed once
     let key: HashMap<usize, f64> = list
@@ -619,8 +735,30 @@ fn products(
     });
     Ok(list
         .into_iter()
-        .map(|i| lay.nodes[i].atoms.clone())
+        .map(|i| (lay.nodes[i].atoms.clone(), lay.nodes[i].layer))
         .collect())
+}
+
+/// The products of the drawing, in the order `number` gives, as the atoms of each.
+fn products(
+    doc: &Document,
+    style: &Style,
+    number: Number,
+) -> Result<Vec<Vec<u32>>, (&'static str, u32)> {
+    Ok(ordered(doc, style, number, false)?
+        .into_iter()
+        .map(|p| p.0)
+        .collect())
+}
+
+/// Every structure of the pathway (roots too) with its layer, in the order of `pathway.number` as `tp:number` numbers the products
+/// (the table of tp-09 is written in this order); `None` when the drawing has no anchored arrow, so no pathway.
+pub fn table_order(doc: &Document, style: &Style) -> Result<Option<Ordered>, (&'static str, u32)> {
+    match ordered(doc, style, style.pathway_number, true) {
+        Ok(v) => Ok(Some(v)),
+        Err(("error.draw2.schemeEmpty", _)) => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 /// The operations of `tp:number`: `TP1`, `TP2`, ... on the products in the order of `number`. A root keeps its name; a product whose
@@ -729,7 +867,7 @@ pub fn import_ops(doc: &Document, style: &Style, input: &Input) -> Result<Vec<Op
             if a.id == anchor {
                 a.set_data(&row_data(&r.name, r));
                 if !r.level.is_empty() {
-                    a.set_ann(&level_ann(&r.level).unwrap_or_default());
+                    a.set_ann(&level_ann(&r.level, &r.identifier).unwrap_or_default());
                 }
             }
         }

@@ -465,6 +465,10 @@ pub fn replay_with(
         e.measurer = engine;
         e.refresh_values();
     }
+    // the TP table takes its masses from the engine too
+    if engine.is_some() && r.out.as_deref().is_some_and(|o| o.starts_with("tptable")) {
+        e.measurer = engine;
+    }
     let kind = r.out.as_deref().unwrap_or(crate::brand::SLUG);
     let written = produce(&mut e, kind, &flags, r.out_args.as_ref());
     // a refused transformation names its first atom, as a refused operation does

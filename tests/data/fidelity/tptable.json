@@ -1,0 +1,27 @@
+{
+  "tool": "tools/fidelity/tptable.py",
+  "reference": "RDKit 2026.09.2",
+  "date": "2026-11-21",
+  "list": "tests/data/tp/tp12.csv",
+  "rows": 13,
+  "checks": 86,
+  "passed": 86,
+  "electron_mass": "0.0005485799090441 u, https://physics.nist.gov/cgi-bin/cuu/Value?meu, read 2026-11-21",
+  "s66": {
+    "read": true,
+    "record": "https://zenodo.org/records/10628455",
+    "version": "NORMAN-SLE-S66.0.1.4",
+    "date": "2024-02-07",
+    "file": "EawagTPandParents.csv",
+    "columns": 30,
+    "mass_diff_rows_compared": 40,
+    "mass_diff_rows_agreeing": 40,
+    "spelling": {
+      "form_diff": "ours +O-H2 (mzlab_mol::delta::print), S66 H-2O1",
+      "formula": "ours no 1 counts, S66 writes them for some rows (C12H17N1O4S1)",
+      "mass_diff": "ours has a plus sign on a positive value, S66 none",
+      "rows": "S66 has a row for the parent and one for the TP (ParentOrTP, Eawag_ID_of_Pair); ours one row per parent-TP pair with parent_id",
+      "inchikey": "not a column here"
+    }
+  }
+}

@@ -46,6 +46,10 @@ pub struct Imported {
     /// Binary CDX: properties of tags the SDK pages read do not list (styles, colours, widths), skipped by their length. Counted,
     /// not said on the page: every file of ChemDraw has dozens and they are no content.
     pub props_skipped: usize,
+    /// A TP table (tp-09) was read as a list: its computed columns (`tp_list::DERIVED`), not read; they are calculated again.
+    pub table_ignored: usize,
+    /// SDF records that carry the name of a TP (`TP_ID`): an SDF has no arrows, so they were read without a pathway.
+    pub no_pathway: usize,
 }
 
 impl Imported {
@@ -67,6 +71,8 @@ impl Imported {
             ("draw2.import.mapsLeft", self.maps_left),
             ("draw2.import.mapsDuplicate", self.maps_duplicate),
             ("draw2.import.codePage", self.code_page_runs),
+            ("draw2.import.tpTableIgnored", self.table_ignored),
+            ("draw2.import.tpNoPathway", self.no_pathway),
         ]
         .into_iter()
         .filter(|n| n.1 > 0)
@@ -519,6 +525,10 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
             // the data fields of the record are kept on its first atom
             let (data, ann, left) = formats::sdf_data(record);
             info.data_left += left;
+            info.no_pathway += usize::from(
+                data.iter()
+                    .any(|(k, _)| k.trim().eq_ignore_ascii_case("TP_ID")),
+            );
             if let Some(a) = d.atoms.first_mut() {
                 a.set_data(&data);
                 if !ann.is_empty() {

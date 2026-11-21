@@ -50,6 +50,7 @@ pub mod stereo_guard;
 pub mod svg;
 pub mod tp;
 pub mod tp_list;
+pub mod tptable;
 pub mod trasf;
 pub mod values;
 pub mod xml;

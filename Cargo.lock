@@ -142,6 +142,7 @@ version = "0.1.0"
 dependencies = [
  "mzdraw",
  "mzlab-feat",
+ "mzlab-mol",
  "serde_json",
  "wasm-bindgen",
 ]

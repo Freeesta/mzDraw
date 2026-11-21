@@ -186,6 +186,8 @@ pub struct Editor {
     pub eat: Option<u32>,
     /// The engine that gives masses (`values`): none in the core, set by the bridge. Without it no mass is ever shown.
     pub measurer: Option<crate::values::Measurer>,
+    /// What the last `save("tptable")` or `save("tptable-csv")` left empty, as (i18n key, count): said by `lost_on_save` and the page.
+    pub table_notes: std::cell::RefCell<Vec<(&'static str, usize)>>,
     /// The calculated values of the structures as `refresh_values` last found them, and of the selection with the atoms it was for.
     pub(crate) measured: Vec<crate::values::Entry>,
     pub(crate) measured_error: &'static str,
@@ -292,6 +294,7 @@ impl Default for Editor {
             layout: Default::default(),
             export: Default::default(),
             measurer: None,
+            table_notes: std::cell::RefCell::default(),
             measured: Vec::new(),
             measured_error: "",
             measured_adducts: Vec::new(),
@@ -579,6 +582,22 @@ impl Editor {
             "digest" => crate::digest::json(self.doc(), &self.style)?,
             "schema" => crate::schema::json(),
             "steps" => crate::tp::steps_json(),
+            // the TP table of the pathway (tp-09): `tptable/1` and the same rows as CSV; the notes of the last one are kept for `lost_on_save`
+            "tptable" | "tptable-csv" => {
+                let t = crate::tptable::build(self.doc(), &self.style, self.measurer)?;
+                let mut notes = t.counts();
+                let text = if kind == "tptable" {
+                    crate::tptable::json(&t)
+                } else {
+                    let (text, guarded) = crate::tptable::csv_counted(&t);
+                    if guarded > 0 {
+                        notes.push(("draw2.export.tpGuard", guarded));
+                    }
+                    text
+                };
+                *self.table_notes.borrow_mut() = notes;
+                text
+            }
             // `loss:FORMAT`: what that format would drop or change of this drawing (`loss/1`)
             k if k.starts_with("loss:") => {
                 let target = &k["loss:".len()..];
@@ -596,6 +615,10 @@ impl Editor {
 
     /// What `save(kind)` leaves out because the format has no place for it, as (i18n key, count): atom maps for CDXML and CML.
     pub fn lost_on_save(&self, kind: &str) -> Vec<(&'static str, usize)> {
+        // the notes of the TP table written by the last `save` (cells left empty, text cells guarded): nothing is dropped in silence
+        if kind.starts_with("tptable") {
+            return self.table_notes.borrow().clone();
+        }
         Some(("draw2.export.mapsLost", self.doc().maps_lost(kind)))
             .filter(|l| l.1 > 0)
             .into_iter()
@@ -620,6 +643,7 @@ impl Editor {
                 Ok(io::Imported {
                     format: "tp-list",
                     records: rows,
+                    table_ignored: crate::tp_list::table_ignored(text),
                     ..io::Imported::default()
                 })
             }

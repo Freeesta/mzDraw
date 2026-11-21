@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tptable-1",
+  "title": "tptable/1: the pathway of transformation products as a table (mzdraw::tptable)",
+  "description": "The key table of `\"out\":\"tptable\"` (JSON) and of `\"out\":\"tptable-csv\"` (the same rows as CSV, the columns of `columns`, RFC 4180, LF line ends). Checked by crates/mzdraw/tests/tptable.rs and crates/mzdraw-wasm/tests/tptable.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text), the 15 columns in order and that every value is a string are asserted by hand; the other constraints are documentation. Every value of a row is a string; an empty string is no value (never 0). Masses and m/z have 4 decimals (the formatter of Rust, ties to even); `ppm` 1 decimal. The masses come from the engine of mzLab through the bridge: without it (the plain replay) `engine` is false and the mass cells, `ppm` and `mass_diff` are empty. NORMAN-style, never NORMAN-ready: no NORMAN validator was run.",
+  "type": "object",
+  "x-key-order": ["format", "columns", "engine", "rows", "notes"],
+  "required": ["format", "columns", "engine", "rows", "notes"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "tptable/1" },
+    "columns": {
+      "type": "array",
+      "items": { "type": "string" },
+      "const": ["tp_id", "parent_id", "generation", "smiles", "formula", "monoisotopic_mass", "adduct", "mz_calc", "mz_obs", "ppm", "rt", "form_diff", "mass_diff", "level", "identifier"]
+    },
+    "engine": { "type": "boolean", "description": "Whether the engine of the masses was there." },
+    "rows": {
+      "type": "array",
+      "description": "One row per structure and parent: a product with two parents has two rows, a root one row with `parent_id`, `form_diff` and `mass_diff` empty. In the order `tp:number` numbers the products in (setting `pathway.number`: layer then position, `mz`, `rt`), roots included; structures no anchored arrow touches come last in the order of their first atom; a drawing with no anchored arrow is in the order of the first atom. At most 1,000 structures and 15,000 atoms (`error.draw2.tpTableSize`).",
+      "items": {
+        "type": "object",
+        "x-key-order": ["tp_id", "parent_id", "generation", "smiles", "formula", "monoisotopic_mass", "adduct", "mz_calc", "mz_obs", "ppm", "rt", "form_diff", "mass_diff", "level", "identifier"],
+        "additionalProperties": false,
+        "properties": {
+          "tp_id": { "type": "string", "x-source": "data field TP_ID of the structure, as typed (reserved name of tp-08)" },
+          "parent_id": { "type": "string", "x-source": "TP_ID of the structure an anchored arrow leaves; empty for a root, and for a parent with no name (note tpParentName)" },
+          "generation": { "type": "string", "x-source": "the layer of the pathway (tp-05: the longest directed path from a root, 0 for a root); empty for a structure no anchored arrow touches" },
+          "smiles": { "type": "string", "x-source": "the isomeric SMILES `save(\"smiles\")` writes for that structure alone; empty when it is not written (note tpSmiles)" },
+          "formula": { "type": "string", "x-source": "Hill formula of the record, no charge, no count 1 (C10H14O)" },
+          "monoisotopic_mass": { "type": "string", "x-source": "engine `sel` (label.mass), 4 decimals; empty without the engine or when it refuses the structure (notes tpEngine, tpMass)" },
+          "adduct": { "type": "string", "x-source": "data field ADDUCT as typed" },
+          "mz_calc": { "type": "string", "x-source": "monoisotopic_mass plus the shift of the typed adduct, 4 decimals; only for the seven adducts of display.adducts and a neutral structure (notes tpAdduct, tpCharged)" },
+          "mz_obs": { "type": "string", "x-source": "data field MZ as typed" },
+          "ppm": { "type": "string", "x-source": "(mz_obs - mz_calc) / mz_calc * 10^6 from the typed mz_obs and the PRINTED mz_calc, 1 decimal, -0.0 written 0.0" },
+          "rt": { "type": "string", "x-source": "data field RT as typed (minutes)" },
+          "form_diff": { "type": "string", "x-source": "the formula delta TP - parent of pathway:label (tp-07), spelling of mzlab_mol::delta::print (+O, -CH2, +O-H2); empty for an isomer and where there is no honest delta (note tpDelta); not guarded against spreadsheets" },
+          "mass_diff": { "type": "string", "x-source": "TP mass minus parent mass from the UNROUNDED masses, rounded once, 4 decimals, signed (+15.9949, -14.0157, 0.0000); can differ by 0.0001 from the difference of the printed masses" },
+          "level": { "type": "string", "x-source": "level of the current entry of the annotation of the structure, as written" },
+          "identifier": { "type": "string", "x-source": "identifier of that entry" }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "description": "What the table left empty for a reason (nothing is dropped in silence): one item per key, in the order the keys first occur. The same keys with the counts are in `lost` of a draw-result/1 and on the page after the save.",
+      "items": {
+        "type": "object",
+        "x-key-order": ["key", "count", "items"],
+        "additionalProperties": false,
+        "properties": {
+          "key": { "enum": ["draw2.export.tpEngine", "draw2.export.tpMass", "draw2.export.tpAdduct", "draw2.export.tpCharged", "draw2.export.tpSmiles", "draw2.export.tpParentName", "draw2.export.tpDelta", "draw2.export.tpNumber"] },
+          "count": { "type": "integer", "minimum": 1 },
+          "items": { "type": "array", "items": { "type": "string" }, "description": "the tp_id of each structure (`#` and its first atom id when it has none)" }
+        }
+      }
+    }
+  },
+  "x-csv": "The CSV has the header `tp_id,parent_id,...,identifier` on line 1 and one line per row. A text cell (tp_id, parent_id, adduct, level, identifier) that starts with =, + , - or @ gets a leading apostrophe (counted as the note draw2.export.tpGuard in `lost`, CSV only). The CSV carries no notes: they are in `lost` of a draw-result/1 and on the page. It is read back by `import` as a list (tp_list::TABLE_COLUMNS): tp_id is the name, parent_id the parent, mz_obs the m/z, rows with one tp_id are one product with several parents, and the computed columns (generation, formula, monoisotopic_mass, mz_calc, ppm, form_diff, mass_diff) are not read."
+}

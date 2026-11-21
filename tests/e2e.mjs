@@ -2395,6 +2395,59 @@ try {
   });
   await ctx.close();
 
+  // tp-09: the TP table of the pathway, written by the Save list (JSON and CSV): the download is the bytes of `save` and of the golden of
+  // tests/data/log/tp-table.json (the masses come from the engine of the bridge), by keyboard, by touch and by a pen; what a table could not fill is said in words
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  const tp9 = JSON.parse(readFileSync(path.join(root, "tests/data/log/tp-table.json"), "utf8")).values;
+  const tp9Gold = { "tptable-csv": tp9[0].out, tptable: tp9[1].out }, tp9File = { "tptable-csv": "drawing.tptable.csv", tptable: "drawing.tptable.json" };
+  const tp9Bad = tp9[4].request.commands[0].args.csv;
+  await step("TP table by keyboard: the list is put in the Add field, the two table entries of the Save list are focused and pressed with Enter; each download is the bytes of save() and of the golden", async () => {
+    await pg.fill("#d2-text", tp8Csv); await pg.focus("#d2-add"); await pg.keyboard.press("Enter");
+    await until(pg, `${STATE}.atoms > 0`); await tool(pg, "fit"); await frames(pg);
+    await reveal(pg, "#d2-ex-tptable-csv"); await shotEl(pg, "#d2-fly-saveas", "tp09-save-list");           // the Save list with the two table entries (deviceScaleFactor 2)
+    for (const kind of ["tptable-csv", "tptable"]) {
+      await reveal(pg, `#d2-ex-${kind}`); await pg.focus(`#d2-ex-${kind}`);
+      const [dl] = await Promise.all([pg.waitForEvent("download"), pg.keyboard.press("Enter")]);
+      eq(dl.suggestedFilename(), tp9File[kind]);
+      const file = readFileSync(await dl.path(), "utf8");
+      eq(file, await pg.evaluate(`window.MZDRAW.save(${JSON.stringify(kind)})`), kind + ": the download is save()");
+      eq(file, tp9Gold[kind], kind + ": the golden");
+      eq(await pg.innerText("#d2-ex-note"), "", "nothing was left empty: no note");
+    }
+    const rows = tp9Gold["tptable-csv"].trim().split("\n"); eq([rows.length, rows[0].split(",").length], [14, 15]);
+  });
+  await step("TP table says what it left empty: a salt, a charged structure and an adduct the engine lacks are three notes in words, and the file is still written", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", tp9Bad); await pg.focus("#d2-add"); await pg.keyboard.press("Enter");
+    await until(pg, `${STATE}.atoms > 0`);
+    await reveal(pg, "#d2-ex-tptable-csv"); await pg.focus("#d2-ex-tptable-csv");
+    const [dl] = await Promise.all([pg.waitForEvent("download"), pg.keyboard.press("Enter")]);
+    const file = readFileSync(await dl.path(), "utf8"); eq(file, await pg.evaluate("window.MZDRAW.save('tptable-csv')"));
+    const words = await pg.evaluate("['tpMass', 'tpCharged', 'tpAdduct'].map(k => I18N.t('draw2.export.' + k, { n: 1 })).join(' ')");
+    eq(await pg.innerText("#d2-ex-note"), words); eq(await pg.innerText("#d2-live"), words);
+    assert(words.includes("mass engine refused") && words.includes("Charged structures") && words.includes("adduct is not one of"), "the three notes have words");
+    await shotEl(pg, "#d2-fly-saveas", "tp09-save-notes");
+  });
+  await step("TP table by touch (a tablet) and by a pen: the table entry is tapped, then pressed with a pen; both downloads are the bytes of the golden", async () => {
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+    await want(pg, { atoms: 0 });
+    const ob = await pg.locator('[data-testid="d2-open"]').boundingBox();
+    const [chooser] = await Promise.all([pg.waitForEvent("filechooser"), pg.touchscreen.tap(ob.x + ob.width / 2, ob.y + ob.height / 2)]);
+    await chooser.setFiles({ name: "tps.csv", mimeType: "text/csv", buffer: Buffer.from(tp8Csv) });
+    await until(pg, `${STATE}.atoms > 0`); await tool(pg, "fit"); await frames(pg);
+    await reveal(pg, "#d2-ex-tptable-csv");
+    const b = await pg.locator("#d2-ex-tptable-csv").boundingBox();
+    const [dl] = await Promise.all([pg.waitForEvent("download"), pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2)]);
+    eq(readFileSync(await dl.path(), "utf8"), tp9Gold["tptable-csv"]);
+    await reveal(pg, "#d2-ex-tptable-csv"); await shotEl(pg, "#d2-fly-saveas", "tp09-save-list-tablet");
+    const cdp = await pg.context().newCDPSession(pg);
+    await reveal(pg, "#d2-ex-tptable");
+    const bb = await pg.locator("#d2-ex-tptable").boundingBox(), pen = { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2, button: "left", clickCount: 1, pointerType: "pen" };
+    const [dl2] = await Promise.all([pg.waitForEvent("download"), (async () => { await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...pen }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...pen }); })()]);
+    eq(readFileSync(await dl2.path(), "utf8"), tp9Gold.tptable);
+  });
+  await ctx.close();
+
   // plan-16: an agent's proposal shown as a layer, accepted or rejected hunk by hunk
   const SMI = "CCO.CC(=O)N.CCCl.c1ccccc1";
   const EDIT = [{ op: "atom.set", id: 3, el: "S" }, { op: "atom.add", id: 30, el: "C", x: 5.2321, y: 1.866 }, { op: "bond.add", id: 31, a: 7, b: 30, o: 1 },
