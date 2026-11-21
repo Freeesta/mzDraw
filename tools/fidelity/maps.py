@@ -15,12 +15,15 @@ fetched at run time (`pip install rdkit`, a virtual environment is fine) and nev
 for our synthetic inputs: the program name and version, the date, the maps RDKit read, and an FNV-1a hash of our RXN (so that
 crates/mzdraw/tests/maps.rs, which needs no Python, notices when our writer changes and the tool must be rerun).
 """
-import argparse, datetime, json, os, sys
+import argparse, datetime, json, os, subprocess, sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import run  # plan-03: fnv1a and the native replay call are reused, not copied
 
-fnv1a = run.fnv1a
+def fnv1a(text):
+    """The same hash as `fnv1a` of run.py (not imported: run.py needs Open Babel at import time, this check does not)."""
+    h = 0xCBF29CE484222325
+    for b in text.encode("utf-8"):
+        h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return f"{h:016x}"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -41,13 +44,11 @@ def main():
         print("build the replay example first: cargo build -p mzdraw --example replay", file=sys.stderr)
         return 2
 
-    run.REPLAY = args.replay
-
     def replay(request):
-        out, err = run.replay(request)
-        if err is not None:
-            raise SystemExit("replay failed: " + err)
-        return out
+        r = subprocess.run([args.replay], input=json.dumps(request), capture_output=True, text=True)
+        if r.returncode != 0:
+            raise SystemExit("replay failed: " + r.stdout + r.stderr)
+        return r.stdout
 
     results, bad = [], 0
     for reaction in [l.strip() for l in open(SET) if l.strip()]:
