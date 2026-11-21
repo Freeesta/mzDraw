@@ -14,6 +14,20 @@
 <h1 class="sr" data-i18n="draw2.name"></h1>
 <main id="d2-stage">
   <canvas id="d2-canvas" tabindex="0" role="application" aria-label="Structure canvas" data-i18n-aria-label="draw2.canvas" aria-describedby="d2-outline d2-focus"></canvas>
+  <div id="d2-textbar" role="toolbar" aria-label="Text" data-i18n-aria-label="draw2.text.bar" hidden>
+    <button id="d2-text-edit" type="button" aria-pressed="false" data-i18n="draw2.text.edit" title="Type in the text and select characters (Enter or F2; Escape stops)" data-i18n-title="draw2.text.edit.title">Edit text</button>
+    <button type="button" data-text="b" aria-pressed="false" aria-label="Bold" data-i18n-aria-label="draw2.text.b" title="Bold (Ctrl+B)" data-i18n-title="draw2.text.b.title"><b>B</b></button>
+    <button type="button" data-text="i" aria-pressed="false" aria-label="Italic" data-i18n-aria-label="draw2.text.i" title="Italic (Ctrl+I)" data-i18n-title="draw2.text.i.title"><i>I</i></button>
+    <button type="button" data-text="u" aria-pressed="false" aria-label="Underline" data-i18n-aria-label="draw2.text.u" title="Underline (Ctrl+U)" data-i18n-title="draw2.text.u.title"><u>U</u></button>
+    <button type="button" data-text="sub" aria-pressed="false" aria-label="Subscript" data-i18n-aria-label="draw2.text.sub" title="Subscript (Ctrl+,)" data-i18n-title="draw2.text.sub.title">x<sub>2</sub></button>
+    <button type="button" data-text="sup" aria-pressed="false" aria-label="Superscript" data-i18n-aria-label="draw2.text.sup" title="Superscript (Ctrl+.)" data-i18n-title="draw2.text.sup.title">x<sup>2</sup></button>
+    <select id="d2-text-font" aria-label="Font" data-i18n-aria-label="draw2.text.font"></select>
+    <select id="d2-text-size" aria-label="Size" data-i18n-aria-label="draw2.text.size"></select>
+    <button id="d2-text-colour" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="d2-text-colours" data-i18n="draw2.text.colour" title="Colour of the selected characters" data-i18n-title="draw2.text.colour.title">Text colour</button>
+    <div id="d2-text-colours" role="group" aria-label="Text colours" data-i18n-aria-label="draw2.text.colour.list" hidden></div>
+    <p id="d2-text-state" class="sr" role="status"></p>
+    <input id="d2-text-input" type="text" class="sr" tabindex="-1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Text being edited" aria-hidden="true">
+  </div>
   <span id="d2-status" role="status"></span>
   <div id="d2-step" role="region" aria-label="Apply a step" data-i18n-aria-label="draw2.step" hidden>
     <div class="row"><input id="d2-step-text" type="text" role="combobox" aria-expanded="true" aria-controls="d2-step-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" maxlength="64" placeholder="Step, +O or +15.99" aria-label="Step" data-i18n-placeholder="draw2.step.placeholder" data-i18n-aria-label="draw2.step.field">

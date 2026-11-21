@@ -133,6 +133,7 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | struct-props: values of a lasso part of a structure pinned on the canvas | `docs/built/struct-props.md` Not built | QUEUED | no prompt file |
 | struct-props: a dedicated values dialog | `docs/built/struct-props.md` Not built | QUEUED | no prompt file |
 | struct-props / mzLab: `sel` reads V2000 only, so a structure of 1000 atoms or more gets mass 0.0000 with no error (mzDraw now says `error.draw2.valuesZero`); the engine should take V3000 or refuse with its own key | `docs/built/struct-props.md` | QUEUED | for mzLab, not fixed here |
+| arch-web-17 values: `values:{"atoms":[99]}` (an atom the drawing lacks) answers `selection: null` with `error: null`; should be a keyed error like `props` (`error.draw2.noAtom`) | `docs/built/struct-props.md` review notes | QUEUED | no prompt file |
 | tp-07b: mass label modes on arrows (shift and adduct m/z) | open PR #91 (`claude/tp-07b-mass-labels`, head `ac21b9885a2b9ee67fbf58f8feaeabe9e326ec54`); built/tp-07-delta-labels.md, built/arch-web-17-values.md | RUNNING | no prompt file |
 | Five further stereo checks: `std.stereo.fischerCross`, `reentrant`, `ringBond`, `hiddenH`, `relLabel` | built/std-stereo.md | QUEUED | not defined in the study yet |
 | Geometry, label and export checks beyond arch-std-02, annotation and contrast checks, any automatic fix | built/std-stereo.md | QUEUED | partly the prompts arch-std-02, plan-25 |

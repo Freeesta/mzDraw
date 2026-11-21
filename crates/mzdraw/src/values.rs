@@ -325,8 +325,9 @@ fn molfile(m: &Mol, members: &[usize], bonds: &[usize], cut: &[u32]) -> String {
 
 impl Scan {
     /// The descriptors of structure `k` (`props`), or the key that says why there are none: `error.draw2.valuesSize` (above the caps, checked
-    /// before any work), `error.draw2.valuesOpen` (an R group) or `error.draw2.propsElement` (an element outside
-    /// `props::DESCRIPTOR_ELEMENTS`: the library would give it a default type, which is not a measure).
+    /// before any work), `error.draw2.valuesOpen` (an R group), `error.draw2.propsElement` (an element outside
+    /// `props::DESCRIPTOR_ELEMENTS`: the library would give it a default type, which is not a measure) or `error.draw2.propsCharged` (an atom
+    /// with a formal charge: the descriptors are those of neutral molecules).
     pub fn props(&self, k: usize) -> Result<crate::props::Props, &'static str> {
         if self.record.atoms.len() > MAX_ATOMS || self.structures.len() > MAX_STRUCTURES {
             return Err("error.draw2.valuesSize");
@@ -338,12 +339,11 @@ impl Scan {
         if !covered(&s.composition) {
             return Err("error.draw2.propsElement");
         }
-        Ok(crate::props::of(&sub_record(
-            &self.record,
-            &s.members,
-            &self.bonds_of[k],
-            &[],
-        )))
+        let sub = sub_record(&self.record, &s.members, &self.bonds_of[k], &[]);
+        if sub.atoms.iter().any(|a| a.chg != 0) {
+            return Err("error.draw2.propsCharged");
+        }
+        Ok(crate::props::of(&sub))
     }
 
     /// The numbers of every structure, in order. `Err` when the work is above the caps; an `open` structure (an R group) has the key
@@ -495,6 +495,9 @@ impl Selected {
         }
         if !covered(&self.composition) {
             return Err("error.draw2.propsElement");
+        }
+        if self.sub.atoms.iter().any(|a| a.chg != 0) {
+            return Err("error.draw2.propsCharged");
         }
         Ok(crate::props::of(&self.sub))
     }

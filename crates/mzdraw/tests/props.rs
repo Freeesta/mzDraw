@@ -452,6 +452,7 @@ fn every_text_of_the_lines_exists_in_the_catalog() {
         "error.draw2.propsCopy",
         "error.draw2.propsLines",
         "error.draw2.propsElement",
+        "error.draw2.propsCharged",
         "error.draw2.valuesZero",
     ]
     .map(String::from)
@@ -625,13 +626,12 @@ fn a_structure_with_an_element_the_descriptors_are_not_written_for_has_no_descri
         );
         assert!(!t.contains("logP"), "{smiles}: {t}");
     }
-    // a salt: the covered ion keeps its numbers, the other has none
+    // a salt: sodium has the element key, chloride the charge key (see the test of the charged structures)
     let v: Value =
         serde_json::from_str(&replay(r#"{"import":"[Na+].[Cl-]","props":true}"#).unwrap()).unwrap();
     assert_eq!(v["structures"][0]["propsError"], "error.draw2.propsElement");
-    assert_eq!(v["structures"][1]["propsError"], Value::Null);
-    // an R group: no number, the key of an open structure; an isotope-labelled atom does not change the descriptors; a charged atom of a
-    // covered element has them
+    assert_eq!(v["structures"][1]["propsError"], "error.draw2.propsCharged");
+    // an R group: no number, the key of an open structure; an isotope-labelled atom does not change the descriptors
     let v: Value =
         serde_json::from_str(&replay(r#"{"import":"C[*]","props":true}"#).unwrap()).unwrap();
     assert_eq!(v["structures"][0]["propsError"], "error.draw2.valuesOpen");
@@ -645,9 +645,6 @@ fn a_structure_with_an_element_the_descriptors_are_not_written_for_has_no_descri
             "{k}"
         );
     }
-    let v: Value =
-        serde_json::from_str(&replay(r#"{"import":"C[NH3+]","props":true}"#).unwrap()).unwrap();
-    assert_eq!(v["structures"][0]["propsError"], Value::Null);
 }
 
 /// An engine that refuses a structure leaves no number: not the engine lines, and not the descriptors. (A mass of zero, which the real
@@ -734,4 +731,74 @@ fn props_json_carries_the_method_of_every_line_and_the_request_refuses_what_it_d
     ] {
         assert_eq!(replay(bad).unwrap_err().key, key, "{bad}");
     }
+}
+
+/// The descriptors (Wildman-Crippen logP, tPSA, the counts) are those of neutral molecules: the doc comment of `descr.rs` says nothing
+/// about ions, and the library gave a bare chloride a logP of -3.00 and an ammonium -1.14. Any atom with a formal charge (a cation, an
+/// anion, a zwitterion whose net charge is zero) leaves no descriptor number, only the key; the formula, the masses, the m/z and the
+/// elemental analysis (the engine's, right for ions) stay.
+#[test]
+fn a_structure_with_a_charged_atom_has_no_descriptor_number() {
+    let one = |smiles: &str| -> Value {
+        serde_json::from_str(
+            &replay(&json!({"import": smiles, "props": true}).to_string()).unwrap(),
+        )
+        .unwrap()
+    };
+    for key in ["logp", "tpsa", "hbd", "hba", "rotb", "heavy"] {
+        for smiles in [
+            "[Cl-]",
+            "C[NH3+]",
+            "CC(=O)[O-]",
+            "[NH3+]CC(=O)[O-]",
+            "C[N+](C)(C)C",
+        ] {
+            let b = &one(smiles)["structures"][0];
+            assert_eq!(b["propsError"], "error.draw2.propsCharged", "{smiles}");
+            assert_eq!(b["values"][key], json!([]), "{smiles} {key}");
+            // the formula stays
+            assert_eq!(b["values"]["formula"][0][0], "Formula", "{smiles}");
+        }
+    }
+    // a zwitterion: net charge zero, two charged atoms: still none
+    let z = one("[NH3+]CC(=O)[O-]");
+    assert_eq!(z["structures"][0]["charge"], 0);
+    // an ammonium salt: both ions have the key; a neutral one beside it keeps its numbers
+    let salt = one("C[NH3+].[Cl-].CCO");
+    assert_eq!(
+        salt["structures"][0]["propsError"],
+        "error.draw2.propsCharged"
+    );
+    assert_eq!(
+        salt["structures"][1]["propsError"],
+        "error.draw2.propsCharged"
+    );
+    assert_eq!(salt["structures"][2]["propsError"], Value::Null);
+    assert_eq!(
+        salt["structures"][2]["values"]["hbd"],
+        json!([["HBD", "1"]])
+    );
+    // the captions, the copies and a selection say the same
+    let mut e = editor("C[NH3+]");
+    e.session
+        .run(&[cap(1, &["formula", "logp", "tpsa", "hbd"])])
+        .unwrap();
+    assert_eq!(
+        values::captions(e.doc(), values::Mode::Off, &[], &[])[0].lines,
+        ["CH6N+"]
+    );
+    let t = replay(r#"{"import":"C[NH3+]","props":{"text":"tsv"}}"#).unwrap();
+    assert!(
+        t.contains("note\terror.draw2.propsCharged") && !t.contains("logP"),
+        "{t}"
+    );
+    let sel: Value =
+        serde_json::from_str(&replay(r#"{"import":"C[NH3+]","props":{"atoms":[2]}}"#).unwrap())
+            .unwrap();
+    assert_eq!(sel["selection"]["propsError"], "error.draw2.propsCharged");
+    // the methyl alone (the bond cut, closed with hydrogen) has no charged atom: its numbers
+    let sel: Value =
+        serde_json::from_str(&replay(r#"{"import":"C[NH3+]","props":{"atoms":[1]}}"#).unwrap())
+            .unwrap();
+    assert_eq!(sel["selection"]["propsError"], Value::Null);
 }

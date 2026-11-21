@@ -81,12 +81,29 @@ impl View {
 }
 
 /// What the editor adds on top of the document: selection and hover (atoms, bonds, objects), flagged atoms, a moving selection, a preview bond, a rubber band.
+/// The selection inside a text: the object, the two ends of the range in characters (`anchor` stays, `caret` moves), whether the text is
+/// being edited (keys type into it) or only selected, the style the next typed character takes when it differs from the one before
+/// the caret (`pending`, set by a style button with no range) and the history generation after the last typed character (the
+/// next one joins that undo step while nothing came between).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TextSel {
+    pub id: u32,
+    pub anchor: usize,
+    pub caret: usize,
+    pub editing: bool,
+    pub dragging: bool,
+    pub pending: Option<crate::runs::Run>,
+    pub join: Option<u64>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Overlay {
     pub sel_atoms: Vec<u32>,
     pub sel_bonds: Vec<u32>,
     pub sel_objs: Vec<u32>,
     pub hover_obj: Option<u32>,
+    /// The text being edited, or the text the panel acts on (`editor_text.rs`): drawn with its selection and caret while editing.
+    pub text: Option<TextSel>,
     /// The atom with the keyboard focus.
     pub focus: Option<u32>,
     pub hover_atom: Option<u32>,
@@ -658,21 +675,51 @@ impl Painter<'_> {
                 self.text(x, y, f * 1.3, ink, "+", 0.0);
             }
             ObjKind::Text => {
-                if o.runs.is_empty() {
-                    if let Some(c) = mark {
-                        let tw = width(&o.text, f);
-                        self.line((x, y + f * 0.75), (x + tw, y + f * 0.75), w * 3.0, c);
+                let edit = (self.over.text.clone())
+                    .filter(|t| t.editing && t.id == o.id && self.over.sel_objs.contains(&o.id));
+                let rs = crate::textedit::runs_of(o);
+                let script = self.script();
+                let laid = crate::runs::layout(&rs, f, script);
+                let row = f * 1.25;
+                let last = laid.widths.len() - 1;
+                if let Some(t) = &edit {
+                    // the selected range as a band behind the text, one per line
+                    let (lo, hi) = (t.anchor.min(t.caret), t.anchor.max(t.caret));
+                    let at = |p| crate::textedit::caret_at(&rs, f, script, p);
+                    let ((l0, x0), (l1, x1)) = (at(lo), at(hi));
+                    if lo < hi {
+                        for l in l0..=l1 {
+                            let a = if l == l0 { x0 } else { 0.0 };
+                            let b = if l == l1 { x1 } else { laid.widths[l] };
+                            let yy = y + l as f64 * row;
+                            self.line(
+                                (x + a, yy),
+                                (x + b.max(a + 2.0), yy),
+                                f * 1.15,
+                                colour::SELECT,
+                            );
+                        }
                     }
+                } else if let Some(c) = mark {
+                    let bottom = y + f * 0.75 + last as f64 * row;
+                    self.line((x, bottom), (x + laid.width(), bottom), w * 3.0, c);
+                }
+                if o.runs.is_empty() {
                     self.text(x, y, f, ink, &o.text, 1.0);
                 } else {
-                    let laid = crate::runs::layout(&o.runs, f, self.script());
-                    if let Some(c) = mark {
-                        let bottom = y + f * 0.75 + (laid.widths.len() - 1) as f64 * f * 1.25;
-                        self.line((x, bottom), (x + laid.width(), bottom), w * 3.0, c);
-                    }
                     for p in &laid.pieces {
                         self.piece(x + p.x, y + p.dy, p, ink);
                     }
+                }
+                if let Some(t) = &edit {
+                    let (l, cx) = crate::textedit::caret_at(&rs, f, script, t.caret);
+                    let yy = y + l as f64 * row;
+                    self.line(
+                        (x + cx, yy - f * 0.55),
+                        (x + cx, yy + f * 0.55),
+                        w * 1.6,
+                        colour::FOCUS,
+                    );
                 }
             }
         }

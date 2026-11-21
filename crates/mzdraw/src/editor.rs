@@ -181,6 +181,8 @@ pub struct Editor {
     pub export: crate::palettes::Export,
     /// The interface preferences (`ui.theme`).
     pub ui: crate::prefs::Ui,
+    /// The default font and size of a new text (`text.font`, `text.size`).
+    pub textp: crate::prefs::TextPrefs,
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
     pub(crate) clip: String,
     pub(crate) pasted: u32,
@@ -344,6 +346,7 @@ impl Default for Editor {
             layout: Default::default(),
             export: Default::default(),
             ui: Default::default(),
+            textp: Default::default(),
             measurer: None,
             table_notes: std::cell::RefCell::default(),
             measured: Vec::new(),
@@ -558,9 +561,11 @@ impl Editor {
                 }
                 ObjKind::Plus => m::hypot(x - px, y - py) < r + font * 0.4,
                 ObjKind::Text => {
+                    let (w, lines) = self.text_box(o);
                     px >= x - r
-                        && px <= x + scene::width(&o.text, font) + r
-                        && (py - y).abs() <= font * 0.6 + r * 0.5
+                        && px <= x + w + r
+                        && py >= y - font * 0.6 - r * 0.5
+                        && py <= y + (lines - 1) as f64 * font * 1.25 + font * 0.6 + r * 0.5
                 }
             };
             if on {
@@ -843,6 +848,10 @@ impl Editor {
                 Some(t) => crate::prefs::Ui::read(&value(t, "error.draw2.ui")?)?,
                 None => Default::default(),
             };
+            let textp = match take("text") {
+                Some(t) => crate::prefs::TextPrefs::read(&value(t, "error.draw2.textPref")?)?,
+                None => Default::default(),
+            };
             let export = match take("export") {
                 Some(t) => crate::palettes::Export::read(&value(t, "error.draw2.export")?)?,
                 None => Default::default(),
@@ -850,6 +859,7 @@ impl Editor {
             self.layout.replace(layout);
             self.export = export;
             self.ui = ui;
+            self.textp = textp;
             flags |= PALETTES;
         }
         self.style = style;
@@ -872,6 +882,15 @@ impl Editor {
                 text = v.to_string();
                 note = "error.draw2.ui";
             }
+            // a `text` object of a newer file (a font or a size this version does not know) is dropped the same way: the rest is taken
+            let bad = v
+                .get("text")
+                .is_some_and(|t| crate::prefs::TextPrefs::read(t).is_err());
+            if let (true, Some(o)) = (bad, v.as_object_mut()) {
+                o.remove("text");
+                text = v.to_string();
+                note = "error.draw2.textPref";
+            }
         }
         self.set_style(&text).map(|f| (f, note))
     }
@@ -884,6 +903,7 @@ impl Editor {
             ("layout", self.layout.to_text()),
             ("export", self.export.to_text()),
             ("ui", self.ui.to_text()),
+            ("text", self.textp.to_text()),
         ] {
             if let Some(v) = v {
                 s.unknown.file.retain(|(k, _)| k != key);
@@ -1027,6 +1047,7 @@ impl Editor {
             "pathway" => self.style.set_pathway(key, value).map(|_| 0),
             "export" => self.export.set(key, value).map(|_| 0),
             "ui" => self.ui.set(key, value).map(|_| 0),
+            "text" => self.textp.set(key, value).map(|_| 0),
             "layout" => self.layout.set(key, value).map(|_| PALETTES),
             _ => Err("error.draw2.set"),
         }
@@ -1038,6 +1059,8 @@ impl Editor {
             ("export", "default") => Some(self.export.default.clone()),
             ("export", "background") => Some(self.export.background.clone()),
             ("ui", "theme") => Some(self.ui.theme.clone()),
+            ("text", "font") => Some(self.textp.font.clone()),
+            ("text", "size") => Some(self.textp.size.clone()),
             _ => self.style.value(setting),
         }
     }
