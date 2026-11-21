@@ -23,17 +23,20 @@ pub const EDIT_ID: &str = "draw_edit/1";
 /// The contract between the page and the module: the page checks that the `.wasm` it loaded speaks it. Independent of the name
 /// (like `EDIT_ID`), so a rename neither changes it nor makes an old page and a new module look alike by accident.
 pub const BRIDGE_ID: &str = "draw-bridge/1";
+/// The key of the edit schema (`out: schema`) that says whether an operation is read by this editor: a stable machine key for agents,
+/// the first name of the editor. A rename never changes it (like `FIRST_DOCUMENT_ID`).
+pub const SCHEMA_KEY: &str = "mzdraw"; // rename-keep
 /// The id of the first version of the document: history, never changed by a rename. The edit schema names it as the version that
 /// introduced the operations that existed then (`since`), so `out: schema` keeps its bytes under any name; an operation added
 /// later says `DOCUMENT_ID`, the version of the day.
-pub const FIRST_DOCUMENT_ID: &str = "mzdraw/1";
+pub const FIRST_DOCUMENT_ID: &str = "mzdraw/1"; // rename-keep
 /// Earlier slugs, oldest first.
 #[cfg(not(test))]
-pub const LEGACY_IDS: &[&str] = &[];
+pub const LEGACY_IDS: &[&str] = &[]; // rename-legacy
 /// The unit tests of the crate read as if one earlier name existed (as long as the current slug, so a PDF keeps its offsets), to
 /// prove that every reader accepts it; the build of the crate and the test `brand` use the list of `brand.toml`.
 #[cfg(test)]
-pub const LEGACY_IDS: &[&str] = &["zzzzzz"];
+pub const LEGACY_IDS: &[&str] = &["legacy"];
 /// GitHub `owner/name`.
 pub const REPOSITORY: &str = "Freeesta/mzDraw";
 /// Where the page is published (case-sensitive) and its path.
@@ -89,9 +92,9 @@ pub(crate) fn attachments(ext: &str) -> impl Iterator<Item = String> + '_ {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{pdf, svg, Document, Editor, Style};
+    use crate::{svg, Document, Editor, Style};
 
-    const OLD: &str = "zzzzzz";
+    const OLD: &str = "legacy";
 
     fn doc() -> Document {
         Document::from_json(
@@ -158,17 +161,6 @@ mod tests {
         );
         assert!(svg.contains(&format!("id=\"{OLD}\"")));
         assert_eq!(svg::carried(&svg).unwrap().unwrap().to_json(), d.to_json());
-        // PDF: the names of the attachments (the same length, so the offsets hold)
-        let pdf = pdf::to_pdf(&d, &Style::default());
-        let (from, to) = (
-            attachment("json").into_bytes(),
-            format!("{OLD}.json").into_bytes(),
-        );
-        let mut old = pdf.clone();
-        let at = pdf.windows(from.len()).position(|w| w == from).unwrap();
-        old[at..at + to.len()].copy_from_slice(&to);
-        assert_ne!(old, pdf);
-        assert_eq!(pdf::carried(&old).unwrap().unwrap().to_json(), d.to_json());
         // the kind of `save` and `clipboard`
         assert!(is_doc_kind(SLUG) && is_doc_kind(OLD) && !is_doc_kind("molfile"));
         let mut e = Editor::default();
@@ -195,6 +187,14 @@ mod tests {
                 !String::from_utf8_lossy(&bytes).contains(DOCUMENT_ID),
                 "{name} is a file of the earlier name"
             );
+            // the PDF carries its document as an attachment under the name of the earlier slug, and no other: this is the test of the
+            // reader of the legacy attachment names (`brand::attachments`, `pdf::carried`)
+            if name == "drawing.pdf" {
+                let attached = |n: &str| bytes.windows(n.len()).any(|w| w == n.as_bytes());
+                assert!(attached(&format!("{OLD}.json")) && attached(&format!("{OLD}.mol")));
+                assert!(!attached(&attachment("json")) && !attached(&attachment("mol")));
+                assert!(crate::pdf::carried(&bytes).unwrap().is_ok());
+            }
             let mut e = Editor::default();
             e.import_bytes(&bytes)
                 .unwrap_or_else(|k| panic!("{name}: {k}"));

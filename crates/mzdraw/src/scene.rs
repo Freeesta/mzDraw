@@ -607,17 +607,45 @@ impl Painter<'_> {
         }
     }
 
-    /// The level of each annotated structure, as `L` and the level (`L2b`) centred under the structure.
+    /// The name and the level of each structure that has them, centred under the structure: `TP3 \u{b7} L2b`, or `L2b` (a level
+    /// alone), or `TP3` (a name alone). The name is the data field `TP_ID`; the level is the current entry of the annotation.
     fn levels(&mut self) {
-        if self.doc.atoms.iter().all(|a| a.ann().is_empty()) {
+        if self
+            .doc
+            .atoms
+            .iter()
+            .all(|a| a.ann().is_empty() && !a.more.iter().any(|m| m.0 == "data"))
+        {
             return;
         }
-        for ids in crate::layout::pieces(self.doc) {
-            let of: Vec<&Atom> = (self.doc.atoms.iter())
-                .filter(|a| ids.contains(&a.id))
-                .collect();
-            let Some(now) = crate::ann::current(&Atom::ann_of(&self.doc.atoms, &ids)) else {
-                continue;
+        // one pass over the atoms gives each structure its atoms (the cost stays linear in the drawing)
+        let pieces = crate::layout::pieces(self.doc);
+        let mut owner: std::collections::HashMap<u32, usize> =
+            std::collections::HashMap::with_capacity(self.doc.atoms.len());
+        for (k, p) in pieces.iter().enumerate() {
+            owner.extend(p.iter().map(|&i| (i, k)));
+        }
+        let mut members: Vec<Vec<&Atom>> = vec![Vec::new(); pieces.len()];
+        for a in &self.doc.atoms {
+            if let Some(&k) = owner.get(&a.id) {
+                members[k].push(a);
+            }
+        }
+        for of in members {
+            let texts: Vec<String> = of.iter().map(|a| a.ann()).collect();
+            let level = crate::ann::current(&crate::ann::join(texts.iter().map(String::as_str)))
+                .map(|now| format!("L{}", now.level));
+            let name = of.iter().find_map(|a| {
+                a.data()
+                    .into_iter()
+                    .find(|(k, v)| k == "TP_ID" && !v.is_empty())
+                    .map(|(_, v)| v)
+            });
+            let label = match (name, level) {
+                (Some(n), Some(l)) => format!("{n} \u{b7} {l}"),
+                (Some(n), None) => n,
+                (None, Some(l)) => l,
+                (None, None) => continue,
             };
             let (mut x0, mut x1, mut y1) = (f64::MAX, f64::MIN, f64::MIN);
             for a in of {
@@ -626,14 +654,7 @@ impl Painter<'_> {
             }
             let f = self.font * 0.8;
             let y = y1 + self.view.scale * 0.3 + f * 0.9;
-            self.text(
-                (x0 + x1) / 2.0,
-                y,
-                f,
-                colour::INK,
-                &format!("L{}", now.level),
-                0.0,
-            );
+            self.text((x0 + x1) / 2.0, y, f, colour::INK, &label, 0.0);
         }
     }
 

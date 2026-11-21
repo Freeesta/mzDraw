@@ -30,6 +30,8 @@ pub(crate) fn known(name: &str) -> bool {
             | "pathway:label"
             | "scheme:orient"
             | "tp:derive"
+            | "tp:import"
+            | "tp:number"
     )
 }
 
@@ -45,6 +47,12 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     }
     if name == "tp:derive" {
         return derive_args(args).map(|_| ());
+    }
+    if name == "tp:import" {
+        return import_args(args).map(|_| ());
+    }
+    if name == "tp:number" {
+        return number_args(args).map(|_| ());
     }
     if name == "scheme:orient" {
         // no argument: it orients every structure after an arrow on the one before it
@@ -93,6 +101,28 @@ fn pathway_args(name: &str, args: &Value) -> Result<Option<u32>, &'static str> {
     match id {
         Some(i) if obj.len() == 1 && i > 0 && i <= u64::from(u32::MAX) => Ok(Some(i as u32)),
         _ => Err("error.draw2.request"),
+    }
+}
+
+/// The arguments of `tp:import`: `{"csv": text}` or `{"rows": [objects]}`, one of them.
+fn import_args(args: &Value) -> Result<crate::tp_list::Input<'_>, &'static str> {
+    const BAD: &str = "error.draw2.request";
+    let obj = args.as_object().ok_or(BAD)?;
+    match (obj.get("csv"), obj.get("rows"), obj.len()) {
+        (Some(Value::String(t)), None, 1) => Ok(crate::tp_list::Input::Csv(t)),
+        (None, Some(r @ Value::Array(_)), 1) => Ok(crate::tp_list::Input::Rows(r)),
+        _ => Err(BAD),
+    }
+}
+
+/// The arguments of `tp:number`: `{"force": bool}`, which may be left out.
+fn number_args(args: &Value) -> Result<bool, &'static str> {
+    const BAD: &str = "error.draw2.request";
+    let obj = args.as_object().ok_or(BAD)?;
+    match (obj.get("force"), obj.len()) {
+        (None, 0) => Ok(false),
+        (Some(Value::Bool(b)), 1) => Ok(*b),
+        _ => Err(BAD),
     }
 }
 
@@ -200,6 +230,30 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     }
     if name == "scheme:orient" {
         return orient(e);
+    }
+    if name == "tp:import" {
+        let input = import_args(args).map_err(bad)?;
+        e.failed_rows.clear();
+        return match crate::tp_list::import_ops(e.doc(), &e.style, &input) {
+            Ok(ops) => {
+                let n = ops.len().to_string();
+                e.session.run(&ops)?;
+                e.said = ("draw2.say.tpImported", n);
+                Ok(())
+            }
+            Err(crate::tp_list::Failure::Key(key, id)) => Err(OpError { key, id }),
+            Err(crate::tp_list::Failure::Rows(rows)) => {
+                e.failed_rows = rows;
+                Err(bad(crate::tp_list::KEY_ROWS))
+            }
+        };
+    }
+    if name == "tp:number" {
+        let force = number_args(args).map_err(bad)?;
+        let ops = crate::tp_list::number_ops(e.doc(), &e.style, e.style.pathway_number, force)
+            .map_err(|(key, id)| OpError { key, id })?;
+        e.said = ("draw2.say.tpNumbered", String::new());
+        return e.session.run(&ops);
     }
     if name == "tp:derive" {
         let (of, patch, at) = derive_args(args).map_err(bad)?;

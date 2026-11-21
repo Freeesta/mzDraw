@@ -1,10 +1,10 @@
 {
- "format": "zzzzzz-settings/1",
+ "format": "legacy-settings/1",
  "style": {
   "preset": "slides"
  },
  "export": {
-  "default": "zzzzzz",
+  "default": "legacy",
   "background": "none"
  }
 }

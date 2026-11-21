@@ -266,7 +266,7 @@ fn markdown() -> String {
             "| `{}` | {} | {} | {} | {} | {} |\n",
             o["op"].as_str().unwrap(),
             cell(&o["since"]),
-            o["mzdraw"],
+            o[mzdraw::brand::SCHEMA_KEY],
             o["mzlab"],
             cell(&o["inverse"]),
             fields.join("<br>").replace('|', "\\|")
