@@ -309,9 +309,8 @@ fn check_document(text: &str, schema: &Value) {
         let fk: Vec<String> = members(text_of).into_iter().map(|(k, _)| k).collect();
         in_order(&fk, &FAILED_KEYS);
         assert_eq!(fk[0], "stage");
-        assert!(
-            ["log", "select", "plan", "grant", "command"].contains(&f["stage"].as_str().unwrap())
-        );
+        assert!(["log", "select", "plan", "grant", "command", "proposal"]
+            .contains(&f["stage"].as_str().unwrap()));
         assert!(f["key"].is_string() && f["id"].is_u64());
         assert_eq!(v["ok"], false);
     }

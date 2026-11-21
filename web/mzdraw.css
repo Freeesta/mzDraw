@@ -19,7 +19,7 @@
   --mzd-atom-n: #aab9ff; --mzd-atom-o: #ff9a90; --mzd-atom-s: #e3c862; --mzd-atom-x: #8ed38e; --mzd-atom-p: #f7b070; --mzd-preview: #9ab3cf; }
 /* the names the canvas reads (web/mzdraw.js COLOURS) */
 :root { --d2-ink: var(--mzd-ink); --d2-select: var(--mzd-selection); --d2-hover: var(--mzd-hover); --d2-warn: var(--mzd-danger); --d2-preview: var(--mzd-preview);
-  --d2-n: var(--mzd-atom-n); --d2-o: var(--mzd-atom-o); --d2-s: var(--mzd-atom-s); --d2-x: var(--mzd-atom-x); --d2-p: var(--mzd-atom-p); --d2-focus: var(--mzd-focus); }
+  --d2-n: var(--mzd-atom-n); --d2-o: var(--mzd-atom-o); --d2-s: var(--mzd-atom-s); --d2-x: var(--mzd-atom-x); --d2-p: var(--mzd-atom-p); --d2-focus: var(--mzd-focus); --d2-accent: var(--mzd-accent); }
 :root { --fg: var(--mzd-ink); --bg: var(--mzd-surface-raised); --panel: var(--mzd-surface); --line: var(--mzd-control); --accent: var(--mzd-accent); --grip: var(--mzd-ink-muted); }
 html, body { margin: 0; height: 100%; background: var(--mzd-paper); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
 body { overflow: hidden; }
@@ -47,7 +47,14 @@ button[aria-pressed="true"] { background: var(--mzd-accent-soft); color: var(--f
 button:disabled { opacity: .45; cursor: default; }
 button:focus-visible, canvas:focus-visible, textarea:focus-visible, summary:focus-visible, input[type="checkbox"]:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 2px; }
 canvas:focus-visible { outline-offset: -3px; }
-#d2-restore[hidden] { display: none; }
+#d2-restore[hidden], #d2-proposal[hidden] { display: none; }
+#d2-proposal { position: absolute; right: 8px; bottom: 28px; width: min(26rem, calc(100% - 16px)); max-height: 34%; overflow: auto; box-sizing: border-box; padding: 4px 10px; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 6px; z-index: 5; }
+#d2-proposal p { margin: 2px 0 4px; font-weight: 600; font-size: 13px; }
+#d2-proposal ul { list-style: none; margin: 0 0 6px; padding: 0; }
+#d2-proposal li { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--mzd-border); }
+#d2-proposal li[aria-current="true"] { box-shadow: inset 3px 0 0 var(--accent); padding-left: 6px; background: var(--mzd-accent-soft); }
+#d2-proposal .say { flex: 1 1 10rem; min-width: 0; }
+#d2-proposal .row { display: flex; gap: 6px; flex-wrap: wrap; }
 #d2-restore { position: absolute; left: 8px; right: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 10px; background: var(--panel); border: 1px solid var(--line); border-bottom: 2px solid var(--accent); border-radius: 6px; }
 /* the canvas takes the area the palettes leave free (placed by the module's layout) */
 #d2-stage { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; }

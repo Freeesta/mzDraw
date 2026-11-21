@@ -14,6 +14,12 @@
 <main id="d2-stage">
   <canvas id="d2-canvas" tabindex="0" role="application" aria-label="Structure canvas" data-i18n-aria-label="draw2.canvas" aria-describedby="d2-outline d2-focus"></canvas>
   <span id="d2-status" role="status"></span>
+  <div id="d2-proposal" role="region" aria-label="Proposal" data-i18n-aria-label="draw2.proposal" hidden>
+    <p id="d2-proposal-at"></p>
+    <ul id="d2-proposal-list" aria-label="Hunks to review" data-i18n-aria-label="draw2.proposal.list"></ul>
+    <div class="row"><button id="d2-accept-all" type="button" data-i18n="draw2.proposal.acceptAll" title="Accept every hunk left" data-i18n-title="draw2.proposal.acceptAll.title">Accept all</button>
+      <button id="d2-reject-all" type="button" data-i18n="draw2.proposal.rejectAll" title="Drop every hunk left" data-i18n-title="draw2.proposal.rejectAll.title">Reject all</button></div>
+  </div>
   <div id="d2-restore" role="region" aria-label="Saved drawing" data-i18n-aria-label="draw2.restore.region" hidden>
     <span id="d2-restore-text"></span>
     <button id="d2-restore-yes" type="button" data-i18n="draw2.restore.yes" title="Open the saved drawing on the canvas" data-i18n-title="draw2.restore.yes.title">Restore</button>
@@ -28,7 +34,12 @@
       <div class="row"><button id="d2-add" type="button" data-i18n="draw2.import.add" title="Add this structure to the drawing" data-i18n-title="draw2.import.add.title">Add</button>
         <button id="d2-open" type="button" data-i18n="draw2.import.open" title="Add the structure of a file to the drawing" data-i18n-title="draw2.import.open.title">Open a file</button>
 </div>
-      <p id="d2-note" role="status"></p></details></div>
+      <p id="d2-note" role="status"></p></details>
+    <details id="d2-patch-more"><summary data-i18n="draw2.proposal.field">A patch to review</summary>
+      <p class="hint" data-i18n="draw2.proposal.hint">A patch.</p>
+      <textarea id="d2-patch" rows="3" spellcheck="false" autocomplete="off" aria-label="A patch to review" data-i18n-aria-label="draw2.proposal.field"></textarea>
+      <div class="row"><button id="d2-propose" type="button" data-i18n="draw2.proposal.show" title="Hold this patch as a proposal over the drawing" data-i18n-title="draw2.proposal.show.title">Show as a proposal</button></div>
+      <p id="d2-patch-note" role="status"></p></details></div>
   <div class="pal side" data-pal="style"><details open><summary data-i18n="draw2.style">Style</summary>
       <label class="field"><span data-i18n="draw2.style.label">Drawing style</span>
         <select id="d2-style" title="How the drawing looks on the screen and in the saved SVG" data-i18n-title="draw2.style.title"></select></label>
