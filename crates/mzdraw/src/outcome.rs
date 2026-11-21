@@ -313,8 +313,8 @@ pub struct Outcome {
     /// What the output format `out` cannot hold, as (i18n key, count): `draw2.export.mapsLost` for atom maps. Empty: nothing lost.
     pub lost: Vec<(&'static str, usize)>,
     pub failed: Option<Failed>,
-    /// Only when a command of the request was `pathway:anchor` or `pathway:route` (tp-02): whether the commands changed the drawing, so
-    /// that a real route can be told from a no-op.
+    /// Present when a command of the request reports whether it changed the drawing (today `pathway:anchor` and `pathway:route`): whether
+    /// the commands changed it, so that a real change can be told from a no-op.
     pub changed: Option<bool>,
     /// `(request object, ok, detail)` per expectation, in request order; `None` when the request had no `expect`.
     pub expect: Option<Vec<(Value, bool, String)>>,
