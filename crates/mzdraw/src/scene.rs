@@ -32,6 +32,8 @@ pub mod colour {
     pub const FOCUS: f32 = 10.0;
     /// What a proposal adds or changes (the accent token); what it removes is struck in `WARN`.
     pub const ACCENT: f32 = 11.0;
+    /// The muted ink: what the diff lens draws as a ghost (a bond the product no longer has).
+    pub const MUTED: f32 = 12.0;
 }
 
 /// One mark of a proposal laid over the drawing (`proposal`), in document units. The surface owns the colours.
@@ -177,6 +179,19 @@ struct Painter<'a> {
     m: Metrics,
     font: f64,
     out: Scene,
+    /// The diff lens of the drawing (`display.lens` not off): what to tint and what to ghost.
+    lens: LensPaint,
+    /// The ink of the bond being painted: ink, or the accent when the lens tints it.
+    ink: f32,
+}
+
+/// What the diff lens paints: the atoms and bonds of the products to tint (accent) and the cleaved bonds, as the two atoms of the
+/// product, drawn dashed and muted behind the bonds.
+#[derive(Default)]
+struct LensPaint {
+    atoms: std::collections::HashSet<u32>,
+    bonds: std::collections::HashSet<u32>,
+    ghosts: Vec<(u32, u32)>,
 }
 
 impl Painter<'_> {
@@ -203,6 +218,11 @@ impl Painter<'_> {
     fn bond(&mut self, b: &crate::doc::Bond) {
         let (Some(p), Some(q)) = (self.doc.atom(b.a), self.doc.atom(b.b)) else {
             return;
+        };
+        self.ink = if self.lens.bonds.contains(&b.id) {
+            colour::ACCENT
+        } else {
+            colour::INK
         };
         let (mut s, mut e) = (self.pos(p), self.pos(q));
         let (dx, dy) = (e.0 - s.0, e.1 - s.1);
@@ -246,10 +266,10 @@ impl Painter<'_> {
             2 => {
                 let side = self.double_side(b, (ux, uy));
                 if side == 0.0 {
-                    self.line(shift(s, 0.5), shift(e, 0.5), w, colour::INK);
-                    self.line(shift(s, -0.5), shift(e, -0.5), w, colour::INK);
+                    self.line(shift(s, 0.5), shift(e, 0.5), w, self.ink);
+                    self.line(shift(s, -0.5), shift(e, -0.5), w, self.ink);
                 } else {
-                    self.line(s, e, w, colour::INK);
+                    self.line(s, e, w, self.ink);
                     // the second line sits inside, a little shorter unless it ends at a label
                     let trim = len * 0.12;
                     let s2 = if lp {
@@ -262,15 +282,15 @@ impl Painter<'_> {
                     } else {
                         (e.0 - ux * trim, e.1 - uy * trim)
                     };
-                    self.line(shift(s2, side), shift(e2, side), w, colour::INK);
+                    self.line(shift(s2, side), shift(e2, side), w, self.ink);
                 }
             }
             3 => {
                 for k in [-1.0, 0.0, 1.0] {
-                    self.line(shift(s, k), shift(e, k), w, colour::INK);
+                    self.line(shift(s, k), shift(e, k), w, self.ink);
                 }
             }
-            _ => self.line(s, e, w, colour::INK),
+            _ => self.line(s, e, w, self.ink),
         }
     }
 
@@ -284,13 +304,13 @@ impl Painter<'_> {
         match mark {
             WEDGE_UP => {
                 let (p, q) = (at(1.0, 1.0), at(1.0, -1.0));
-                self.push(&[TRI as f64, s.0, s.1, p.0, p.1, q.0, q.1, colour::INK as f64]);
+                self.push(&[TRI as f64, s.0, s.1, p.0, p.1, q.0, q.1, self.ink as f64]);
             }
             WEDGE_DOWN => {
                 let n = ((len / self.m.hash).round() as usize).clamp(3, 12);
                 for i in 1..=n {
                     let t = i as f64 / n as f64;
-                    self.line(at(t, t), at(t, -t), w, colour::INK);
+                    self.line(at(t, t), at(t, -t), w, self.ink);
                 }
             }
             _ => {
@@ -301,7 +321,7 @@ impl Painter<'_> {
                     at(t, 0.8 * m::sin(t * 8.0 * std::f64::consts::PI))
                 };
                 for i in 0..n {
-                    self.line(wave(i), wave(i + 1), w, colour::INK);
+                    self.line(wave(i), wave(i + 1), w, self.ink);
                 }
             }
         }
@@ -387,7 +407,12 @@ impl Painter<'_> {
         let mut tx = x - before - mid / 2.0;
         for (s, digit) in runs {
             let dy = if digit { f * 0.3 } else { 0.0 };
-            self.text(tx, y + dy, size(digit), colour::INK, &s, 1.0);
+            let ink = if self.lens.atoms.contains(&a.id) {
+                colour::ACCENT
+            } else {
+                colour::INK
+            };
+            self.text(tx, y + dy, size(digit), ink, &s, 1.0);
             tx += width(&s, size(digit));
         }
     }
@@ -399,7 +424,9 @@ impl Painter<'_> {
         }
         let (x, y) = self.pos(a);
         let f = self.font;
-        let c = if self.m.mono {
+        let c = if self.lens.atoms.contains(&a.id) {
+            colour::ACCENT
+        } else if self.m.mono {
             colour::INK
         } else {
             element_colour(&a.el)
@@ -579,6 +606,39 @@ impl Painter<'_> {
         }
     }
 
+    /// The cleaved bonds of the lens: a thin dashed line between the two atoms of the product, in the muted ink, painted first so
+    /// that it stands behind the bonds. The dashes are lines of their own (the display list has no dash primitive).
+    fn ghosts(&mut self) {
+        if self.lens.ghosts.is_empty() {
+            return;
+        }
+        let w = (self.m.line * 0.6).max(0.5);
+        let dash = self.font * 0.35;
+        // the atoms by id, once: a scan per ghost would be quadratic
+        let by_id: std::collections::HashMap<u32, &Atom> =
+            self.doc.atoms.iter().map(|a| (a.id, a)).collect();
+        for k in 0..self.lens.ghosts.len() {
+            let (a, b) = self.lens.ghosts[k];
+            let (Some(&p), Some(&q)) = (by_id.get(&a), by_id.get(&b)) else {
+                continue;
+            };
+            let (s, e) = (self.pos(p), self.pos(q));
+            let len = m::hypot(e.0 - s.0, e.1 - s.1);
+            let n = ((len / dash).round() as usize).clamp(1, 200);
+            // n segments, every other one drawn: starts and ends with a dash when n is odd
+            let n = if n.is_multiple_of(2) { n + 1 } else { n };
+            for i in (0..n).step_by(2) {
+                let at = |t: f64| (s.0 + (e.0 - s.0) * t, s.1 + (e.1 - s.1) * t);
+                self.line(
+                    at(i as f64 / n as f64),
+                    at((i + 1) as f64 / n as f64),
+                    w,
+                    colour::MUTED,
+                );
+            }
+        }
+    }
+
     /// The marks of an open proposal: added things in the accent colour, removed ones struck in the warning colour, changed ones
     /// outlined, each hunk numbered.
     fn marks(&mut self) {
@@ -721,6 +781,27 @@ impl Painter<'_> {
     }
 }
 
+/// What the lens of the drawing paints under `mode`: nothing when it is off or when a pair cannot be compared (`tp::lenses`).
+fn lens_paint(doc: &Document, mode: crate::settings::LensMode) -> LensPaint {
+    use crate::settings::LensMode;
+    let mut out = LensPaint::default();
+    if mode == LensMode::Off {
+        return out;
+    }
+    let Ok(all) = crate::tp::lenses(doc) else {
+        return out;
+    };
+    for l in &all.lenses {
+        out.atoms.extend(l.added.iter().chain(&l.changed));
+        out.bonds
+            .extend(l.added_bonds.iter().chain(&l.changed_bonds));
+        if mode == LensMode::TintGhost {
+            out.ghosts.extend(l.cleaved.iter().copied());
+        }
+    }
+    out
+}
+
 /// Builds the display list of a document under a view, with the metrics of a style at that scale.
 pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
     let mut p = Painter {
@@ -730,7 +811,10 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
         m,
         font: m.font,
         out: Scene::default(),
+        lens: lens_paint(doc, m.lens),
+        ink: colour::INK,
     };
+    p.ghosts();
     for b in &doc.bonds {
         p.bond(b);
     }
@@ -777,6 +861,8 @@ pub fn label_extent(doc: &Document, a: &Atom, style: &crate::settings::Style) ->
         m,
         font: m.font,
         out: Scene::default(),
+        lens: LensPaint::default(),
+        ink: colour::INK,
     };
     let (f, small) = (m.font, m.small);
     let line = f * 0.6;
@@ -821,4 +907,98 @@ pub fn label_extent(doc: &Document, a: &Atom, style: &crate::settings::Style) ->
         right = right.max(q.half + if q.left { 0.0 } else { q.side() } + width(&q.mark, small));
     }
     [left, right, below, above]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    /// `n` pairs: a triangle (maps 1, 2, 3) and a chain with the same maps, which lacks the bond 3-1 (one ghost per pair).
+    fn pairs(n: u32) -> Document {
+        let (mut atoms, mut bonds, mut objects) = (Vec::new(), Vec::new(), Vec::new());
+        let (mut a, mut b) = (0u32, 0u32);
+        for k in 0..n {
+            // a grid, so that the coordinates stay in range however many pairs
+            let (x0, y0) = ((k % 100) as f64 * 20.0, (k / 100) as f64 * 10.0);
+            let first = a + 1;
+            for (dx, ring) in [(0.0, true), (8.0, false)] {
+                let start = a;
+                for i in 0..3u32 {
+                    a += 1;
+                    atoms.push(format!(
+                        r#"{{"id":{a},"el":"C","x":{},"y":{},"map":{}}}"#,
+                        x0 + dx + i as f64,
+                        y0 + (i % 2) as f64,
+                        i + 1
+                    ));
+                }
+                for (i, j) in [(1u32, 2u32), (2, 3), (3, 1)] {
+                    if ring || i != 3 {
+                        b += 1;
+                        bonds.push(format!(
+                            r#"{{"id":{},"a":{},"b":{},"o":1}}"#,
+                            1_000_000 + b,
+                            start + i,
+                            start + j
+                        ));
+                    }
+                }
+            }
+            objects.push(format!(
+                r#"{{"id":{},"t":"arrow","x":{},"y":{y0},"x2":{},"y2":{y0},"from":{first},"to":{}}}"#,
+                2_000_000 + k,
+                x0 + 4.0,
+                x0 + 7.5,
+                first + 3
+            ));
+        }
+        Document::from_json(&format!(
+            r#"{{"format":"{}","next":3000000,"atoms":[{}],"bonds":[{}],"objects":[{}]}}"#,
+            crate::brand::DOCUMENT_ID,
+            atoms.join(","),
+            bonds.join(","),
+            objects.join(",")
+        ))
+        .unwrap()
+    }
+
+    /// The time of `reps` paintings of the ghosts of `n` pairs; the drawing is built outside the clock.
+    fn cost(n: u32, reps: u32) -> f64 {
+        let doc = pairs(n);
+        // the ghosts as the lens gives them (the product's atom 3 with its atom 1: the bond 3-1 it lacks), fed to the painter
+        // directly: the drawing here is larger than the lens itself accepts (`tp::MAX_LENS_DOC`), and only the painting is timed
+        let t = std::time::Instant::now();
+        for _ in 0..reps {
+            let mut p = Painter {
+                doc: &doc,
+                view: View {
+                    scale: 20.0,
+                    ox: 0.0,
+                    oy: 0.0,
+                },
+                over: &Overlay::default(),
+                m: crate::settings::Style::default().metrics(20.0, true),
+                font: 10.0,
+                out: Scene::default(),
+                lens: LensPaint {
+                    ghosts: (0..n).map(|k| (6 * k + 4, 6 * k + 6)).collect(),
+                    ..LensPaint::default()
+                },
+                ink: colour::INK,
+            };
+            p.ghosts();
+            assert!(!p.out.data.is_empty());
+        }
+        t.elapsed().as_secs_f64()
+    }
+
+    #[test]
+    fn the_lens_painting_is_linear_in_the_drawing() {
+        // four times the pairs must cost about four times as much, not sixteen. A scan of the atoms per ghost (as `Document::atom`
+        // does) takes this to a ratio of 16.
+        let (small, big) = (cost(1000, 3), cost(4000, 3));
+        assert!(
+            big < 8.0 * small + 0.05,
+            "1000 pairs {small:.3} s, 4000 pairs {big:.3} s"
+        );
+    }
 }

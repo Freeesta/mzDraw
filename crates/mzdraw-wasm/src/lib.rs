@@ -582,6 +582,15 @@ pub fn state() -> String {
         let e = &p.editor;
         // written by hand: building the state as a JSON value cost about 2 kB of module more
         let q = |s: &str| serde_json::Value::from(s).to_string();
+        // the diff lens, one pass and only when it is on: the words of each product by its anchor, and the note when it skips arrows
+        let lens = (e.style.lens != mzdraw::settings::LensMode::Off)
+            .then(|| mzdraw::tp::LensState::of(e.doc()));
+        let lens_note = lens
+            .as_ref()
+            .and_then(|l| l.note)
+            .map_or("null".to_string(), |(k, n)| {
+                format!(r#"{{"key":{},"n":{n}}}"#, q(k))
+            });
         let outline: Vec<String> = mzdraw::outline::pieces(e.doc())
             .into_iter()
             .map(|s| {
@@ -600,8 +609,19 @@ pub fn state() -> String {
                         a.entries
                     )
                 });
+                let lens = lens
+                    .as_ref()
+                    .and_then(|l| l.line(s.anchor))
+                    .map_or("null".to_string(), |x| {
+                        format!(
+                            r#"{{"from":{},"delta":{},"cleaved":{}}}"#,
+                            q(&x.from),
+                            q(&x.delta),
+                            x.cleaved
+                        )
+                    });
                 format!(
-                    r#"{{"formula":{},"atoms":{},"bonds":{},"anchor":{},"data":[{}],"ann":{ann}}}"#,
+                    r#"{{"formula":{},"atoms":{},"bonds":{},"anchor":{},"data":[{}],"ann":{ann},"lens":{lens}}}"#,
                     q(&s.formula),
                     s.atoms,
                     s.bonds,
@@ -624,10 +644,11 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
+            q(e.style.lens.name()),
             e.doc().atoms.len(),
             e.doc().bonds.len(),
             e.doc().objects.len(),

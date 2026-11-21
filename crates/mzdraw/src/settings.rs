@@ -54,6 +54,8 @@ pub struct Style {
     pub values: crate::values::Mode,
     /// The adducts whose m/z is calculated (`display.adducts`), names of `values::ADDUCTS`, in the order shown.
     pub adducts: Vec<String>,
+    /// What the diff lens shows on a transformation product (`display.lens`, `off` by default).
+    pub lens: LensMode,
     /// What the settings file held that this version does not know, kept to be written back: the unknown keys of the file and of
     /// its `style` object. A file edited by a newer mzDraw survives a round through this one.
     pub unknown: Unknown,
@@ -215,6 +217,7 @@ fn known(key: &str) -> bool {
             | "maps"
             | "display.values"
             | "display.adducts"
+            | "lens"
             | "pathway.dir"
             | "pathway.order"
             | "pathway.label"
@@ -247,7 +250,7 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"values":["off","formula","mass","mz"],"adducts":[{}]}},"choices":[{CHOICES}],"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],"fields":[{}]}}"#,
         PRESETS.join("\",\""),
         crate::values::ADDUCTS
             .iter()
@@ -296,6 +299,7 @@ impl Default for Style {
             maps: true,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
+            lens: LensMode::Off,
             unknown: Unknown::default(),
         }
     }
@@ -317,6 +321,35 @@ pub struct Metrics {
     pub mono: bool,
     /// Whether the map numbers of the atoms are drawn.
     pub maps: bool,
+    /// The diff lens mode (`display.lens`).
+    pub lens: LensMode,
+}
+
+/// What the diff lens draws on the product of an anchored arrow (`display.lens`): `off`, `tint` (what was added or changed, in the
+/// accent token) or `tint+ghost` (also each cleaved bond, dashed and muted, behind the bonds).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum LensMode {
+    #[default]
+    Off,
+    Tint,
+    TintGhost,
+}
+
+impl LensMode {
+    /// The word of the setting.
+    pub fn name(self) -> &'static str {
+        match self {
+            LensMode::Off => "off",
+            LensMode::Tint => "tint",
+            LensMode::TintGhost => "tint+ghost",
+        }
+    }
+
+    pub fn parse(v: &str) -> Option<LensMode> {
+        [LensMode::Off, LensMode::Tint, LensMode::TintGhost]
+            .into_iter()
+            .find(|m| m.name() == v)
+    }
 }
 
 impl Style {
@@ -346,6 +379,7 @@ impl Style {
             maps: true,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
+            lens: LensMode::Off,
             unknown: Unknown::default(),
         };
         match name {
@@ -402,7 +436,7 @@ impl Style {
         Ok(())
     }
 
-    /// Sets a display option from its text: `maps` is `on` or `off` (`display.maps`).
+    /// Sets a display option from its text: `maps` is `on` or `off` (`display.maps`), `lens` is `off`, `tint` or `tint+ghost` (`display.lens`).
     pub fn set_display(&mut self, key: &str, value: &str) -> Result<(), &'static str> {
         match (key, value.trim()) {
             ("maps", "on") => self.maps = true,
@@ -414,6 +448,7 @@ impl Style {
             ("adducts", v) => {
                 self.adducts = crate::values::parse_adducts(v).ok_or("error.draw2.styleValue")?
             }
+            ("lens", v) => self.lens = LensMode::parse(v).ok_or("error.draw2.styleValue")?,
             _ => return Err("error.draw2.styleKey"),
         }
         Ok(())
@@ -457,6 +492,7 @@ impl Style {
         match key {
             "pathway.dir" => Some(if self.pathway_down { "down" } else { "right" }),
             "pathway.order" => Some(self.pathway_order.name()),
+            "display.lens" => Some(self.lens.name()),
             "pathway.number" => Some(self.pathway_number.name()),
             "pathway.label" => Some(self.pathway_label.name()),
             "display.values" => Some(self.values.name()),
@@ -524,6 +560,10 @@ impl Style {
             None => base.adducts.clone(),
             Some(v) => crate::values::parse_adducts(&v)?,
         };
+        let lens = match g.s("lens").ok()?.as_deref() {
+            None => base.lens,
+            Some(v) => LensMode::parse(v)?,
+        };
         let down = match g.s("pathway.dir").ok()?.as_deref() {
             None | Some("right") => false,
             Some("down") => true,
@@ -553,6 +593,7 @@ impl Style {
             maps,
             values,
             adducts,
+            lens,
             pathway_down: down,
             pathway_order: order,
             pathway_label: label,
@@ -589,6 +630,9 @@ impl Style {
         }
         if self.adducts != default_adducts() {
             style.push(("display.adducts".to_string(), text(&self.adducts.join(","))));
+        }
+        if self.lens != LensMode::Off {
+            style.push(("lens".to_string(), text(self.lens.name())));
         }
         if self.pathway_down {
             style.push(("pathway.dir".to_string(), text("down")));
@@ -639,6 +683,7 @@ impl Style {
             small: font * self.subscript_scale,
             mono: self.mono,
             maps: self.maps,
+            lens: self.lens,
         }
     }
 }
