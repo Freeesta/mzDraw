@@ -41,7 +41,7 @@ impl Grade {
 
 /// The checks of this slice, in the order of the study: key and grade. The page, the documentation and the tests read this list;
 /// the text of a key is the i18n key `draw2.` + the key (`draw2.std.stereo.notCentre`).
-pub const CHECKS: [(&str, Grade); 14] = [
+pub const CHECKS: [(&str, Grade); 15] = [
     ("std.stereo.wideEndCentre", Grade::Warn),
     ("std.stereo.notCentre", Grade::Warn),
     ("std.stereo.opposite", Grade::Warn),
@@ -55,6 +55,7 @@ pub const CHECKS: [(&str, Grade); 14] = [
     ("std.scheme.gapRaised", Grade::Info),
     ("std.scheme.free", Grade::Info),
     ("std.scheme.crossing", Grade::Warn),
+    ("std.scheme.gapLimit", Grade::Warn),
     ("std.tp.unmapped", Grade::Info),
 ];
 
