@@ -1,0 +1,6 @@
+{
+ "format": "velocity-paths/1",
+ "tool": "ketcher",
+ "status": "empty: the paths for Ketcher's own tools are to be written (and played) by a person with tools/velocity/ketcher.mjs. They were not written in the authoring session: the session could not run the downloaded Ketcher page (its safety check refused it), and a path that was never played would be a guess. `tool` takes a data-testid of Ketcher's UI; coordinates are pixels from the centre of its canvas.",
+ "tasks": {}
+}
