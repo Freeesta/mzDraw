@@ -15,11 +15,15 @@ fetched at run time (`pip install rdkit`, a virtual environment is fine) and nev
 for our synthetic inputs: the program name and version, the date, the maps RDKit read, and an FNV-1a hash of our RXN (so that
 crates/mzdraw/tests/maps.rs, which needs no Python, notices when our writer changes and the tool must be rerun).
 """
-import argparse, datetime, json, os, subprocess, sys
+import argparse, datetime, json, os, re, subprocess, sys
 
 
 def fnv1a(text):
-    """The same hash as `fnv1a` of run.py (not imported: run.py needs Open Babel at import time, this check does not)."""
+    """The same hash as `fnv1a(mask(..))` of run.py (not imported: run.py needs Open Babel at import time, this check does not): the
+    product name and slug of brand.toml are masked, so that a rename of the product does not change it."""
+    toml = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "brand.toml")).read()
+    name, slug, url = (re.search(rf'^{k} = "([^"]*)"', toml, re.M).group(1) for k in ("name", "slug", "pages_url"))
+    text = text.replace(url, "\x03").replace(name, "\x01").replace(slug, "\x02")
     h = 0xCBF29CE484222325
     for b in text.encode("utf-8"):
         h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
@@ -71,7 +75,7 @@ def main():
         "format": "fidelity-maps/1",
         "date": datetime.date.today().isoformat(),
         "programs": {"rdkit": rdBase.rdkitVersion},
-        "hash": "fnv1a-64 of the RXN text our writer gives",
+        "hash": "fnv1a-64 of the RXN text our writer gives, the product name and slug masked",
         "success": f"{len(results) - bad}/{len(results)}",
         "results": results,
     }, sys.stdout, indent=1)

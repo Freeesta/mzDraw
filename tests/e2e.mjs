@@ -2353,6 +2353,42 @@ try {
     await pen("mouseMoved", px, py); await pen("mousePressed", px, py); await pen("mouseReleased", px, py);
     await shown(false); await frames(pg); await lensAt("tint", "pen");
     eq(await lensDoc(), lensGold[0].out.mzdraw, "the document is as it was");
+  // tp-08: a list of transformation products (CSV) pasted in the Add field (keyboard) or opened by the file button (touch) becomes the
+  // pathway of tests/data/log/tp-import.json in one undo step; a list with errors adds nothing and says so
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  const tp8 = JSON.parse(readFileSync(path.join(root, "tests/data/log/tp-import.json"), "utf8")), tp8Csv = readFileSync(path.join(root, "tests/data/tp/tp12.csv"), "utf8");
+  const tp8Gold = tp8.cases[0], tp8Bad = tp8.results[0].request.commands[0].args.csv;
+  const tp8Doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')"), tp8Svg = () => pg.evaluate("window.MZDRAW.save('svg')");
+  const tp8Same = async what => { eq(await tp8Doc(), tp8Gold.out.mzdraw, what + ": document"); eq(await tp8Svg(), tp8Gold.out.svg, what + ": picture"); };
+  await step("tp:import by keyboard: the CSV is put in the Add field and the button is pressed with Enter; the page equals the golden (document and picture), the names and levels are drawn, one undo step", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", tp8Csv); await pg.focus("#d2-add"); await pg.keyboard.press("Enter");
+    await until(pg, `${STATE}.atoms > 0`); await tool(pg, "fit"); await frames(pg);
+    await tp8Same("keyboard");
+    const svg = await tp8Svg(); assert(svg.includes("M2 \u00b7 L2b") && svg.includes("TP1 \u00b7 L"), "the name and the level are drawn under the structure");
+    await shot(pg, "tp08-pathway");
+    await tool(pg, "undo"); await want(pg, { atoms: 0, objects: 0 });                 // one import is one undo step
+    await tool(pg, "redo"); await tp8Same("redo");
+  });
+  await step("tp:import by touch (a tablet): Open a file is tapped and the CSV chosen; the page equals the golden; one undo step", async () => {
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));   // a tablet page of its own: the ids start at 1 as in the golden
+    await want(pg, { atoms: 0 });
+    const ob = await pg.locator('[data-testid="d2-open"]').boundingBox();
+    const [chooser] = await Promise.all([pg.waitForEvent("filechooser"), pg.touchscreen.tap(ob.x + ob.width / 2, ob.y + ob.height / 2)]);      // Open a file, by a tap
+    await chooser.setFiles({ name: "tps.csv", mimeType: "text/csv", buffer: Buffer.from(tp8Csv) });
+        await until(pg, `${STATE}.atoms > 0`); await tool(pg, "fit"); await frames(pg);
+    await tp8Same("touch");
+    await tool(pg, "undo"); await want(pg, { atoms: 0, objects: 0 });
+  });
+  await step("tp:import refuses a list with a bad SMILES, an unknown parent and a cycle in words, adds nothing, and the drawing before it stays", async () => {
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));   // the Add field is on the page of a desktop
+    await pg.fill("#d2-text", "CCO"); await pg.click("#d2-add"); await want(pg, { atoms: 3 });
+    const before = await tp8Doc();
+    await pg.fill("#d2-text", tp8Bad); await pg.focus("#d2-add"); await pg.keyboard.press("Enter");
+    await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-note"), await pg.evaluate("I18N.t('error.draw2.tpRows')"));
+    eq(await tp8Doc(), before);                                                       // nothing was added
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.state()")).notice.what, "3, 4, 5, 6", "the lines of the failing rows");
   });
   await ctx.close();
 
