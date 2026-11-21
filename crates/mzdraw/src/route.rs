@@ -44,6 +44,11 @@ impl Structures {
         }
     }
 
+    /// The structures, as lists of atom ids (`layout::pieces`, in its order).
+    pub fn pieces(&self) -> &[Vec<u32>] {
+        &self.pieces
+    }
+
     /// The box of the structure that holds `atom`; `None` when no atom has that id.
     pub fn box_of(&self, atom: u32) -> Option<Rect> {
         self.of_atom.get(&atom).map(|&i| self.boxes[i])

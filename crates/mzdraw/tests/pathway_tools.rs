@@ -302,13 +302,20 @@ fn free_ends_frees_both_anchors_and_undo_restores_them() {
 
 #[test]
 fn a_command_on_something_that_is_not_an_arrow_is_refused() {
-    let text = scheme(5.0, json!([]));
-    for args in [json!({"arrow": 3}), json!({"arrow": 99})] {
+    let text = scheme(5.0, json!([{"id":10,"t":"plus","x":3.0,"y":0.0}]));
+    // an id that is no object, and an object that is no arrow: the keys differ
+    for (args, key) in [
+        (json!({"arrow": 3}), "error.draw2.noObject"),
+        (json!({"arrow": 99}), "error.draw2.noObject"),
+        (json!({"arrow": 10}), "error.draw2.object"),
+    ] {
         let r = replay(
             json!({"import": text, "commands":[{"command":"pathway:anchor","args":args}], "report": true}),
         );
         assert_eq!(r["ok"], false);
         assert_eq!(r["failed"]["stage"], "command");
+        assert_eq!(r["failed"]["key"], key, "{args}");
+        assert_eq!(r["failed"]["id"], args["arrow"]);
     }
     for bad in [
         json!({}),
@@ -620,4 +627,26 @@ fn two_thousand_structures_and_arrows_stay_quick() {
         "route {route:?}, anchor {anchor:?}, tool {tool:?}"
     );
     eprintln!("{N} structures and arrows: route {route:?}, anchor {anchor:?}, tool {tool:?}");
+}
+
+/// `scheme:row` on 2000 structures chained by 1999 anchored arrows: the boxes are computed once per document state (it used to rebuild
+/// the pieces for every structure and every arrow). The row is laid out and every arrow routed within the bound.
+#[test]
+fn scheme_row_on_two_thousand_structures_stays_quick() {
+    const N: usize = 2000;
+    let atoms: Vec<Value> = (0..N)
+        .map(|i| json!({"id": i + 1, "el": "C", "x": (i % 40) as f64 * 4.0, "y": (i / 40) as f64 * 4.0}))
+        .collect();
+    let objects: Vec<Value> = (0..N - 1)
+        .map(|i| json!({"id": N + 1 + i, "t":"arrow","x":0.0,"y":0.0,"x2":1.0,"y2":0.0,"from":i+1,"to":i+2}))
+        .collect();
+    let text = json!({"format":"mzdraw/1","next":2*N+2,"atoms":atoms,"bonds":[],"objects":objects})
+        .to_string();
+    let t0 = std::time::Instant::now();
+    let r = replay(json!({"import": text, "report": true, "commands":[{"command":"scheme:row"}]}));
+    let took = t0.elapsed();
+    assert_eq!(r["ok"], true, "{r}");
+    let bound = std::time::Duration::from_secs(if cfg!(debug_assertions) { 10 } else { 1 });
+    assert!(took < bound, "scheme:row on {N} structures took {took:?}");
+    eprintln!("scheme:row on {N} structures and arrows: {took:?}");
 }

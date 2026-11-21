@@ -315,7 +315,10 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             break;
         }
     }
-    let before_commands = e.doc().clone();
+    // only a pathway command reports `changed`: only then is the document kept to compare with
+    let reports_changed =
+        (r.commands.iter()).any(|(name, _)| name == "pathway:anchor" || name == "pathway:route");
+    let before_commands = reports_changed.then(|| e.doc().clone());
     if failed.is_none() {
         for (i, (name, args)) in r.commands.iter().enumerate() {
             if let Err(err) = crate::commands::run(&mut e, name, args) {
@@ -385,9 +388,7 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         removed: before.minus(&after),
         lost: Vec::new(),
         failed,
-        changed: (r.commands.iter())
-            .any(|(name, _)| name == "pathway:anchor" || name == "pathway:route")
-            .then(|| *e.doc() != before_commands),
+        changed: before_commands.map(|b| *e.doc() != b),
         expect,
     };
     if outcome.ok() {
