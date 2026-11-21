@@ -90,7 +90,8 @@
         ",{\"section\":\"expect\",\"key\":\"lossless\",\"type\":\"string\",\"meaning\":\"the format (`molfile`, `molfile-v3000`, `smiles`, `sdf`, `ket`, `cdxml`, `cml`, `rxn`, `svg` or `mzdraw`) drops and changes nothing of the drawing (`out` `loss:FORMAT` lists what it would); `detail` names the kinds lost, and a drawing the format cannot write or is too large to check (`error.draw2.lossSize`) is false\"}",
         ",{\"section\":\"expect\",\"key\":\"smiles\",\"type\":\"string\",\"meaning\":\"the SMILES of the whole drawing equals this text; a drawing with a connected piece above 500 atoms has none (`error.draw2.smilesSize`), so the verdict is false\"}",
         ",{\"section\":\"expect\",\"key\":\"anchored\",\"type\":\"object\",\"meaning\":\"`{\\\"arrow\\\":ID,\\\"from\\\":A,\\\"to\\\":B}`: the arrow is anchored to the structures of the atoms A and B (0 or left out: that end is free)\"}",
-        ",{\"section\":\"expect\",\"key\":\"stereo\",\"type\":\"string\",\"meaning\":\"`\\\"kept\\\"`: every stereocentre and double bond of the drawing after `import` is arranged as at the end; `detail` names the atoms\"}]}"
+        ",{\"section\":\"expect\",\"key\":\"stereo\",\"type\":\"string\",\"meaning\":\"`\\\"kept\\\"`: every stereocentre and double bond of the drawing after `import` is arranged as at the end; `detail` names the atoms\"}",
+        "]}"
       ],
       "request": {
         "out": "schema"

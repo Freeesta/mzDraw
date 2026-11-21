@@ -22,7 +22,7 @@ const OUTS: [&str; 11] = [
 ];
 
 /// The table of the operations (`draw-edit-schema/1`, one line of bytes) cut into pieces, one per row: the header, every operation, the
-/// join to the request rows, every request row, the end. A row that starts with a comma keeps it, so a row added in the middle or at the end
+/// join to the request rows, every request row, the closing `]}`. A row that starts with a comma keeps it, so a row added in the middle or at the end
 /// of the table adds its own lines and changes no other. The pieces joined give the bytes back exactly.
 fn schema_rows(text: &str) -> Vec<String> {
     const ROWS: [&str; 2] = [r#"{"op":""#, r#"{"section":""#];
@@ -37,6 +37,10 @@ fn schema_rows(text: &str) -> Vec<String> {
         {
             cuts.push(i);
         }
+    }
+    // the closing `]}` is a piece of its own: a row appended at the end changes no line that exists
+    if text.ends_with("]}") {
+        cuts.push(text.len() - 2);
     }
     cuts.push(text.len());
     cuts.windows(2)

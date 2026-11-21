@@ -336,6 +336,13 @@ fn the_golden_table_is_one_row_per_line() {
         }
     }
     assert_eq!(text.matches(r#"{\"op\":\""#).count(), OPS.len());
+    // the closing is a row of its own, after the last request row, so an appended row touches no existing line
+    let n = rows.len();
+    assert_eq!(rows[n - 1], "]}", "the closing must be its own row");
+    assert!(rows[n - 2]
+        .as_str()
+        .unwrap()
+        .starts_with(r#",{"section":""#));
     assert_eq!(
         rows.iter().map(|r| r.as_str().unwrap()).collect::<String>(),
         schema::json()
