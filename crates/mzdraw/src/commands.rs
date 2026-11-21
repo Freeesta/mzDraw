@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
-    matches!(name, "move" | "rotate" | "flip")
+    matches!(name, "move" | "rotate" | "flip" | "pathway:tree")
 }
 
 /// Checks the shape of a command before any command runs: a known name, `args` an object whose fields are the fields of the
@@ -18,6 +18,11 @@ pub(crate) fn known(name: &str) -> bool {
 pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     if !known(name) {
         return Err("error.draw2.command");
+    }
+    if name == "pathway:tree" {
+        return (args.as_object().is_some_and(|o| o.is_empty()))
+            .then_some(())
+            .ok_or("error.draw2.request");
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or("error.draw2.request")?;
@@ -40,6 +45,13 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     let bad = |key| OpError { key, id: 0 };
     if !known(name) {
         return Err(bad("error.draw2.command"));
+    }
+    if name == "pathway:tree" {
+        let ops = crate::pathway::command(e.doc(), &e.style).map_err(|r| OpError {
+            key: r.key(),
+            id: r.id(),
+        })?;
+        return e.session.run(&ops);
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or(bad("error.draw2.request"))?;

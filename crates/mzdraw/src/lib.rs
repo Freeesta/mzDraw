@@ -28,6 +28,7 @@ pub mod ops;
 pub mod outcome;
 pub mod outline;
 pub mod palettes;
+pub mod pathway;
 pub mod pdf;
 pub mod png;
 pub mod replay;

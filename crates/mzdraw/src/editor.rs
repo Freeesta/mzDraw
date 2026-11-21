@@ -206,6 +206,16 @@ impl Editor {
         &self.session.doc
     }
 
+    /// Runs an editor command of a request (`commands::run`: `move`, `rotate`, `flip`, `pathway:tree`) as one undo step; the refusal is
+    /// returned and changes nothing.
+    pub fn run_command(
+        &mut self,
+        name: &str,
+        args: &serde_json::Value,
+    ) -> Result<(), crate::ops::OpError> {
+        crate::commands::run(self, name, args)
+    }
+
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
     pub(crate) fn run(&mut self, ops: &[Op], say: &'static str, what: &str) -> u32 {
         let ops = self.following(ops);
@@ -417,7 +427,8 @@ impl Editor {
             "log" => self.session.log_json(),
             // the settings file: the style, the layout of the palettes and the export defaults
             "settings" => self.settings_json(),
-            "std" => crate::conform::report(self.doc()).to_json(),
+            "std" => crate::pathway::report_with(self.doc(), &self.style).to_json(),
+            "boxes" => crate::pathway::boxes_json(self.doc(), &self.style),
             "schema" => crate::schema::json(),
             _ => return Err("error.draw2.request"),
         })
@@ -761,6 +772,7 @@ impl Editor {
                 Ok(REPAINT)
             }
             "display" => self.style.set_display(key, value).map(|_| REPAINT),
+            "pathway" => self.style.set_pathway(key, value).map(|_| 0),
             "export" => self.export.set(key, value).map(|_| 0),
             "layout" => self.layout.set(key, value).map(|_| PALETTES),
             _ => Err("error.draw2.set"),

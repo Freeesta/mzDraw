@@ -41,7 +41,7 @@ impl Grade {
 
 /// The checks of this slice, in the order of the study: key and grade. The page, the documentation and the tests read this list;
 /// the text of a key is the i18n key `draw2.` + the key (`draw2.std.stereo.notCentre`).
-pub const CHECKS: [(&str, Grade); 10] = [
+pub const CHECKS: [(&str, Grade); 13] = [
     ("std.stereo.wideEndCentre", Grade::Warn),
     ("std.stereo.notCentre", Grade::Warn),
     ("std.stereo.opposite", Grade::Warn),
@@ -52,6 +52,9 @@ pub const CHECKS: [(&str, Grade); 10] = [
     ("std.stereo.doubleCollinear", Grade::Warn),
     ("std.stereo.allene", Grade::Warn),
     ("std.scheme.anchor", Grade::Warn),
+    ("std.scheme.gapRaised", Grade::Info),
+    ("std.scheme.free", Grade::Info),
+    ("std.scheme.crossing", Grade::Warn),
 ];
 
 /// Two bonds at an atom count as opposite (or collinear) when the angle between them is within this many degrees of 180.
@@ -71,7 +74,7 @@ pub struct Finding {
 }
 
 impl Finding {
-    fn new(key: &'static str, atoms: &[u32], bonds: &[u32]) -> Finding {
+    pub(crate) fn new(key: &'static str, atoms: &[u32], bonds: &[u32]) -> Finding {
         let grade = CHECKS
             .iter()
             .find(|c| c.0 == key)
@@ -416,11 +419,22 @@ pub fn report(doc: &Document) -> Report {
         out.push(f);
     }
 
+    sort_findings(&mut out);
+    Report { checks: out }
+}
+
+/// The order of a report: by key, then by the smallest id, the ids; equal findings once.
+pub(crate) fn sort_findings(out: &mut Vec<Finding>) {
     out.sort_by(|x, y| {
-        (x.key, x.first(), &x.atoms, &x.bonds).cmp(&(y.key, y.first(), &y.atoms, &y.bonds))
+        (x.key, x.first(), &x.atoms, &x.bonds, &x.objects).cmp(&(
+            y.key,
+            y.first(),
+            &y.atoms,
+            &y.bonds,
+            &y.objects,
+        ))
     });
     out.dedup();
-    Report { checks: out }
 }
 
 /// The sites of the record of the drawing, as ids of the drawing.

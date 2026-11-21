@@ -28,6 +28,16 @@ pub struct Style {
     pub subscript_scale: f64,
     /// Gap between a routed arrow (`route`) and the box of the structure it leaves or reaches, in bond lengths.
     pub pathway_margin: f64,
+    /// The pathway layout (`pathway.*`, `pathway::layout`): the least gap between columns, the least gap between two boxes of a
+    /// column (bond lengths), the steepest primary arrow (degrees) and the least visible arrow length (bond lengths).
+    pub pathway_col_gap: f64,
+    pub pathway_row_gap: f64,
+    pub pathway_max_angle: f64,
+    pub pathway_min_arrow: f64,
+    /// `pathway.dir`: whether the layers go down (`down`) instead of to the right (`right`).
+    pub pathway_down: bool,
+    /// `pathway.order`: the sibling order key.
+    pub pathway_order: crate::pathway::Order,
     /// One ink for every element instead of the element colours.
     pub mono: bool,
     /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
@@ -77,7 +87,7 @@ impl Field {
 
 /// The numbers of the style. Next to them the `style` object holds `preset` (the built-in preset the other fields start from)
 /// and `colour` (`element` or `mono`).
-pub const FIELDS: [Field; 9] = [
+pub const FIELDS: [Field; 13] = [
     Field {
         key: "bond_length",
         unit: "pt",
@@ -150,11 +160,46 @@ pub const FIELDS: [Field; 9] = [
         get: |s| s.pathway_margin,
         put: |s, v| s.pathway_margin = v,
     },
+    Field {
+        key: "pathway.col_gap",
+        unit: "of_bond",
+        min: 0.0,
+        max: 50.0,
+        get: |s| s.pathway_col_gap,
+        put: |s, v| s.pathway_col_gap = v,
+    },
+    Field {
+        key: "pathway.row_gap",
+        unit: "of_bond",
+        min: 0.0,
+        max: 50.0,
+        get: |s| s.pathway_row_gap,
+        put: |s, v| s.pathway_row_gap = v,
+    },
+    Field {
+        key: "pathway.max_angle",
+        unit: "deg",
+        min: 1.0,
+        max: 89.0,
+        get: |s| s.pathway_max_angle,
+        put: |s, v| s.pathway_max_angle = v,
+    },
+    Field {
+        key: "pathway.min_arrow",
+        unit: "of_bond",
+        min: 0.0,
+        max: 50.0,
+        get: |s| s.pathway_min_arrow,
+        put: |s, v| s.pathway_min_arrow = v,
+    },
 ];
 
 /// Whether `key` is a key of the `style` object this version reads and writes.
 fn known(key: &str) -> bool {
-    key == "preset" || key == "colour" || key == "maps" || FIELDS.iter().any(|f| f.key == key)
+    matches!(
+        key,
+        "preset" | "colour" | "maps" | "pathway.dir" | "pathway.order"
+    ) || FIELDS.iter().any(|f| f.key == key)
 }
 
 /// The schema of the settings file as JSON, for the surfaces that show or document it (the fields of the page, the help of the
@@ -211,6 +256,12 @@ impl Default for Style {
             font_size: 12.0,
             subscript_scale: 0.7,
             pathway_margin: 0.35,
+            pathway_col_gap: 2.5,
+            pathway_row_gap: 1.0,
+            pathway_max_angle: 40.0,
+            pathway_min_arrow: 1.2,
+            pathway_down: false,
+            pathway_order: crate::pathway::Order::Id,
             mono: false,
             maps: true,
             unknown: Unknown::default(),
@@ -250,6 +301,12 @@ impl Style {
             font_size: 10.0,
             subscript_scale: 0.7,
             pathway_margin: 0.35,
+            pathway_col_gap: 2.5,
+            pathway_row_gap: 1.0,
+            pathway_max_angle: 40.0,
+            pathway_min_arrow: 1.2,
+            pathway_down: false,
+            pathway_order: crate::pathway::Order::Id,
             mono: true,
             maps: true,
             unknown: Unknown::default(),
@@ -319,6 +376,28 @@ impl Style {
         Ok(())
     }
 
+    /// Sets one key of the section `pathway` from its text (`--set pathway.<key>=<value>`): `dir` is `right` or `down`, `order` is
+    /// `id`, `mz` or `rt` (and `reverse-id`, for tests), the numbers are the fields `pathway.<key>` of `FIELDS`.
+    pub fn set_pathway(&mut self, key: &str, value: &str) -> Result<(), &'static str> {
+        match (key, value.trim()) {
+            ("dir", "right") => self.pathway_down = false,
+            ("dir", "down") => self.pathway_down = true,
+            ("dir", _) => return Err("error.draw2.styleValue"),
+            ("order", v) => {
+                self.pathway_order =
+                    crate::pathway::Order::parse(v).ok_or("error.draw2.styleValue")?
+            }
+            (k, _) => {
+                let full = format!("pathway.{k}");
+                if !FIELDS.iter().any(|f| f.key == full) {
+                    return Err("error.draw2.styleKey");
+                }
+                return self.set(&full, value);
+            }
+        }
+        Ok(())
+    }
+
     /// A style from a preset name or from the text of a settings file (`{"format": "mzdraw-settings/1", "style": {...}}`; the
     /// field `preset` of `style` names the preset the other fields start from, default `mzlab`). The error is an i18n key.
     pub fn from_text(text: &str) -> Result<Style, &'static str> {
@@ -371,9 +450,20 @@ impl Style {
             Some("off") => false,
             Some(_) => return None,
         };
+        let down = match g.s("pathway.dir").ok()?.as_deref() {
+            None | Some("right") => false,
+            Some("down") => true,
+            Some(_) => return None,
+        };
+        let order = match g.s("pathway.order").ok()? {
+            None => crate::pathway::Order::Id,
+            Some(v) => crate::pathway::Order::parse(&v)?,
+        };
         let mut s = Style {
             mono: colour,
             maps,
+            pathway_down: down,
+            pathway_order: order,
             unknown,
             ..base
         };
@@ -400,6 +490,12 @@ impl Style {
         // written only when off, so that a file that never mentions it keeps its bytes
         if !self.maps {
             style.push(("maps".to_string(), text("off")));
+        }
+        if self.pathway_down {
+            style.push(("pathway.dir".to_string(), text("down")));
+        }
+        if self.pathway_order != crate::pathway::Order::Id {
+            style.push(("pathway.order".to_string(), text(self.pathway_order.name())));
         }
         for f in &FIELDS {
             style.push((f.key.to_string(), num(f.of(self))));
