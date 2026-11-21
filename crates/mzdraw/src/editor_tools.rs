@@ -721,6 +721,7 @@ impl Editor {
             (false, "v") => self.set_tool("select"),
             (false, "m") => self.set_move_here(!self.move_here),
             (false, "e") => self.set_tool("erase"),
+            (false, "l") if shift => self.cycle_lens(),
             (false, "l") => ASK_LABEL,
             (false, "t") => ASK_TEXT,
             (false, "a") if shift => self.set_tool("arrow"),

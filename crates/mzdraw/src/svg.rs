@@ -6,10 +6,11 @@ use crate::scene::{self, Overlay, View};
 use crate::settings::Style;
 use mzlab_mol::fixed;
 
-/// File colours by colour index (ink, then the overlay colours that a file never uses, then N, O, S, halogens, P).
-pub(crate) const PALETTE: [&str; 10] = [
+/// File colours by colour index (ink, then the overlay colours that a file never uses, then N, O, S, halogens, P, the focus ring,
+/// and the two the diff lens uses: the accent token and the muted ink, the light-theme values of the page: 6.9:1 and 6.7:1 on white).
+pub(crate) const PALETTE: [&str; 13] = [
     "#000000", "#000000", "#000000", "#000000", "#000000", "#2040c0", "#c02020", "#8a6d00",
-    "#1f7a1f", "#b05a00",
+    "#1f7a1f", "#b05a00", "#000000", "#2d5d8c", "#5c5850",
 ];
 
 /// A number with at most two decimals, trailing zeros left out. Written through `mzlab_mol::fixed`: one `f64` given to the
@@ -171,14 +172,14 @@ pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
         if op == scene::LINE {
             s.push_str(&format!(
                 "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{}\" stroke-width=\"{}\"/>\n",
-                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), num(d[i + 4]), PALETTE[d[i + 6] as usize % 10], num(d[i + 5])
+                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), num(d[i + 4]), PALETTE[d[i + 6] as usize % PALETTE.len()], num(d[i + 5])
             ));
             i += 7;
         } else if op == scene::TEXT {
             let anchor = if d[i + 6] == 0.0 { "middle" } else { "start" };
             s.push_str(&format!(
                 "<text x=\"{}\" y=\"{}\" font-size=\"{}\" fill=\"{}\" text-anchor=\"{anchor}\" dominant-baseline=\"central\">{}</text>\n",
-                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), PALETTE[d[i + 4] as usize % 10], crate::xml::escape(&sc.strings[d[i + 5] as usize])
+                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), PALETTE[d[i + 4] as usize % PALETTE.len()], crate::xml::escape(&sc.strings[d[i + 5] as usize])
             ));
             i += 7;
         } else if op == scene::TRI {
@@ -190,7 +191,7 @@ pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
                 num(d[i + 4]),
                 num(d[i + 5]),
                 num(d[i + 6]),
-                PALETTE[d[i + 7] as usize % 10]
+                PALETTE[d[i + 7] as usize % PALETTE.len()]
             ));
             i += 8;
         } else if op == scene::RECT {

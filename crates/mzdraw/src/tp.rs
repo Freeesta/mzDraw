@@ -487,3 +487,414 @@ fn overvalent(
         }
     })
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// The diff lens (tp-04): what changed from the parent, computed from the atom maps of the pathway.
+
+/// The most atoms a structure may have to be compared by the lens, the most atoms (both ends, summed over the arrows) one request
+/// compares (an arrow past either is skipped, `over cap`), and the most atoms a drawing may have for the lens at all (above it the
+/// whole answer is `error.draw2.lensSize`): a hostile size is refused, never slow.
+pub const MAX_LENS_ATOMS: usize = 5_000;
+pub const MAX_LENS_WORK: usize = 2_000_000;
+pub const MAX_LENS_DOC: usize = 6_000;
+
+const LENS_SIZE: &str = "error.draw2.lensSize";
+
+/// The lens of one anchored arrow, from structure P (where it leaves) to structure T (where it arrives), compared by map number.
+/// Every list is ascending. `added` and `changed` hold atom ids of T, `added_bonds` and `changed_bonds` bond ids of T, `cleaved`
+/// holds the two T atom ids (smaller first) of each bond of P that T no longer has, `lost` the maps of P that T lacks.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Lens {
+    pub arrow: u32,
+    /// The atoms of T whose map P does not have.
+    pub added: Vec<u32>,
+    /// The bonds of T with an added end, and the bonds between two atoms both structures have that P did not bond.
+    pub added_bonds: Vec<u32>,
+    /// The atoms in both whose element, label, charge, isotope, radical or hydrogen count differ.
+    pub changed: Vec<u32>,
+    /// The bonds in both (the same two maps) whose order differs.
+    pub changed_bonds: Vec<u32>,
+    /// The bonds of P between two maps that T has but does not bond, as T atom ids.
+    pub cleaved: Vec<(u32, u32)>,
+    /// The maps of P that T lacks.
+    pub lost: Vec<u16>,
+    /// The Hill formula of P (with its net charge, as the outline writes it) and the signed element counts from P to T (`delta`,
+    /// empty for equal formulas). `delta` is `None` where `steplabel::pair_delta` has no honest text (a free-text label, or equal
+    /// counts with a different net charge): the same rule as `pathway:label`, one implementation.
+    pub from: String,
+    pub delta: Option<String>,
+    /// The first atom (pool order) of T: the `anchor` the outline names that structure by.
+    pub anchor: u32,
+}
+
+/// A pair the lens refuses: the atoms of P and T that have no map, or share one with another atom of the same structure, in a pair
+/// where some atom does have a map (a pair with no map at all is not an inconsistency: it has no lens and no finding).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Unmapped {
+    pub arrow: u32,
+    pub atoms: Vec<u32>,
+}
+
+/// An anchored arrow the lens did not compare, and why: `no maps` (neither structure has a map), `unmapped` (a partly mapped pair,
+/// also the finding `std.tp.unmapped`) or `over cap` (a structure above `MAX_LENS_ATOMS`, or `MAX_LENS_WORK` already spent).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Skipped {
+    pub arrow: u32,
+    pub why: &'static str,
+}
+
+/// The lens of every anchored arrow of a drawing: the lenses by arrow id, the arrows left out with the reason (nothing is dropped
+/// in silence), and the pairs that cannot be compared (never a partial lens: such an arrow has no entry in `lenses`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Lenses {
+    pub lenses: Vec<Lens>,
+    pub skipped: Vec<Skipped>,
+    pub unmapped: Vec<Unmapped>,
+}
+
+/// Why the lens of one arrow is not there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NoLens {
+    /// Not an arrow, or an end is free, or both ends are in one structure.
+    NotAnchored,
+    /// Neither structure has a map at all: nothing to compare, and nothing wrong with the drawing (no finding).
+    NoMaps,
+    /// A pair that is partly mapped: atoms without a map or with a map another atom of their structure has (`std.tp.unmapped`).
+    Unmapped(Vec<u32>),
+    /// A structure above `MAX_LENS_ATOMS`.
+    Size,
+}
+
+struct Ctx<'a> {
+    doc: &'a Document,
+    pieces: Vec<Vec<u32>>,
+    piece_of: HashMap<u32, usize>,
+    pos: HashMap<u32, usize>,
+    hydrogens: Vec<u32>,
+    bonds_of: Vec<Vec<usize>>,
+    /// The element counts of the structures the arrows end in (`steplabel::Formulas`, shared with `pathway:label`).
+    formulas: crate::steplabel::Formulas,
+}
+
+impl<'a> Ctx<'a> {
+    fn new(doc: &'a Document, wanted: &[u32]) -> Ctx<'a> {
+        let pieces = crate::layout::pieces(doc);
+        let mut piece_of = HashMap::with_capacity(doc.atoms.len());
+        for (k, p) in pieces.iter().enumerate() {
+            for &a in p {
+                piece_of.insert(a, k);
+            }
+        }
+        let pos: HashMap<u32, usize> = (doc.atoms.iter().enumerate())
+            .map(|(i, a)| (a.id, i))
+            .collect();
+        let mut bonds_of = vec![Vec::new(); pieces.len()];
+        for (i, b) in doc.bonds.iter().enumerate() {
+            if let (Some(&k), Some(_)) = (piece_of.get(&b.a), piece_of.get(&b.b)) {
+                bonds_of[k].push(i);
+            }
+        }
+        Ctx {
+            doc,
+            pieces,
+            piece_of,
+            pos,
+            hydrogens: doc.all_hydrogens(),
+            bonds_of,
+            formulas: crate::steplabel::Formulas::new(doc, wanted),
+        }
+    }
+
+    fn atom(&self, id: u32) -> &Atom {
+        &self.doc.atoms[self.pos[&id]]
+    }
+
+    /// The map table of a structure, or the atoms that stop it from being one: without a map, or sharing one.
+    fn maps(&self, piece: usize) -> Result<HashMap<u16, u32>, Vec<u32>> {
+        let mut table: HashMap<u16, u32> = HashMap::new();
+        let mut bad: Vec<u32> = Vec::new();
+        for &id in &self.pieces[piece] {
+            let a = self.atom(id);
+            if a.map == 0 {
+                bad.push(id);
+            } else if let Some(&first) = table.get(&a.map) {
+                bad.push(id);
+                bad.push(first);
+            } else {
+                table.insert(a.map, id);
+            }
+        }
+        if bad.is_empty() {
+            Ok(table)
+        } else {
+            Err(bad)
+        }
+    }
+
+    fn lens(&self, arrow: &crate::doc::Obj) -> Result<Lens, NoLens> {
+        if arrow.t != ObjKind::Arrow || arrow.from == 0 || arrow.to == 0 {
+            return Err(NoLens::NotAnchored);
+        }
+        let (Some(&p), Some(&t)) = (self.piece_of.get(&arrow.from), self.piece_of.get(&arrow.to))
+        else {
+            return Err(NoLens::NotAnchored);
+        };
+        if p == t {
+            return Err(NoLens::NotAnchored);
+        }
+        if self.pieces[p].len() > MAX_LENS_ATOMS || self.pieces[t].len() > MAX_LENS_ATOMS {
+            return Err(NoLens::Size);
+        }
+        if (self.pieces[p].iter().chain(&self.pieces[t])).all(|&a| self.atom(a).map == 0) {
+            return Err(NoLens::NoMaps);
+        }
+        let (pm, tm) = (self.maps(p), self.maps(t));
+        let (pm, tm) = match (pm, tm) {
+            (Ok(a), Ok(b)) => (a, b),
+            (a, b) => {
+                let mut bad: Vec<u32> = a.err().into_iter().chain(b.err()).flatten().collect();
+                bad.sort_unstable();
+                bad.dedup();
+                return Err(NoLens::Unmapped(bad));
+            }
+        };
+        let mut l = Lens {
+            arrow: arrow.id,
+            ..Lens::default()
+        };
+        for &id in &self.pieces[t] {
+            let a = self.atom(id);
+            match pm.get(&a.map) {
+                None => l.added.push(id),
+                Some(&q) => {
+                    let o = self.atom(q);
+                    let h = |x: u32| self.hydrogens[self.pos[&x]];
+                    if (o.el.as_str(), o.lab.as_str(), o.chg, o.iso, o.rad, h(q))
+                        != (a.el.as_str(), a.lab.as_str(), a.chg, a.iso, a.rad, h(id))
+                    {
+                        l.changed.push(id);
+                    }
+                }
+            }
+        }
+        let key = |x: u16, y: u16| (x.min(y), x.max(y));
+        let map_of = |id: u32| self.atom(id).map;
+        let mut p_bonds: HashMap<(u16, u16), u8> = HashMap::new();
+        for &i in &self.bonds_of[p] {
+            let b = &self.doc.bonds[i];
+            p_bonds.insert(key(map_of(b.a), map_of(b.b)), b.o);
+        }
+        let mut t_bonds: std::collections::HashSet<(u16, u16)> = Default::default();
+        for &i in &self.bonds_of[t] {
+            let b = &self.doc.bonds[i];
+            let k = key(map_of(b.a), map_of(b.b));
+            t_bonds.insert(k);
+            match p_bonds.get(&k) {
+                None => l.added_bonds.push(b.id),
+                Some(&o) if o != b.o => l.changed_bonds.push(b.id),
+                Some(_) => {}
+            }
+        }
+        for &(x, y) in p_bonds.keys() {
+            if t_bonds.contains(&(x, y)) {
+                continue;
+            }
+            if let (Some(&a), Some(&b)) = (tm.get(&x), tm.get(&y)) {
+                l.cleaved.push((a.min(b), a.max(b)));
+            }
+        }
+        l.lost = pm.keys().copied().filter(|m| !tm.contains_key(m)).collect();
+        for v in [
+            &mut l.added,
+            &mut l.added_bonds,
+            &mut l.changed,
+            &mut l.changed_bonds,
+        ] {
+            v.sort_unstable();
+        }
+        l.cleaved.sort_unstable();
+        l.cleaved.dedup();
+        l.lost.sort_unstable();
+        // the formula of P and the change of the counts from P to T: the counts `pathway:label` uses
+        l.anchor = self.pieces[t][0];
+        let (Some(rp), Some(rt)) = (
+            self.formulas.root_of(arrow.from),
+            self.formulas.root_of(arrow.to),
+        ) else {
+            return Ok(l);
+        };
+        let (pa, ta) = (&self.formulas.acc[&rp], &self.formulas.acc[&rt]);
+        l.delta = crate::steplabel::pair_delta(pa, ta);
+        if l.delta.is_some() {
+            let mut f: Vec<(String, u32)> = pa
+                .counts
+                .iter()
+                .map(|(k, v)| (k.clone(), *v as u32))
+                .collect();
+            l.from = crate::outline::hill(&mut f, pa.charge as i32);
+        }
+        Ok(l)
+    }
+}
+
+/// The lens of the arrow `arrow` (an object id). Builds the tables of the whole drawing: for every arrow use `lenses`.
+pub fn lens(doc: &Document, arrow: u32) -> Result<Lens, NoLens> {
+    let Some(o) = doc.objects.iter().find(|o| o.id == arrow) else {
+        return Err(NoLens::NotAnchored);
+    };
+    Ctx::new(doc, &[o.from, o.to]).lens(o)
+}
+
+/// The lens of every anchored arrow, arrows by id; a pair that cannot be compared is listed in `unmapped`, not drawn. A structure
+/// above `MAX_LENS_ATOMS`, or more than `MAX_LENS_WORK` atoms compared in all, is `error.draw2.lensSize`. A drawing without an
+/// anchored arrow costs one pass over its arrows.
+pub fn lenses(doc: &Document) -> Result<Lenses, &'static str> {
+    let mut arrows: Vec<&crate::doc::Obj> = (doc.objects.iter())
+        .filter(|o| o.t == ObjKind::Arrow && o.from != 0 && o.to != 0)
+        .collect();
+    let mut out = Lenses::default();
+    if doc.atoms.len() > MAX_LENS_DOC {
+        return Err(LENS_SIZE);
+    }
+    if arrows.is_empty() {
+        return Ok(out);
+    }
+    arrows.sort_by_key(|o| o.id);
+    let wanted: Vec<u32> = arrows.iter().flat_map(|o| [o.from, o.to]).collect();
+    let cx = Ctx::new(doc, &wanted);
+    let mut work = 0usize;
+    for o in arrows {
+        let sizes = match (cx.piece_of.get(&o.from), cx.piece_of.get(&o.to)) {
+            (Some(&p), Some(&t)) if p != t => Some(cx.pieces[p].len() + cx.pieces[t].len()),
+            _ => None,
+        };
+        let spent = sizes.is_some_and(|n| {
+            work += n;
+            work > MAX_LENS_WORK
+        });
+        let why = |why| out_skip(o.id, why);
+        match if spent { Err(NoLens::Size) } else { cx.lens(o) } {
+            Ok(l) => out.lenses.push(l),
+            Err(NoLens::NotAnchored) => {}
+            Err(NoLens::NoMaps) => out.skipped.push(why("no maps")),
+            Err(NoLens::Size) => out.skipped.push(why("over cap")),
+            Err(NoLens::Unmapped(atoms)) => {
+                out.skipped.push(why("unmapped"));
+                out.unmapped.push(Unmapped { arrow: o.id, atoms });
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn out_skip(arrow: u32, why: &'static str) -> Skipped {
+    Skipped { arrow, why }
+}
+
+impl Lenses {
+    /// `lens/1`: the machine form, keys in a fixed order, ids ascending, arrows by id.
+    pub fn to_json(&self) -> String {
+        let list = |v: &[u32]| {
+            let s: Vec<String> = v.iter().map(|x| x.to_string()).collect();
+            format!("[{}]", s.join(","))
+        };
+        let arrows: Vec<String> = (self.lenses.iter())
+            .map(|l| {
+                let cleaved: Vec<String> = (l.cleaved.iter())
+                    .map(|(a, b)| format!("[{a},{b}]"))
+                    .collect();
+                let lost: Vec<String> = l.lost.iter().map(|m| m.to_string()).collect();
+                format!(
+                    r#"{{"arrow":{},"added":{},"added_bonds":{},"changed":{},"changed_bonds":{},"cleaved":[{}],"lost":[{}],"delta":{}}}"#,
+                    l.arrow,
+                    list(&l.added),
+                    list(&l.added_bonds),
+                    list(&l.changed),
+                    list(&l.changed_bonds),
+                    cleaved.join(","),
+                    lost.join(","),
+                    l.delta
+                        .as_deref()
+                        .map_or("null".to_string(), |d| serde_json::Value::from(d).to_string())
+                )
+            })
+            .collect();
+        let skipped: Vec<String> = (self.skipped.iter())
+            .map(|k| format!(r#"{{"arrow":{},"why":"{}"}}"#, k.arrow, k.why))
+            .collect();
+        format!(
+            r#"{{"format":"lens/1","arrows":[{}],"skipped":[{}]}}"#,
+            arrows.join(","),
+            skipped.join(",")
+        )
+    }
+
+    /// The `std/1` findings of the pairs the lens refuses: `std.tp.unmapped`, one per arrow (the arrow, and the atoms of its two
+    /// structures without a map or sharing one).
+    pub fn findings(&self) -> Vec<crate::conform::Finding> {
+        (self.unmapped.iter())
+            .map(|u| {
+                let mut f = crate::conform::Finding::new("std.tp.unmapped", &u.atoms, &[]);
+                f.objects = vec![u.arrow];
+                f
+            })
+            .collect()
+    }
+}
+
+/// What the page needs of the lens when it is on, from one pass: the words of each product by its anchor (the first atom of the
+/// structure, as the outline names it) in a table, and the note when the lens is not showing everything.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LensState {
+    lines: HashMap<u32, Line>,
+    /// The i18n key of the note the page shows, and the number it is about: `draw2.notice.lensSize` (the drawing is over the cap),
+    /// `draw2.notice.lensSkipped` (arrows left out).
+    pub note: Option<(&'static str, usize)>,
+}
+
+/// The outline words of one product: the formula it comes from, the change, the bonds cleaved.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Line {
+    pub from: String,
+    pub delta: String,
+    pub cleaved: usize,
+}
+
+impl LensState {
+    /// The lens of a drawing for the page: one pass. Not called when the lens is off.
+    pub fn of(doc: &Document) -> LensState {
+        match lenses(doc) {
+            Err(_) => LensState {
+                note: Some(("draw2.notice.lensSize", doc.atoms.len())),
+                ..LensState::default()
+            },
+            Ok(l) => LensState::from_lenses(&l),
+        }
+    }
+
+    /// The table of the words of each product, from the lenses of a drawing.
+    pub fn from_lenses(l: &Lenses) -> LensState {
+        let mut st = LensState::default();
+        for x in &l.lenses {
+            if let Some(d) = &x.delta {
+                st.lines.insert(
+                    x.anchor,
+                    Line {
+                        from: x.from.clone(),
+                        delta: d.clone(),
+                        cleaved: x.cleaved.len(),
+                    },
+                );
+            }
+        }
+        if !l.skipped.is_empty() {
+            st.note = Some(("draw2.notice.lensSkipped", l.skipped.len()));
+        }
+        st
+    }
+
+    /// The words of the product whose first atom is `anchor`.
+    pub fn line(&self, anchor: u32) -> Option<&Line> {
+        self.lines.get(&anchor)
+    }
+}

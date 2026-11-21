@@ -41,7 +41,7 @@ impl Grade {
 
 /// The checks of this slice, in the order of the study: key and grade. The page, the documentation and the tests read this list;
 /// the text of a key is the i18n key `draw2.` + the key (`draw2.std.stereo.notCentre`).
-pub const CHECKS: [(&str, Grade); 13] = [
+pub const CHECKS: [(&str, Grade); 14] = [
     ("std.stereo.wideEndCentre", Grade::Warn),
     ("std.stereo.notCentre", Grade::Warn),
     ("std.stereo.opposite", Grade::Warn),
@@ -55,6 +55,7 @@ pub const CHECKS: [(&str, Grade); 13] = [
     ("std.scheme.gapRaised", Grade::Info),
     ("std.scheme.free", Grade::Info),
     ("std.scheme.crossing", Grade::Warn),
+    ("std.tp.unmapped", Grade::Info),
 ];
 
 /// Two bonds at an atom count as opposite (or collinear) when the angle between them is within this many degrees of 180.
@@ -470,7 +471,9 @@ mod tests {
     fn the_table_has_unique_keys_in_the_stereo_family() {
         for (i, (k, _)) in CHECKS.iter().enumerate() {
             assert!(
-                k.starts_with("std.stereo.") || k.starts_with("std.scheme."),
+                ["std.stereo.", "std.scheme.", "std.tp."]
+                    .iter()
+                    .any(|f| k.starts_with(f)),
                 "{k}"
             );
             assert!(CHECKS[i + 1..].iter().all(|c| c.0 != *k), "{k}");

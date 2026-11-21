@@ -19,7 +19,7 @@
   --mzd-atom-n: #aab9ff; --mzd-atom-o: #ff9a90; --mzd-atom-s: #e3c862; --mzd-atom-x: #8ed38e; --mzd-atom-p: #f7b070; --mzd-preview: #9ab3cf; }
 /* the names the canvas reads (web/mzdraw.js COLOURS) */
 :root { --d2-ink: var(--mzd-ink); --d2-select: var(--mzd-selection); --d2-hover: var(--mzd-hover); --d2-warn: var(--mzd-danger); --d2-preview: var(--mzd-preview);
-  --d2-n: var(--mzd-atom-n); --d2-o: var(--mzd-atom-o); --d2-s: var(--mzd-atom-s); --d2-x: var(--mzd-atom-x); --d2-p: var(--mzd-atom-p); --d2-focus: var(--mzd-focus); --d2-accent: var(--mzd-accent); }
+  --d2-n: var(--mzd-atom-n); --d2-o: var(--mzd-atom-o); --d2-s: var(--mzd-atom-s); --d2-x: var(--mzd-atom-x); --d2-p: var(--mzd-atom-p); --d2-focus: var(--mzd-focus); --d2-accent: var(--mzd-accent); --d2-muted: var(--mzd-ink-muted); }
 :root { --fg: var(--mzd-ink); --bg: var(--mzd-surface-raised); --panel: var(--mzd-surface); --line: var(--mzd-control); --accent: var(--mzd-accent); --grip: var(--mzd-ink-muted); }
 html, body { margin: 0; height: 100%; background: var(--mzd-paper); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
 body { overflow: hidden; }

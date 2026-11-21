@@ -318,6 +318,7 @@ impl Editor {
             "canvas.save" => self.ask("save-image".into()),
             "canvas.zoom.in" => self.zoom(open.at.0, open.at.1, 1.25),
             "canvas.zoom.out" => self.zoom(open.at.0, open.at.1, 0.8),
+            "canvas.lens" => self.cycle_lens(),
             "canvas.clear" => self.clear(),
             _ => self.run_choice(open.target, id),
         };
@@ -590,6 +591,13 @@ impl Editor {
         let anchored =
             (self.doc().objects.iter()).any(|o| o.t == ObjKind::Arrow && o.from != 0 && o.to != 0);
         items.push(item("pathway.route", "Route arrows", "", anchored));
+        // the diff lens has something to show only where an arrow joins a parent to a product; each press goes to the next mode
+        if anchored {
+            items.push(checked(
+                item("canvas.lens", "Diff lens", "Shift+L", true),
+                self.style.lens != crate::settings::LensMode::Off,
+            ));
+        }
         items.push(item("canvas.clear", "Clear all", "", any));
         items
     }
