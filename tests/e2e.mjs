@@ -637,7 +637,7 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await doc(), before);                       // one undo step
     await pg.keyboard.press("Control+y"); await reveal(pg, sel); await pg.focus(sel); await pg.keyboard.press("Enter");
     await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('draw2.say.orientDone')").catch(async e => { throw new Error(e.message + " | live: " + await pg.innerText("#d2-live") + " | " + await pg.evaluate("document.documentElement.dataset.d2")); });
-    await shot(pg, "plan-14-scheme-orient");
+    await tool(pg, "fit"); await shot(pg, "plan-14-scheme-orient");
   });
 
   await step("labels: an abbreviation and an R group are chosen, typed, refused in words, drawn and expanded in the molfile", async () => {
@@ -734,7 +734,7 @@ try {
     await tool(pg, "undo"); await want(pg, { objects: 4 });
   });
 
-  await step("scheme row: a messy scheme is laid out on one line by the button, with the keyboard (select all, Enter on the button) and with the mouse; one undo step, the SVG equals the golden, a second press says it is already oriented", async () => {
+  await step("scheme row: a messy scheme is laid out on one line by the button, with the keyboard (select all, Enter on the button) and with the mouse; one undo step, the SVG equals the golden, a second press says it is done", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
     // the drawing is opened with its ids (as a saved file is), so the bytes can be the golden ones
     const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)
@@ -1327,7 +1327,7 @@ try {
     const at = { x: c.x + c.width / 2, y: c.y + c.height / 2, button: "left", clickCount: 1, pointerType: "pen" };
     await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...at }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
     assert(await off() < 0.1, `a pen orients it (off by ${await off()})`);
-    await shot(pg, "plan-14-scheme-orient-touch");
+    await tool(pg, "fit"); await shot(pg, "plan-14-scheme-orient-touch");
   });
 
   await step("drawing checks by touch: a tap on the line selects the atom and bond it is about", async () => {

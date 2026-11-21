@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Independent check of `scheme:orient` (plan-14): RDKit `rdDepictor.GenerateDepictionMatching2DStructure` depicts the product with
-its core on the reactant's; the angle of the core in that depiction must equal the angle of the core in mzDraw's output, within 2 degrees.
+its core on the reactant's; the angle of the core in that depiction must equal the angle of the core in the output of the command, within 2 degrees.
 
     python3 tools/fidelity/orient.py [--write]   # needs `pip install rdkit`; exit 3 when RDKit is not installed;
                                                  # --write saves tools/fidelity/orient.reference.json
@@ -22,21 +22,40 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CASES = os.path.join(HERE, "..", "..", "tests", "data", "log", "scheme-orient.json")
 
 
-def pieces(doc, lo, hi):
-    """(RDKit mol with the drawn coordinates, ids of its atoms in order) for the atoms with lo <= id < hi."""
-    atoms = [a for a in doc["atoms"] if lo <= a["id"] < hi]
+def structures(doc):
+    """The connected structures of a drawing as lists of atom ids, ordered by their smallest id (a union of the bonds)."""
+    parent = {a["id"]: a["id"] for a in doc["atoms"]}
+
+    def root(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for b in doc["bonds"]:
+        parent[root(b["a"])] = root(b["b"])
+    groups = {}
+    for a in doc["atoms"]:
+        groups.setdefault(root(a["id"]), []).append(a["id"])
+    return sorted((sorted(g) for g in groups.values()), key=lambda g: g[0])
+
+
+def mol_of(doc, ids):
+    """An RDKit mol with the drawn coordinates for the atoms `ids` (in that order) and the bonds between them."""
+    keep = set(ids)
     m = Chem.RWMol()
     idx = {}
-    for a in atoms:
-        idx[a["id"]] = m.AddAtom(Chem.Atom(a["el"]))
+    by_id = {a["id"]: a for a in doc["atoms"]}
+    for i in ids:
+        idx[i] = m.AddAtom(Chem.Atom(by_id[i]["el"]))
     for b in doc["bonds"]:
-        if b["a"] in idx and b["b"] in idx:
+        if b["a"] in keep and b["b"] in keep:
             m.AddBond(idx[b["a"]], idx[b["b"]], Chem.BondType.SINGLE)
-    conf = Chem.Conformer(len(atoms))
-    for a in atoms:
-        conf.SetAtomPosition(idx[a["id"]], Point3D(a["x"], a["y"], 0.0))
+    conf = Chem.Conformer(len(ids))
+    for i in ids:
+        conf.SetAtomPosition(idx[i], Point3D(by_id[i]["x"], by_id[i]["y"], 0.0))
     m.AddConformer(conf)
-    return m.GetMol(), [a["id"] for a in atoms]
+    return m.GetMol()
 
 
 def angle(conf, i, j):
@@ -54,31 +73,36 @@ def main():
     for case in cases:
         before = json.loads(case["request"]["import"])
         after = json.loads(case["out"]["mzdraw"])
-        src, src_ids = pieces(before, 0, 100)
-        tgt_in, tgt_ids = pieces(before, 100, 1000)
-        ours, _ = pieces(after, 100, 1000)
-        # the core: the source is a substructure of the product in the cases that have an RDKit reference
-        match = tgt_in.GetSubstructMatch(src)
-        if not match or len(match) < 3 or len(src_ids) != len(match):
-            print("skip (no exact substructure match, RDKit has no reference):", case["name"])
-            skipped += 1
-            continue
-        ref = Chem.Mol(tgt_in)
-        rdDepictor.GenerateDepictionMatching2DStructure(ref, src)
-        # the angle of the core between its first and its last atom, from the source (truth of the reference), RDKit and ours
-        a0, a1 = 0, len(match) - 1
-        want = angle(src.GetConformer(), a0, a1)
-        got_rd = angle(ref.GetConformer(), match[a0], match[a1])
-        got_us = angle(ours.GetConformer(), match[a0], match[a1])
-        d = diff(got_rd, got_us)
-        worst, n = max(worst, d), n + 1
-        print(f"{case['name'][:60]:60} source {want:8.2f}  rdkit {got_rd:8.2f}  mzdraw {got_us:8.2f}  |rdkit-mzdraw| {d:.3f}")
-    print(f"RDKit {rdBase.rdkitVersion}: {n} cases compared, {skipped} skipped (no exact substructure match), worst difference {worst:.3f} degrees (limit 2)")
+        # each structure is compared with the one before it, in the order of their smallest atom id (the order of the scheme)
+        groups = structures(before)
+        for k in range(1, len(groups)):
+            name = f"{case['name'][:48]} [{k}/{len(groups) - 1}]"
+            src, tgt_in, ours = mol_of(before, groups[k - 1]), mol_of(before, groups[k]), mol_of(after, groups[k])
+            # RDKit has a reference where the source is an exact substructure of the product
+            match = tgt_in.GetSubstructMatch(src)
+            if not match or len(match) < 3 or src.GetNumAtoms() != len(match):
+                print("skip (no exact substructure match, RDKit has no reference):", name)
+                skipped += 1
+                continue
+            # the reference: RDKit depicts the product with its core on the source as it stands AFTER the command (for the second
+            # step of a chain, the source is the structure the first step turned)
+            src_out = mol_of(after, groups[k - 1])
+            ref = Chem.Mol(tgt_in)
+            rdDepictor.GenerateDepictionMatching2DStructure(ref, src_out)
+            # the angle of the core between its first and its last atom: the source, RDKit's product and ours
+            a0, a1 = 0, len(match) - 1
+            want = angle(src_out.GetConformer(), a0, a1)
+            got_rd = angle(ref.GetConformer(), match[a0], match[a1])
+            got_us = angle(ours.GetConformer(), match[a0], match[a1])
+            d = diff(got_rd, got_us)
+            worst, n = max(worst, d), n + 1
+            print(f"{name:60} source {want:8.2f}  rdkit {got_rd:8.2f}  ours {got_us:8.2f}  |rdkit-ours| {d:.3f}")
+    print(f"RDKit {rdBase.rdkitVersion}: {n} pairs of structures compared ({len(cases)} cases), {skipped} skipped (no exact substructure match), worst difference {worst:.3f} degrees (limit 2)")
     if "--write" in sys.argv:
         # the reference output: counts, version and date, no third-party data
         import datetime
         ref = {"program": "RDKit", "version": rdBase.rdkitVersion, "date": datetime.date.today().isoformat(), "script": "tools/fidelity/orient.py",
-               "cases": len(cases), "compared": n, "skipped": skipped, "worst_degrees": round(worst, 3), "limit_degrees": 2.0}
+               "cases": len(cases), "pairs_compared": n, "pairs_skipped": skipped, "worst_degrees": round(worst, 3), "limit_degrees": 2.0}
         with open(os.path.join(HERE, "orient.reference.json"), "w") as f:
             json.dump(ref, f, indent=1)
             f.write("\n")

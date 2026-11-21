@@ -4,8 +4,8 @@
  "date": "2026-11-21",
  "script": "tools/fidelity/orient.py",
  "cases": 4,
- "compared": 4,
- "skipped": 0,
+ "pairs_compared": 5,
+ "pairs_skipped": 0,
  "worst_degrees": 0.006,
  "limit_degrees": 2.0
 }

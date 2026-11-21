@@ -636,12 +636,11 @@ fn orient_and_row_in_either_order_are_stable() {
     );
 }
 
-#[test]
-fn a_turn_that_grows_the_box_into_an_object_is_refused() {
-    // a target whose turn grows its box into a text is refused, though no atom touches an atom
+/// A scheme whose product is drawn turned by 70 degrees and whose turn back grows its box on some side: the drawing, and a corner of
+/// the new box that lies farther than the reach (0.3) from the old box.
+fn growing() -> (String, Document, (f64, f64)) {
     let tail: Vec<(&'static str, f64)> = vec![("C", 0.0), ("C", 30.0), ("C", 0.0), ("C", 30.0)];
     let long = with_tail(ring(6, 0.0, 0.0, 0.0, &["N"]), 0, &tail);
-    // the target is drawn turned by 70 degrees; turning it back grows its box on some side
     let turned = scheme(&long, &long, 70.0, 12.0);
     let base = doc(&turned);
     let bounds = |d: &Document| {
@@ -657,9 +656,8 @@ fn a_turn_that_grows_the_box_into_an_object_is_refused() {
     s.doc = base.clone();
     s.run(&ops).unwrap();
     let (old, new) = (bounds(&base), bounds(&s.doc));
-    // a corner of the new box that is farther than the reach (0.3) from the old box
     let far = |p: (f64, f64)| {
-        p.0 < old.0 - 0.31 || p.0 > old.2 + 0.31 || p.1 < old.1 - 0.31 || p.1 > old.3 + 0.31
+        p.0 < old.0 - 0.5 || p.0 > old.2 + 0.5 || p.1 < old.1 - 0.5 || p.1 > old.3 + 0.5
     };
     let corner = [
         (new.0, new.1),
@@ -670,109 +668,214 @@ fn a_turn_that_grows_the_box_into_an_object_is_refused() {
     .into_iter()
     .find(|&p| far(p))
     .expect("the box grows");
-    let mut v: Value = serde_json::from_str(&turned).unwrap();
-    v["objects"]
-        .as_array_mut()
-        .unwrap()
-        .push(json!({"id": 950, "t": "text", "x": corner.0, "y": corner.1, "text": "cat"}));
-    let with_text = v.to_string();
-    let p = plan(&doc(&with_text));
-    assert_eq!(p.steps[0].status, Status::Overlap, "{:?}", p.steps);
-    assert_eq!(p.steps[0].at, 950);
-    assert!(p.ops.is_empty());
-    assert_eq!(run(&with_text), Err("error.draw2.orientOverlap"));
-    // without the text, the same drawing is oriented
-    assert_eq!(plan(&base).steps[0].status, Status::Oriented);
+    (turned, base, corner)
+}
+
+/// What `plan` says about the drawing with `extra` added to the objects and `atoms`/`bonds` to the structures.
+fn with_extra(text: &str, objects: Vec<Value>, atoms: Vec<Value>, bonds: Vec<Value>) -> Document {
+    let mut v: Value = serde_json::from_str(text).unwrap();
+    v["objects"].as_array_mut().unwrap().extend(objects);
+    v["atoms"].as_array_mut().unwrap().extend(atoms);
+    v["bonds"].as_array_mut().unwrap().extend(bonds);
+    doc(&v.to_string())
 }
 
 #[test]
-fn a_chain_with_a_wedged_product_is_turned_not_mirrored() {
-    // A -> B -> C, C drawn as a mirror image with a wedge: it is turned as far as a rotation fits, never flipped
-    let core: Vec<(usize, usize)> = (0..4).map(|i| (i, i)).collect();
-    let text = scheme(&chain(false), &chain(false), 130.0, 12.0);
-    let mut v: Value = serde_json::from_str(&text).unwrap();
-    v["bonds"]
-        .as_array_mut()
-        .unwrap()
-        .iter_mut()
-        .find(|b| b["id"] == 151)
-        .unwrap()["s"] = json!(1);
-    let out = report(&v.to_string(), json!([{"command": "scheme:orient"}]));
-    assert_eq!(out["orient"][0]["flip"], json!(false));
-    assert_eq!(out["orient"][0]["status"], "oriented");
-    assert!(rms(&doc(out["out"].as_str().unwrap()), &core) < FIT);
-}
-
-#[test]
-fn a_result_that_overlaps_is_not_applied() {
-    // the target sits so near the source that turning it brings its atoms onto the source's: refused, nothing changed
-    let (_, src, tgt, _) = pairs().remove(0);
-    let text = scheme(&src, &tgt, 70.0, 2.2);
-    let p = plan(&doc(&text));
-    if p.steps.iter().any(|s| s.status == Status::Overlap) {
+fn a_turn_that_grows_the_box_into_a_text_a_plus_or_an_arrow_is_refused() {
+    let (turned, base, c) = growing();
+    assert_eq!(
+        plan(&base).steps[0].status,
+        Status::Oriented,
+        "without the object it is oriented"
+    );
+    let objects = [
+        (
+            "a text",
+            json!({"id": 950, "t": "text", "x": c.0, "y": c.1, "text": "cat"}),
+        ),
+        (
+            "a plus sign",
+            json!({"id": 950, "t": "plus", "x": c.0, "y": c.1}),
+        ),
+    ];
+    for (what, o) in objects {
+        let p = plan(&with_extra(&turned, vec![o], vec![], vec![]));
+        assert_eq!(p.steps[0].status, Status::Overlap, "{what}: {:?}", p.steps);
+        assert_eq!(p.steps[0].at, 950, "{what}");
         assert!(p.ops.is_empty());
-        assert_eq!(run(&text), Err("error.draw2.orientOverlap"));
-    } else {
-        // not close enough to collide on this input: the geometry of the test is wrong, not the code
-        panic!("the overlap input does not overlap: {:?}", p.steps);
     }
+    let d = with_extra(
+        &turned,
+        vec![json!({"id": 950, "t": "text", "x": c.0, "y": c.1, "text": "cat"})],
+        vec![],
+        vec![],
+    );
+    assert_eq!(run(&d.to_json()), Err("error.draw2.orientOverlap"));
 }
 
 #[test]
-fn a_chain_of_two_arrows_orients_each_on_the_one_before() {
-    // A -> B -> C with B and C drawn turned by 70 and 130 degrees
-    let a = ring(6, 0.0, 0.0, 0.0, &["N"]);
-    let a = with_tail(a, 1, &[("C", 120.0)]);
-    let rot = |m: &Mol, deg: f64, ox: f64| -> Vec<Value> {
+fn a_turn_that_grows_the_box_into_another_structure_is_refused() {
+    let (turned, _, c) = growing();
+    // a third structure of three atoms whose atoms stay clear of every atom of the product (0.3), inside the new box only
+    let atoms = vec![
+        json!({"id": 700, "el": "C", "x": c.0, "y": c.1}),
+        json!({"id": 701, "el": "C", "x": c.0 + 0.5, "y": c.1 + 0.5}),
+        json!({"id": 702, "el": "C", "x": c.0 + 1.0, "y": c.1 + 1.0}),
+    ];
+    let bonds = vec![
+        json!({"id": 710, "a": 700, "b": 701, "o": 1}),
+        json!({"id": 711, "a": 701, "b": 702, "o": 1}),
+    ];
+    let p = plan(&with_extra(&turned, vec![], atoms, bonds));
+    assert_eq!(p.steps[0].status, Status::Overlap, "{:?}", p.steps);
+    assert!(p.steps[0].at != 0 && p.ops.is_empty());
+}
+
+#[test]
+fn only_an_arrow_anchored_to_this_pair_is_exempt_from_the_overlap() {
+    let (turned, _, c) = growing();
+    let through = |id: u32, from: u32, to: u32| json!({"id": id, "t": "arrow", "x": c.0 - 0.2, "y": c.1 - 0.2, "x2": c.0 + 0.2, "y2": c.1 + 0.2, "from": from, "to": to});
+    // anchored to the source and the product: its ends follow them (`route`), so it is not an obstacle
+    let d = with_extra(&turned, vec![through(950, 1, 101)], vec![], vec![]);
+    assert_eq!(plan(&d).steps[0].status, Status::Oriented);
+    // anchored to two other structures: it stays where it is, and is an obstacle
+    let atoms = vec![
+        json!({"id": 800, "el": "C", "x": -40.0, "y": 30.0}),
+        json!({"id": 801, "el": "C", "x": -39.0, "y": 30.0}),
+        json!({"id": 802, "el": "C", "x": -38.0, "y": 30.0}),
+        json!({"id": 803, "el": "C", "x": 40.0, "y": 30.0}),
+        json!({"id": 804, "el": "C", "x": 41.0, "y": 30.0}),
+        json!({"id": 805, "el": "C", "x": 42.0, "y": 30.0}),
+    ];
+    let bonds = vec![
+        json!({"id": 810, "a": 800, "b": 801, "o": 1}),
+        json!({"id": 811, "a": 801, "b": 802, "o": 1}),
+        json!({"id": 812, "a": 803, "b": 804, "o": 1}),
+        json!({"id": 813, "a": 804, "b": 805, "o": 1}),
+    ];
+    let d = with_extra(&turned, vec![through(950, 800, 803)], atoms, bonds);
+    let step = plan(&d).steps.into_iter().find(|s| s.to == 101).unwrap();
+    assert_eq!((step.status, step.at), (Status::Overlap, 950));
+}
+
+/// Three structures in a row, `mols[k]` turned by `degs[k]` about its centre at x = 12 k, free arrows between; ids 100 k + i + 1.
+fn row_of(mols: [&Mol; 3], degs: [f64; 3], wedge: Option<(usize, u32)>) -> String {
+    let mut atoms = Vec::new();
+    let mut bonds = Vec::new();
+    for k in 0..3 {
+        let m = mols[k];
         let n = m.atoms.len() as f64;
         let (cx, cy) = (
             m.atoms.iter().map(|p| p.1).sum::<f64>() / n,
             m.atoms.iter().map(|p| p.2).sum::<f64>() / n,
         );
-        let t = deg.to_radians();
-        m.atoms
-            .iter()
-            .map(|p| {
-                let (dx, dy) = (p.1 - cx, p.2 - cy);
-                json!([
-                    p.0,
-                    ((ox + dx * t.cos() - dy * t.sin()) * 1e4).round() / 1e4,
-                    ((dx * t.sin() + dy * t.cos()) * 1e4).round() / 1e4
-                ])
-            })
-            .collect()
-    };
-    let mut atoms = Vec::new();
-    let mut bonds = Vec::new();
-    for (k, (deg, ox)) in [(0.0, 0.0), (70.0, 10.0), (130.0, 20.0)]
-        .into_iter()
-        .enumerate()
-    {
-        for (i, p) in rot(&a, deg, ox).iter().enumerate() {
-            atoms.push(json!({"id": 100 * k + i + 1, "el": p[0], "x": p[1], "y": p[2]}));
+        let t = degs[k].to_radians();
+        for (i, p) in m.atoms.iter().enumerate() {
+            let (dx, dy) = (p.1 - cx, p.2 - cy);
+            atoms.push(json!({"id": 100 * k + i + 1, "el": p.0, "x": ((12.0 * k as f64 + dx * t.cos() - dy * t.sin()) * 1e4).round() / 1e4, "y": ((dx * t.sin() + dy * t.cos()) * 1e4).round() / 1e4}));
         }
-        for (i, b) in a.bonds.iter().enumerate() {
-            bonds.push(json!({"id": 1000 + 100 * k + i, "a": 100 * k + b.0 + 1, "b": 100 * k + b.1 + 1, "o": b.2}));
+        for (i, b) in m.bonds.iter().enumerate() {
+            let mut bond = json!({"id": 1000 + 100 * k + i, "a": 100 * k + b.0 + 1, "b": 100 * k + b.1 + 1, "o": b.2});
+            if wedge == Some((k, i as u32)) {
+                bond["s"] = json!(1);
+            }
+            bonds.push(bond);
         }
     }
-    let text = json!({"format":"mzdraw/1","next":2000,"atoms":atoms,"bonds":bonds,"objects":[
-        {"id":900,"t":"arrow","x":4,"y":0,"x2":6,"y2":0},{"id":901,"t":"arrow","x":14,"y":0,"x2":16,"y2":0}]})
-    .to_string();
-    let out = doc(&run(&text).unwrap().to_string());
-    let angle = |k: usize| {
+    json!({"format":"mzdraw/1","next":4000,"atoms":atoms,"bonds":bonds,"objects":[
+        {"id":900,"t":"arrow","x":4,"y":0,"x2":8,"y2":0},{"id":901,"t":"arrow","x":16,"y":0,"x2":20,"y2":0}]})
+    .to_string()
+}
+
+/// A -> B -> C where C is drawn as a mirror image of B: without a wedge a mirror fits it; with a wedge on C only a rotation is allowed,
+/// so C is not oriented (no flip), while B is still turned onto A.
+#[test]
+fn a_wedge_on_the_last_of_a_chain_forbids_the_mirror_that_would_fit() {
+    let (a, b, c) = (chain(false), chain(false), chain(true));
+    let core: Vec<usize> = (0..4).collect();
+    let angle = |d: &Document, k: usize| {
         let (p, q) = (
-            out.atom(100 * k as u32 + 1).unwrap(),
-            out.atom(100 * k as u32 + 7).unwrap(),
+            d.atom(100 * k as u32 + 1).unwrap(),
+            d.atom(100 * k as u32 + 4).unwrap(),
         );
         (q.y - p.y).atan2(q.x - p.x).to_degrees()
     };
+    let _ = core;
+    // no wedge: both are oriented, C by a flip
+    let free = report(
+        &row_of([&a, &b, &c], [0.0, 40.0, 130.0], None),
+        json!([{"command": "scheme:orient"}]),
+    );
+    let steps = free["orient"].as_array().unwrap();
+    assert_eq!(steps.len(), 2, "{free}");
+    assert!(steps.iter().all(|s| s["status"] == "oriented"), "{free}");
+    assert_eq!(
+        steps.iter().filter(|s| s["flip"] == json!(true)).count(),
+        1,
+        "only C is mirrored: {free}"
+    );
+    let out = doc(free["out"].as_str().unwrap());
     for k in 1..3 {
-        let d = (angle(k) - angle(0)).rem_euclid(360.0);
-        assert!(
-            !(0.1..=359.9).contains(&d),
-            "structure {k} is {d} degrees from the first"
-        );
+        let d = (angle(&out, k) - angle(&out, 0) + 540.0) % 360.0 - 180.0;
+        assert!(d.abs() < 0.1, "structure {k} off by {d}");
     }
+    // a wedge on the bond of C: the plan has no flip anywhere; B is oriented, C is not (a rotation cannot fit the mirror image)
+    let wedged = report(
+        &row_of([&a, &b, &c], [0.0, 40.0, 130.0], Some((2, 1))),
+        json!([{"command": "scheme:orient"}]),
+    );
+    let steps = wedged["orient"].as_array().unwrap();
+    assert!(steps.iter().all(|s| s["flip"] == json!(false)), "{wedged}");
+    assert!(
+        steps.iter().any(|s| s["status"] == "oriented"),
+        "B is oriented: {wedged}"
+    );
+    assert!(
+        steps.iter().any(|s| s["status"] == "no_core"),
+        "C has no rigid core: {wedged}"
+    );
+    let p = plan(&doc(&row_of(
+        [&a, &b, &c],
+        [0.0, 40.0, 130.0],
+        Some((2, 1)),
+    )));
+    assert!(!p.ops.iter().any(|o| matches!(o, mzdraw::Op::Flip { .. })));
+    // the structure of C is untouched
+    let out = doc(wedged["out"].as_str().unwrap());
+    let before = doc(&row_of([&a, &b, &c], [0.0, 40.0, 130.0], Some((2, 1))));
+    assert!(
+        (201..=204).all(|i| out.atom(i).unwrap().x == before.atom(i).unwrap().x
+            && out.atom(i).unwrap().y == before.atom(i).unwrap().y)
+    );
+}
+
+#[test]
+fn huge_coordinates_are_refused_by_the_document_and_the_largest_allowed_is_fitted() {
+    let (_, src, tgt, core) = pairs().remove(0);
+    // the document refuses what is not a drawing (beyond 1e6 bond lengths): nothing reaches the fit
+    for big in [1e7, 1e100, 1e300] {
+        assert!(
+            Document::from_json(&scheme(&src, &tgt, 70.0, big)).is_err(),
+            "{big}"
+        );
+        let r = json!({"import": scheme(&src, &tgt, 70.0, big), "commands": [{"command": "scheme:orient"}]});
+        assert!(mzdraw::replay::replay(&r.to_string()).is_err(), "{big}");
+    }
+    // at the edge of what it accepts the fit still works (and does not turn a rounding into a refusal)
+    let text = scheme(&src, &tgt, 70.0, 999_980.0);
+    let out = doc(&run(&text).unwrap().to_string());
+    assert!(rms(&out, &core) < FIT);
+    // the guard of the module itself: a coordinate over the bound is no core (the fit is never run on it)
+    let mut d = doc(&scheme(&src, &tgt, 70.0, 12.0));
+    d.atoms[8].x = f64::NAN;
+    let p = plan(&d);
+    assert!(
+        p.ops.is_empty() && p.steps.iter().all(|s| s.status == Status::NoCore),
+        "{:?}",
+        p.steps
+    );
+    d.atoms[8].x = 1e300;
+    assert!(plan(&d).ops.is_empty());
 }
 
 /// The cases a maximum-common-substructure search would orient and this slice does not (they are listed in `docs/built/scheme-orient.md`

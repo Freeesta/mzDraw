@@ -1,6 +1,6 @@
 //! `scheme:orient` on large and hostile inputs: a bound on the size, a time bound, and what happens at the edge. Synthetic only.
 
-use mzdraw::orient::{plan, Status, MAX_HEAVY};
+use mzdraw::orient::{plan, Status, MAX_HEAVY, MAX_PRODUCTS};
 use mzdraw::Document;
 use serde_json::json;
 use std::time::Instant;
@@ -150,4 +150,284 @@ fn long_rings_and_chains_are_bounded() {
     let p = plan(&d);
     assert!(t.elapsed().as_secs() < 5, "{:?}", t.elapsed());
     assert!(p.ops.is_empty());
+}
+
+/// A methylpyridine (7 atoms, no symmetry): atom 1..=7, drawn turned by `deg` about its centre at `(ox, oy)`, ids from `base`.
+fn small(
+    base: u32,
+    ox: f64,
+    oy: f64,
+    deg: f64,
+    atoms: &mut Vec<serde_json::Value>,
+    bonds: &mut Vec<serde_json::Value>,
+) {
+    let mut pts: Vec<(f64, f64)> = (0..6)
+        .map(|i| {
+            (
+                (i as f64 * std::f64::consts::PI / 3.0).cos(),
+                (i as f64 * std::f64::consts::PI / 3.0).sin(),
+            )
+        })
+        .collect();
+    pts.push((2.0, 0.0));
+    let (cx, cy) = (
+        pts.iter().map(|p| p.0).sum::<f64>() / 7.0,
+        pts.iter().map(|p| p.1).sum::<f64>() / 7.0,
+    );
+    let t = deg.to_radians();
+    for (i, p) in pts.iter().enumerate() {
+        let (dx, dy) = (p.0 - cx, p.1 - cy);
+        atoms.push(json!({"id": base + i as u32, "el": if i == 3 { "N" } else { "C" }, "x": ((ox + dx * t.cos() - dy * t.sin()) * 1e4).round() / 1e4, "y": ((oy + dx * t.sin() + dy * t.cos()) * 1e4).round() / 1e4}));
+    }
+    for i in 0..6u32 {
+        bonds.push(json!({"id": 500_000 + base + i, "a": base + i, "b": base + (i + 1) % 6, "o": 1 + i % 2}));
+    }
+    bonds.push(json!({"id": 500_006 + base, "a": base, "b": base + 6, "o": 1}));
+}
+
+fn drawing(
+    atoms: Vec<serde_json::Value>,
+    bonds: Vec<serde_json::Value>,
+    arrows: Vec<serde_json::Value>,
+) -> Document {
+    Document::from_json(
+        &json!({"format":"mzdraw/1","next":900_000,"atoms":atoms,"bonds":bonds,"objects":arrows})
+            .to_string(),
+    )
+    .unwrap()
+}
+
+fn angle(d: &Document, base: u32) -> f64 {
+    let (p, q) = (d.atom(base).unwrap(), d.atom(base + 6).unwrap());
+    (q.y - p.y).atan2(q.x - p.x).to_degrees()
+}
+
+fn same_angle(a: f64, b: f64) -> bool {
+    ((a - b + 540.0) % 360.0 - 180.0).abs() < 0.1
+}
+
+/// 250 products of one reactant: exactly 200 are oriented and exactly 50 are reported `too_large` (the cap of products), none skipped.
+#[test]
+fn the_product_cap_reports_exactly_the_products_over_it() {
+    let (mut atoms, mut bonds) = (Vec::new(), Vec::new());
+    small(1, 0.0, 0.0, 0.0, &mut atoms, &mut bonds);
+    for i in 0..250u32 {
+        small(
+            100 * (i + 1),
+            12.0 + 7.0 * (i % 25) as f64,
+            7.0 * (i / 25) as f64,
+            20.0 + (i % 17) as f64 * 15.0,
+            &mut atoms,
+            &mut bonds,
+        );
+    }
+    let d = drawing(
+        atoms,
+        bonds,
+        vec![json!({"id": 899_999, "t": "arrow", "x": 3, "y": 0, "x2": 7, "y2": 0})],
+    );
+    let t = Instant::now();
+    let p = plan(&d);
+    assert!(t.elapsed().as_secs() < 30, "{:?}", t.elapsed());
+    assert_eq!(p.steps.len(), 250);
+    assert_eq!(
+        p.steps
+            .iter()
+            .filter(|s| s.status == Status::Oriented)
+            .count(),
+        MAX_PRODUCTS
+    );
+    assert_eq!(
+        p.steps
+            .iter()
+            .filter(|s| s.status == Status::TooLarge)
+            .count(),
+        250 - MAX_PRODUCTS
+    );
+}
+
+/// Mid-size symmetric products (every row of every column matches) spend the step budget of the command: the products after it are
+/// reported `too_large`, none is skipped in silence, and the time is bounded.
+#[test]
+fn the_step_budget_of_a_command_is_one_and_the_rest_is_said() {
+    let g = grids(10, 0.0, 0.0);
+    let one = |k: usize| -> (Vec<serde_json::Value>, Vec<serde_json::Value>) {
+        // grid `k` of a row: the first is the reactant (unturned), the others are products turned by 70 degrees
+        let (mut atoms, mut bonds) = (Vec::new(), Vec::new());
+        let t = if k == 0 { 0.0f64 } else { 70.0f64 }.to_radians();
+        for a in g.atoms.iter().take(100) {
+            let (x, y) = (a.x, a.y);
+            atoms.push(json!({"id": 1000 * k + a.id as usize, "el": "C", "x": ((14.0 * k as f64 + x * t.cos() - y * t.sin()) * 1e4).round() / 1e4, "y": ((x * t.sin() + y * t.cos()) * 1e4).round() / 1e4}));
+        }
+        for (n, b) in g
+            .bonds
+            .iter()
+            .filter(|b| b.a <= 100 && b.b <= 100)
+            .enumerate()
+        {
+            bonds.push(json!({"id": 300_000 + 1000 * k + n, "a": 1000 * k + b.a as usize, "b": 1000 * k + b.b as usize, "o": 1}));
+        }
+        (atoms, bonds)
+    };
+    let (mut atoms, mut bonds) = (Vec::new(), Vec::new());
+    for k in 0..121 {
+        let (a, b) = one(k);
+        atoms.extend(a);
+        bonds.extend(b);
+    }
+    let d = drawing(
+        atoms,
+        bonds,
+        vec![json!({"id": 899_999, "t": "arrow", "x": 6.0, "y": 0, "x2": 10.0, "y2": 0})],
+    );
+    let t = Instant::now();
+    let p = plan(&d);
+    eprintln!(
+        "budget case: {:?} in {:?}",
+        (p.steps.iter().map(|s| s.status).fold([0; 5], |mut c, s| {
+            c[s as usize] += 1;
+            c
+        })),
+        t.elapsed()
+    );
+    assert!(t.elapsed().as_secs() < 60, "{:?}", t.elapsed());
+    assert_eq!(p.steps.len(), 120, "every product has a step");
+    assert!(
+        p.steps.iter().all(|s| matches!(
+            s.status,
+            Status::Oriented | Status::Already | Status::TooLarge | Status::Overlap
+        )),
+        "{:?}",
+        p.steps.iter().map(|s| s.status).collect::<Vec<_>>()
+    );
+    assert!(
+        p.steps.iter().any(|s| s.status == Status::TooLarge),
+        "the budget is spent before the last product"
+    );
+    assert!(
+        p.steps.iter().any(|s| s.status == Status::Oriented),
+        "and spent after the first"
+    );
+}
+
+/// Only the nearest 8 reactants are tried: with 8 reactants that have no core the real one (the 9th) is not reached.
+#[test]
+fn only_the_nearest_eight_reactants_are_tried() {
+    for (decoys, expected) in [(8usize, Status::NoCore), (7, Status::Oriented)] {
+        let (mut atoms, mut bonds) = (Vec::new(), Vec::new());
+        // decoys: triangles of carbon, nearest to the tail first; then the real reactant; the product past the head
+        for i in 0..decoys as u32 {
+            let x = -5.0 - 4.0 * i as f64;
+            for k in 0..3u32 {
+                let t = std::f64::consts::TAU / 3.0 * k as f64;
+                atoms.push(
+                    json!({"id": 100 * (i + 1) + k, "el": "O", "x": x + t.cos(), "y": t.sin()}),
+                );
+                bonds.push(json!({"id": 600_000 + 100 * (i + 1) + k, "a": 100 * (i + 1) + k, "b": 100 * (i + 1) + (k + 1) % 3, "o": 1}));
+            }
+        }
+        small(
+            50_000,
+            -5.0 - 4.0 * decoys as f64,
+            0.0,
+            0.0,
+            &mut atoms,
+            &mut bonds,
+        );
+        small(60_000, 40.0, 0.0, 70.0, &mut atoms, &mut bonds);
+        let d = drawing(
+            atoms,
+            bonds,
+            vec![json!({"id": 899_999, "t": "arrow", "x": 0, "y": 0, "x2": 30.0, "y2": 0})],
+        );
+        let p = plan(&d);
+        assert_eq!(p.steps.len(), 1, "{decoys}");
+        assert_eq!(p.steps[0].status, expected, "{decoys} decoys");
+    }
+}
+
+/// A chain of 150 arrows drawn right to left, every structure turned differently: each is oriented on the one before it (to its right),
+/// in one pass, with a bounded time.
+#[test]
+fn a_reversed_chain_of_many_arrows_is_oriented_in_order() {
+    let n = 150u32;
+    let (mut atoms, mut bonds, mut arrows) = (Vec::new(), Vec::new(), Vec::new());
+    for i in 0..n {
+        small(
+            100 * (i + 1),
+            -10.0 * i as f64,
+            0.0,
+            if i == 0 {
+                0.0
+            } else {
+                17.0 + (i * 37 % 300) as f64
+            },
+            &mut atoms,
+            &mut bonds,
+        );
+        if i + 1 < n {
+            arrows.push(json!({"id": 800_000 + i, "t": "arrow", "x": -10.0 * i as f64 - 4.0, "y": 0, "x2": -10.0 * i as f64 - 6.5, "y2": 0}));
+        }
+    }
+    let d = drawing(atoms, bonds, arrows);
+    let t = Instant::now();
+    let p = plan(&d);
+    assert!(t.elapsed().as_secs() < 30, "{:?}", t.elapsed());
+    assert_eq!(p.steps.len(), (n - 1) as usize);
+    assert!(
+        p.steps
+            .iter()
+            .all(|s| matches!(s.status, Status::Oriented | Status::Already)),
+        "{:?}",
+        p.steps.iter().map(|s| s.status).collect::<Vec<_>>()
+    );
+    let out = apply(&d, &p.ops);
+    let first = angle(&out, 100);
+    for i in 1..n {
+        assert!(
+            same_angle(angle(&out, 100 * (i + 1)), first),
+            "structure {i}"
+        );
+    }
+}
+
+/// Arrows over `MAX_ARROWS` are not read, and each is reported `too_large` (not skipped in silence).
+#[test]
+fn the_arrows_over_the_cap_are_reported() {
+    let n = 251u32;
+    let (mut atoms, mut bonds, mut arrows) = (Vec::new(), Vec::new(), Vec::new());
+    for i in 0..n {
+        small(
+            100 * (i + 1),
+            10.0 * i as f64,
+            0.0,
+            if i == 0 { 0.0 } else { 30.0 },
+            &mut atoms,
+            &mut bonds,
+        );
+        if i + 1 < n {
+            arrows.push(json!({"id": 800_000 + i, "t": "arrow", "x": 10.0 * i as f64 + 4.0, "y": 0, "x2": 10.0 * i as f64 + 6.5, "y2": 0}));
+        }
+    }
+    let p = plan(&drawing(atoms, bonds, arrows));
+    // the 50 arrows over the cap each have a step of their own, with no structure
+    let over: Vec<_> = (p.steps.iter())
+        .filter(|s| {
+            s.status == Status::TooLarge
+                && s.from == 0
+                && s.to == 0
+                && s.arrow >= 800_000 + mzdraw::orient::MAX_ARROWS as u32
+        })
+        .collect();
+    assert_eq!(over.len(), 250 - mzdraw::orient::MAX_ARROWS);
+    // the arrows read gave 200 oriented products; the 50 structures past the last arrow read are products of it, over the cap of
+    // products, and said as well: one step per product and one per arrow not read
+    assert_eq!(
+        p.steps
+            .iter()
+            .filter(|s| s.status == Status::Oriented)
+            .count(),
+        mzdraw::orient::MAX_ARROWS
+    );
+    assert_eq!(p.steps.len(), 250 + 50);
 }

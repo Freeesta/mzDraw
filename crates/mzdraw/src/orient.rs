@@ -28,9 +28,16 @@ const SAME: f64 = 0.05;
 const MATCHES: usize = 400;
 /// A structure of more heavy atoms than this is not oriented (`TooLarge`): the cost of the search is not bounded by its size.
 pub const MAX_HEAVY: usize = 500;
-/// Search steps of one substructure search (the default of `mzlab-mol` is 2,000,000): a search that needs more is a refusal to
-/// match, said as `TooLarge`, not a missing core.
-const STEPS: u64 = 100_000;
+/// Search steps of one substructure search come in this ladder (the default of `mzlab-mol` is 2,000,000): a search that stops at a
+/// cap is run again with the next; one that stops at the last is a refusal to match, said as `TooLarge`, not a missing core.
+const LADDER: [u64; 3] = [1_000, 10_000, 100_000];
+/// Search steps one command may spend in all, charged at the cap of each run (the real count is not reported by `mzlab-mol`, so the
+/// charge is an upper bound): when it is spent, the searches that remain are `TooLarge` and nothing is skipped in silence.
+pub const BUDGET: u64 = 1_000_000;
+/// Arrows one command reads; the ones after these get a `too_large` step of their own.
+pub const MAX_ARROWS: usize = 200;
+/// Coordinates beyond this (bond lengths) are not a drawing: nothing is fitted.
+const COORD_MAX: f64 = 1e6;
 /// Ring systems tried per structure when the whole smaller structure is not in the larger one.
 const SYSTEMS: usize = 4;
 /// Reactants tried for one product (the nearest first): a scheme has few, and a drawing of thousands of pieces must not make
@@ -52,7 +59,7 @@ pub enum Status {
     NoCore,
     /// The result would overlap an atom, a structure, an arrow, a plus sign or a text: not applied.
     Overlap,
-    /// A structure has more than `MAX_HEAVY` heavy atoms, or the search needed more than `STEPS` steps: nothing done.
+    /// A structure has more than `MAX_HEAVY` heavy atoms, or the search needed more than the last cap of `LADDER` (or the budget of the command was spent): nothing done.
     TooLarge,
 }
 
@@ -295,29 +302,55 @@ fn heavy(doc: &Document, keep: &HashSet<u32>) -> Document {
 /// Rows of `(small atom id, big atom id)`; `Err` when the search needed more than `STEPS`.
 type Rows = Vec<Vec<(u32, u32)>>;
 
-/// The matches of the document of heavy atoms `q` in the one `t`.
-fn find(q: &Document, t: &Document) -> Result<Rows, ()> {
+/// Why a search gave nothing: it ran out of steps (`Limit`), or `mzlab-mol` refused it for another reason (`Other`: no core).
+enum Stop {
+    Limit,
+    Other,
+}
+
+/// Steps a command may still spend.
+struct Budget {
+    left: u64,
+}
+
+/// The matches of the document of heavy atoms `q` in the one `t`, run with the caps of `LADDER` in turn; each run is charged at its
+/// cap.
+fn find(q: &Document, t: &Document, budget: &mut Budget) -> Result<Rows, Stop> {
     if q.atoms.len() < MIN_CORE || q.atoms.len() > t.atoms.len() {
         return Ok(Vec::new());
     }
-    let query = SubQuery::exact(q.to_mol());
-    let opts = SubOptions {
-        max_matches: MATCHES,
-        max_steps: STEPS,
-        ..SubOptions::default()
-    };
-    let rows = query.matches(&t.to_mol(), &opts).map_err(|_| ())?;
-    // a query that grew atoms (an abbreviation expanded) has columns the document has no atom for: such a row is not read
-    let width = query.mol.atoms.len();
-    Ok((rows.into_iter())
-        .filter(|r| r.len() == width)
-        .map(|r| {
-            (q.atoms.iter().zip(&r))
-                .filter_map(|(a, &j)| Some((a.id, t.atoms.get(j as usize)?.id)))
-                .collect::<Vec<_>>()
-        })
-        .filter(|r: &Vec<(u32, u32)>| r.len() >= MIN_CORE)
-        .collect())
+    let (query, target) = (SubQuery::exact(q.to_mol()), t.to_mol());
+    for cap in LADDER {
+        let cap = cap.min(budget.left);
+        if cap == 0 {
+            return Err(Stop::Limit);
+        }
+        budget.left -= cap;
+        let opts = SubOptions {
+            max_matches: MATCHES,
+            max_steps: cap,
+            ..SubOptions::default()
+        };
+        match query.matches(&target, &opts) {
+            Ok(rows) => {
+                // a query that grew atoms (an abbreviation expanded) has columns the document has no atom for: such a row is not read
+                let width = query.mol.atoms.len();
+                return Ok((rows.into_iter())
+                    .filter(|r| r.len() == width)
+                    .map(|r| {
+                        (q.atoms.iter().zip(&r))
+                            .filter_map(|(a, &j)| Some((a.id, t.atoms.get(j as usize)?.id)))
+                            .collect::<Vec<_>>()
+                    })
+                    .filter(|r: &Vec<(u32, u32)>| r.len() >= MIN_CORE)
+                    .collect());
+            }
+            // the step cap of `mzlab-mol` is its `Query` error (an exact query has no feature to refuse)
+            Err(mzlab_mol::MolError::Query(_)) => {}
+            Err(_) => return Err(Stop::Other),
+        }
+    }
+    Err(Stop::Limit)
 }
 
 fn flipped(rows: Rows) -> Rows {
@@ -328,18 +361,19 @@ fn flipped(rows: Rows) -> Rows {
 
 /// The matches of the core of `a` and `b` (rows are `(atom of a, atom of b)`): the smaller in the larger, else the ring systems of
 /// either in the other, the biggest first. The flag says that a search ran out of steps (a missing core is then `TooLarge`).
-fn core(doc: &Document, a: &HashSet<u32>, b: &HashSet<u32>) -> (Rows, bool) {
+fn core(doc: &Document, a: &HashSet<u32>, b: &HashSet<u32>, budget: &mut Budget) -> (Rows, bool) {
     let (ha, hb) = (heavy(doc, a), heavy(doc, b));
     let mut limited = false;
     let first = if ha.atoms.len() <= hb.atoms.len() {
-        find(&ha, &hb)
+        find(&ha, &hb, budget)
     } else {
-        find(&hb, &ha).map(flipped)
+        find(&hb, &ha, budget).map(flipped)
     };
     match first {
         Ok(rows) if !rows.is_empty() => return (rows, false),
         Ok(_) => {}
-        Err(()) => limited = true,
+        Err(Stop::Limit) => limited = true,
+        Err(Stop::Other) => {}
     }
     let mut tries: Vec<(Document, bool)> = Vec::new();
     for (h, from_a) in [(&ha, true), (&hb, false)] {
@@ -350,14 +384,15 @@ fn core(doc: &Document, a: &HashSet<u32>, b: &HashSet<u32>) -> (Rows, bool) {
     m::sort_by(&mut tries, |x, y| x.0.atoms.len() > y.0.atoms.len());
     for (q, from_a) in tries {
         let found = if from_a {
-            find(&q, &hb)
+            find(&q, &hb, budget)
         } else {
-            find(&q, &ha).map(flipped)
+            find(&q, &ha, budget).map(flipped)
         };
         match found {
             Ok(rows) if !rows.is_empty() => return (rows, false),
             Ok(_) => {}
-            Err(()) => limited = true,
+            Err(Stop::Limit) => limited = true,
+            Err(Stop::Other) => {}
         }
     }
     (Vec::new(), limited)
@@ -420,7 +455,10 @@ pub fn orient(doc: &Document, from: u32, to: u32) -> Vec<Op> {
 pub fn solve(doc: &Document, from: u32, to: u32) -> (Step, Vec<Op>) {
     let pieces = Pieces::of(doc);
     match (pieces.of.get(&from), pieces.of.get(&to)) {
-        (Some(&s), Some(&t)) if s != t => solve_in(doc, &pieces, s, t, from, to),
+        (Some(&s), Some(&t)) if s != t => {
+            let mut budget = Budget { left: BUDGET };
+            solve_in(doc, &pieces, s, t, from, to, &mut budget)
+        }
         _ => (blank(from, to, Status::NoCore), Vec::new()),
     }
 }
@@ -433,6 +471,7 @@ fn solve_in(
     ti: usize,
     from: u32,
     to: u32,
+    budget: &mut Budget,
 ) -> (Step, Vec<Op>) {
     let mut step = blank(from, to, Status::NoCore);
     let (src, tgt): (HashSet<u32>, HashSet<u32>) = (
@@ -446,7 +485,11 @@ fn solve_in(
     if pieces.heavy[si] < MIN_CORE || pieces.heavy[ti] < MIN_CORE {
         return (step, Vec::new());
     }
-    let (rows, limited) = core(doc, &src, &tgt);
+    if budget.left == 0 {
+        step.status = Status::TooLarge;
+        return (step, Vec::new());
+    }
+    let (rows, limited) = core(doc, &src, &tgt, budget);
     if rows.is_empty() {
         if limited {
             step.status = Status::TooLarge;
@@ -457,6 +500,10 @@ fn solve_in(
         .filter(|a| src.contains(&a.id) || tgt.contains(&a.id))
         .map(|a| (a.id, (a.x, a.y)))
         .collect();
+    // a coordinate that is not a number, or too large to be a drawing, is not fitted (the sums of the fit would overflow)
+    if (pos.values()).any(|p| !(p.0.abs() <= COORD_MAX && p.1.abs() <= COORD_MAX)) {
+        return (step, Vec::new());
+    }
     // the box centre of the target: the mirror axis and the pivot
     let tbox = box_of(doc, &tgt);
     let (cx, cy) = (
@@ -488,7 +535,7 @@ fn solve_in(
     step.before = before;
     step.flip = fit.flip;
     step.deg = crate::doc::round4(fit.deg);
-    if fit.rms > FIT {
+    if !(fit.rms <= FIT && fit.deg.is_finite()) {
         // the core does not fit as a rigid piece (drawn bent, or only a mirror fits a target with a wedge): nothing is done
         step.core = 0;
         step.flip = false;
@@ -530,7 +577,7 @@ fn solve_in(
             shape_rms(&p, &q)
         })
         .fold(f64::MAX, f64::min);
-    if let Some(at) = overlap(doc, pieces, ti, &tgt, tbox, &after) {
+    if let Some(at) = overlap(doc, pieces, ti, (&src, &tgt), tbox, &after) {
         step.status = Status::Overlap;
         step.at = at;
         return (step, Vec::new());
@@ -570,7 +617,7 @@ fn overlap(
     doc: &Document,
     pieces: &Pieces,
     ti: usize,
-    tgt: &HashSet<u32>,
+    (src, tgt): (&HashSet<u32>, &HashSet<u32>),
     old: Box4,
     after: &HashMap<u32, (f64, f64)>,
 ) -> Option<u32> {
@@ -612,16 +659,11 @@ fn overlap(
         }
     }
     // the objects
-    let mine = |a: u32| tgt.contains(&a);
+    let mine = |a: u32| tgt.contains(&a) || src.contains(&a);
     for o in &doc.objects {
-        // an arrow anchored to this structure or to its neighbour follows it (`route`)
-        if o.t == ObjKind::Arrow
-            && (o.from != 0 || o.to != 0)
-            && (mine(o.from)
-                || mine(o.to)
-                || pieces.of.contains_key(&o.from)
-                || pieces.of.contains_key(&o.to))
-        {
+        // an arrow anchored to this structure or to the one it is oriented on follows them (`route`); an arrow anchored to others
+        // is not exempt
+        if o.t == ObjKind::Arrow && (mine(o.from) || mine(o.to)) {
             continue;
         }
         let b = if o.t == ObjKind::Arrow {
@@ -641,8 +683,12 @@ fn overlap(
 /// `rxn::role`, the middle of the structure along each arrow): it is a reactant of the arrow whose tail is nearest among those it
 /// stands before, a product of the arrow whose head is nearest among those it stands past, and an agent (never turned) of an
 /// arrow it stands alongside. An arrow with both anchors (`from`, `to`) uses its two structures instead. The result is, for each
-/// product in the order of the drawing, `(arrow, product piece, reactant pieces nearest first)`.
-fn pairs(doc: &Document, pieces: &Pieces) -> Vec<(u32, usize, Vec<usize>)> {
+/// product in the order of the drawing, `(arrow, product piece, up to REACTANTS reactant pieces nearest first)`, and the arrows
+/// that were not read (more than `MAX_ARROWS`).
+/// `(arrow id, product piece, reactant pieces)`.
+type Pair = (u32, usize, Vec<usize>);
+
+fn pairs(doc: &Document, pieces: &Pieces) -> (Vec<Pair>, Vec<u32>) {
     let at: HashMap<u32, (f64, f64)> = doc.atoms.iter().map(|a| (a.id, (a.x, a.y))).collect();
     let mid: Vec<(f64, f64)> = pieces
         .list
@@ -655,11 +701,11 @@ fn pairs(doc: &Document, pieces: &Pieces) -> Vec<(u32, usize, Vec<usize>)> {
             })
         })
         .collect();
-    let arrows: Vec<&crate::doc::Obj> = doc
-        .objects
-        .iter()
+    let all: Vec<&crate::doc::Obj> = (doc.objects.iter())
         .filter(|o| o.t == ObjKind::Arrow)
         .collect();
+    let skipped: Vec<u32> = all.iter().skip(MAX_ARROWS).map(|o| o.id).collect();
+    let arrows = &all[..all.len().min(MAX_ARROWS)];
     let anchored = |o: &crate::doc::Obj| matches!((pieces.of.get(&o.from), pieces.of.get(&o.to)), (Some(a), Some(b)) if a != b);
     // for each piece: the nearest arrow it is a reactant of, and the nearest it is a product of (distance to tail, to head)
     let mut react: Vec<Option<(f64, usize)>> = vec![None; pieces.list.len()];
@@ -679,11 +725,15 @@ fn pairs(doc: &Document, pieces: &Pieces) -> Vec<(u32, usize, Vec<usize>)> {
             }
         }
     }
-    // the reactants of each arrow, the nearest to its tail first
+    // the reactants and the products of each arrow, one pass over the pieces
     let mut reactants: Vec<Vec<(f64, usize)>> = vec![Vec::new(); arrows.len()];
-    for (i, r) in react.iter().enumerate() {
-        if let Some((d, k)) = r {
-            reactants[*k].push((*d, i));
+    let mut products: Vec<Vec<usize>> = vec![Vec::new(); arrows.len()];
+    for i in 0..pieces.list.len() {
+        if let Some((d, k)) = react[i] {
+            reactants[k].push((d, i));
+        }
+        if let Some((_, k)) = prod[i] {
+            products[k].push(i);
         }
     }
     for r in &mut reactants {
@@ -696,41 +746,64 @@ fn pairs(doc: &Document, pieces: &Pieces) -> Vec<(u32, usize, Vec<usize>)> {
             continue;
         }
         let near: Vec<usize> = reactants[k].iter().take(REACTANTS).map(|r| r.1).collect();
-        for (ti, p) in prod.iter().enumerate() {
-            if p.is_some_and(|(_, a)| a == k) && !near.is_empty() {
-                out.push((o.id, ti, near.clone()));
-            }
+        if !near.is_empty() {
+            out.extend(products[k].iter().map(|&ti| (o.id, ti, near.clone())));
         }
     }
-    out
+    (out, skipped)
 }
 
 /// The plan for the whole scheme: one step per product structure, the operations of the ones oriented. A product is oriented on
 /// its nearest reactant that has a core (a reactant with none is skipped); a reactant that is itself a product of an earlier
-/// arrow is oriented first (a chain A -> B -> C turns B on A, then C on the turned B). When any step would overlap, no operation
-/// is returned and the step says so (the command does not apply).
+/// arrow is oriented first (a chain A -> B -> C turns B on A, then C on the turned B; the order is a topological one, cycles
+/// in the order of the drawing). The search steps of the whole command are bounded by `BUDGET`, the products by `MAX_PRODUCTS`
+/// and the arrows by `MAX_ARROWS`; what is over is reported `too_large`. When any step would overlap, no operation is returned
+/// and the step says so (the command does not apply).
 pub fn plan(doc: &Document) -> Plan {
     let pieces = Pieces::of(doc);
-    let mut todo = pairs(doc, &pieces);
-    let mut waiting: HashSet<usize> = todo.iter().map(|p| p.1).collect();
-    let mut work = doc.clone();
+    let (todo, skipped) = pairs(doc, &pieces);
     let mut plan = Plan::default();
-    let mut spent = 0;
-    while !todo.is_empty() {
-        // the first product none of whose reactants is a product still waiting
-        let at = (0..todo.len())
-            .find(|&i| {
-                !todo[i]
-                    .2
-                    .iter()
-                    .any(|r| waiting.contains(r) && *r != todo[i].1)
-            })
-            .unwrap_or(0);
-        let (arrow, ti, from) = todo.remove(at);
-        waiting.remove(&ti);
-        spent += 1;
+    // the order: a product after the reactants that are products themselves (Kahn, the smallest index first; what is left in a
+    // cycle follows in the order of the drawing)
+    let index: HashMap<usize, usize> = todo.iter().enumerate().map(|(i, p)| (p.1, i)).collect();
+    let mut waits = vec![0usize; todo.len()];
+    let mut after: Vec<Vec<usize>> = vec![Vec::new(); todo.len()];
+    for (i, p) in todo.iter().enumerate() {
+        for r in p.2.iter().filter(|&&r| r != p.1) {
+            if let Some(&j) = index.get(r) {
+                waits[i] += 1;
+                after[j].push(i);
+            }
+        }
+    }
+    let mut ready: std::collections::BTreeSet<usize> =
+        (0..todo.len()).filter(|&i| waits[i] == 0).collect();
+    let mut order = Vec::with_capacity(todo.len());
+    let mut placed = vec![false; todo.len()];
+    while order.len() < todo.len() {
+        let next = match ready.pop_first() {
+            Some(i) => i,
+            None => (0..todo.len()).find(|&i| !placed[i]).unwrap_or(0),
+        };
+        if placed[next] {
+            continue;
+        }
+        placed[next] = true;
+        order.push(next);
+        for &d in &after[next] {
+            waits[d] = waits[d].saturating_sub(1);
+            if waits[d] == 0 && !placed[d] {
+                ready.insert(d);
+            }
+        }
+    }
+    let mut work = doc.clone();
+    let mut budget = Budget { left: BUDGET };
+    for (spent, &i) in order.iter().enumerate() {
+        let (arrow, ti, from) = &todo[i];
+        let (arrow, ti) = (*arrow, *ti);
         let first = pieces.list[ti][0];
-        if spent > MAX_PRODUCTS {
+        if spent >= MAX_PRODUCTS {
             let mut s = blank(0, first, Status::TooLarge);
             s.arrow = arrow;
             plan.steps.push(s);
@@ -738,9 +811,9 @@ pub fn plan(doc: &Document) -> Plan {
         }
         let mut got: Option<(Step, Vec<Op>)> = None;
         let mut limited = false;
-        for si in from.into_iter().filter(|&s| s != ti) {
+        for &si in from.iter().filter(|&&s| s != ti) {
             let (a, b) = (pieces.list[si][0], first);
-            let (step, ops) = solve_in(&work, &pieces, si, ti, a, b);
+            let (step, ops) = solve_in(&work, &pieces, si, ti, a, b, &mut budget);
             match step.status {
                 Status::NoCore => {}
                 Status::TooLarge => limited = true,
@@ -764,6 +837,11 @@ pub fn plan(doc: &Document) -> Plan {
             plan.ops.extend(ops);
         }
         plan.steps.push(step);
+    }
+    for id in skipped {
+        let mut s = blank(0, 0, Status::TooLarge);
+        s.arrow = id;
+        plan.steps.push(s);
     }
     if plan.steps.iter().any(|s| s.status == Status::Overlap) {
         plan.ops.clear();
