@@ -207,6 +207,7 @@ pub(crate) fn role(t: f64) -> usize {
 impl Document {
     /// The atoms `ids` with the bonds between them, as a document of their own.
     pub(crate) fn part(&self, ids: &[u32]) -> Document {
+        let ids: std::collections::HashSet<u32> = ids.iter().copied().collect();
         Document {
             atoms: (self.atoms.iter())
                 .filter(|a| ids.contains(&a.id))

@@ -434,8 +434,14 @@ pub fn import_bytes(bytes: &[u8]) -> Result<(Document, Imported), &'static str> 
 pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     let t = text.trim();
     let mut info = Imported::default();
-    // a transformation: the record `trasf/1` with its two records, one JSON text per line
-    if t.starts_with('{') && t.contains("\"trasf/1\"") && t.lines().count() > 1 {
+    // a transformation: the record `trasf/1` with its two records, one JSON text per line; the first line says it (`trasf/1`, or `mol/1`
+    // when the records come first), so a KET file or a document that mentions the text is not taken for one
+    let first = t.lines().next().unwrap_or("");
+    if t.lines().count() > 1
+        && first.starts_with('{')
+        && serde_json::from_str::<serde_json::Value>(first)
+            .is_ok_and(|v| v["format"] == "trasf/1" || v["format"] == "mol/1")
+    {
         let d = crate::trasf::from_trasf(t, &mut info)?;
         return checked(d, info, crate::trasf::READ);
     }
@@ -474,7 +480,17 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     if text.contains("M  END") {
         info.format = "molfile";
         let mut all = Document::default();
-        for record in text.split("$$$$").filter(|r| r.contains("M  END")) {
+        for (k, record) in text.split("$$$$").enumerate() {
+            // what is left of the `$$$$` line of the record before (the first record keeps its empty title line)
+            let record = match k {
+                0 => extra_blank_line(record),
+                _ => (record.strip_prefix("\r\n"))
+                    .or(record.strip_prefix('\n'))
+                    .unwrap_or(record),
+            };
+            if !record.contains("M  END") {
+                continue;
+            }
             if info.records == MAX_RECORDS {
                 info.skipped += 1;
                 continue;
@@ -530,6 +546,19 @@ pub(crate) fn record_of(
     let (mut d, placeholder) = labelled(&m, labels, info);
     d.set_maps(crate::maps::of_molfile(&clean), info);
     Ok((d, placeholder))
+}
+
+/// A molfile pasted with one blank line too many before its title: the counts line stands one line late (line 5 and not line 4),
+/// and the blank line is dropped. A molfile with an empty title line has its counts on line 4 and is left as it is.
+fn extra_blank_line(record: &str) -> &str {
+    let counts = |l: Option<&str>| l.is_some_and(|l| l.contains("V2000") || l.contains("V3000"));
+    let mut lines = record.lines();
+    let blank = lines.next().is_some_and(|l| l.trim().is_empty());
+    if blank && !counts(record.lines().nth(3)) && counts(record.lines().nth(4)) {
+        let at = record.find('\n').map_or(0, |i| i + 1);
+        return &record[at..];
+    }
+    record
 }
 
 /// A file may hold what a document does not (a coordinate far outside the bound): it is refused with `key`, not half kept.

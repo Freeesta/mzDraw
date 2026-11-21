@@ -2,20 +2,20 @@
 """Independent check of `save("trasf")` (plan-12), in the layout of tools/fidelity/maps.py.
 
 For each mapped reaction SMILES of tests/data/fidelity/trasf-set.txt (synthetic: hydroxylation, N-demethylation, ester hydrolysis,
-substitution, one more of each kind), RDKit writes the reaction as an RXN block (the input of mzDraw), mzDraw (the native `replay` example)
-reads it and writes `trasf/1` with its two records. This script then rebuilds the two molecules and the map from OUR record (not from the
-input) as a mapped reaction (`ReactionFromSmarts` on the SMILES of the two molecules with the map numbers of the record's pairs), runs that
-reaction on the parent with `RunReactants`, and compares the InChIKey of what RDKit makes with the InChIKey of the product record. The
-formula difference RDKit computes from the two records must also equal the record's `delta`. The hashes and the record rules are checked by
-mzLab's own reader in crates/mzdraw/tests/trasf.rs (the second check). Data goes to stdout, diagnostics to stderr.
+substitution), RDKit writes the reaction as an RXN block (the input of mzDraw) and mzDraw (the native `replay` example) reads it and writes
+`trasf/1` with its two records. RDKit then judges the INPUT reaction, not our records: `RunReactants` of the input reaction on the input
+reactant must make the InChIKey of our product record; the elements of the mapped pairs, of the lost and of the added atoms, the reaction
+centre (by element, not by atom index: ours are canonical indices) and the formula change are computed from the input and must equal what
+we wrote (`rec["map"]`, `added`, `centre`, `delta`). The hashes and the record rules are checked by mzLab's own reader in
+crates/mzdraw/tests/trasf.rs (the second check). Data goes to stdout, diagnostics to stderr.
 
 Usage:
   cargo build -p mzdraw --example replay
   python3 tools/fidelity/trasf.py --replay target/debug/examples/replay > tests/data/fidelity/trasf.json
 
 Exit 0 when every case agrees, 1 when one does not, 2 on a tool error, 3 when RDKit is not installed ("not measured"). RDKit is fetched at
-run time (`pip install rdkit`) and never committed; what is committed is the reference output: the program name and version, the date and
-per case the InChIKey RDKit made, the delta and an FNV-1a hash of our file.
+run time (`pip install rdkit`) and never committed; what is committed is the reference output: the program name and version and
+per case the checks, the InChIKey, the delta and an FNV-1a hash of our file.
 """
 import argparse, json, os, re, subprocess, sys
 
