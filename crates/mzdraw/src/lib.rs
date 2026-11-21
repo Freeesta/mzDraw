@@ -22,6 +22,7 @@ pub mod label;
 pub mod layout;
 mod m;
 pub mod ops;
+pub mod outcome;
 pub mod outline;
 pub mod palettes;
 pub mod png;

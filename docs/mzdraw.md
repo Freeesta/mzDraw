@@ -111,6 +111,43 @@ Generated from `schema::json()` (`"out":"schema"`); the test `crates/mzdraw/test
 | `ring` | mzdraw/1 | true | false | DropAtom and DropBond per new item, Next | `n` uint* (0..=255 (the editor takes 3..=8))<br>`arom` bool (default false)<br>`atom` uint (a corner of the ring)<br>`bond` uint (the bond the ring is fused on)<br>`x` number (bond length; the centre, default 0)<br>`y` number (bond length; the centre, default 0) |
 | `merge` |  | false | true |  | `from` uint*<br>`into` uint* |
 
+The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `expect` arms are these rows (`request` section of the table); a field or an arm outside it is an invalid request (`error.draw2.requestField`, `error.draw2.expect`). With `report`, `dry_run` or a non-empty `expect` the answer is the document `draw-result/1` (section "Replay result").
+
+| section | key | type | meaning |
+|---|---|---|---|
+| request | `import` | string | a structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES |
+| request | `style` | string\|object | the style of the SVG: a preset name or a settings file |
+| request | `set` | string[] | settings applied after `style`, each `<section>.<key>=<value>` |
+| request | `log` | json[] | the command log, operations of `draw_edit/1` |
+| request | `out` | string | the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings` |
+| request | `report` | bool | answer with one `draw-result/1` document instead of the bare output |
+| request | `dry_run` | bool | run and report everything, write nothing: the document has no `out`; implies `report` |
+| request | `expect` | object[] | postconditions on the final drawing, one arm each; a non-empty list implies `report` |
+| request | `id` | string\|uint | echoed as the `id` of the document (default: the index of the request in its batch) |
+| expect | `std` | string | `"none"`: the drawing has no `std/1` finding |
+| expect | `std_absent` | string[] | none of these `std/1` keys is found |
+| expect | `pieces` | uint | the atoms form exactly this many connected pieces |
+| expect | `smiles` | string | the SMILES of the whole drawing equals this text |
+
+## Replay result (`draw-result/1`)
+
+A replay request with `"report":true`, `"dry_run":true` or a non-empty `"expect"` is answered by ONE JSON document `draw-result/1` (nothing else on stdout); without them the answer is the bare output as before. Code: `crates/mzdraw/src/outcome.rs` and `replay.rs` (`replay_at` also gives `ok` and takes the index `n` of the request in its batch); schema: `docs/schemas/draw-result-1.json`. Keys, always in this order; a key that does not apply is left out:
+
+| key | type | when | meaning |
+|---|---|---|---|
+| `format` | string | always | `"draw-result/1"` |
+| `id` | string or integer | always | the request's own `id`, else `n`, the 0-based index of the request in its batch (0 for a single request) |
+| `ok` | bool | always | every op ran and every expectation holds |
+| `dry_run` | bool | only when true | the request asked for a dry run |
+| `patch` | array | with a goal (plan-27) | the canonical patch; not written by this slice |
+| `out` | string | `ok` and not a dry run | what `Editor::save(out)` wrote (`out` of the request, default `mzdraw`) |
+| `created` | object | always | `{"atoms":[ids],"bonds":[ids],"objects":[ids]}` = ids after minus before, ascending; empty lists left out, `{}` if none |
+| `removed` | object | always | the same for ids before minus after |
+| `failed` | object | the run stopped | `{"stage","op","key","id","candidates","rows"}`: `stage` is `log` (an op of the log), `select` (plan-24), `plan` (plan-27), `grant` (plan-28) or `command` (tp-01); `op` the 0-based index in `log` (or in `commands` for stage `command`); `key` the i18n key; `id` the id it is about (0 when none); `candidates` (stage `select`) the matched atom ids per match; `rows` (stage `command`, commands that read rows) `[{"line","key"}]`, last |
+| `expect` | array | the request had `expect` | one `{"check":<the request object>,"ok","detail"}` per expectation, in request order; `detail` is empty when `ok`; after a failed log every entry is `ok:false`, "not checked" |
+
+Exit codes (mzLab's table, no new code): 0 when `ok`; 1 when `ok` is false (an op refused for this document, or a false expectation; the document is on stdout; the example `replay` and `mzlab-cli` do this); 2 for an invalid request (not JSON, a field or an `expect` arm outside the table, an op outside the table, a malformed `id`), which is the keyed error and no document; an unreadable `import` keeps its code. `created` and `removed` describe the attempted run even when `ok` is false; nothing is written then, and a dry run runs everything and writes nothing. `goal` (plan-27) will join the three fields that make the answer a document. Expectations: `{"std":"none"}`, `{"std_absent":[keys]}`, `{"pieces":N}`, `{"smiles":"..."}` (the text `Editor::save("smiles")` gives for the whole drawing).
+
 ## Own document format `mzdraw/1` (open, versioned, round-trips everything the editor draws)
 JSON, compact, fixed field order, the `mol/1` conventions (empty fields omitted, same document = same bytes):
 `{format:"mzdraw/1", style:<name or object>, objects:[...], meta:{...}}`. Object kinds: `mol` (`id`, `atoms` and `bonds` as in `mol/1` with a stable `id` each, `xy`, `marks` = wedge/hash/wavy/aromatic display per bond, `groups` = abbreviations and their expansion, `rlabels`, `ann`), `arrow` (kind, points, text above/below), `text` (position, runs with sub/superscript), `plus`.
