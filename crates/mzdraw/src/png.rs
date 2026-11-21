@@ -157,9 +157,10 @@ mod tests {
         assert_eq!(carried(&old).unwrap().unwrap().to_json(), doc.to_json());
         let now = finish(&old, &doc, 11811).unwrap();
         assert_eq!(carried(&now).unwrap().unwrap().to_json(), doc.to_json());
-        assert!(now.windows(6).any(|w| w == crate::brand::SLUG.as_bytes()));
+        let has = |name: &str| now.windows(name.len()).any(|w| w == name.as_bytes());
+        assert!(has(crate::brand::SLUG));
         assert!(
-            !now.windows(6).any(|w| w == b"legacy"),
+            !has("legacy"),
             "the chunk of the earlier name is replaced, not kept"
         );
         assert!(carried(&file("other", &doc)).is_none());
