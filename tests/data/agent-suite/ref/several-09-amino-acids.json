@@ -1,0 +1,1 @@
+{"import":"NCC(=O)O.NC(C)C(=O)O.NC(CO)C(=O)O","log":[{"op":"move","atoms":[1,2,3,4,5],"dx":-9.5,"dy":-0.0},{"op":"move","atoms":[6,7,8,9,10,11],"dx":-0.5,"dy":-0.0},{"op":"move","atoms":[12,13,14,15,16,17,18],"dx":9.0,"dy":-0.0}],"out":"smiles"}
