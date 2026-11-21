@@ -251,6 +251,10 @@ Two chats never write the same zone at the same time.
 | **conform** | `conform.rs` |
 | **label** | `label.rs` |
 | **layout** | `layout.rs` (`scheme.rs` is its own zone) |
+| **tp** | `crates/mzdraw/src/tp.rs` (tp-03, tp-04, tp-10, in that order; §11) |
+| **pathway** | `crates/mzdraw/src/pathway.rs` (tp-05, then tp-07 for the label room; §11) |
+| **tp-list** | `crates/mzdraw/src/tp_list.rs`: `tp:import`, `tp:number` (tp-08; §11) |
+| **tp-table** | `crates/mzdraw/src/tptable.rs` (tp-09; §11) |
 | **tools** | `tools/<own dir>`, a new `tests/*.mjs` |
 | **new module** | one new file in `crates/mzdraw/src` |
 | **new modules of §9–§10** | each its own zone: `outcome.rs` (plan-20), `stereo_guard.rs` (plan-21), `loss.rs` (plan-22), `digest.rs` (plan-23), `select.rs` (plan-24), `plan.rs` (plan-27), `grant.rs` (plan-28), `chain.rs` (plan-30); `tools/agent-suite` (plan-19) |
@@ -554,3 +558,67 @@ These are listed here, not rewritten. Each chat applies its edit when it starts 
 | D28 | who owns the writers | mzDraw owns every writer (KET, CDXML, SVG, PNG, PDF); mzLab deletes its copies in the integration PR (refines D9). | COO 16, via COO-MZDRAW |
 | D29 | how mzLab links mzDraw | `mzlab-cli` depends on `mzdraw` as a git dependency with a pinned `rev`, and a `[patch]` section keeps one copy of `mzlab-mol` in its build. | COO 16, via COO-MZDRAW |
 | D30 | mzLab site | The site runs `mzdraw::replay` in mzDraw's own wasm module, under its guard of 4,000,000 B (`tools/wasm-cap.toml`). | COO 16, via COO-MZDRAW |
+
+## 11. Transformation products (ARCH TP-DRAW, 2026-11-21)
+Input: six ideas of an external LLM (Gemini) on drawing transformation products (TPs), given by the coordinator and treated as unverified. The owner's priorities are: (1) draw the TPs of a parent fast; (2) arrows that organise themselves, symmetric and well routed; (3) product tables. The sources, the overlap with this backlog and the verdicts are in `docs/study/tp-draw.md`. There are 11 prompts, `docs/prompts/tp-01..11-*.md`.
+
+### 11.1 Rows
+Same columns as §4, §9.4 and §10.3. "request row" has the meaning of §9.4 (D13).
+
+| # | id | item | status | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|---|
+| 81 | tp-01 | arrow anchors `from`/`to`; follow on commands; `commands` in the request | N | M | plan-01, plan-20 (E29) | document objects + `replay.rs` (`commands`) | **yes** (fields `from`, `to` on `obj.add`/`obj.set`, `mzlab:false`); request rows (incl. `std.scheme.anchor`) | brute-force clip sampler; parity |
+| 82 | tp-02 | anchoring by hand: arrow tool, `pathway:anchor`, `pathway:route` | N | S | tp-01; CTX-MENU page | input + `context.rs` arms | request row | velocity/1 (two new arrow tasks, four in all) |
+| 83 | tp-03 | `tp:derive`: copy the parent, keep its scaffold, maps and patch | N | M | tp-01, tp-02, tp-05 (settings), plan-11, plan-20; CTX-MENU page | new `tp.rs` | request row | RDKit mapped RXN, formula delta |
+| 84 | tp-04 | diff lens, `lens/1`, `display.lens` | N | S | tp-03 | `tp.rs` + scene | request row (`lens`, `display.lens`, `std.tp.unmapped`) | RDKit mapped sets |
+| 85 | tp-05 | pathway layout core `pathway:tree`, properties P1–P14 | N | M | tp-01, plan-20 | new `pathway.rs` | request row (`pathway:tree`, `boxes`, `pathway.*`, `std.scheme.*`) | independent Python re-check of the properties |
+| 86 | tp-06 | pathway layout on the page; Graphviz proof | N | S | tp-05, tp-02; CTX-MENU page | page + `palettes.rs`/`context.rs` arms + `tools/fidelity` | no | Graphviz `dot` ranks and crossings (optional) |
+| 87 | tp-07 | arrow labels computed: Δ formula, Δ mass | N | S | tp-01, tp-05, arch-web-17; arch-web-13 optional; tp-10 for names | `pathway.rs` | request row | RDKit formula and `ExactMolWt` |
+| 88 | tp-08 | `tp:import` of a TP list, `tp:number` | N | M | tp-01, tp-05, plan-20 (E29); tp-07 and plan-14 optional | new `tp_list.rs` | request row (`failed.rows`, reserved data names) | Python `csv` + RDKit canonical SMILES |
+| 89 | tp-09 | TP table out (`tptable/1`, CSV), SDF round trip | N | S | tp-08, tp-07, arch-web-17 | new `tptable.rs` | request row | RDKit masses; S66 column names (run-time) |
+| 90 | tp-10 | named steps, `sites/1`, derive by step | N | M | tp-03 | `tp.rs` + `label.rs` row | request row (`step`, `site`, `sites`, `steps`) | RDKit reaction SMARTS in the tool only |
+| 91 | tp-11 | step field on the page (`Shift+T`, `[` `]` while open) | N | S | tp-10 (its kill test passed); CTX-MENU page | input + page + overlay | no | velocity/1 |
+
+Deferred, no prompt: V3, the uncertain L3 TP drawn as a site mark mapped onto `trasf/1`'s uncertain form (after plan-12); the "metro" mode of tp-05 (polyline routing, lane pins, y by Δm/z or RT, after tp-06); a TP table drawn on the canvas (after tp-09).
+Dropped: arrow width or dash from peak areas (V4); the rigidity slider (V1); the journal preset compiler (V6, covered by arch-std-16).
+
+Totals after this section: 91 rows to run, 39 new prompts in all (11 from TP-DRAW).
+
+### 11.2 Waves
+- **Wave 2 tail** (after plan-01 and plan-20): tp-01.
+- **Wave 3:** tp-02, then tp-05 (both after tp-01), then tp-06. tp-02 and tp-06 touch the page and `context.rs`: serialize them with each other and with the CTX-MENU page PR.
+- **Wave 4:** tp-03 (after plan-11), then tp-04; tp-07 (after arch-web-17 and tp-05).
+- **Wave 5:** tp-08, then tp-09.
+- **Wave 6:** tp-10, then tp-11 (only if tp-10's kill test passes). tp-11 touches the page: serialize it with plan-16, arch-web-11 and plan-08.
+
+tp-01 is the only TP prompt that needs COO 16's agreement before its PR (two op fields). The others add request rows only (D13).
+
+### 11.3 Edits to existing prompts
+These are listed here, not rewritten. Each chat applies its edit when it starts (as §7).
+
+27. **E27 plan-13:** the request has two shapes for commands, with one meaning: the top-level singular `"command"` + `"args"` (plan-13's shape) is a `"commands"` list of length one (tp-01), and a request with both is invalid (exit 2). Rules for `scheme:row`:
+    - it sets no end of an arrow that has `from`/`to` (tp-01), and calls tp-01's `route` for it; free arrows keep plan-13's own rule;
+    - plan-13's argument `gap` (1.0) is not tp-05's setting `pathway.col_gap` (2.5), and the names stay apart;
+    - if plan-13 merges before tp-01, tp-01 makes the `route` change and adds `commands` next to plan-13's rows.
+28. **E28 plan-14 (amends E18; E18 stays, D32):** series orientation is not covered by the TP prompts.
+    - tp-03 inherits the parent's coordinates, so a TP made by `tp:derive` needs no orientation.
+    - tp-05 only moves whole structures.
+    - E18 (`scheme:orient-series`) stays for structures drawn or imported separately; tp-08 imports SMILES, whose computed coordinates are not oriented, and runs `scheme:orient` on each parent → TP pair once plan-14 exists.
+    - plan-14 rotates and flips; it never places structures (that is tp-05's).
+29. **E29 plan-20:** `draw-result/1` gains the following, with the key-table rows and the JSON Schema `docs/schemas/draw-result-1.json` updated with them:
+    - **stage `command`**: `failed.stage` takes `command` next to `log`, `select` (plan-24), `plan` and `grant` (E21). With stage `command`:
+      - `failed.op` is the 0-based index in the request's `commands` (or 0 for the singular `command`), not an index in `log`;
+      - `failed.key` is the command's refusal key;
+      - `failed.id` is the id it is about (0 when none).
+    - **exit 1** (a verdict, with `draw-result/1` on stdout) for a command that is refused for this document: a cycle, a site that does not fit, a bad row. An unknown command or an unknown argument is an invalid request (exit 2).
+    - **key `failed.rows`** (tp-08): an array `[{"line","key"}]` in line order, listing every failing row of a `tp:import`. It is placed last among the keys of `failed`, after `candidates`. It is present only for stage `command` when the command reads rows.
+    - **atomic** (D31): a refused command writes nothing and gives no `out`, as plan-20 states for the log.
+    - **`id`**: it stays the second key of the envelope (E26). These keys change nothing in its position.
+
+    If plan-20 has merged before tp-01 runs, tp-01 makes E29 in its PR; else plan-20 includes it.
+
+### 11.4 Decisions (21 Nov 2026)
+| # | question | decision | by |
+|---|---|---|---|
+| D31 | TP import with failing rows | Atomic: nothing is applied and there is no `out`; `failed.rows` lists every failing row. There is no partial import. | COO-MZDRAW (review of #54) |
+| D32 | does TP-DRAW cover plan-14's series orientation (E18) | No. TP-DRAW covers TPs made by derive. E18 stays for imported structures and series, and tp-08 calls `scheme:orient` once plan-14 exists (E28). | COO-MZDRAW (review of #54) |
