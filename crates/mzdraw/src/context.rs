@@ -324,6 +324,18 @@ impl Editor {
             "sel.flip.v" => self.flip(Axis::V),
             "pathway.tree" => self.pathway_tree(),
             "pathway.label" => self.pathway_label_page(""),
+            w if w.starts_with("labelmode.") => {
+                // the adduct stays with a mode that writes numbers; the other modes have none
+                let m = &w["labelmode.".len()..];
+                let adduct = self.label_choice(self.doc(), &Default::default()).1.adduct;
+                let keep = crate::steplabel::Mode::parse(m).is_some_and(|m| m.wants_mass());
+                self.set_label_choice(m, if keep { adduct.as_deref().unwrap_or("") } else { "" })
+            }
+            w if w.starts_with("labeladduct.") => {
+                let a = &w["labeladduct.".len()..];
+                let mode = self.label_choice(self.doc(), &Default::default()).0.name();
+                self.set_label_choice(mode, if a == "none" { "" } else { a })
+            }
             "canvas.add" => self.ask("import".into()),
             "canvas.fit" => self.ask("fit".into()),
             "canvas.save" => self.ask("save-image".into()),
@@ -521,6 +533,34 @@ impl Editor {
 
     /// The group `Colour` of the menus: automatic, the palette, a custom colour (asked on the page). `now` is the colour of what
     /// the menu is about (`Some("")` automatic, `None` mixed or none), which gets the check.
+    /// The two groups that choose what "Label arrows" writes: the mode and, for a mode with numbers, the adduct of the m/z. What is
+    /// ticked is what is in force (`labels_json`); the words of the choices come from the document field and the adduct list.
+    fn label_groups(&self) -> Vec<Value> {
+        let (mode, opts) = self.label_choice(self.doc(), &crate::steplabel::Opts::default());
+        let adduct = opts.adduct.unwrap_or_default();
+        let modes = crate::doc::LABEL_MODES.iter().map(|m| {
+            checked(
+                item(&format!("labelmode.{m}"), m, "", true),
+                mode.name() == *m,
+            )
+        });
+        let mut adducts = vec![checked(
+            item("labeladduct.none", "No adduct", "", true),
+            adduct.is_empty(),
+        )];
+        adducts.extend(crate::values::ADDUCTS.iter().map(|a| {
+            checked(item(&format!("labeladduct.{a}"), a, "", true), adduct == *a)
+        }));
+        vec![
+            group("pathway.labelmode", "Label mode", modes.collect()),
+            {
+                let mut g = group("pathway.labeladduct", "Label adduct", adducts);
+                g["enabled"] = json!(mode.wants_mass());
+                g
+            },
+        ]
+    }
+
     fn colour_group(&self, now: Option<String>) -> Value {
         let is = |hex: &str| now.as_deref() == Some(hex);
         let mut kids = vec![checked(item("colour.auto", "Automatic", "", true), is(""))];
@@ -626,6 +666,9 @@ impl Editor {
                 "",
                 a.from != 0 || a.to != 0,
             ));
+            if a.from != 0 && a.to != 0 {
+                items.extend(self.label_groups());
+            }
         }
         items.push(self.colour_group(self.doc().object(o).map(|x| x.col())));
         items.push(item("edit.delete", "Delete", "Del", true));
@@ -656,6 +699,9 @@ impl Editor {
         let anchored =
             (self.doc().objects.iter()).any(|o| o.t == ObjKind::Arrow && o.from != 0 && o.to != 0);
         items.push(item("pathway.route", "Route arrows", "", anchored));
+        if anchored {
+            items.extend(self.label_groups());
+        }
         // the diff lens has something to show only where an arrow joins a parent to a product; each press goes to the next mode
         if anchored {
             items.push(checked(
