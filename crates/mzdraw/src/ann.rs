@@ -32,6 +32,18 @@ pub fn levels_of(scale: &str) -> Option<&'static [&'static str]> {
     SCALES.iter().find(|s| s.0 == scale).map(|s| s.1)
 }
 
+/// The levels the page lists for the chosen `scale`, as (level, of the file): those of the scale (`false`), then `file_level`
+/// (the current level of a structure, as read from a file) when it is not one of them (`true`). A scale that is not in
+/// `SCALES` has no level of its own, so only `file_level` is listed. The empty "not annotated" choice is the surface's.
+pub fn level_list(scale: &str, file_level: &str) -> Vec<(String, bool)> {
+    let own = levels_of(scale).unwrap_or(&[]);
+    let mut list: Vec<(String, bool)> = own.iter().map(|l| (l.to_string(), false)).collect();
+    if !file_level.is_empty() && !own.contains(&file_level) {
+        list.push((file_level.to_string(), true));
+    }
+    list
+}
+
 /// The kinds of evidence the study names; any other kind of the same plain shape is kept.
 pub const KINDS: [&str; 7] = [
     "ms2-library",

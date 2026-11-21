@@ -88,15 +88,15 @@ function annFields(outline) {
     const scales = schema.scales.map((/** @type {any} */ x) => x.name);
     for (const n of [...scales, ...(scales.includes(a.scale) ? [] : [a.scale])]) scale.append(new Option(scales.includes(n) ? t(`draw2.ann.scale.${n}`) : t("draw2.ann.scale.file", { scale: n }), n));
     scale.value = a.scale;
-    const fill = () => {
-      const own = (schema.scales.find((/** @type {any} */ x) => x.name === scale.value) || { levels: [] }).levels, keep = level.value === undefined || !level.options.length ? a.level : level.value;
-      const extra = keep && keep === a.level && !own.includes(keep) ? [keep] : [];
-      level.replaceChildren(...["", ...own, ...extra].map((l) => new Option(!l ? t("draw2.ann.level.none") : own.includes(l) ? t("draw2.ann.level.m", { level: l, meaning: t(`draw2.ann.level.${scale.value}.${l}`) }) : t("draw2.ann.level.file", { level: l }), l)));
-      level.value = own.includes(keep) || extra.length ? keep : "";
+    const fill = (/** @type {string} */ keep = level.value) => {
+      // the list (and which level is "of the file") is the module's; the chosen level stays if the new list has it
+      const list = JSON.parse(ed.ann_levels(scale.value, a.level));
+      level.replaceChildren(new Option(t("draw2.ann.level.none"), ""), ...list.map((/** @type {any} */ x) => new Option(x.ofFile ? t("draw2.ann.level.file", { level: x.level }) : t("draw2.ann.level.m", { level: x.level, meaning: t(`draw2.ann.level.${scale.value}.${x.level}`) }), x.level)));
+      level.value = list.some((/** @type {any} */ x) => x.level === keep) ? keep : "";
     };
-    scale.addEventListener("change", fill);
-    fill();
-    level.value = a.level; id.type = "text"; id.value = a.identifier; id.maxLength = 200; evidence.value = a.evidence; note.value = a.note;
+    scale.addEventListener("change", () => fill());
+    fill(a.level);
+    id.type = "text"; id.value = a.identifier; id.maxLength = 200; evidence.value = a.evidence; note.value = a.note;
     evidence.rows = 2; note.rows = 1;
     const field = (/** @type {string} */ key, /** @type {HTMLElement} */ el) => { const l = document.createElement("label"); l.className = "d2-annf"; l.append(t(key), el); return l; };
     apply.type = "button"; apply.textContent = t("draw2.data.apply");

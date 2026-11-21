@@ -419,3 +419,23 @@ fn the_table_lists_both_scales_and_an_entry_is_written_with_its_scale() {
         ("charbonnet-2022", "5a", true)
     );
 }
+
+#[test]
+fn an_sdf_level_without_the_whole_annotation_is_read_on_the_default_scale() {
+    // a record with MZLAB_LEVEL alone (no MZLAB_ANN): the entry made from it names the default scale (formats.rs)
+    let plain = editor("CCO").save("sdf").unwrap();
+    let with =
+        |level: &str| plain.replace("$$$$\n", &format!(">  <MZLAB_LEVEL>\n{level}\n\n$$$$\n"));
+    let now = |e: &Editor| mzdraw::outline::pieces(e.doc())[0].ann.clone().unwrap();
+    let a = now(&editor(&with("2b")));
+    assert_eq!(
+        (a.scale.as_str(), a.level.as_str(), a.known),
+        (ann::SCALE, "2b", true)
+    );
+    // a level of the other scale, read this way, is kept as read and is not of the default scale
+    let a = now(&editor(&with("3b")));
+    assert_eq!(
+        (a.scale.as_str(), a.level.as_str(), a.known),
+        (ann::SCALE, "3b", false)
+    );
+}
