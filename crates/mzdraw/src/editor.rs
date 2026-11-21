@@ -149,6 +149,8 @@ pub struct Editor {
     pub session: Session,
     /// The steps of the last `scheme:orient` command (for the result document), empty before the first.
     pub(crate) orient_steps: Vec<crate::orient::Step>,
+    /// The rows `tp:import` refused in its last run, `(line, key)` in line order (`failed.rows` of the result document); empty otherwise.
+    pub(crate) failed_rows: Vec<(u32, String)>,
     pub view: View,
     pub tool: Tool,
     pub over: Overlay,
@@ -184,6 +186,79 @@ pub struct Editor {
     pub eat: Option<u32>,
 }
 
+/// The operations that add every atom, bond and object of `new`, moved by (`dx`, `dy`), with ids `base + id` (data and annotation come
+/// along with the atom that keeps them). One list, so a caller may join it with more operations in one undo step.
+pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> {
+    let mut ops = Vec::new();
+    for a in &new.atoms {
+        ops.push(Op::AtomAdd {
+            map: None,
+            id: Some(base + a.id),
+            el: a.el.clone(),
+            x: a.x + dx,
+            y: a.y + dy,
+        });
+        if a.chg != 0
+            || a.iso != 0
+            || a.rad != 0
+            || a.map != 0
+            || a.h.is_some()
+            || !a.lab.is_empty()
+        {
+            let some = |v: bool| v.then_some(());
+            ops.push(Op::AtomSet {
+                id: base + a.id,
+                el: None,
+                chg: some(a.chg != 0).map(|_| a.chg),
+                iso: some(a.iso != 0).map(|_| a.iso),
+                rad: some(a.rad != 0).map(|_| a.rad),
+                h: a.h,
+                lab: (!a.lab.is_empty()).then(|| a.lab.clone()),
+                map: (a.map != 0).then_some(a.map),
+            });
+        }
+        // the data of a structure (the fields of an SDF record) comes along with the atom that keeps it
+        let data = a.data();
+        if !data.is_empty() {
+            ops.push(Op::AtomData {
+                id: base + a.id,
+                data,
+            });
+        }
+        let ann = a.ann();
+        if !ann.is_empty() {
+            ops.push(Op::AtomAnn {
+                id: base + a.id,
+                ann,
+            });
+        }
+    }
+    for b in &new.bonds {
+        ops.push(Op::BondAdd {
+            id: Some(base + b.id),
+            a: base + b.a,
+            b: base + b.b,
+            o: b.o,
+            s: b.s,
+        });
+    }
+    for o in &new.objects {
+        let arrow = o.t == ObjKind::Arrow;
+        ops.push(Op::ObjAdd {
+            id: Some(base + o.id),
+            t: o.t,
+            x: o.x + dx,
+            y: o.y + dy,
+            x2: if arrow { o.x2 + dx } else { 0.0 },
+            y2: if arrow { o.y2 + dy } else { 0.0 },
+            text: o.text.clone(),
+            from: if o.from == 0 { 0 } else { base + o.from },
+            to: if o.to == 0 { 0 } else { base + o.to },
+        });
+    }
+    ops
+}
+
 impl Default for Editor {
     fn default() -> Self {
         Editor {
@@ -210,6 +285,7 @@ impl Default for Editor {
             nudge: None,
             move_here: false,
             orient_steps: Vec::new(),
+            failed_rows: Vec::new(),
             ctx: Default::default(),
             proposal: None,
             eat: None,
@@ -220,6 +296,11 @@ impl Default for Editor {
 impl Editor {
     pub fn doc(&self) -> &Document {
         &self.session.doc
+    }
+
+    /// The rows `tp:import` refused in its last run, `(line, key)` in line order; empty when it ran well or did not run.
+    pub fn failed_rows(&self) -> &[(u32, String)] {
+        &self.failed_rows
     }
 
     /// Runs an editor command of a request (`commands::run`: `move`, `rotate`, `flip`, `pathway:tree`) as one undo step; the refusal is
@@ -505,11 +586,49 @@ impl Editor {
 
     /// Adds the structure of a text (SMILES, molfile or SDF, `mzdraw/1`) to the right of the drawing, as one undo step.
     pub fn import(&mut self, text: &str) -> Result<io::Imported, &'static str> {
+        if crate::tp_list::looks_like(text) {
+            return self.import_list(text);
+        }
         self.import_placed(text).map(|r| r.0)
+    }
+
+    /// A list of transformation products (`tp_list`: a CSV with the header `smiles,name,parent,...`) as the Add field and the file
+    /// button take it: the command `tp:import` as one undo step. A refusal adds nothing and says the lines of the failing rows.
+    fn import_list(&mut self, text: &str) -> Result<io::Imported, &'static str> {
+        let rows = text.lines().count().saturating_sub(1);
+        match crate::commands::run(self, "tp:import", &serde_json::json!({ "csv": text })) {
+            Ok(()) => {
+                self.notice = ("", String::new());
+                Ok(io::Imported {
+                    format: "tp-list",
+                    records: rows,
+                    ..io::Imported::default()
+                })
+            }
+            Err(e) => {
+                if !self.failed_rows.is_empty() {
+                    let lines: Vec<String> = (self.failed_rows.iter().take(10))
+                        .map(|r| r.0.to_string())
+                        .collect();
+                    let more = if self.failed_rows.len() > 10 {
+                        ", \u{2026}"
+                    } else {
+                        ""
+                    };
+                    self.notice = ("draw2.say.tpRows", format!("{}{more}", lines.join(", ")));
+                }
+                Err(e.key)
+            }
+        }
     }
 
     /// `import` for the bytes of a file: also a PNG saved by mzDraw, which carries its document.
     pub fn import_bytes(&mut self, bytes: &[u8]) -> Result<io::Imported, &'static str> {
+        if let Ok(text) = std::str::from_utf8(bytes)
+            && crate::tp_list::looks_like(text)
+        {
+            return self.import_list(text);
+        }
         let read = io::import_bytes(bytes)?;
         self.add_read(read).map(|r| r.0)
     }
@@ -552,73 +671,7 @@ impl Editor {
         dy: f64,
     ) -> Result<Placed, &'static str> {
         let base = self.doc().next - 1;
-        let mut ops = Vec::new();
-        for a in &new.atoms {
-            ops.push(Op::AtomAdd {
-                map: None,
-                id: Some(base + a.id),
-                el: a.el.clone(),
-                x: a.x + dx,
-                y: a.y + dy,
-            });
-            if a.chg != 0
-                || a.iso != 0
-                || a.rad != 0
-                || a.map != 0
-                || a.h.is_some()
-                || !a.lab.is_empty()
-            {
-                let some = |v: bool| v.then_some(());
-                ops.push(Op::AtomSet {
-                    id: base + a.id,
-                    el: None,
-                    chg: some(a.chg != 0).map(|_| a.chg),
-                    iso: some(a.iso != 0).map(|_| a.iso),
-                    rad: some(a.rad != 0).map(|_| a.rad),
-                    h: a.h,
-                    lab: (!a.lab.is_empty()).then(|| a.lab.clone()),
-                    map: (a.map != 0).then_some(a.map),
-                });
-            }
-            // the data of a structure (the fields of an SDF record) comes along with the atom that keeps it
-            let data = a.data();
-            if !data.is_empty() {
-                ops.push(Op::AtomData {
-                    id: base + a.id,
-                    data,
-                });
-            }
-            let ann = a.ann();
-            if !ann.is_empty() {
-                ops.push(Op::AtomAnn {
-                    id: base + a.id,
-                    ann,
-                });
-            }
-        }
-        for b in &new.bonds {
-            ops.push(Op::BondAdd {
-                id: Some(base + b.id),
-                a: base + b.a,
-                b: base + b.b,
-                o: b.o,
-                s: b.s,
-            });
-        }
-        for o in &new.objects {
-            let arrow = o.t == ObjKind::Arrow;
-            ops.push(Op::ObjAdd {
-                id: Some(base + o.id),
-                t: o.t,
-                x: o.x + dx,
-                y: o.y + dy,
-                x2: if arrow { o.x2 + dx } else { 0.0 },
-                y2: if arrow { o.y2 + dy } else { 0.0 },
-                text: o.text.clone(),
-                from: if o.from == 0 { 0 } else { base + o.from },
-                to: if o.to == 0 { 0 } else { base + o.to },
-            });
-        }
+        let ops = place_ops(base, new, dx, dy);
         self.session.run(&ops).map_err(|e| e.key)?;
         Ok(Placed {
             atoms: new.atoms.iter().map(|a| base + a.id).collect(),

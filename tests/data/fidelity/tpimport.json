@@ -1,0 +1,9 @@
+{
+  "tool": "tools/fidelity/tpimport.py",
+  "reference": "RDKit 2026.09.2",
+  "date": "2026-11-21",
+  "list": "tests/data/tp/tp12.csv",
+  "rows": 12,
+  "checks": 92,
+  "passed": 92
+}

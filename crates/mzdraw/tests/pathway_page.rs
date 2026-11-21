@@ -155,13 +155,14 @@ fn the_context_menu_offers_the_layout_when_an_arrow_is_anchored_at_both_ends() {
 }
 
 #[test]
-fn the_two_words_of_the_layout_are_in_the_schema_and_set_the_layout() {
+fn the_words_of_the_layout_are_in_the_schema_and_set_the_layout() {
     let schema: Value = serde_json::from_str(&mzdraw::settings::schema_json()).unwrap();
     assert_eq!(
         schema["choices"],
         json!([
             {"key": "pathway.dir", "values": ["right", "down"], "default": "right"},
-            {"key": "pathway.order", "values": ["id", "mz", "rt"], "default": "id"}
+            {"key": "pathway.order", "values": ["id", "mz", "rt"], "default": "id"},
+            {"key": "pathway.number", "values": ["layout", "mz", "rt"], "default": "layout"}
         ])
     );
     // every word of the schema is accepted by `set`, and a word outside it is refused with its key
