@@ -1913,7 +1913,7 @@ try {
     await open(...bond, "bond"); eq(await pg.getAttribute(item("bond.s.up"), "aria-checked"), "true"); eq(await pg.getAttribute(item("bond.reverse"), "aria-disabled"), null, "a marked bond can be reversed");
     await pg.keyboard.press("Escape"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
     // an object: edit asks for the text field; delete is one undo step
-    await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "pathway.anchor", "pathway.free", "edit.delete"]);
+    await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "pathway.anchor", "pathway.free", "edit.colour", "colour.auto", "colour.black", "colour.red", "colour.orange", "colour.yellow", "colour.green", "colour.teal", "colour.blue", "colour.purple", "colour.magenta", "colour.brown", "colour.grey", "colour.custom", "edit.delete"]);
     await pg.click(item("edit.delete")); await want(pg, { objects: 0 }); await pg.keyboard.press("Control+z"); await want(pg, { objects: 1 });
     // a selection: a click inside it keeps it; rotate is one undo step; copy as SMILES reaches the clipboard of the system
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 13 });
