@@ -1,0 +1,189 @@
+{
+  "results": [
+    {
+      "name": "three atoms created, one atom and its bond removed",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":7,\\\"atoms\\\":[{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0},{\\\"id\\\":4,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":2.0},{\\\"id\\\":5,\\\"el\\\":\\\"O\\\",\\\"x\\\":1.0,\\\"y\\\":2.0},{\\\"id\\\":6,\\\"el\\\":\\\"N\\\",\\\"x\\\":2.0,\\\"y\\\":2.0}],\\\"bonds\\\":[]}\",\"created\":{\"atoms\":[4,5,6]},\"removed\":{\"atoms\":[1],\"bonds\":[3]}}",
+      "request": {
+        "import": "CC",
+        "log": [
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 0,
+            "y": 2
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": 1,
+            "y": 2
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2,
+            "y": 2
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "report": true
+      }
+    },
+    {
+      "name": "an op fails at index 4: no out",
+      "out": "{\"format\":\"draw-result/1\",\"id\":\"fail-4\",\"ok\":false,\"created\":{\"atoms\":[1,2,3],\"bonds\":[4]},\"removed\":{},\"failed\":{\"stage\":\"log\",\"op\":4,\"key\":\"error.draw2.noAtom\",\"id\":99}}",
+      "request": {
+        "id": "fail-4",
+        "log": [
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "a": 1,
+            "b": 2,
+            "op": "bond.add"
+          },
+          {
+            "a": 1,
+            "b": 99,
+            "op": "bond.add"
+          }
+        ],
+        "report": true
+      }
+    },
+    {
+      "name": "dry run: the same run without out",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{\"atoms\":[4,5,6]},\"removed\":{\"atoms\":[1],\"bonds\":[3]}}",
+      "request": {
+        "dry_run": true,
+        "import": "CC",
+        "log": [
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 0,
+            "y": 2
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": 1,
+            "y": 2
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2,
+            "y": 2
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ]
+      }
+    },
+    {
+      "name": "expect alone gives the envelope; every arm true",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"CCO\",\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"std\":\"none\"},\"ok\":true,\"detail\":\"\"},{\"check\":{\"std_absent\":[\"std.stereo.notCentre\"]},\"ok\":true,\"detail\":\"\"},{\"check\":{\"pieces\":1},\"ok\":true,\"detail\":\"\"},{\"check\":{\"smiles\":\"CCO\"},\"ok\":true,\"detail\":\"\"}]}",
+      "request": {
+        "expect": [
+          {
+            "std": "none"
+          },
+          {
+            "std_absent": [
+              "std.stereo.notCentre"
+            ]
+          },
+          {
+            "pieces": 1
+          },
+          {
+            "smiles": "CCO"
+          }
+        ],
+        "import": "CCO",
+        "out": "smiles"
+      }
+    },
+    {
+      "name": "expect false: pieces and smiles, no out",
+      "out": "{\"format\":\"draw-result/1\",\"id\":7,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"pieces\":1},\"ok\":false,\"detail\":\"the drawing has 2 pieces\"},{\"check\":{\"smiles\":\"CCO\"},\"ok\":false,\"detail\":\"the SMILES of the drawing is CC.O\"},{\"check\":{\"std\":\"none\"},\"ok\":true,\"detail\":\"\"}]}",
+      "request": {
+        "expect": [
+          {
+            "pieces": 1
+          },
+          {
+            "smiles": "CCO"
+          },
+          {
+            "std": "none"
+          }
+        ],
+        "id": 7,
+        "import": "CC.O",
+        "out": "smiles"
+      }
+    },
+    {
+      "n": 3,
+      "name": "the id of the batch when the request has none",
+      "out": "{\"format\":\"draw-result/1\",\"id\":3,\"ok\":true,\"out\":\"C\",\"created\":{\"atoms\":[1]},\"removed\":{}}",
+      "request": {
+        "log": [
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          }
+        ],
+        "out": "smiles",
+        "report": true
+      }
+    },
+    {
+      "name": "a failed log is not checked against expect",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"log\",\"op\":0,\"key\":\"error.draw2.noAtom\",\"id\":9},\"expect\":[{\"check\":{\"pieces\":0},\"ok\":false,\"detail\":\"not checked: the log failed\"}]}",
+      "request": {
+        "expect": [
+          {
+            "pieces": 0
+          }
+        ],
+        "log": [
+          {
+            "el": "N",
+            "id": 9,
+            "op": "atom.set"
+          }
+        ]
+      }
+    }
+  ]
+}
