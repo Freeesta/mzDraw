@@ -440,3 +440,74 @@ fn the_arrow_tasks_never_anchor_a_wrong_structure() {
     eprintln!("kill test: {anchored}/{total} arrows anchored to the structures they were drawn between; 1 action each");
     assert_eq!(anchored, total);
 }
+
+#[test]
+fn a_pathway_item_that_changes_nothing_is_no_change_and_does_not_say_it_anchored() {
+    use mzdraw::editor::CHANGED;
+    // already anchored and routed: Anchor and Route arrows and Free ends (once freed) move nothing
+    let mut e = editor(&scheme(
+        5.0,
+        json!([{"id":10,"t":"arrow","x":1.6,"y":0.0,"x2":5.4,"y2":0.0,"from":2,"to":7}]),
+    ));
+    let p = px(&e, 3.5, 0.0);
+    e.context_menu(p.0, p.1);
+    assert_eq!(
+        e.context_run("pathway.anchor") & CHANGED,
+        CHANGED,
+        "the first run routes it"
+    );
+    let (steps, doc) = (e.session.steps(), e.doc().to_json());
+    e.context_menu(p.0, p.1);
+    assert_eq!(e.context_run("pathway.anchor") & CHANGED, 0);
+    assert_eq!(e.said.0, "draw2.say.anchorSame");
+    let c = px(&e, 20.0, 20.0);
+    e.context_menu(c.0, c.1);
+    assert_eq!(e.context_run("pathway.route") & CHANGED, 0);
+    assert_eq!(e.said.0, "draw2.say.routeNone");
+    assert_eq!((e.session.steps(), e.doc().to_json()), (steps, doc));
+    // Free ends on an arrow with no anchor is not offered enabled, and a run that reaches the module changes nothing
+    let mut f = editor(&free_arrow_scheme());
+    let p = px(&f, 8.0, 0.0);
+    f.context_menu(p.0, p.1);
+    assert_eq!(f.context_run("pathway.free") & CHANGED, 0);
+    assert_eq!(f.session.steps(), 1);
+}
+
+#[test]
+fn both_ends_in_reach_of_the_same_structure_anchor_only_the_nearer_end() {
+    // the tail is 0.5 and the head 0.9 above structure A (B is far away): only the tail is anchored, the head stays free
+    let text = scheme(
+        9.0,
+        json!([{"id":10,"t":"arrow","x":0.2,"y":0.5,"x2":0.9,"y2":0.9}]),
+    );
+    let r = replay(
+        json!({"import": text, "commands":[{"command":"pathway:anchor","args":{"arrow":10}}], "out":"mzdraw"}),
+    );
+    let a = &r["objects"][0];
+    assert_eq!(
+        (a["from"].clone(), a["to"].as_u64().unwrap_or(0)),
+        (json!(2), 0)
+    );
+}
+
+#[test]
+fn a_dry_run_reports_and_writes_nothing() {
+    let text = free_arrow_scheme();
+    let cmd = json!([{"command":"pathway:anchor","args":{"arrow":10}},{"command":"pathway:route"}]);
+    let dry = replay(json!({"import": text, "commands": cmd, "dry_run": true}));
+    assert_eq!(dry["ok"], true);
+    assert_eq!(dry["dry_run"], true);
+    assert!(dry.get("out").is_none(), "a dry run writes no document");
+    assert_eq!(dry["created"], json!({}));
+    // the same request without dry_run does anchor, so the dry run is what told "ok" without writing
+    let real = replay(json!({"import": text, "commands": cmd, "out": "mzdraw"}));
+    assert_eq!(real["objects"][0]["from"], 2);
+    // a refused command is a verdict in a dry run too
+    let bad = replay(
+        json!({"import": text, "commands":[{"command":"pathway:anchor","args":{"arrow":3}}], "dry_run": true}),
+    );
+    assert_eq!(
+        (bad["ok"].clone(), bad["failed"]["stage"].clone()),
+        (json!(false), json!("command"))
+    );
+}

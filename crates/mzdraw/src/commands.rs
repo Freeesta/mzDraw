@@ -70,8 +70,8 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     if name.starts_with("pathway:") {
         let id = pathway_args(name, args).map_err(bad)?;
         return match id {
-            Some(arrow) => e.pathway_anchor(arrow),
-            None => e.pathway_route(),
+            Some(arrow) => e.pathway_anchor(arrow).map(|_| ()),
+            None => e.pathway_route().map(|_| ()),
         };
     }
     if name == "scheme:row" {

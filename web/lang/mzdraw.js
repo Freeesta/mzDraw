@@ -125,6 +125,8 @@ I18N.add("en", {
   "draw2.say.routed": "Arrows routed: {what}.",
   "draw2.say.routeNone": "Arrows already routed: nothing moved.",
   "draw2.say.freed": "Arrow ends freed.",
+  "draw2.say.freeNone": "The arrow has no anchored end: nothing to free.",
+  "draw2.say.anchorSame": "Arrow already anchored: {what}; nothing moved.",
   "draw2.say.plus": "Plus sign added.",
   "error.draw2.text": "Type one line of text, at most 200 characters.",
   "error.draw2.object": "That arrow, plus sign or text is not valid.",

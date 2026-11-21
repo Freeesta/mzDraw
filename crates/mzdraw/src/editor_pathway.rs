@@ -27,15 +27,24 @@ impl Editor {
 
     /// `pathway:anchor`: anchors each end of the arrow `id` to the nearest structure within one bond length, routes it, one undo
     /// step. An end with nothing in reach is reported in the live line and left as it was.
-    pub(crate) fn pathway_anchor(&mut self, id: u32) -> Result<(), OpError> {
+    pub(crate) fn pathway_anchor(&mut self, id: u32) -> Result<bool, OpError> {
         self.arrow_check(id)?;
         let (ops, now) = route::anchor(self.doc(), id, REACH, &self.style).unwrap_or_default();
         let any = now != [0, 0];
-        if !ops.is_empty() {
+        let changed = !ops.is_empty();
+        if changed {
             self.session.run(&ops)?;
         }
         self.error = "";
         self.said = match (now[0] != 0, now[1] != 0) {
+            (true, true) if !changed => (
+                "draw2.say.anchorSame",
+                format!(
+                    "{} \u{2192} {}",
+                    route::formula_of(self.doc(), now[0]),
+                    route::formula_of(self.doc(), now[1])
+                ),
+            ),
             (true, true) => (
                 "draw2.say.anchored",
                 format!(
@@ -51,11 +60,11 @@ impl Editor {
             _ => ("draw2.say.anchorNone", String::new()),
         };
         self.prune();
-        Ok(())
+        Ok(changed)
     }
 
     /// `pathway:route`: routes every anchored arrow in one undo step; no step when nothing moves.
-    pub(crate) fn pathway_route(&mut self) -> Result<(), OpError> {
+    pub(crate) fn pathway_route(&mut self) -> Result<bool, OpError> {
         let ops = route::route_all(self.doc(), &self.style);
         let n = (ops.iter())
             .filter_map(|o| match o {
@@ -65,7 +74,8 @@ impl Editor {
             })
             .collect::<std::collections::BTreeSet<_>>()
             .len();
-        if !ops.is_empty() {
+        let changed = !ops.is_empty();
+        if changed {
             self.session.run(&ops)?;
         }
         self.error = "";
@@ -75,17 +85,14 @@ impl Editor {
             ("draw2.say.routed", n.to_string())
         };
         self.prune();
-        Ok(())
+        Ok(changed)
     }
 
     /// Frees both ends of the arrow `id` (`obj.set` with `from` and `to` 0), one undo step; none when it has no anchor.
-    pub(crate) fn pathway_free(&mut self, id: u32) -> Result<(), OpError> {
+    pub(crate) fn pathway_free(&mut self, id: u32) -> Result<bool, OpError> {
         self.arrow_check(id)?;
-        if self
-            .doc()
-            .object(id)
-            .is_some_and(|o| o.from != 0 || o.to != 0)
-        {
+        let changed = (self.doc().object(id)).is_some_and(|o| o.from != 0 || o.to != 0);
+        if changed {
             self.session.run(&[Op::ObjSet {
                 id,
                 text: None,
@@ -96,14 +103,19 @@ impl Editor {
             }])?;
         }
         self.error = "";
-        self.said = ("draw2.say.freed", String::new());
-        Ok(())
+        self.said = if changed {
+            ("draw2.say.freed", String::new())
+        } else {
+            ("draw2.say.freeNone", String::new())
+        };
+        Ok(changed)
     }
 
     /// Flags of a pathway command run from the page.
-    pub(crate) fn pathway_flags(&mut self, r: Result<(), OpError>) -> u32 {
+    pub(crate) fn pathway_flags(&mut self, r: Result<bool, OpError>) -> u32 {
         match r {
-            Ok(()) => REPAINT | CHANGED,
+            Ok(true) => REPAINT | CHANGED,
+            Ok(false) => REPAINT,
             Err(e) => {
                 self.error = e.key;
                 REPAINT
