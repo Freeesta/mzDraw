@@ -5,6 +5,9 @@ use mzdraw::pathway::{self, Col, Gap, Layout};
 use mzdraw::{Document, Style};
 use serde_json::json;
 
+#[path = "support/timing.rs"]
+mod timing;
+
 /// A pathway of `n` equal structures (C-C-O) joined by the arrows `edges`.
 fn synthetic(n: usize, edges: &[(usize, usize)]) -> Document {
     let (mut atoms, mut bonds, mut objs, mut first) =
@@ -239,18 +242,15 @@ fn forced(n: usize) -> (Vec<Col>, Vec<Col>, Vec<(usize, usize)>) {
 
 fn forced_time(n: usize) -> f64 {
     let (l, r, e) = forced(n);
-    (0..3)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            let g = pathway::crossing_gap(&l, &r, &e, (1.0, 6.0), 2.5, 0.35);
-            assert_eq!(g, Gap::Bound);
-            t.elapsed().as_secs_f64()
-        })
-        .fold(f64::MAX, f64::min)
+    timing::best_of(1, 7, || {
+        let g = pathway::crossing_gap(&l, &r, &e, (1.0, 6.0), 2.5, 0.35);
+        assert_eq!(g, Gap::Bound);
+    })
+    .as_secs_f64()
 }
 
 /// The cost of the rule, alone, when it runs all its steps: four times the structures must cost about four times (a linear scan of
-/// the column per arrow would cost sixteen), in debug as in release, best of three, no floor.
+/// the column per arrow would cost sixteen), in debug as in release, best of seven on the thread's CPU time, no floor.
 #[test]
 fn scaling_the_rule_alone_at_its_bound_is_linear_in_the_arrows() {
     let (small, big) = (forced_time(250), forced_time(1000));

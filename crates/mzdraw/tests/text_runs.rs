@@ -5,6 +5,9 @@ use mzdraw::io::import;
 use mzdraw::runs::{self, Run};
 use mzdraw::{Document, Editor, ObjKind, Op, Session};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 fn add_text(runs: Vec<Run>) -> Op {
     Op::ObjAdd {
         id: None,
@@ -491,15 +494,9 @@ fn the_svg_escapes_what_a_text_can_hold() {
     assert!(!svg.contains("<x>"));
 }
 
-/// The best of a few runs, in seconds.
-fn best(mut f: impl FnMut()) -> f64 {
-    (0..3)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            f();
-            t.elapsed().as_secs_f64()
-        })
-        .fold(f64::MAX, f64::min)
+/// The least CPU time of the thread over seven runs after one warm-up, in seconds.
+fn best(f: impl FnMut()) -> f64 {
+    timing::best_of(1, 7, f).as_secs_f64()
 }
 
 /// The time of `work` at two sizes four times apart is within a bound of linear (4): a quadratic one is 16.

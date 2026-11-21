@@ -6,6 +6,9 @@ use mzdraw::doc::Document;
 use mzdraw::editor::{CHANGED, REPAINT};
 use mzdraw::{Editor, Op, Session};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 const DOC: &str = r##"{"format":"mzdraw/1","next":8,"atoms":[{"id":1,"el":"C","x":0.0,"y":0.0},{"id":2,"el":"C","x":1.0,"y":0.5},{"id":3,"el":"O","x":2.0,"y":0.0},{"id":4,"el":"N","x":1.0,"y":1.5}],"bonds":[{"id":5,"a":1,"b":2,"o":1},{"id":6,"a":2,"b":3,"o":2},{"id":7,"a":2,"b":4,"o":1}]}"##;
 
 fn session() -> Session {
@@ -444,17 +447,12 @@ fn colouring_grows_with_the_size_not_with_its_square() {
         let d = chain(n);
         let atoms: Vec<u32> = d.atoms.iter().map(|a| a.id).collect();
         let bonds: Vec<u32> = d.bonds.iter().map(|b| b.id).collect();
-        (0..5)
-            .map(|_| {
-                let mut s = Session::new(d.clone());
-                let t = std::time::Instant::now();
-                s.run(&[colour(&atoms, &bonds, "#d00000")]).unwrap();
-                let _ = s.doc.to_json();
-                assert!(s.undo());
-                t.elapsed()
-            })
-            .min()
-            .unwrap()
+        timing::best_of(1, 7, || {
+            let mut s = Session::new(d.clone());
+            s.run(&[colour(&atoms, &bonds, "#d00000")]).unwrap();
+            let _ = s.doc.to_json();
+            assert!(s.undo());
+        })
     };
     let (small, big) = (cost(20_000), cost(40_000));
     eprintln!("20,000 atoms {small:?}, 40,000 atoms {big:?}");

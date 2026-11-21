@@ -6,6 +6,9 @@ use mzdraw::loss::{loss, observed, FORMATS};
 use mzdraw::{io, Editor};
 use std::collections::BTreeSet;
 
+#[path = "support/timing.rs"]
+mod timing;
+
 /// xorshift: repeatable pseudo-random choices, not a dependency.
 struct Rng(u64);
 impl Rng {
@@ -498,13 +501,10 @@ fn a_drawing_at_the_cap_with_wedges_is_listed_in_time_and_one_above_it_is_refuse
 fn four_times_the_drawing_takes_about_four_times_the_time() {
     let best = |n: u32, format: &str| {
         let d = chain(n, true);
-        (0..2)
-            .map(|_| {
-                let t = std::time::Instant::now();
-                loss(&d, format).unwrap();
-                t.elapsed().as_secs_f64()
-            })
-            .fold(f64::MAX, f64::min)
+        timing::best_of(1, 3, || {
+            loss(&d, format).unwrap();
+        })
+        .as_secs_f64()
     };
     for format in ["molfile", "cdxml", "ket"] {
         let (small, big) = (best(6_250, format), best(25_000, format));

@@ -135,6 +135,10 @@ const tapPalette = async (pg, id, show) => {
   await pg.tap('[data-testid="d2-palettes"]'); await pg.tap(`[data-testid="d2-menu-hidden-${id}"]`); await pg.tap('[data-testid="d2-palettes"]'); await frames(pg);
   assert(!!(await rects(pg))[id] === show, `the ${id} palette is ${show ? "shown" : "hidden"}`);
 };
+/** holds a finger or a pen still: waits until the PAGE's own clock (the one of the event timestamps, which the module reads the press time
+ *  from) is `ms` past the moment the press was sent, so the press is long on the clock that decides it, whatever the speed of this
+ *  machine or of the driver (a fixed sleep of the driver is not a duration of the page) */
+const hold = async (pg, ms = 700) => { const t0 = await pg.evaluate("performance.now()"); await until(pg, `performance.now() >= ${t0 + ms}`); };
 const frames = pg => pg.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
 /** opens or closes a palette `<details>` by its summary and waits for the page to say so (the palettes lay themselves out again after
  *  a toggle: a click made before that lands on what moved). On failure the message carries the state of every such element. */
@@ -1514,8 +1518,19 @@ try {
     await tool(pg, "select"); await pg.touchscreen.tap(cx, cy); await want(pg, { selected: 1 });
     await tapPalette(pg, "data", true);                 // the field is in the Data palette, which the tablet preset keeps hidden
     if (!(await pg.evaluate("document.querySelector('#d2-data-more').open"))) await pg.locator("#d2-data-more summary").evaluate(el => el.click());
+    await until(pg, "document.querySelector('#d2-data-more').open"); await frames(pg);
 
-    const tapOn = async sel => { await pg.locator(sel).scrollIntoViewIfNeeded(); const b = await pg.locator(sel).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+    // the palettes lay themselves out again after a toggle or a scroll: tap where the target has stopped moving (two frames apart, the same box)
+    const tapOn = async sel => {
+      await pg.locator(sel).scrollIntoViewIfNeeded();
+      let b = null;
+      for (let i = 0; i < 200; i++) {
+        await frames(pg); const c = await pg.locator(sel).boundingBox();
+        if (b && c && b.x === c.x && b.y === c.y && b.width === c.width && b.height === c.height) break;
+        b = c;
+      }
+      await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+    };
     await tapOn("#d2-map"); await pg.keyboard.type("4"); await tapOn("#d2-map-set");
     await until(pg, "document.querySelector('#d2-map-note').textContent === I18N.t('draw2.map.done', { n: 4 })");
     assert((await pg.evaluate("window.MZDRAW.save('mzdraw')")).includes('"map":4'), "the document keeps the map");
@@ -1779,7 +1794,7 @@ try {
     const box = await pg.locator("#d2-canvas").boundingBox();
     const [ax, ay] = [box.x + atom[0], box.y + atom[1]];
     await touch("touchStart", [[1, ax, ay]]);
-    await pg.waitForTimeout(700);
+    await hold(pg);
     await touch("touchEnd", []);
     await want(pg, { selected: 1, atoms: 6, bonds: 6 });
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.selected')"));
@@ -2076,7 +2091,7 @@ try {
     // a short tap opens nothing; a finger held still opens the menu of what is under it and selects it
     await touch("touchStart", [atom]); await pg.waitForTimeout(100); await touch("touchEnd", []);
     await shown(pg, false);
-    await touch("touchStart", [atom]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await touch("touchStart", [atom]); await hold(pg); await touch("touchEnd", []);
     await shown(pg); let m = await menuNow(pg); eq([m.target, m.kind], ["atom", "touch"]); await want(pg, { selected: 1 });
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-menu .ctx > button')].filter(b => b.getBoundingClientRect().height < 44).length"), 0);
     const r = await pg.locator("#d2-menu .ctx").boundingBox();
@@ -2088,14 +2103,14 @@ try {
     assert((await doc()) !== before, "the charge item ran"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
     // an empty spot held still: the canvas menu, nothing is drawn even with a tool that draws
     await tool(pg, "atom:N");
-    await touch("touchStart", [[cx - 300, cy - 300]]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await touch("touchStart", [[cx - 300, cy - 300]]); await hold(pg); await touch("touchEnd", []);
     await shown(pg); eq((await menuNow(pg)).target, "canvas"); eq(await doc(), before);
     // a press elsewhere closes it and still draws
     await touch("touchStart", [[cx - 300, cy - 300]]); await touch("touchEnd", []);
     await shown(pg, false); await want(pg, { atoms: 7 }); await pg.keyboard.press("Control+z");
     // the pen: held still opens it (the pen kind), a stroke does not
     const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
-    await pen("mouseMoved", ...atom); await pen("mousePressed", ...atom); await pg.waitForTimeout(700); await pen("mouseReleased", ...atom);
+    await pen("mouseMoved", ...atom); await pen("mousePressed", ...atom); await hold(pg); await pen("mouseReleased", ...atom);
     await shown(pg); eq((await menuNow(pg)).kind, "pen");
     await pg.keyboard.press("Escape"); await shown(pg, false);
     // the barrel button of a pen asks for the menu at the press, and the tool does not act (no stray atom)
@@ -2293,7 +2308,7 @@ try {
     const cdp = await ctx.newCDPSession(pg);
     const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
     let before = await tpOpen(); let at = await tpAtom();
-    await touch("touchStart", [at]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await touch("touchStart", [at]); await hold(pg); await touch("touchEnd", []);
     await tpShown(); eq((await tpMenu()).kind, "touch");
     const [bx, by] = await center(pg, '[data-testid="d2-ctx-tp.derive"]');
     await pg.touchscreen.tap(bx, by); await tpShown(false); await frames(pg);
@@ -2358,7 +2373,7 @@ try {
     const before = await stOpen();
     await stMenuKey(); await pg.keyboard.type("+O");
     const rings = await stRings(); await pg.keyboard.press("Escape"); await until(pg, `document.getElementById("d2-step").hidden`);
-    await touch("touchStart", [rings[0]]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await touch("touchStart", [rings[0]]); await hold(pg); await touch("touchEnd", []);
     await tpShown(); eq((await tpMenu()).kind, "touch");
     eq((await pg.innerText(`[data-testid="d2-ctx-tp.step"]`)).split("\n"), [await pg.evaluate("I18N.t('draw2.ctx.tp.step')")]);
     const [bx, by] = await center(pg, '[data-testid="d2-ctx-tp.step"]');
@@ -2470,7 +2485,7 @@ try {
     const cdp = await ctx.newCDPSession(pg);
     const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
     const before = await clOpen(), at = await clOxygen();
-    await touch("touchStart", [at]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await touch("touchStart", [at]); await hold(pg); await touch("touchEnd", []);
     await tpShown(); eq((await tpMenu()).kind, "touch");
     await pg.touchscreen.tap(...await center(pg, '[data-testid="d2-ctx-edit.colour"]'));
     await pg.touchscreen.tap(...await center(pg, '[data-testid="d2-ctx-colour.blue"]')); await tpShown(false); await frames(pg);
@@ -2936,7 +2951,7 @@ try {
     const menu = () => pg.evaluate(`(() => { const m = document.getElementById("d2-menu"); return m.hidden ? null : { target: m.dataset.target, kind: m.dataset.kind, ids: [...m.querySelectorAll("button[data-id]")].map(b => b.dataset.id) }; })()`);
     const shown = (on = true) => until(pg, `document.getElementById("d2-menu").hidden === ${!on}`);
     for (const mode of ["tint", "tint+ghost", "off"]) {
-      await touch("touchStart", [spot]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+      await touch("touchStart", [spot]); await hold(pg); await touch("touchEnd", []);
       await shown(); eq((await menu()).kind, "touch"); eq((await menu()).target, "canvas");
       assert((await menu()).ids.includes("canvas.lens"), "the lens item is in the menu of a canvas that has an anchored arrow");
       const [bx, by] = await center(pg, '[data-testid="d2-ctx-canvas.lens"]');

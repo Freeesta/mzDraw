@@ -7,6 +7,9 @@ use mzdraw::{Document, Editor, Op, Session};
 use serde_json::{json, Value};
 use std::time::Instant;
 
+#[path = "support/timing.rs"]
+mod timing;
+
 fn ops(v: Value) -> Vec<Op> {
     v.as_array()
         .unwrap()
@@ -320,25 +323,20 @@ fn editor(doc: Document) -> Editor {
     e
 }
 
-/// The best of three runs of `f`, in milliseconds (noise only ever adds time).
+/// The least CPU time of the thread over seven runs of `f` after one that is not timed, in milliseconds (`support/timing.rs`: the
+/// time the thread waited for a core on a busy machine is not counted, and noise only ever adds time).
 fn best(mut f: impl FnMut()) -> f64 {
-    (0..3)
-        .map(|_| {
-            let at = Instant::now();
-            f();
-            at.elapsed().as_secs_f64() * 1000.0
-        })
-        .fold(f64::MAX, f64::min)
+    timing::best_of(1, 7, &mut f).as_secs_f64() * 1000.0
 }
 
 /// The time of `run` on the input of `n` and of `4n` (built by `setup`, outside the clock) must not differ by more than a factor 8:
-/// linear work gives 4 and quadratic work 16; the floor of 40 ms keeps noise out, and `n` is large enough that quadratic work is
-/// seconds in a release build too.
+/// linear work gives 4 and quadratic work 16, and the bound has no floor, so it is the same at every speed; `n` is large enough that
+/// quadratic work is seconds in a release build too.
 fn scales<T>(what: &str, n: u32, setup: impl Fn(u32) -> T, run: impl Fn(&T)) {
     let (small, big) = (setup(n), setup(4 * n));
     let (a, b) = (best(|| run(&small)), best(|| run(&big)));
     assert!(
-        b <= (a * 8.0).max(40.0),
+        b <= a * 8.0,
         "{what}: {a:.1} ms for {n}, {b:.1} ms for {}",
         4 * n
     );

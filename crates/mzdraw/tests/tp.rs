@@ -4,6 +4,9 @@
 use mzdraw::{Document, Editor};
 use serde_json::{json, Value};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 /// N-methyl caprolactam drawn as a hexagon: N1, C2 (C=O, O 8), C3..C6; methyl 7 on N. Atom ids 1..8, bond ids 9..16, next 17.
 fn lactam(dx: f64) -> Value {
     let p = |k: f64| {
@@ -382,19 +385,16 @@ fn many(n: u32) -> String {
     json!({"format":"mzdraw/1","next":3 * n + 1,"atoms":atoms,"bonds":bonds}).to_string()
 }
 
-/// The best of three runs of `derives` derives from the first structure of a drawing of `n` structures, in seconds.
+/// The least CPU time of the thread over five runs (after a warm-up) of `derives` derives from the first structure of a drawing of `n` structures, in seconds.
 fn derive_time(n: u32, derives: usize) -> f64 {
     let doc = many(n);
     let cmds: Vec<Value> = (0..derives).map(|_| derive(1, json!([]))).collect();
     let req = json!({"import": doc, "commands": cmds, "report": true}).to_string();
-    (0..3)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            let r: Value = serde_json::from_str(&mzdraw::replay::replay(&req).unwrap()).unwrap();
-            assert_eq!(r["ok"], true, "{r}");
-            t.elapsed().as_secs_f64()
-        })
-        .fold(f64::MAX, f64::min)
+    timing::best_of(1, 5, || {
+        let r: Value = serde_json::from_str(&mzdraw::replay::replay(&req).unwrap()).unwrap();
+        assert_eq!(r["ok"], true, "{r}");
+    })
+    .as_secs_f64()
 }
 
 #[test]
@@ -411,7 +411,7 @@ fn the_cost_of_a_derive_grows_linearly_with_the_drawing() {
     }
     let big = derive_time(2 * n, 6);
     assert!(
-        big < 3.0 * small + 0.02,
+        big < 3.0 * small,
         "{n} structures {small:.3} s, {} structures {big:.3} s",
         2 * n
     );

@@ -1029,7 +1029,12 @@ pub fn label_extent(doc: &Document, a: &Atom, style: &crate::settings::Style) ->
 }
 
 #[cfg(test)]
+#[path = "../tests/support/timing.rs"]
+mod timing;
+
+#[cfg(test)]
 mod tests {
+    use super::timing;
     use super::*;
     /// `n` pairs: a triangle (maps 1, 2, 3) and a chain with the same maps, which lacks the bond 3-1 (one ghost per pair).
     fn pairs(n: u32) -> Document {
@@ -1085,29 +1090,30 @@ mod tests {
         let doc = pairs(n);
         // the ghosts as the lens gives them (the product's atom 3 with its atom 1: the bond 3-1 it lacks), fed to the painter
         // directly: the drawing here is larger than the lens itself accepts (`tp::MAX_LENS_DOC`), and only the painting is timed
-        let t = std::time::Instant::now();
-        for _ in 0..reps {
-            let mut p = Painter {
-                doc: &doc,
-                view: View {
-                    scale: 20.0,
-                    ox: 0.0,
-                    oy: 0.0,
-                },
-                over: &Overlay::default(),
-                m: crate::settings::Style::default().metrics(20.0, true),
-                font: 10.0,
-                out: Scene::default(),
-                lens: LensPaint {
-                    ghosts: (0..n).map(|k| (6 * k + 4, 6 * k + 6)).collect(),
-                    ..LensPaint::default()
-                },
-                ink: colour::INK,
-            };
-            p.ghosts();
-            assert!(!p.out.data.is_empty());
-        }
-        t.elapsed().as_secs_f64()
+        timing::best_of(1, 5, || {
+            for _ in 0..reps {
+                let mut p = Painter {
+                    doc: &doc,
+                    view: View {
+                        scale: 20.0,
+                        ox: 0.0,
+                        oy: 0.0,
+                    },
+                    over: &Overlay::default(),
+                    m: crate::settings::Style::default().metrics(20.0, true),
+                    font: 10.0,
+                    out: Scene::default(),
+                    lens: LensPaint {
+                        ghosts: (0..n).map(|k| (6 * k + 4, 6 * k + 6)).collect(),
+                        ..LensPaint::default()
+                    },
+                    ink: colour::INK,
+                };
+                p.ghosts();
+                assert!(!p.out.data.is_empty());
+            }
+        })
+        .as_secs_f64()
     }
 
     #[test]
@@ -1116,7 +1122,7 @@ mod tests {
         // does) takes this to a ratio of 16.
         let (small, big) = (cost(1000, 3), cost(4000, 3));
         assert!(
-            big < 8.0 * small + 0.05,
+            big < 8.0 * small,
             "1000 pairs {small:.3} s, 4000 pairs {big:.3} s"
         );
     }

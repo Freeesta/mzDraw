@@ -10,6 +10,9 @@ use mzdraw::values::{self, Measured};
 use mzdraw::{Op, Session};
 use serde_json::{json, Value};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 fn editor(smiles: &str) -> Editor {
     let mut e = Editor::default();
     e.import(smiles).unwrap();
@@ -545,23 +548,16 @@ fn many(n: usize, len: usize) -> Document {
     Document::from_json(&v.to_string()).unwrap()
 }
 
-/// The best of five runs of `f`, in microseconds.
+/// The least CPU time of the thread over seven runs of `f` after one warm-up, in microseconds (`support/timing.rs`).
 fn best(f: impl Fn()) -> u128 {
-    (0..5)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            f();
-            t.elapsed().as_micros()
-        })
-        .min()
-        .unwrap()
+    timing::best_of(1, 7, f).as_micros()
 }
 
 /// Four times the size may cost about four times; a pass over all the molecules for each molecule costs sixteen times. No floor: the sizes
 /// are chosen so that the small run takes milliseconds, and the bound 8 leaves a factor two for noise.
 fn assert_linear(what: &str, small: u128, large: u128) {
     assert!(
-        large <= 8 * small.max(1),
+        large <= 8 * small,
         "{what}: {small} us, four times the size {large} us"
     );
 }
