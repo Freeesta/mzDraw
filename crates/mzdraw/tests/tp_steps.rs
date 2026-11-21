@@ -525,7 +525,8 @@ fn chain(n: u32) -> String {
 }
 
 fn best_of_three(run: impl Fn()) -> f64 {
-    (0..3)
+    // the minimum of many runs is a steadier estimate than one: noise only ever adds time
+    (0..9)
         .map(|_| {
             let t = std::time::Instant::now();
             run();
@@ -577,7 +578,7 @@ fn the_sites_of_a_big_structure_cost_its_size_not_its_square() {
     // The site computation alone, on a document built once: no import. A chain of n atoms and one of 4n: linear is 4 times, a
     // quadratic search 16; the bound is 9 with a floor against noise. Best of three.
     let doc_of = |n: u32| mzdraw::Document::from_json(&chain(n)).unwrap();
-    let (small, big) = (doc_of(600), doc_of(2400));
+    let (small, big) = (doc_of(1200), doc_of(4800));
     for step in [
         "hydroxylation",
         "dehydrogenation",
@@ -593,7 +594,7 @@ fn the_sites_of_a_big_structure_cost_its_size_not_its_square() {
         let (ts, tb) = (time(&small), time(&big));
         assert!(
             tb < 9.0 * ts + 0.02,
-            "sites of {step}: 600 atoms {ts:.4} s, 2400 atoms {tb:.4} s"
+            "sites of {step}: 1200 atoms {ts:.4} s, 4800 atoms {tb:.4} s"
         );
     }
 }
