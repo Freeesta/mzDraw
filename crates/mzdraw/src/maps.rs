@@ -131,17 +131,26 @@ impl Document {
 
     /// How many structures (connected pieces) carry one map number on more than one atom.
     pub fn duplicate_maps(&self) -> usize {
-        crate::layout::pieces(self)
-            .iter()
-            .filter(|ids| {
-                let mut seen: Vec<u16> = (self.atoms.iter())
-                    .filter(|a| ids.contains(&a.id) && a.map != 0)
-                    .map(|a| a.map)
-                    .collect();
-                let n = seen.len();
-                seen.sort_unstable();
-                seen.dedup();
-                seen.len() < n
+        let pieces = crate::layout::pieces(self);
+        let mut piece_of = std::collections::HashMap::with_capacity(self.atoms.len());
+        for (k, ids) in pieces.iter().enumerate() {
+            for id in ids {
+                piece_of.insert(*id, k);
+            }
+        }
+        let mut seen: Vec<Vec<u16>> = vec![Vec::new(); pieces.len()];
+        for a in self.atoms.iter().filter(|a| a.map != 0) {
+            if let Some(&k) = piece_of.get(&a.id) {
+                seen[k].push(a.map);
+            }
+        }
+        seen.into_iter()
+            .filter(|maps| {
+                let mut maps = maps.clone();
+                let n = maps.len();
+                maps.sort_unstable();
+                maps.dedup();
+                maps.len() < n
             })
             .count()
     }

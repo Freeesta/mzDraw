@@ -85,6 +85,7 @@ impl Document {
         let mut atoms: Vec<mzlab_mol::Atom> = Vec::new();
         let mut xy: Vec<Vec<f64>> = Vec::new();
         let mut extra: Vec<(usize, Mol, Document)> = Vec::new();
+        let (sums, free) = (self.order_sums(), self.all_hydrogens());
         for (i, a) in self.atoms.iter().enumerate() {
             xy.push(vec![a.x, a.y]);
             let group = match label::kind(&a.lab) {
@@ -95,7 +96,7 @@ impl Document {
                 // the bonds drawn on the label use the free valence of the attachment atom: its hydrogens, then the unpaired
                 // electrons a bracket atom of the table stands with on its own
                 let mut first = g.atoms[0].clone();
-                let used = self.order_sum(a.id).min(255) as u8;
+                let used = sums.get(&a.id).copied().unwrap_or(0).min(255) as u8;
                 first.rad = first.rad.saturating_sub(used.saturating_sub(first.h));
                 first.h = first.h.saturating_sub(used);
                 atoms.push(first);
@@ -109,10 +110,11 @@ impl Document {
                 iso: if r { 0 } else { a.iso },
                 chg: if r { 0 } else { a.chg },
                 rad: if r { 0 } else { a.rad },
-                h: self.hydrogens(a) as u8,
+                h: free[i] as u8,
             });
         }
-        let at = |id: u32| self.atom_index(id).unwrap_or(0) as u32;
+        let index = self.index_map();
+        let at = |id: u32| index.get(&id).copied().unwrap_or(0) as u32;
         let mut bonds: Vec<mzlab_mol::Bond> = self
             .bonds
             .iter()
@@ -196,8 +198,9 @@ impl Document {
             });
         }
         // keep a hydrogen count only where the valence rules would show another one
+        let shown = d.all_hydrogens();
         for (i, a) in m.atoms.iter().enumerate() {
-            if d.hydrogens(&d.atoms[i]) != a.h as u32 {
+            if shown[i] != a.h as u32 {
                 d.atoms[i].h = Some(a.h);
             }
         }
@@ -228,6 +231,18 @@ impl Document {
             from: crate::NAME.into(),
         });
         let text = rec.to_molfile(crate::NAME);
+        // the first single bond between two atoms, by the pair
+        let mut pairs: std::collections::HashMap<(u32, u32), usize> =
+            std::collections::HashMap::new();
+        for (k, x) in self
+            .bonds
+            .iter()
+            .enumerate()
+            .rev()
+            .filter(|(_, x)| x.o == 1)
+        {
+            pairs.insert((x.a.min(x.b), x.a.max(x.b)), k);
+        }
         for (i, j, _, mark) in bond_lines(&text, self.atoms.len(), self.bonds.len()) {
             let (Some(a), Some(b)) = (self.atoms.get(i), self.atoms.get(j)) else {
                 continue;
@@ -239,11 +254,8 @@ impl Document {
                 4 => WEDGE_WAVY,
                 _ => continue,
             };
-            if let Some(bond) = self
-                .bonds
-                .iter_mut()
-                .find(|x| x.o == 1 && ((x.a == a && x.b == b) || (x.a == b && x.b == a)))
-            {
+            if let Some(&k) = pairs.get(&(a.min(b), a.max(b))) {
+                let bond = &mut self.bonds[k];
                 (bond.a, bond.b, bond.s) = (a, b, s);
             }
         }
@@ -257,8 +269,9 @@ impl Document {
         }
         let first = 4 + record_atoms;
         let mut lines: Vec<String> = molfile.split('\n').map(str::to_string).collect();
+        let index = self.index_map();
         for (k, b) in self.bonds.iter().enumerate().filter(|(_, b)| b.s != 0) {
-            let (Some(i), Some(j)) = (self.atom_index(b.a), self.atom_index(b.b)) else {
+            let (Some(&i), Some(&j)) = (index.get(&b.a), index.get(&b.b)) else {
                 continue;
             };
             let Some(line) = lines.get_mut(first + k).filter(|l| l.len() >= 12) else {
@@ -292,10 +305,16 @@ impl Document {
 
     /// Scales the coordinates so that the median bond length is 1 (a drawing without bonds is left alone).
     fn normalise(&mut self) {
+        let index = self.index_map();
         let mut len: Vec<f64> = self
             .bonds
             .iter()
-            .filter_map(|b| Some((self.atom(b.a)?, self.atom(b.b)?)))
+            .filter_map(|b| {
+                Some((
+                    self.atoms.get(*index.get(&b.a)?)?,
+                    self.atoms.get(*index.get(&b.b)?)?,
+                ))
+            })
             .map(|(p, q)| m::hypot(p.x - q.x, p.y - q.y))
             .collect();
         m::sort_by(&mut len, |a, b| a.total_cmp(b).is_lt());

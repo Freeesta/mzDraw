@@ -83,6 +83,8 @@ pub enum Check {
     Pieces(u32),
     /// `{"smiles":"..."}`: the SMILES of the whole drawing (`Editor::save("smiles")`) is this text.
     Smiles(String),
+    /// `{"lossless":"FORMAT"}`: the format drops and changes nothing of the drawing (`loss::loss` is empty).
+    Lossless(String),
     /// `{"anchored":{"arrow":ID,"from":A,"to":B}}` (tp-02): the arrow `ID` is anchored to the structures of the atoms `A` and `B` (0, or left
     /// out: that end is free). The ids are the smallest atom ids a command or the arrow tool writes.
     Anchored { arrow: u32, from: u32, to: u32 },
@@ -98,6 +100,7 @@ pub struct Expectation {
 }
 
 const BAD_EXPECT: &str = "error.draw2.expect";
+const LOSS_SIZE: &str = "error.draw2.lossSize";
 
 /// Reads the value of `expect`: a list of objects of one key each. An unknown arm or a value of the wrong kind is refused.
 pub fn read_expect(v: &Value) -> Result<Vec<Expectation>, &'static str> {
@@ -123,6 +126,12 @@ pub fn read_expect(v: &Value) -> Result<Vec<Expectation>, &'static str> {
                     .ok_or(BAD_EXPECT)?,
             ),
             "smiles" => Check::Smiles(val.as_str().ok_or(BAD_EXPECT)?.to_string()),
+            "lossless" => Check::Lossless(
+                val.as_str()
+                    .filter(|f| crate::loss::FORMATS.contains(f))
+                    .ok_or(BAD_EXPECT)?
+                    .to_string(),
+            ),
             "anchored" => {
                 let o = val.as_object().ok_or(BAD_EXPECT)?;
                 let id = |k: &str, need: bool| match o.get(k) {
@@ -238,6 +247,16 @@ impl Check {
                 Ok(got) if got == *want => (true, String::new()),
                 Ok(got) => (false, format!("the SMILES of the drawing is {got}")),
                 Err(_) => (false, "the drawing has no SMILES".to_string()),
+            },
+            Check::Lossless(format) => match crate::loss::loss(doc, format) {
+                Ok(items) if items.is_empty() => (true, String::new()),
+                Ok(items) => {
+                    let mut kinds: Vec<&str> = items.iter().map(|l| l.what).collect();
+                    kinds.dedup();
+                    (false, format!("{format} loses {}", kinds.join(", ")))
+                }
+                Err("error.draw2.lossSize") => (false, format!("too large to check ({LOSS_SIZE})")),
+                Err(key) => (false, format!("the drawing has no {format} file ({key})")),
             },
         }
     }
