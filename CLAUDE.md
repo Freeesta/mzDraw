@@ -34,4 +34,5 @@ cargo build --locked -p mzdraw --example replay && node tests/parity.mjs
 node tests/e2e.mjs                                   # serves site/ itself; `node tests/e2e.mjs <URL>` tests a published site
 node tests/velocity.mjs --check                          # drawing-speed regression guard (needs the replay and canon examples built); `--guard-test` tests the guard
 MZDRAW_BLESS=1 cargo test -p mzdraw --test replay    # rewrites the golden outputs (tests/data/log/*.json) after a WANTED change
+# the schema golden (tests/data/log/edit-schema.json) is one row per line: re-bless it with the same command, never by hand
 ```

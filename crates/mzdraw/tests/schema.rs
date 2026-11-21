@@ -313,3 +313,31 @@ fn the_docs_section_is_the_table() {
     let got = doc[start..end].trim_end_matches('\n');
     assert_eq!(got, want.trim_end_matches('\n'));
 }
+
+#[test]
+fn the_golden_table_is_one_row_per_line() {
+    // two changes to different rows must not meet: the recorded table is the list of its rows, one per line of the file, never one long line
+    let path = root().join("tests/data/log/edit-schema.json");
+    let text = std::fs::read_to_string(path).unwrap();
+    let v: Value = serde_json::from_str(&text).unwrap();
+    let rows = v["schemas"][0]["out"]
+        .as_array()
+        .expect("the rows, not one line of bytes");
+    let table: Value = serde_json::from_str(&schema::json()).unwrap();
+    let want = OPS.len() + table["request"].as_array().unwrap().len();
+    assert!(
+        rows.len() >= want + 2,
+        "{} pieces for {want} rows",
+        rows.len()
+    );
+    for needle in [r#"{\"op\":\""#, r#"{\"section\":\""#] {
+        for line in text.lines() {
+            assert!(line.matches(needle).count() <= 1, "two rows on one line");
+        }
+    }
+    assert_eq!(text.matches(r#"{\"op\":\""#).count(), OPS.len());
+    assert_eq!(
+        rows.iter().map(|r| r.as_str().unwrap()).collect::<String>(),
+        schema::json()
+    );
+}

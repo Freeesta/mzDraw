@@ -21,6 +21,38 @@ const OUTS: [&str; 11] = [
     "std",
 ];
 
+/// The table of the operations (`draw-edit-schema/1`, one line of bytes) cut into pieces, one per row: the header, every operation, the
+/// join to the request rows, every request row, the end. A row that starts with a comma keeps it, so a row added in the middle or at the end
+/// of the table adds its own lines and changes no other. The pieces joined give the bytes back exactly.
+fn schema_rows(text: &str) -> Vec<String> {
+    const ROWS: [&str; 2] = [r#"{"op":""#, r#"{"section":""#];
+    const JOIN: &str = r#"],"request":["#;
+    let mut cuts = vec![0];
+    for (i, _) in text.char_indices() {
+        let rest = &text[i..];
+        let after_comma = text[..i].ends_with(',');
+        if (rest.starts_with(',') && ROWS.iter().any(|r| rest[1..].starts_with(r)))
+            || (!after_comma && ROWS.iter().any(|r| rest.starts_with(r)))
+            || rest.starts_with(JOIN)
+        {
+            cuts.push(i);
+        }
+    }
+    cuts.push(text.len());
+    cuts.windows(2)
+        .map(|w| text[w[0]..w[1]].to_string())
+        .collect()
+}
+
+/// The recorded table as the bytes it stands for: the text of an old one-line file, or the rows of a new one joined.
+fn schema_out(out: &Value) -> String {
+    match out {
+        Value::String(s) => s.clone(),
+        Value::Array(rows) => rows.iter().map(|r| r.as_str().unwrap()).collect(),
+        other => panic!("the recorded table is a string or its rows, not {other}"),
+    }
+}
+
 fn section_mut<'a>(fx: &'a mut Value, key: &str) -> &'a mut [Value] {
     fx.get_mut(key)
         .and_then(Value::as_array_mut)
@@ -106,10 +138,17 @@ fn every_case_replays_to_the_recorded_bytes() {
         // the table of the operations (`draw-edit-schema/1`): the CLI twin of the language reader
         for case in section_mut(fx, "schemas") {
             let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            // the table is recorded one row per line (`out` is the list of its rows): two changes to different rows do not meet
             if bless {
-                case["out"] = json!(got);
+                case["out"] = json!(schema_rows(&got));
             }
-            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            assert!(
+                case["out"].is_array(),
+                "{}: the rows, not one line",
+                case["name"]
+            );
+            assert_eq!(schema_out(&case["out"]), got, "{}", case["name"]);
+            assert_eq!(case["out"], json!(schema_rows(&got)), "{}", case["name"]);
             assert_eq!(got, mzdraw::schema::json());
         }
         // the settings file (`out: settings`) after settings set through `Editor::set` (the `--set` of the CLI): the layout and the
