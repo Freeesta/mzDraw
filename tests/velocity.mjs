@@ -106,9 +106,21 @@ const press = (mods, k) => (mods + (KEYS[k] || k)).replace(/^\+/, "");
 async function play(pg, cdp, cx, cy, step, touch) {
   const [kind, ...a] = step;
   const touchEvent = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([id, x, y]) => ({ id, x, y })) });
+  let extra = 0;
   if (kind === "tool") {
-    if (touch) { const b = await pg.locator(`[data-testid="d2-${a[0]}"]`).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); }
-    else await pg.click(`[data-testid="d2-${a[0]}"]`);
+    const sel = `[data-testid="d2-${a[0]}"]`, press = async s => { if (touch) { const b = await pg.locator(s).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); } else await pg.click(s); };
+    // a tool that is not in view is in the flyout of its palette: opening the flyout is one more action, and it is counted
+    if (!(await pg.isVisible(sel))) {
+      const opener = await pg.evaluate(s => { const f = document.querySelector(s)?.closest(".fly"); return f ? `[aria-controls="d2-fly-${f.dataset.fly}"]` : null; }, sel);
+      if (!opener) throw new Error("a tool that no button reaches: " + a[0]);
+      // the head of a collapsed palette first runs the kind last used, and opens the flyout when that kind is already the tool: each press counts
+      for (extra = 1; ; extra++) {
+        await press(opener);
+        if (await pg.isVisible(sel)) break;
+        if (extra >= 3) throw new Error("the flyout of " + a[0] + " does not open");
+      }
+    }
+    await press(sel);
   }
   else if (kind === "focus") await pg.evaluate("document.getElementById('d2-canvas').focus()");
   else if (kind === "click") { if (touch) await pg.touchscreen.tap(cx + a[0], cy + a[1]); else await pg.mouse.click(cx + a[0], cy + a[1]); }
@@ -120,6 +132,7 @@ async function play(pg, cdp, cx, cy, step, touch) {
   else if (kind === "key") { await pg.keyboard.press(a[0].includes("+") && a[0].length > 1 ? a[0] : press("", a[0])); }
   else if (kind === "type") { await pg.keyboard.type(a[0]); await pg.keyboard.press("Enter"); }
   else throw new Error("unknown step " + JSON.stringify(step));
+  return extra;
 }
 const isTool = s => s[0] === "tool";
 
@@ -141,10 +154,11 @@ const snap = pg => pg.evaluate("[window.MZDRAW.save('smiles'), window.MZDRAW.sav
 async function run(task, want, touch) {
   const { ctx, pg, cdp, cx, cy } = await session(touch);
   const times = [], smiles = [], objects = [];
+  let extra = 0;
   try {
     for (const step of task.steps) {
       const t0 = performance.now();
-      await play(pg, cdp, cx, cy, step, touch);
+      extra += await play(pg, cdp, cx, cy, step, touch);
       times.push(performance.now() - t0);
       const [s, d] = await snap(pg);
       smiles.push(s); objects.push(objectsOf(JSON.parse(d)));
@@ -152,7 +166,7 @@ async function run(task, want, touch) {
   } finally { await ctx.close(); }
   const ids = identities(smiles);
   const at = ids.findIndex((x, i) => x !== null && x === want.id && JSON.stringify(objects[i]) === JSON.stringify(want.objects));
-  return { ms: at < 0 ? null : times.slice(0, at + 1).reduce((a, b) => a + b, 0), reached: at >= 0, final: smiles[smiles.length - 1], steps: at < 0 ? task.steps.length : at + 1 };
+  return { ms: at < 0 ? null : times.slice(0, at + 1).reduce((a, b) => a + b, 0), reached: at >= 0, final: smiles[smiles.length - 1], steps: at < 0 ? task.steps.length : at + 1, extra };
 }
 
 const rows = [], failed = [];
@@ -168,7 +182,7 @@ for (const t of selected) {
     const ms = []; let ok = true, last = null;
     for (let i = 0; i < RUNS; i++) { last = await run(task, want, touch); if (!last.reached) { ok = false; break; } ms.push(last.ms); }
     if (!ok) { failed.push(label); console.error(`${label}: the path does not reach the target (ends at ${last.final})`); }
-    rows.push({ task: t.id, ...(variant ? { variant } : {}), pointer: variant === "keyboard" ? "keyboard" : task.pointer || "mouse", actions: task.steps.length, ms_median: ok ? round(median(ms), 1) : null, ok });
+    rows.push({ task: t.id, ...(variant ? { variant } : {}), pointer: variant === "keyboard" ? "keyboard" : task.pointer || "mouse", actions: task.steps.length + (last ? last.extra : 0), ms_median: ok ? round(median(ms), 1) : null, ok });
   }
 }
 await browser.close();
