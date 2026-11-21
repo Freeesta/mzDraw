@@ -1,0 +1,589 @@
+{
+  "feedbacks": [
+    {
+      "name": "feedback: a bug with unicode, &, # and a line break in the browser string, no log",
+      "out": "{\"body\":\"### Page\\n\\nVersion: 0.1.0\\nBrowser: Zilla/5.0 (Ünï; X11) a&b=c#d line2\\nLanguage: it-IT\\n\",\"format\":\"feedback/1\",\"notes\":[],\"template\":\"bug.yml\",\"title\":\"Bug:\",\"truncated\":false,\"url\":\"https://github.com/Freeesta/mzDraw/issues/new?template=bug.yml&title=Bug%3A&page=Version%3A%200.1.0%0ABrowser%3A%20Zilla%2F5.0%20%28%C3%9Cn%C3%AF%3B%20X11%29%20a%26b%3Dc%23d%20line2%0ALanguage%3A%20it-IT\"}",
+      "request": {
+        "feedback": {
+          "agent": "Zilla/5.0 (Ünï; X11) a&b=c#d\nline2",
+          "kind": "bug",
+          "lang": "it-IT"
+        }
+      }
+    },
+    {
+      "name": "feedback: an improvement by the shorthand, no browser string",
+      "out": "{\"body\":\"### Page\\n\\nVersion: 0.1.0\\nBrowser: \\nLanguage: \\n\",\"format\":\"feedback/1\",\"notes\":[],\"template\":\"improvement.yml\",\"title\":\"Improvement:\",\"truncated\":false,\"url\":\"https://github.com/Freeesta/mzDraw/issues/new?template=improvement.yml&title=Improvement%3A&page=Version%3A%200.1.0%0ABrowser%3A%20%0ALanguage%3A%20\"}",
+      "request": {
+        "feedback": "improvement"
+      }
+    },
+    {
+      "name": "feedback: a bug with the command log of a small drawing (the box ticked)",
+      "out": "{\"body\":\"### Page\\n\\nVersion: 0.1.0\\nBrowser: Agent/1.0\\nLanguage: en-US\\n\\n### Command log\\n\\n```json\\n[{\\\"op\\\":\\\"atom.add\\\",\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0},{\\\"op\\\":\\\"atom.add\\\",\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.5,\\\"y\\\":0.0},{\\\"op\\\":\\\"atom.add\\\",\\\"id\\\":3,\\\"el\\\":\\\"C\\\",\\\"x\\\":3.0,\\\"y\\\":0.0}]\\n```\\n\",\"format\":\"feedback/1\",\"notes\":[],\"template\":\"bug.yml\",\"title\":\"Bug:\",\"truncated\":false,\"url\":\"https://github.com/Freeesta/mzDraw/issues/new?template=bug.yml&title=Bug%3A&page=Version%3A%200.1.0%0ABrowser%3A%20Agent%2F1.0%0ALanguage%3A%20en-US&log=%5B%7B%22op%22%3A%22atom.add%22%2C%22id%22%3A1%2C%22el%22%3A%22C%22%2C%22x%22%3A0.0%2C%22y%22%3A0.0%7D%2C%7B%22op%22%3A%22atom.add%22%2C%22id%22%3A2%2C%22el%22%3A%22C%22%2C%22x%22%3A1.5%2C%22y%22%3A0.0%7D%2C%7B%22op%22%3A%22atom.add%22%2C%22id%22%3A3%2C%22el%22%3A%22C%22%2C%22x%22%3A3.0%2C%22y%22%3A0.0%7D%5D\"}",
+      "request": {
+        "feedback": {
+          "agent": "Agent/1.0",
+          "kind": "bug",
+          "lang": "en-US",
+          "log": true
+        },
+        "log": [
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 0.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 1.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 3.0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "feedback: the log is ticked and too long for the URL (left out, note feedback.logTooLong)",
+      "out": "{\"body\":\"### Page\\n\\nVersion: 0.1.0\\nBrowser: Agent/1.0\\nLanguage: en-US\\n\",\"format\":\"feedback/1\",\"notes\":[\"feedback.logTooLong\"],\"template\":\"improvement.yml\",\"title\":\"Improvement:\",\"truncated\":true,\"url\":\"https://github.com/Freeesta/mzDraw/issues/new?template=improvement.yml&title=Improvement%3A&page=Version%3A%200.1.0%0ABrowser%3A%20Agent%2F1.0%0ALanguage%3A%20en-US\"}",
+      "request": {
+        "feedback": {
+          "agent": "Agent/1.0",
+          "kind": "improvement",
+          "lang": "en-US",
+          "log": true
+        },
+        "log": [
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 0.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 1.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 3.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 4.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 6.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 7.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 9.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 10.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 12.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 13.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 15.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 16.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 18.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 19.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 21.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 22.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 24.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 25.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 27.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 28.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 30.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 31.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 33.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 34.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 36.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 37.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 39.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 40.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 42.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 43.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 45.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 46.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 48.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 49.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 51.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 52.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 54.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 55.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 57.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 58.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 60.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 61.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 63.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 64.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 66.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 67.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 69.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 70.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 72.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 73.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 75.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 76.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 78.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 79.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 81.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 82.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 84.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 85.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 87.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 88.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 90.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 91.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 93.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 94.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 96.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 97.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 99.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 100.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 102.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 103.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 105.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 106.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 108.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 109.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 111.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 112.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 114.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 115.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 117.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 118.5,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "feedback: the log is ticked and the drawing has no operation (note feedback.noLog)",
+      "out": "{\"body\":\"### Page\\n\\nVersion: 0.1.0\\nBrowser: \\nLanguage: \\n\",\"format\":\"feedback/1\",\"notes\":[\"feedback.noLog\"],\"template\":\"bug.yml\",\"title\":\"Bug:\",\"truncated\":true,\"url\":\"https://github.com/Freeesta/mzDraw/issues/new?template=bug.yml&title=Bug%3A&page=Version%3A%200.1.0%0ABrowser%3A%20%0ALanguage%3A%20\"}",
+      "request": {
+        "feedback": {
+          "kind": "bug",
+          "log": true
+        }
+      }
+    },
+    {
+      "name": "feedback: the log is in the drawing and the box is not ticked (the log stays out)",
+      "out": "{\"body\":\"### Page\\n\\nVersion: 0.1.0\\nBrowser: Agent/1.0\\nLanguage: en-US\\n\",\"format\":\"feedback/1\",\"notes\":[],\"template\":\"bug.yml\",\"title\":\"Bug:\",\"truncated\":false,\"url\":\"https://github.com/Freeesta/mzDraw/issues/new?template=bug.yml&title=Bug%3A&page=Version%3A%200.1.0%0ABrowser%3A%20Agent%2F1.0%0ALanguage%3A%20en-US\"}",
+      "request": {
+        "feedback": {
+          "agent": "Agent/1.0",
+          "kind": "bug",
+          "lang": "en-US"
+        },
+        "log": [
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 0.0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 1.5,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "op": "atom.add",
+            "x": 3.0,
+            "y": 0
+          }
+        ]
+      }
+    }
+  ]
+}

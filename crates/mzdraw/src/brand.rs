@@ -4,6 +4,8 @@
 
 /// The name people read.
 pub const NAME: &str = "mzDraw";
+/// The version of the editor (the workspace version): shown by the page, put in every report.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The name in files: PNG keyword, PDF attachment names, SVG metadata id, MIME subtype, storage keys, the `out` kind of the document.
 pub const SLUG: &str = "mzdraw";
 /// The crates are `<prefix>` and `<prefix>-wasm`.

@@ -2955,6 +2955,126 @@ try {
     } finally { await t.ctx.close(); }
   });
 
+  // feedback-about: the About box and the report box. The report is a prefilled new issue of the repository opened in a NEW TAB by a link; the URL is
+  // made in Rust (`feedback`), nothing is sent by the page itself, and the command log is off unless the box is ticked. Keyboard, touch and pen.
+  {
+    const { ctx: fb, pg: fp } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true });
+    await fb.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(base).origin });
+    // the new tab is intercepted: nothing reaches GitHub, and the page itself must never ask for it
+    await fb.route(/^https:\/\/github\.com\//, r => r.fulfill({ status: 200, contentType: "text/html", body: "<title>issue</title>" }));
+    const ghReq = [];
+    fp.on("request", r => { if (/github\.com/.test(r.url())) ghReq.push(r.url()); });
+    const opened = async act => { const [pop] = await Promise.all([fb.waitForEvent("page"), act()]); await pop.waitForURL(/github\.com/); const u = new URL(pop.url()); await pop.close(); return u; };
+    const shown = (id, on = true) => until(fp, `document.getElementById("${id}").hidden === ${!on}`);
+    const about = async () => JSON.parse(await fp.evaluate("window.MZDRAW.about()"));
+    const log = () => fp.evaluate("window.MZDRAW.save('log')");
+    const UA = await fp.evaluate("navigator.userAgent");
+    /** what an opened issue must say: the repository, the form, the title, the page version, the user agent and the language */
+    const readIssue = async (u, template, hasLog) => {
+      eq(u.origin + u.pathname, (await about()).repository + "/issues/new");
+      eq(u.searchParams.get("template"), template);
+      eq(u.searchParams.get("title"), template === "bug.yml" ? "Bug:" : "Improvement:");
+      const page = u.searchParams.get("page");
+      assert(page.includes("Version: " + (await about()).version) && page.includes("Browser: " + UA.slice(0, 300)) && /Language: \S+/.test(page), page);
+      eq(u.searchParams.has("log"), hasLog);
+      if (hasLog) eq(u.searchParams.get("log"), await log());
+      assert(u.href.length <= 6000, "the URL stays under the limit");
+    };
+    await step("feedback by keyboard: the report button opens a popover (no modal), Bug / Improvement by the arrows, the log box is off by default; Enter opens the prefilled issue of the right form in a new tab; Escape closes and gives the focus back", async () => {
+      await tool(fp, "clear"); await want(fp, { atoms: 0 });
+      await fp.focus("#d2-canvas"); await fp.keyboard.press("Enter"); await want(fp, { atoms: 1 });           // one operation in the log
+      assert((await log()).length > 4, "the log has an operation");
+      await fp.focus("#d2-report-open"); await fp.keyboard.press("Enter"); await shown("d2-report");
+      eq(await fp.getAttribute("#d2-report-open", "aria-expanded"), "true");
+      eq(await fp.evaluate("document.querySelector('dialog[open]') === null && document.getElementById('d2-report').getAttribute('role')"), "group");
+      eq(await fp.evaluate("document.activeElement.value"), "bug");
+      eq(await fp.isChecked("#d2-report-log"), false, "the log is off by default");
+      assert((await fp.innerText("#d2-report")).includes("visible publicly on GitHub"), "the box says the log is public");
+      await shot(fp, "feedback-report");
+      await fp.keyboard.press("ArrowRight"); eq(await fp.evaluate("document.activeElement.value"), "improvement");
+      await fp.keyboard.press("Tab"); await fp.keyboard.press("Tab");                                         // the log box, then the button
+      eq(await fp.evaluate("document.activeElement.id"), "d2-report-go");
+      await readIssue(await opened(() => fp.keyboard.press("Enter")), "improvement.yml", false);
+      // ticked: the log of the drawing is in the link, as the module wrote it
+      await fp.keyboard.press("Shift+Tab"); eq(await fp.evaluate("document.activeElement.id"), "d2-report-log"); await fp.keyboard.press("Space");
+      eq(await fp.isChecked("#d2-report-log"), true);
+      await fp.keyboard.press("Tab");
+      await readIssue(await opened(() => fp.keyboard.press("Enter")), "improvement.yml", true);
+      eq(await fp.innerText("#d2-report-note"), "");
+      await fp.keyboard.press("Escape"); await shown("d2-report", false);
+      eq(await fp.evaluate("document.activeElement.id"), "d2-report-open");
+      eq(ghReq, [], "the page asked nothing of GitHub");
+    });
+    await step("feedback: a log too long for the link is left out with a keyed note and Copy the log; no operation gives the other note; the copied text is the log", async () => {
+      await tool(fp, "clear"); await want(fp, { atoms: 0 }); await fillIn(fp, "#d2-text", "C".repeat(90)); await saveAs(fp, "#d2-add"); await want(fp, { atoms: 90 });
+      await fp.click("#d2-report-open"); await shown("d2-report");
+      await fp.check("input[value=bug]"); await fp.check("#d2-report-log");
+      const u = await opened(() => fp.click("#d2-report-go"));
+      await readIssue(u, "bug.yml", false);
+      eq(await fp.innerText("#d2-report-note"), await fp.evaluate("I18N.t('feedback.logTooLong')"));
+      eq(await fp.isVisible("#d2-report-copy"), true);
+      await shot(fp, "feedback-report-long");
+      await fp.click("#d2-report-copy");
+      await until(fp, `document.getElementById("d2-report-note").textContent === I18N.t("draw2.report.copied")`);
+      eq(await fp.evaluate("navigator.clipboard.readText()"), await log());
+      await fp.click("#d2-report-close"); await shown("d2-report", false);
+      await fp.evaluate("window.MZDRAW.open(window.MZDRAW.save('mzdraw'))");                                  // the drawing stays, its history is empty: no operation to log
+      await fp.click("#d2-report-open"); await shown("d2-report"); await fp.check("#d2-report-log");
+      await readIssue(await opened(() => fp.click("#d2-report-go")), "bug.yml", false);
+      eq(await fp.innerText("#d2-report-note"), await fp.evaluate("I18N.t('feedback.noLog')"));
+      eq(ghReq, [], "the page asked nothing of GitHub");
+      await fp.click("#d2-report-close");
+    });
+    await step("About by keyboard: the name from the catalog, one line of what it is, the version, the links to the repository and the licence, the privacy sentence and the report button; Escape closes", async () => {
+      await fp.focus("#d2-about-open"); await fp.keyboard.press("Enter"); await shown("d2-about");
+      const a = await about();
+      eq(await fp.innerText("#d2-about-name"), await fp.evaluate("I18N.t('draw2.name')"));
+      eq(await fp.innerText("#d2-about-name"), a.name);
+      assert((await fp.innerText("#d2-about-version")).includes(a.version), "the version");
+      eq(await fp.getAttribute("#d2-about-repo", "href"), a.repository);
+      eq(await fp.getAttribute("#d2-about-licence", "href"), a.licence);
+      eq(await fp.getAttribute("#d2-about-repo", "rel"), "noopener noreferrer");
+      const text = await fp.innerText("#d2-about");
+      assert(text.includes("Once the page is loaded it works offline and sends nothing") && text.includes("Report a bug / suggest an improvement"), text);
+      await shot(fp, "feedback-about");
+      await fp.keyboard.press("Tab"); await fp.keyboard.press("Tab");
+      // the report button of the box opens the report box in its place
+      await fp.focus("#d2-about-report"); await fp.keyboard.press("Enter"); await shown("d2-report"); await shown("d2-about", false);
+      await fp.keyboard.press("Escape"); await shown("d2-report", false);
+      await fp.focus("#d2-about-open"); await fp.keyboard.press("Enter"); await shown("d2-about");
+      await fp.keyboard.press("Escape"); await shown("d2-about", false);
+      eq(await fp.evaluate("document.activeElement.id"), "d2-about-open");
+      // Escape closes an open box also when the focus is elsewhere (on the canvas); the focus stays there
+      await fp.keyboard.press("Enter"); await shown("d2-about"); await fp.focus("#d2-canvas"); await fp.keyboard.press("Escape"); await shown("d2-about", false);
+      eq(await fp.evaluate("document.activeElement.id"), "d2-canvas");
+      eq(ghReq, [], "the page asked nothing of GitHub");
+    });
+    await step("feedback by touch: tap About, tap its report button, tap Improvement, tap Open on GitHub; the targets are 44 px; the issue is the improvement form", async () => {
+      const tap = async sel => { const [x, y] = await center(fp, sel); await fp.touchscreen.tap(x, y); };
+      await tap("#d2-about-open"); await shown("d2-about");
+      await tap("#d2-about-report"); await shown("d2-report"); await shown("d2-about", false);
+      for (const sel of ["#d2-report-go", "#d2-report-close"]) assert((await fp.locator(sel).boundingBox()).height >= 43, sel + " is a target for a finger");
+      await tap("input[value=improvement]");
+      await readIssue(await opened(() => tap("#d2-report-go")), "improvement.yml", false);
+      await tap("#d2-report-close"); await shown("d2-report", false);
+      eq(ghReq, [], "the page asked nothing of GitHub");
+    });
+    await step("feedback by pen: a pen tap on the report button, on Bug, on the log box and on Open on GitHub; the issue is the bug form with the log", async () => {
+      await tool(fp, "clear"); await fp.focus("#d2-canvas"); await fp.keyboard.press("Enter"); await want(fp, { atoms: 1 });
+      const cdp = await fb.newCDPSession(fp);
+      const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+      const tap = async sel => { const [x, y] = await center(fp, sel); await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+      await tap("#d2-report-open"); await shown("d2-report");
+      await fp.setChecked("#d2-report-log", false);
+      await tap("input[value=bug]"); await tap("#d2-report-log"); assert(await fp.isChecked("#d2-report-log"), "a pen tap ticks the log box");
+      assert((await log()).length > 4, "pen step: the log has an operation " + await log());
+      await readIssue(await opened(() => tap("#d2-report-go")), "bug.yml", true);
+      await tap("#d2-report-close"); await shown("d2-report", false);
+      eq(ghReq, [], "the page asked nothing of GitHub");
+    });
+    await fb.close();
+  }
+
   await ctx.close();
 } finally {
   await browser.close();
