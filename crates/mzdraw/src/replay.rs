@@ -315,10 +315,12 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             break;
         }
     }
-    // only a pathway command reports `changed`: only then is the document kept to compare with
-    let reports_changed =
-        (r.commands.iter()).any(|(name, _)| name == "pathway:anchor" || name == "pathway:route");
-    let before_commands = reports_changed.then(|| e.doc().clone());
+    let orients = r.commands.iter().any(|c| c.0 == "scheme:orient");
+    let reports = r
+        .commands
+        .iter()
+        .any(|c| crate::commands::reports_change(&c.0));
+    let before_commands = (r.envelope() && reports).then(|| e.doc().to_json());
     if failed.is_none() {
         for (i, (name, args)) in r.commands.iter().enumerate() {
             if let Err(err) = crate::commands::run(&mut e, name, args) {
@@ -388,7 +390,8 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         removed: before.minus(&after),
         lost: Vec::new(),
         failed,
-        changed: before_commands.map(|b| *e.doc() != b),
+        changed: before_commands.map(|b| b != e.doc().to_json()),
+        orient: orients.then(|| e.orient_steps.clone()),
         expect,
     };
     if outcome.ok() {
