@@ -19,4 +19,4 @@
 
 ## Not built
 - Not covered by `brand_no_literals`: Rust identifiers and paths (the crate names), the manifests, the tests, `tools/`, `docs/` and file names (`web/mzdraw.js`, `web/mzdraw.css`, `web/lang/mzdraw.js`). The rename tool moves them.
-- The key `mzdraw` of the schema JSON (`out: schema`, per operation) stays: it is a stable key and its rename changes the bytes of a golden.
+- The key of the schema JSON (`out: schema`, per operation) that says whether this editor reads the operation is `"mzdraw"` (`brand::SCHEMA_KEY`, `schema_key` in `brand.toml`). It is a stable machine key for agents and a rename never changes it (owner's decision); see `rename-tool.md`.

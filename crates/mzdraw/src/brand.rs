@@ -23,6 +23,9 @@ pub const EDIT_ID: &str = "draw_edit/1";
 /// The contract between the page and the module: the page checks that the `.wasm` it loaded speaks it. Independent of the name
 /// (like `EDIT_ID`), so a rename neither changes it nor makes an old page and a new module look alike by accident.
 pub const BRIDGE_ID: &str = "draw-bridge/1";
+/// The key of the edit schema (`out: schema`) that says whether an operation is read by this editor: a stable machine key for agents,
+/// the first name of the editor. A rename never changes it (like `FIRST_DOCUMENT_ID`).
+pub const SCHEMA_KEY: &str = "mzdraw"; // rename-keep
 /// The id of the first version of the document: history, never changed by a rename. The edit schema names it as the version that
 /// introduced the operations that existed then (`since`), so `out: schema` keeps its bytes under any name; an operation added
 /// later says `DOCUMENT_ID`, the version of the day.
@@ -184,6 +187,14 @@ mod tests {
                 !String::from_utf8_lossy(&bytes).contains(DOCUMENT_ID),
                 "{name} is a file of the earlier name"
             );
+            // the PDF carries its document as an attachment under the name of the earlier slug, and no other: this is the test of the
+            // reader of the legacy attachment names (`brand::attachments`, `pdf::carried`)
+            if name == "drawing.pdf" {
+                let attached = |n: &str| bytes.windows(n.len()).any(|w| w == n.as_bytes());
+                assert!(attached(&format!("{OLD}.json")) && attached(&format!("{OLD}.mol")));
+                assert!(!attached(&attachment("json")) && !attached(&attachment("mol")));
+                assert!(crate::pdf::carried(&bytes).unwrap().is_ok());
+            }
             let mut e = Editor::default();
             e.import_bytes(&bytes)
                 .unwrap_or_else(|k| panic!("{name}: {k}"));

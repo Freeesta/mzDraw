@@ -417,9 +417,10 @@ pub fn json() -> String {
             out.push(',');
         }
         out.push_str(&format!(
-            r#"{{"op":{},"since":{},"mzdraw":{},"mzlab":{},"inverse":{},"fields":["#,
+            r#"{{"op":{},"since":{},"{}":{},"mzlab":{},"inverse":{},"fields":["#,
             q(o.name),
             q(o.since),
+            crate::brand::SCHEMA_KEY,
             o.mzdraw,
             o.mzlab,
             q(o.inverse)

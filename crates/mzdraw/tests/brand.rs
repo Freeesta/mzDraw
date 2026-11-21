@@ -93,6 +93,7 @@ fn brand_toml_and_brand_rs_say_the_same() {
         ("formats.edit", brand::EDIT_ID),
         ("formats.bridge", brand::BRIDGE_ID),
         ("formats.first_document", brand::FIRST_DOCUMENT_ID),
+        ("formats.schema_key", brand::SCHEMA_KEY),
         ("site.repository", brand::REPOSITORY),
         ("site.pages_url", brand::PAGES_URL),
         ("site.pages_base", brand::PAGES_BASE),
@@ -290,6 +291,19 @@ fn the_page_learns_the_name_from_files_written_from_brand_rs() {
 }
 
 #[test]
+fn the_schema_key_is_the_first_name_whatever_the_name_in_use() {
+    // `out: schema` says for each operation whether this editor reads it, under a stable key for agents: the first name, never renamed
+    let json = mzdraw::schema::json();
+    let key = format!("\"{}\":true", brand::SCHEMA_KEY);
+    assert!(json.contains(&key), "{key}");
+    assert!(json.contains(&format!("\"since\":\"{}\"", brand::FIRST_DOCUMENT_ID)));
+    if brand::SLUG != brand::SCHEMA_KEY {
+        // a renamed tree: the name in use is not a key of the schema
+        assert!(!json.contains(&format!("\"{}\":", brand::SLUG)));
+    }
+}
+
+#[test]
 fn the_files_of_the_page_list_the_earlier_names_when_there_are_some() {
     // a rename in the future: two earlier slugs, oldest first
     let js = names_js_with(&["first", "second"]);
@@ -409,11 +423,22 @@ fn html_lines(src: &str) -> Vec<(usize, String)> {
 }
 
 /// Where the codename may stay for now: (file, text of the occurrence, why). Every entry must match something.
-const ALLOWED: [(&str, &str, &str); 4] = [
-    ("crates/mzdraw/src/schema.rs", "\"mzdraw\":{}", "a stable key of the schema JSON (the reader of mzLab is named by it): renaming it changes the bytes of `out: schema` and is the owner's decision"),
-    ("web/index.html", "href=\"mzdraw.css\"", "the name of a file of the page: moved by the rename tool"),
-    ("web/index.html", "src=\"lang/mzdraw.js\"", "the name of a file of the page: moved by the rename tool"),
-    ("web/index.html", "src=\"mzdraw.js\"", "the name of a file of the page: moved by the rename tool"),
+const ALLOWED: [(&str, &str, &str); 3] = [
+    (
+        "web/index.html",
+        "href=\"mzdraw.css\"",
+        "the name of a file of the page: moved by the rename tool",
+    ),
+    (
+        "web/index.html",
+        "src=\"lang/mzdraw.js\"",
+        "the name of a file of the page: moved by the rename tool",
+    ),
+    (
+        "web/index.html",
+        "src=\"mzdraw.js\"",
+        "the name of a file of the page: moved by the rename tool",
+    ),
 ];
 
 /// Whether a text writes the codename (the slug of the name in use), in any case.
@@ -542,7 +567,7 @@ fn the_scanner_finds_a_name_in_a_string_and_not_in_a_comment() {
     .is_empty());
     let html = format!("<!-- {slug} -->\n<link href=\"{slug}.css\">");
     assert!(found("web/index.html", html_lines(&html), &mut used).is_empty());
-    assert!(used[1] && !used[0]);
+    assert!(used[0] && !used[1]);
     let h1 = format!("<h1>{}</h1>", brand::NAME);
     assert_eq!(found("web/index.html", html_lines(&h1), &mut used).len(), 1);
 }

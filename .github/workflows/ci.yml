@@ -66,11 +66,16 @@ jobs:
             ~/.cargo/git
             tools/.bin
           key: ci-rename-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'tools/install_tools.sh') }}
-      - name: Rename a copy to Zzz
+      - name: Rename a copy to Zzz (the tool needs the crates of Cargo.lock offline, to put the lock in order)
         run: |
+          cargo fetch --locked
           tools/rename_product.sh --copy-to "$RUNNER_TEMP/zzz" Zzz
           git status --porcelain --untracked-files=all | tee "$RUNNER_TEMP/status.txt"
           test ! -s "$RUNNER_TEMP/status.txt"   # the real tree is untouched
+      - name: The old name is left only where a rename keeps it, and the check is not blind; bad names are refused
+        run: |
+          old=$(sed -n 's/^slug = "\(.*\)".*/\1/p' brand.toml | head -1)
+          tools/test_rename_product.sh "$RUNNER_TEMP/zzz" "$old"
       - name: The copy is formatted and lint-clean, its Rust tests pass
         working-directory: ${{ runner.temp }}/zzz
         run: |

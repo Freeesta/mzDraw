@@ -32,7 +32,7 @@ done
 [[ "$new" =~ ^[A-Za-z][A-Za-z0-9]{1,30}$ ]] || { echo "rename: the name is letters and digits, starting with a letter: $new" >&2; exit 2; }
 
 if [ "$dry" = 1 ] || [ -n "$copy" ]; then            # work on a copy: the tree in DIR is not touched
-  if [ "$dry" = 1 ]; then copy=$(mktemp -d); else [ ! -e "$copy" ] || { echo "rename: $copy exists" >&2; exit 2; }; mkdir -p "$copy"; fi
+  if [ "$dry" = 1 ]; then copy=$(mktemp -d); trap 'rm -rf -- "${copy:?}"' EXIT; else [ ! -e "$copy" ] || { echo "rename: $copy exists" >&2; exit 2; }; mkdir -p "$copy"; fi
   (cd "$root" && tar --exclude=./.git --exclude=./target --exclude=./site --exclude=./node_modules --exclude=./tools/.bin -cf - .) | tar -xf - -C "$copy"
   args=("$new" --dir "$copy"); [ -z "$css" ] || args+=(--css-prefix "$css")
   RENAME_DRY=$dry "$0" "${args[@]}"
@@ -50,14 +50,22 @@ fi
 
 cd "$root"
 toml() { sed -n "s/^$1 = \"\(.*\)\"[[:space:]]*\(#.*\)\{0,1\}\$/\1/p" brand.toml | head -1; }
-old_name=$(toml name); old_slug=$(toml slug); old_app=$(toml app_id); old_css=$(toml css_prefix); first=$(toml first_document)
+old_name=$(toml name); old_slug=$(toml slug); old_app=$(toml app_id); old_css=$(toml css_prefix); first=$(toml first_document); sk=$(toml schema_key)
 legacy=$(sed -n 's/^legacy_ids = \[\(.*\)\].*$/\1/p' brand.toml)
-[ -n "$old_name" ] && [ -n "$old_slug" ] && [ -n "$old_app" ] && [ -n "$old_css" ] && [ -n "$first" ] || { echo "rename: brand.toml in $root is not the one of this repository" >&2; exit 2; }
+[ -n "$old_name" ] && [ -n "$old_slug" ] && [ -n "$old_app" ] && [ -n "$old_css" ] && [ -n "$first" ] && [ -n "$sk" ] || { echo "rename: brand.toml in $root is not the one of this repository" >&2; exit 2; }
 slug=$(echo "$new" | tr 'A-Z' 'a-z'); app=$(echo "$slug" | tr 'a-z' 'A-Z'); pascal="$(echo "${slug:0:1}" | tr 'a-z' 'A-Z')${slug:1}"
 [ -n "$css" ] || css=${slug:0:3}
 old_pascal="$(echo "${old_slug:0:1}" | tr 'a-z' 'A-Z')${old_slug:1}"
+command -v cargo >/dev/null 2>&1 || { echo "rename: cargo is needed (Cargo.lock and the sources are rewritten by it)" >&2; exit 2; }
 [ "$slug" != "$old_slug" ] || { echo "rename: $new is already the name in use" >&2; exit 2; }
-case ",$legacy," in *"\"$slug\""*) echo "rename: $slug is an earlier name (legacy_ids): renaming back is a decision for the owner" >&2; exit 2 ;; esac
+# a name that contains the name in use or an earlier one (mzdrawx, xmzdraw) would be rewritten twice by a second rename and could not
+# be told from the old one in the files that keep it; an earlier name itself is "renaming back", the owner's decision
+for s in $old_slug $(echo "$legacy" | tr -d '" ' | tr ',' ' '); do
+  case "$slug" in
+    "$s") echo "rename: $slug is an earlier name (legacy_ids): renaming back is a decision for the owner" >&2; exit 2 ;;
+    *"$s"*) echo "rename: $new contains the earlier name $s: choose a name that does not" >&2; exit 2 ;;
+  esac
+done
 
 # 1. the text of every file, except the history and what is not ours
 skip=( -path ./.git -o -path ./target -o -path ./site -o -path ./node_modules -o -path ./tools/.bin -o -path ./docs/prompts -o -path ./docs/input
@@ -72,7 +80,10 @@ sedf=$(mktemp)
   # (`"since":"` plain, and `\"since\":\"` as JSON inside a JSON golden)
   echo "s#(\"since\\\\?\":\\\\?\")${first:0:1}(${first:1}\\\\?\")#\\1${first:0:1}\\x01\\2#g"
   echo "s#^(\\| \`[^\`]+\` \\| )${first:0:1}(${first:1} \\|)#\\1${first:0:1}\\x01\\2#"
+  # the key of the edit schema that says an operation is read by this editor (`"mzdraw":true`, plain or escaped in a golden)
+  echo "s#(\\\\?\")${sk:0:1}(${sk:1}\\\\?\":(true|false))#\\1${sk:0:1}\\x01\\2#g"
   echo "s#${old_name}#${new}#g"; echo "s#${old_slug}#${slug}#g"; echo "s#${old_app}#${app}#g"; echo "s#${old_pascal}#${pascal}#g"
+  echo "s#${old_slug}#${slug}#Ig"                                       # any other case (mzDRAW, MzDraw): the slug
   echo "s#--${old_css}-#--${css}-#g"
   echo 's#\x01##g'
 } > "$sedf"
@@ -101,10 +112,8 @@ done <<< "$mv_list"
 
 # 3. Cargo.lock (the two crates are called otherwise) and the format of the sources
 sed -i "s/\"$old_slug/\"$slug/g" Cargo.lock
-if command -v cargo >/dev/null 2>&1; then
-  cargo update --workspace --offline >/dev/null 2>&1 || echo "rename: cargo update --workspace --offline did not run: run it before --locked" >&2
-  cargo fmt >/dev/null 2>&1 || echo "rename: cargo fmt did not run" >&2
-fi
+cargo update --workspace --offline >/dev/null 2>&1 || { echo "rename: cargo update --workspace --offline failed (run cargo fetch --locked first): Cargo.lock is not in order" >&2; exit 1; }
+cargo fmt >/dev/null 2>&1 || { echo "rename: cargo fmt failed: the sources are not formatted" >&2; exit 1; }
 # 4. a golden file that holds a file written under the name as base64 (a PDF: `JVBERi0` is `%PDF-`) cannot be rewritten as text: it is
 # recorded again by the existing bless of the replay test, which also puts the keys in order (the key of the document is sorted by its
 # new name). Any other change of a golden (a value that differs) was left wrong by the rename: that is an error, never accepted.
