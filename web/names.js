@@ -8,4 +8,5 @@ export const NAMES = Object.freeze({
   clip: "application/x-mzdraw+json",          // our own clipboard type: the document
   doc: "drawing.mzdraw.json",                 // the download name of the document
   id: "d2-",                                  // the prefix of the ids the scripts make
+  tokens: "--mzd-",                           // the prefix of the colour tokens (web/mzdraw.css), which a host may set
 });
