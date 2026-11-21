@@ -410,10 +410,12 @@ fn a_hostile_drawing_is_listed_up_to_the_caps_and_counted_beyond() {
         .collect();
     let doc = json!({"format": "mzdraw/1", "next": 3000, "atoms": atoms, "bonds": [], "objects": objects});
     let v = parsed(&doc);
-    assert_eq!(v["pieces"].as_array().unwrap().len(), 200);
+    // 200 structures at most, fewer when the bytes of the listing reach their cap first; the rest is counted
+    let listed = v["pieces"].as_array().unwrap().len();
+    assert!((100..=200).contains(&listed), "{listed}");
     assert_eq!(v["objects"].as_array().unwrap().len(), 200);
-    assert_eq!(v["more"], json!([800, 800]));
-    assert!(digest_of(&doc).len() < 40_000);
+    assert_eq!(v["more"], json!([1000 - listed, 800]));
+    assert!(digest_of(&doc).len() < 30_000);
 }
 
 /// `n` atoms, no bond (so the engine calls the digest makes cost nothing per atom beyond their own size): every atom is a structure.
@@ -458,32 +460,127 @@ fn the_time_grows_with_the_size_not_with_its_square() {
     );
     let bound = std::time::Duration::from_secs(if cfg!(debug_assertions) { 5 } else { 1 });
     assert!(big < bound, "40,000 structures took {big:?}");
-    // only 200 are listed, the rest counted, and `std` is not counted above `MAX_STD_ATOMS` atoms
+    // at most 200 are listed (fewer when their bytes reach the cap), the rest counted, and `std` is not counted above `MAX_STD_ATOMS` atoms
     let (_, out) = digest_time(&bondless(40_000));
     let v: Value = serde_json::from_str(&out).unwrap();
+    let listed = v["pieces"].as_array().unwrap().len();
+    assert!((100..=200).contains(&listed), "{listed}");
     assert_eq!(
-        (v["pieces"].as_array().unwrap().len(), &v["more"], &v["std"]),
-        (200, &json!([39_800, 0]), &Value::Null)
+        (&v["more"], &v["std"]),
+        (&json!([40_000 - listed, 0]), &Value::Null)
     );
-    assert!(out.len() < 60_000, "{} bytes", out.len());
+    assert!(out.len() < 30_000, "{} bytes", out.len());
 }
 
-/// A long chain, bonds and all: the engine calls under the digest (the record, the label ink) rescan the bonds of an atom, so this
-/// is a bound, not a proof of linearity. The `std` findings are counted up to `MAX_STD_ATOMS` atoms and are `null` above.
+/// A star: one hub joined to `n - 1` leaves (a worst case for rescans of the bonds of an atom).
+fn star(n: usize) -> String {
+    let atoms: Vec<Value> = (0..n)
+        .map(|i| {
+            let t = i as f64 * 0.37;
+            json!({"id": i + 1, "el": if i == 0 { "C" } else { "N" }, "x": t.cos() * (1.0 + i as f64 * 0.01), "y": t.sin() * (1.0 + i as f64 * 0.01)})
+        })
+        .collect();
+    let bonds: Vec<Value> = (1..n)
+        .map(|i| json!({"id": n + i, "a": 1, "b": i + 1, "o": 1}))
+        .collect();
+    json!({"format": "mzdraw/1", "next": 2 * n + 2, "atoms": atoms, "bonds": bonds}).to_string()
+}
+
+/// The engine calls under the digest (the record, the label ink) look through the bonds for every atom: the cost of a drawing with
+/// bonds is atoms times bonds, not linear. It is capped: above `MAX_WORK` the drawing is refused with a key, and a drawing at the cap
+/// stays within a bound. A chain and a star, the two shapes that make the product large.
 #[test]
-fn a_long_chain_stays_within_a_bound_and_std_is_not_counted_above_its_cap() {
-    let bound = std::time::Duration::from_secs(if cfg!(debug_assertions) { 20 } else { 3 });
-    let (took, out) = digest_time(&long_chain(10_000));
-    eprintln!("10,000-atom chain: {took:?}");
-    assert!(took < bound, "10,000-atom chain took {took:?}");
-    let v: Value = serde_json::from_str(&out).unwrap();
-    assert_eq!(v["std"], Value::Null);
-    assert_eq!(v["pieces"][0]["rings"], 0);
-    assert_eq!(v["pieces"][0]["ids"], "1-10000");
-    let (took, out) = digest_time(&long_chain(mzdraw::digest::MAX_STD_ATOMS));
-    assert!(took < bound / 2, "{took:?}");
-    let v: Value = serde_json::from_str(&out).unwrap();
-    assert!(v["std"].is_object(), "{v}");
+fn a_drawing_with_bonds_is_refused_above_the_work_cap_and_stays_within_a_bound_at_it() {
+    let bound = std::time::Duration::from_secs(if cfg!(debug_assertions) { 30 } else { 2 });
+    let side = (mzdraw::digest::MAX_WORK as f64).sqrt() as usize; // 5,000: atoms * (bonds + 1) = 25 million
+    for (name, text, over) in [
+        ("chain", long_chain(side), long_chain(side + 1)),
+        ("star", star(side), star(side + 1)),
+    ] {
+        let (took, out) = digest_time(&text);
+        eprintln!("{name} of {side} atoms: {took:?}");
+        assert!(took < bound, "{name} of {side} atoms took {took:?}");
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["std"], Value::Null);
+        assert_eq!(v["stdSkipped"], "atoms>1000");
+        let mut e = mzdraw::Editor::default();
+        e.import(&over).unwrap();
+        assert_eq!(e.save("digest"), Err("error.draw2.digestSize"), "{name}");
+        let request = json!({"import": over, "out": "digest"}).to_string();
+        assert_eq!(replay(&request).unwrap_err().key, "error.draw2.digestSize");
+    }
+    // no bond, no work: 40,000 structures are no problem (see the scaling test)
+}
+
+/// The answer is bounded whatever the drawing: every atom a hetero atom with a wedge mark and scattered ids, many structures, many
+/// objects. The bytes are counted, not the entries; what is cut is counted in `truncated` and `more`.
+#[test]
+fn the_answer_is_bounded_in_bytes_and_says_what_it_cut() {
+    // one structure of 4,000 atoms, ids two apart (the worst `ids` text), every atom a nitrogen, every bond a wedge
+    let n = 4000;
+    let atoms: Vec<Value> = (0..n).map(|i| json!({"id": 2 * i + 2, "el": "N", "x": i as f64 * 0.87, "y": (i % 2) as f64 * 0.5})).collect();
+    let bonds: Vec<Value> = (1..n)
+        .map(|i| json!({"id": 2 * n + 2 * i, "a": 2 * i, "b": 2 * i + 2, "o": 1, "s": 1}))
+        .collect();
+    let doc = json!({"format": "mzdraw/1", "next": 4 * n + 10, "atoms": atoms, "bonds": bonds});
+    let text = digest_of(&doc);
+    assert!(text.len() <= 6_000, "{} bytes", text.len());
+    let v: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(v["pieces"][0]["labels"].as_array().unwrap().len(), 150);
+    assert_eq!(v["pieces"][0]["stereo"].as_array().unwrap().len(), 50);
+    assert_eq!(v["truncated"][0], n - 150);
+    assert_eq!(v["truncated"][1], n - 1 - 50);
+    assert!(v["truncated"][2].as_u64().unwrap() > 3000);
+    assert!(v["pieces"][0]["ids"].as_str().unwrap().contains(",+"));
+    // 3,000 two-atom structures with a label each and 3,000 objects: the bytes stay bounded and the rest is counted
+    let atoms: Vec<Value> = (0..6000).map(|i| json!({"id": i + 1, "el": "N", "x": (i / 2 % 60) as f64 * 5.0 + (i % 2) as f64, "y": (i / 120) as f64 * 5.0})).collect();
+    let bonds: Vec<Value> = (0..3000)
+        .map(|k| json!({"id": 6001 + k, "a": 2 * k + 1, "b": 2 * k + 2, "o": 1}))
+        .collect();
+    let objects: Vec<Value> = (0..3000)
+        .map(|k| json!({"id": 9001 + k, "t": "text", "x": 0.0, "y": 0.0, "text": "a"}))
+        .collect();
+    let doc = json!({"format": "mzdraw/1", "next": 13000, "atoms": atoms, "bonds": bonds, "objects": objects});
+    let text = digest_of(&doc);
+    assert!(text.len() <= 30_000, "{} bytes", text.len());
+    let v: Value = serde_json::from_str(&text).unwrap();
+    let listed = v["pieces"].as_array().unwrap().len();
+    assert_eq!(v["more"], json!([3000 - listed, 2800]));
+}
+
+/// The box of a label is not the SVG's measure of it (the SVG has none): the width of the long label is estimated from the SVG's own
+/// text element (its font size and its number of characters, 0.55 of the size each, the average width of the font family of the
+/// file), and the box must reach about that far from the atom.
+#[test]
+fn the_ink_of_a_long_label_reaches_about_as_far_as_the_text_of_the_svg() {
+    let mut doc = chain(3, 0, false);
+    doc["atoms"][2]["lab"] = json!("Fmoc");
+    let v = parsed(&doc);
+    let b = &v["pieces"][0]["box"];
+    let svg = replay(&json!({"import": doc.to_string(), "out": "svg"}).to_string()).unwrap();
+    let text = svg
+        .lines()
+        .find(|l| l.starts_with("<text") && l.contains(">Fmoc<"))
+        .expect("the label is a text element");
+    let attr = |name: &str| -> f64 {
+        text.split(&format!(" {name}=\""))
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap()
+    };
+    let bond = mzdraw::Style::default().bond_length;
+    let width = 4.0 * 0.55 * attr("font-size") / bond;
+    let atom_x = doc["atoms"][2]["x"].as_f64().unwrap();
+    // the label sits at the end of the chain and runs to the right, away from its bond
+    let reach = b[2].as_f64().unwrap() - atom_x;
+    assert!(
+        reach > 0.5 * width && reach < 1.6 * width,
+        "reach {reach} bond lengths, text about {width} ({b})"
+    );
 }
 
 #[test]

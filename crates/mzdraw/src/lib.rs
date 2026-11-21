@@ -26,6 +26,7 @@ pub mod io;
 pub mod ket;
 pub mod label;
 pub mod layout;
+pub mod loss;
 mod m;
 pub mod maps;
 pub mod ops;

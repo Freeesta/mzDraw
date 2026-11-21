@@ -77,6 +77,50 @@ The 14 that fail in the last column and in the RDKit "with a title" columns are 
 
 `lost` in the reference names the InChI layers that differ (`f` formula, `h` hydrogens, `c` connectivity, `q`/`p` charge, `b`/`t`/`m`/`s` stereo, `i`/`r` isotopes). The numbered list of what to fix is in the PR of the slice; nothing here changed a reader or a writer. Optional run on public structures: `python3 tools/fidelity/run.py --replay ... --corpus` fetches a fixed list of PubChem ids at run time and prints rates only; It was run once by hand on 20 ids to see that it works; its rates are not committed (E19 asked for them: a deviation, to be decided).
 
+### 1c. What a format loses, listed before the file is written (plan-22)
+`loss(doc, format)` (`crates/mzdraw/src/loss.rs`; `"out":"loss:FORMAT"`, the arm `{"lossless":"FORMAT"}` of `expect`) names, with their ids, the things of one drawing that a format drops or changes: one item `{what, atoms, bonds, objects}` per thing, ordered by `what` then smallest id, as the document `loss/1`. The table below says per feature whether the writer carries it. The table is generated from the code and compared with it by `crates/mzdraw/tests/loss.rs`, which also writes random drawings in every format, reads them back and holds `loss` to the differences it finds (every difference is listed, nothing listed is invented).
+
+Cells:
+- `yes`: written and read back as it was.
+- `no`: dropped or changed (an abbreviation is written as its atoms, the text of an arrow as a text of its own).
+- `drawing`: depends on the drawing, so the file is written and read back and the answer is per kind, not per id (when some of a kind do not come back, every occurrence is listed). These are the wedge marks (derived again from the stereo of the record), the radical in a SMILES (kept for some atoms and not for others), the plus signs of a reaction file (it makes its own), and the shape (a SMILES has no coordinates, an SDF puts its records side by side, a reaction file places the structures about its arrow).
+
+What `geometry` means:
+- It is the shape of the drawing in bond lengths (the median bond length is the unit), for the atoms drawn: what a reader adds, such as the atoms of an abbreviation, is not a loss.
+- It is compared only where its cell says `drawing` (`smiles`, `sdf`, `rxn`).
+- For the other formats the positions are written. The readers of a molfile, V3000, KET and CDXML rescale to a bond length of 1 and CDXML rounds to a hundredth of a point (about 0.0005 of a bond): the scale is not checked and not a loss.
+- Not in the table and not checked: the element, the order of a bond, and the explicit hydrogen count `h` of an atom.
+
+Limits, all `error.draw2.lossSize` (also a false `lossless`, which says "too large to check"):
+- more than 50,000 things in the drawing;
+- for `smiles`: a connected piece above 500 atoms (the writer of `mzlab-mol` recurses along a chain and overflows a 1 MiB stack between 2,000 and 4,000 atoms; many small pieces are safe);
+- for `smiles`, `sdf` and `rxn` (the shape is compared, all distances, quadratic): more than 600 atoms in the drawing;
+- where a round trip is needed: a drawing a writer would make more than 40,000 atoms of (an abbreviation counts as the atoms it stands for, seven for `Boc`), a file that reads back as more than 3,000 atoms (shape formats), or a file its reader refuses. The key is `lossSize`, not the reader's.
+
+Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms is `error.draw2.smilesSize` everywhere (`out`, `expect`, the copy of the page); the stereo guard leaves such a piece out.
+<!-- loss-table:begin -->
+| feature | molfile | molfile-v3000 | smiles | sdf | ket | cdxml | cml | rxn | svg | mzdraw |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `abbreviation` | no | no | no | no | no | no | no | no | yes | yes |
+| `annotation` | no | no | no | yes | no | no | no | no | yes | yes |
+| `arrow.anchor` | no | no | no | no | no | no | no | no | yes | yes |
+| `arrow.text` | no | no | no | no | no | no | no | no | yes | yes |
+| `atom.charge` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `atom.isotope` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `atom.map` | yes | yes | yes | yes | yes | no | no | yes | yes | yes |
+| `atom.radical` | yes | yes | drawing | yes | yes | yes | yes | yes | yes | yes |
+| `data` | no | no | no | yes | no | no | no | no | yes | yes |
+| `geometry` | yes | yes | drawing | drawing | yes | yes | yes | drawing | yes | yes |
+| `object.arrow` | no | no | no | no | yes | yes | no | yes | yes | yes |
+| `object.plus` | no | no | no | no | yes | yes | no | drawing | yes | yes |
+| `object.text` | no | no | no | no | yes | yes | no | no | yes | yes |
+| `rlabel` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `unknown` | no | no | no | no | no | no | no | no | yes | yes |
+| `wedge.hashed` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |
+| `wedge.solid` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |
+| `wedge.wavy` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |
+<!-- loss-table:end -->
+
 ## 2. Images that carry their molecule, clipboard
 - **SVG**: `<metadata>` holds `<mzdraw:doc xmlns:mzdraw="https://freeesta.github.io/mzlab/ns/mzdraw/1">` with the `mzdraw/1` JSON in CDATA, plus `<mzdraw:molfile>` with the V3000 molfile of each molecule for other programs. Opening an SVG reads the document; an SVG without it is refused ("not a structure file"), never traced. Idea from RDKit (`<rdkit:mol>` in metadata) and Open Babel (`-e`, CML in the SVG).
 - **PNG**: `iTXt` chunks, keyword `mzdraw` (the document, zlib-compressed, UTF-8) and `molfile` (V3000 text); idea from RDKit's PNG metadata (`tEXt`/`zTXt`, its key prefix*). Writing an RDKit-readable chunk as well is cheap and is decision-free (one extra chunk), done when the prefix is confirmed by a test against RDKit in `tools/`.

@@ -849,3 +849,35 @@ fn the_reference_of_the_independent_proof_is_the_verdict_of_this_build() {
     }
     assert_eq!(seen, reference["cases"]);
 }
+
+/// A chiral centre (F wedge, Cl, a chain) in one piece of more than 500 atoms: the SMILES writer is not called for it, yet the guard does
+/// not raise a false alarm for the piece as it stands, and still reports a real change (the wedge turned over) in it.
+#[test]
+fn a_piece_above_the_smiles_limit_is_not_a_false_alarm_and_a_real_change_is_still_said() {
+    let mut atoms = vec![
+        json!({"id":1,"el":"C","x":0.0,"y":0.0}),
+        json!({"id":2,"el":"F","x":0.0,"y":1.0}),
+        json!({"id":3,"el":"Cl","x":-0.9,"y":-0.5}),
+    ];
+    let mut bonds = vec![
+        json!({"id":1001,"a":1,"b":2,"o":1,"s":1}),
+        json!({"id":1002,"a":1,"b":3,"o":1}),
+    ];
+    for i in 0..520u32 {
+        let id = 4 + i;
+        atoms.push(json!({"id":id,"el":"C","x":0.9 + f64::from(i) * 0.5,"y":-0.5 + if i % 2 == 0 {0.0} else {0.4}}));
+        let from = if i == 0 { 1 } else { id - 1 };
+        bonds.push(json!({"id":1003 + i,"a":from,"b":id,"o":1}));
+    }
+    let doc = json!({"format":"mzdraw/1","next":2000,"atoms":atoms,"bonds":bonds}).to_string();
+    assert!(Document::from_json(&doc).unwrap().to_smiles().is_err());
+    let verdict = |log: Value| {
+        let request = json!({"import":doc,"log":log,"expect":[{"stereo":"kept"}]}).to_string();
+        serde_json::from_str::<Value>(&replay(&request).unwrap()).unwrap()
+    };
+    // nothing changed: the guard says nothing
+    assert_eq!(verdict(json!([]))["ok"], json!(true));
+    // the wedge turned over: a real change, said though the piece is above the limit
+    let flipped = verdict(json!([{"op":"bond.set","id":1001,"s":2}]));
+    assert_eq!(flipped["ok"], json!(false), "{flipped}");
+}

@@ -3,9 +3,12 @@
 //! then the objects, the smallest gap between two structures and the number of `std/1` findings per key.
 //!
 //! Written by hand with the keys in a fixed order, numbers through `mzlab_mol::fixed` (one decimal): the same drawing gives the same
-//! bytes everywhere. One pass over the atoms and the bonds (a union-find, no `layout::pieces`, whose rescans are quadratic), so a
-//! hostile drawing costs time in proportion to its size. At most `MAX_LISTED` structures and `MAX_LISTED` objects are listed; the
-//! rest are counted in `more`. Boxes are in bond lengths, y up, label ink included (`scene::label_extent`, as the layout uses it).
+//! bytes everywhere. The code of this module is one pass over the atoms and the bonds (a union-find, no `layout::pieces`, whose
+//! rescans are quadratic). The engine calls under it are not: `Document::to_mol` and `scene::label_extent` look through the bonds for
+//! every atom, so the cost of a drawing with bonds grows as atoms times bonds. That cost is capped, not removed: a drawing whose
+//! `atoms * (bonds + 1)` is above `MAX_WORK` is refused (`error.draw2.digestSize`). The size of the answer is capped too (see the
+//! constants), so it can go into a prompt: what is cut is counted, never dropped silently. Boxes are in bond lengths, y up, label ink
+//! included (`scene::label_extent`, as the layout uses it).
 
 use crate::doc::{Atom, Document, ObjKind};
 use crate::settings::Style;
@@ -16,12 +19,29 @@ use std::collections::HashMap;
 /// The value of the key `format`.
 pub const FORMAT: &str = "digest/1";
 
-/// Structures and objects listed; the rest are counted in `more` (`[structures, objects]`). The pairwise `clearance` runs over the
-/// structures listed, so its cost stays bounded too.
+/// Structures and objects listed at most; the rest are counted in `more` (`[structures, objects]`). The pairwise `clearance` runs over
+/// the structures listed, so its cost stays bounded too.
 pub const MAX_LISTED: usize = 200;
 
-/// Atoms up to which the `std/1` findings are counted. The check rescans the drawing for every atom, so a hostile drawing would make
-/// the digest cost its square; above this many atoms `std` is `null` ("not counted"), never `{}` (which says "no finding").
+/// Bytes after which no further structure is listed (the one being written is finished): a hostile drawing cannot make the answer
+/// large. The objects have their own `MAX_LISTED` entries, so the answer stays under `MAX_BYTES` + `MAX_PIECE` + the objects.
+pub const MAX_BYTES: usize = 12_000;
+
+/// Entries of one structure: `labels` and `stereo` entries and the bytes of `ids`. What is cut is counted in the key `truncated`
+/// (`[labels, stereo, atoms]`, present only then; a cut `ids` ends in `,+K`: K more atoms). A structure of up to 150 atoms that
+/// are not carbon is listed whole.
+pub const MAX_LABELS: usize = 150;
+pub const MAX_STEREO: usize = 50;
+pub const MAX_IDS: usize = 400;
+
+/// The work the engine calls under the digest may cost, as atoms * (bonds + 1) (see the module text): 25 million is a chain of 5,000
+/// atoms, a few hundredths of a second. A drawing of one atom per structure (no bond) costs next to nothing per atom and has no limit
+/// of its own.
+pub const MAX_WORK: usize = 25_000_000;
+
+/// Atoms up to which the `std/1` findings are counted. The check rescans the drawing for every atom (quadratic), so above this many
+/// atoms `std` is `null` ("not counted", never `{}`, which says "no finding") and the key `stdSkipped` says why. The cap stays: making
+/// the check itself linear is not part of this slice.
 pub const MAX_STD_ATOMS: usize = 1000;
 
 /// A box: x0, y0, x1, y1 (bond lengths).
@@ -44,8 +64,9 @@ fn quote(s: &str) -> String {
     Value::from(s).to_string()
 }
 
-/// Atom ids as ranges: `1-12,15` (a run of two or more consecutive ids is a range).
-fn ranges(ids: &mut [u32]) -> String {
+/// Atom ids as ranges: `1-12,15` (a run of two or more consecutive ids is a range), at most `cap` bytes: a longer text is cut at a
+/// comma and ends in `,+K` (K more atoms). Gives the text and the number of atoms it names.
+fn ranges(ids: &mut [u32], cap: usize) -> (String, usize) {
     ids.sort_unstable();
     let mut out = String::new();
     let mut i = 0;
@@ -54,17 +75,23 @@ fn ranges(ids: &mut [u32]) -> String {
         while j + 1 < ids.len() && ids[j + 1] == ids[j] + 1 {
             j += 1;
         }
-        if !out.is_empty() {
-            out.push(',');
+        let mut part = String::new();
+        if i > 0 {
+            part.push(',');
         }
-        out.push_str(&ids[i].to_string());
+        part.push_str(&ids[i].to_string());
         if j > i {
-            out.push('-');
-            out.push_str(&ids[j].to_string());
+            part.push('-');
+            part.push_str(&ids[j].to_string());
         }
+        if out.len() + part.len() > cap {
+            out.push_str(&format!(",+{}", ids.len() - i));
+            return (out, i);
+        }
+        out.push_str(&part);
         i = j + 1;
     }
-    out
+    (out, ids.len())
 }
 
 /// What an atom that is not a plain carbon shows: its label, else mass number, element and charge (`13C`, `N+`, `O2-`).
@@ -118,10 +145,14 @@ fn gap(a: Rect, b: Rect) -> f64 {
     libm::sqrt(dx * dx + dy * dy)
 }
 
-/// The digest of a drawing in a style (the style decides the ink of the labels, hence the boxes).
-pub fn json(doc: &Document, style: &Style) -> String {
-    let m = doc.to_mol();
+/// The digest of a drawing in a style (the style decides the ink of the labels, hence the boxes). A drawing whose work is above
+/// `MAX_WORK` is refused: `error.draw2.digestSize`.
+pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
     let n = doc.atoms.len();
+    if n.saturating_mul(doc.bonds.len() + 1) > MAX_WORK {
+        return Err("error.draw2.digestSize");
+    }
+    let m = doc.to_mol();
     let index: HashMap<u32, usize> = doc
         .atoms
         .iter()
@@ -208,26 +239,35 @@ pub fn json(doc: &Document, style: &Style) -> String {
     pieces.sort_by(|a, b| {
         (a.bbox[0].total_cmp(&b.bbox[0])).then_with(|| a.ids.first().cmp(&b.ids.first()))
     });
-    let listed = &mut pieces[..total.min(MAX_LISTED)];
-
     let mut out = format!("{{\"format\":\"{FORMAT}\",\"pieces\":[");
-    for (i, p) in listed.iter_mut().enumerate() {
-        if i > 0 {
+    // what is cut: labels, stereo entries, atoms of an `ids` text
+    let mut cut = (0usize, 0usize, 0usize);
+    let mut listed = 0;
+    for p in pieces.iter_mut() {
+        if listed == MAX_LISTED || (listed > 0 && out.len() >= MAX_BYTES) {
+            break;
+        }
+        if listed > 0 {
             out.push(',');
         }
+        listed += 1;
         // the Hill formula of the outline line, with the ASCII minus
         let formula = crate::outline::hill(&mut p.counts, p.charge).replace('\u{2212}', "-");
-        let labels: Vec<String> = (p.labels.iter())
+        let labels: Vec<String> = (p.labels.iter().take(MAX_LABELS))
             .map(|(id, t)| format!("[{id},{}]", quote(t)))
             .collect();
-        let stereo: Vec<String> = (p.stereo.iter())
+        let stereo: Vec<String> = (p.stereo.iter().take(MAX_STEREO))
             .map(|(id, k, a)| format!("[{id},\"{k}\",{a}]"))
             .collect();
+        cut.0 += p.labels.len() - labels.len();
+        cut.1 += p.stereo.len() - stereo.len();
+        let (all, ids) = (p.ids.len(), ranges(&mut p.ids, MAX_IDS));
+        cut.2 += all - ids.1;
         // the cyclomatic number of a connected structure: bonds - atoms + 1
         let rings = (p.bonds + 1).saturating_sub(p.ids.len());
         out.push_str(&format!(
             "{{\"ids\":{},\"formula\":{},\"box\":{},\"labels\":[{}],\"stereo\":[{}],\"rings\":{rings}}}",
-            quote(&ranges(&mut p.ids)),
+            quote(&ids.0),
             quote(&formula),
             rect_json(p.bbox),
             labels.join(","),
@@ -259,7 +299,7 @@ pub fn json(doc: &Document, style: &Style) -> String {
         out.push_str(&format!("[{},\"{}\",{}]", o.id, o.t.name(), rect_json(r)));
     }
     out.push_str("],\"clearance\":");
-    let boxes: Vec<Rect> = listed.iter().map(|p| p.bbox).collect();
+    let boxes: Vec<Rect> = pieces[..listed].iter().map(|p| p.bbox).collect();
     let mut best: Option<f64> = None;
     for (i, a) in boxes.iter().enumerate() {
         for b in &boxes[i + 1..] {
@@ -270,7 +310,7 @@ pub fn json(doc: &Document, style: &Style) -> String {
     out.push_str(&best.map_or("null".to_string(), d1));
     out.push_str(",\"std\":");
     if n > MAX_STD_ATOMS {
-        out.push_str("null");
+        out.push_str("null,\"stdSkipped\":\"atoms>1000\"");
     } else {
         out.push('{');
         let report = crate::pathway::report_with(doc, style);
@@ -282,13 +322,13 @@ pub fn json(doc: &Document, style: &Style) -> String {
         }
         out.push('}');
     }
-    let more = (
-        total.saturating_sub(MAX_LISTED),
-        doc.objects.len().saturating_sub(MAX_LISTED),
-    );
+    let more = (total - listed, doc.objects.len().saturating_sub(MAX_LISTED));
     if more != (0, 0) {
         out.push_str(&format!(",\"more\":[{},{}]", more.0, more.1));
     }
+    if cut != (0, 0, 0) {
+        out.push_str(&format!(",\"truncated\":[{},{},{}]", cut.0, cut.1, cut.2));
+    }
     out.push('}');
-    out
+    Ok(out)
 }

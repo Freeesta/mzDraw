@@ -498,6 +498,7 @@ impl Document {
             .map(|b| (b.a.min(b.b), b.a.max(b.b)))
             .collect();
         crate::m::sort(&mut pairs);
+        let known: std::collections::HashSet<u32> = self.atoms.iter().map(|a| a.id).collect();
         unique
             && self.next <= MAX_ID
             && self.coords_ok()
@@ -513,8 +514,8 @@ impl Document {
                 b.a != b.b
                     && (1..=3).contains(&b.o)
                     && (b.s == 0 || (b.s <= 3 && b.o == 1))
-                    && self.atom(b.a).is_some()
-                    && self.atom(b.b).is_some()
+                    && known.contains(&b.a)
+                    && known.contains(&b.b)
             })
     }
 
@@ -604,10 +605,48 @@ impl Document {
         if let Some(h) = a.h {
             return h as u32;
         }
-        let used = self.order_sum(a.id) + a.rad as u32;
+        Self::free_hydrogens(a, self.order_sum(a.id))
+    }
+
+    /// What the lowest allowed valence leaves free on an atom whose bonds add up to `orders`.
+    fn free_hydrogens(a: &Atom, orders: u32) -> u32 {
+        let used = orders + a.rad as u32;
         mzlab_mol::allowed_valences(&a.el, a.chg as i32)
             .into_iter()
             .find(|&v| v >= used)
             .map_or(0, |v| v - used)
+    }
+
+    /// `hydrogens` of every atom in pool order, in one pass over the bonds (the per-atom form scans all bonds each time).
+    pub(crate) fn all_hydrogens(&self) -> Vec<u32> {
+        let sums = self.order_sums();
+        (self.atoms.iter())
+            .map(|a| match (a.lab.is_empty(), a.h) {
+                (false, _) => 0,
+                (true, Some(h)) => h as u32,
+                (true, None) => Self::free_hydrogens(a, sums.get(&a.id).copied().unwrap_or(0)),
+            })
+            .collect()
+    }
+
+    /// The sum of the orders of the bonds at each atom id (an atom without a bond is absent).
+    pub(crate) fn order_sums(&self) -> std::collections::HashMap<u32, u32> {
+        let mut sums = std::collections::HashMap::with_capacity(self.atoms.len());
+        for b in &self.bonds {
+            *sums.entry(b.a).or_insert(0) += b.o as u32;
+            if b.b != b.a {
+                *sums.entry(b.b).or_insert(0) += b.o as u32;
+            }
+        }
+        sums
+    }
+
+    /// The pool index of every atom id (the first one for an id that is there twice).
+    pub(crate) fn index_map(&self) -> std::collections::HashMap<u32, usize> {
+        let mut map = std::collections::HashMap::with_capacity(self.atoms.len());
+        for (i, a) in self.atoms.iter().enumerate().rev() {
+            map.insert(a.id, i);
+        }
+        map
     }
 }
