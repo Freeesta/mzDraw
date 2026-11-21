@@ -1,12 +1,13 @@
 # plan-05: a cut line across bonds, as an object of the document
 
-Proposed by `docs/plan/backlog.md` (row 24; Gemini card 1 (reframed: the engine is mzLab's `cut/1`)). Size M. Wave 2. Depends on: plan-01 (table entry).
+Proposed by `docs/plan/backlog.md` (row 22; Gemini card 1 (reframed: the engine is mzLab's `cut/1`)). Size M. Wave 2. Depends on: plan-01 (table entry).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-05 cut-object: received, starting on branch `claude/plan-05-cut-object`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. This slice draws and stores the cut; the masses come in plan-06.
 
 ## Scope

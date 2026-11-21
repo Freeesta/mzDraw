@@ -1,12 +1,13 @@
 # plan-15: semantic diff of two documents as a `draw_edit/1` patch
 
-Proposed by `docs/plan/backlog.md` (row 18; Gemini bold idea 3 (agent co-drawing), part 1). Size M. Wave 1. Depends on: plan-01 (can start in parallel; rebase nothing, add ops to its table when it merges).
+Proposed by `docs/plan/backlog.md` (row 13; Gemini bold idea 3 (agent co-drawing), part 1). Size M. Wave 1. Depends on: plan-01 (can start in parallel; rebase nothing, add ops to its table when it merges).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-15 diff-core: received, starting on branch `claude/plan-15-diff-core`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Rust only, no page: the base of the proposal layer (plan-16) and of `--diff` for agents.
 
 ## Scope

@@ -1,12 +1,13 @@
 # plan-13: lay out a one-line reaction scheme
 
-Proposed by `docs/plan/backlog.md` (row 25; Gemini card 3 (reframed: no MCS engine, moves only)). Size M. Wave 2. Depends on: none.
+Proposed by `docs/plan/backlog.md` (row 23; Gemini card 3 (reframed: no MCS engine, moves only)). Size M. Wave 2. Depends on: none.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-13 scheme-row: received, starting on branch `claude/plan-13-scheme-row`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. 
 
 ## Scope

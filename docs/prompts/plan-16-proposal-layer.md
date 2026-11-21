@@ -1,12 +1,13 @@
 # plan-16: an agent's proposal shown as a layer, accepted or rejected hunk by hunk
 
-Proposed by `docs/plan/backlog.md` (row 51; Gemini bold idea 3, part 2). Size M. Wave 6. Depends on: plan-15, UI-2 PR 2.
+Proposed by `docs/plan/backlog.md` (row 48; Gemini bold idea 3, part 2). Size M. Wave 6. Depends on: plan-15, UI-2 PR 2.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-16 proposal-layer: received, starting on branch `claude/plan-16-proposal-layer`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. 
 
 ## Scope

@@ -1,12 +1,13 @@
 # plan-03: format fidelity checked by RDKit, Open Babel and InChI
 
-Proposed by `docs/plan/backlog.md` (row 14; Gemini better question 3; independent proof for every format slice). Size M. Wave 1. Depends on: none (backlog Q5 on fetched corpora).
+Proposed by `docs/plan/backlog.md` (row 11; Gemini better question 3; independent proof for every format slice). Size M. Wave 1. Depends on: none (backlog D5 on fetched corpora).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-03 fidelity-ref: received, starting on branch `claude/plan-03-fidelity-ref`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. This slice writes a harness and reference files; it changes no reader or writer. Its numbers are the independent proof the format slices cite.
 
 ## Scope

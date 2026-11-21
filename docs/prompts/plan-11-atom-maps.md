@@ -1,12 +1,13 @@
 # plan-11: atom-to-atom maps on atoms, read and written in reaction files and SMILES
 
-Proposed by `docs/plan/backlog.md` (row 35; Gemini bold idea 2 (reframed); built state: "Not built: atom-to-atom maps"). Size M. Wave 4. Depends on: arch-std-11 (same zone, runs before).
+Proposed by `docs/plan/backlog.md` (row 33; Gemini bold idea 2 (reframed); built state: "Not built: atom-to-atom maps"). Size M. Wave 4. Depends on: arch-std-11 (same zone, runs before).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-11 atom-maps: received, starting on branch `claude/plan-11-atom-maps`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. 
 
 ## Scope

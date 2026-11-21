@@ -1,12 +1,13 @@
 # plan-02: drawing-speed benchmark `velocity/1` on a fixed task set
 
-Proposed by `docs/plan/backlog.md` (row 13; Gemini better question 1; backlog section 2). Size M. Wave 1. Depends on: none.
+Proposed by `docs/plan/backlog.md` (row 10; Gemini better question 1; backlog section 2). Size M. Wave 1. Depends on: none.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-02 velocity-bench: received, starting on branch `claude/plan-02-velocity-bench`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. This slice writes tests and tools only; it changes no editor code. It answers with numbers where mzDraw loses to other editors on raw drawing speed.
 
 ## Scope

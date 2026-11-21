@@ -1,12 +1,13 @@
 # plan-07: a peak list in, the cuts that explain each peak out
 
-Proposed by `docs/plan/backlog.md` (row 39; Gemini card 1 and bold idea 1 (reframed: engines `breaks` and `fragmenter` of mzLab)). Size M. Wave 4. Depends on: plan-06.
+Proposed by `docs/plan/backlog.md` (row 37; Gemini card 1 and bold idea 1 (reframed: engines `breaks` and `fragmenter` of mzLab)). Size M. Wave 4. Depends on: plan-06.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-07 cut-peaks: received, starting on branch `claude/plan-07-cut-peaks`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Evidence, never identification: a peak explained by a cut is a hypothesis, and the page says so in words.
 
 ## Scope

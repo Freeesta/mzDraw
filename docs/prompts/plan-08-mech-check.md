@@ -1,12 +1,13 @@
 # plan-08: live form check of curved arrows through `mechanism/1`
 
-Proposed by `docs/plan/backlog.md` (row 52; Gemini card 6 (reframed: the engine is mzLab's `mechanism/1`)). Size S. Wave 6. Depends on: arch-cd-25 (anchored curved arrows and lone pairs), plan-04.
+Proposed by `docs/plan/backlog.md` (row 55; Gemini card 6 (reframed: the engine is mzLab's `mechanism/1`)). Size S. Wave 6. Depends on: arch-cd-25 (anchored curved arrows and lone pairs), plan-04.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-08 mech-check: received, starting on branch `claude/plan-08-mech-check`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. The check says whether every arrow is well formed, never which mechanism is right.
 
 ## Scope

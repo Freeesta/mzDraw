@@ -1,12 +1,13 @@
 # plan-14: keep a shared core oriented the same way across a scheme
 
-Proposed by `docs/plan/backlog.md` (row 41; Gemini card 3). Size M. Wave 3. Depends on: plan-13.
+Proposed by `docs/plan/backlog.md` (row 31; Gemini card 3). Size M. Wave 3. Depends on: plan-13.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-14 scheme-orient: received, starting on branch `claude/plan-14-scheme-orient`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. 
 
 ## Scope

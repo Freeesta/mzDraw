@@ -1,12 +1,13 @@
 # plan-10: which hosts keep the document inside our pictures
 
-Proposed by `docs/plan/backlog.md` (row 33; Gemini card 2 and experiment 2; the PDF writer is arch-std-18). Size S. Wave 3. Depends on: arch-std-18 (PDF writer).
+Proposed by `docs/plan/backlog.md` (row 32; Gemini card 2 and experiment 2; the PDF writer is arch-std-18). Size S. Wave 3. Depends on: arch-std-18 (PDF writer).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-10 survival-matrix: received, starting on branch `claude/plan-10-survival-matrix`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Tools and a report only; no editor code. It tells the owner, with evidence, where a picture still reopens as a drawing.
 
 ## Scope

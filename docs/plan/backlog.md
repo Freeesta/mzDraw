@@ -6,9 +6,9 @@ This file has five inputs:
 - the external research output `docs/input/gemini-feature-discovery.md` (Gemini Deep Research, PR #39);
 - the three studies and their prompts:
   - arch-std 01–14 on `main`;
-  - arch-std second pass 15–22 on PR #45 (branch `claude/arch-std-2` at `0cad22a`);
+  - arch-std second pass 15–22 on PR #45 (branch `claude/arch-std-2` at `0cad22a`; on `main` after #45 merges);
   - arch-web on `main` (PR #38);
-  - arch-cd on PR #41 (branch `claude/arch-cd` at `cf29991`; not final until the coordinator says so);
+  - arch-cd on PR #41 (branch `claude/arch-cd` at `87520eb`; on `main` after #41 merges, not final until then);
 - the running work, as the coordinator listed it on 2026-11-21;
 - the code of `main` at `222612f`;
 - the engines of mzLab, read at the pinned commit `ccd4680` and at mzLab `main` `76a4703`.
@@ -18,9 +18,9 @@ Facts marked `*` are not verified at a primary source.
 ## 0. Two findings that change the plan
 
 ### F1. mzLab already has most of the engines Gemini proposes we build
-These modules sit in `mzlab-feat` under `src/chem/` at the pinned commit `ccd4680`, behind the features `chem` and `check`. `mzdraw-wasm` already links `check`. Each one has a twin in `mzlab-cli`.
+These modules sit in `mzlab-feat` under `src/chem/` at the pinned commit `ccd4680`, behind the features `chem` and `check`. `mzdraw-wasm` already links `check`. Most have a twin in `mzlab-cli`; `fragments.rs` and `fragmenter.rs` are reached through the flow steps (`spectra.insilico@1`), not a `mol` subcommand, so their twin column is empty. Table verified at pin `ccd4680`.
 
-| engine | module | contract | CLI twin | what it does |
+| engine (verified at pin `ccd4680`) | module | contract | CLI twin | what it does |
 |---|---|---|---|---|
 | CIP | `cip.rs`, `cip_rank.rs` | `cip/1` | `mol cip` | Hierarchical digraph, rules 1a to 5. Rule 4c is not done, nor rules 4b and 5 on double bonds, nor axial M/P. |
 | cuts | `cut.rs` | `cut/1` | `mol cut` | Homolytic, heterolytic or "+H" cuts across chosen bonds, with the pieces and a shift. |
@@ -102,7 +102,7 @@ Sizes: S is up to about 300 lines, M about 600 lines (one PR), L means several P
 | Do-not 5: OLE and proprietary binary formats | **REFRAME** | OLE is dropped. Reading **binary CDX** is kept (arch-std-22, written first; plan-17 and plan-18 were withdrawn for it): it is a common file format, Octet-Draw reads it, and the owner asks for all common formats. Writing CDX is DEFER. | slice 3d (`cdxml.rs`) | M |
 | Better question 1: where do we lose on drawing speed? | **KEEP** → plan-02 | Answered by measurement, below (section 2). | — | M |
 | Better question 2: analytical niche vs synthetic chemists | answered | Both, in order: drawing speed and file fidelity first (waves 1 to 4), the mass-spectrometry edge from wave 3 (plan-05 to plan-07). | — | — |
-| Better question 3: synthetic data vs real files | **KEEP** → plan-03 | Fixtures stay synthetic (rule 4). A tool fetches public corpora at run time, never commits them, and commits only the success rates. Open question Q5. | — | M |
+| Better question 3: synthetic data vs real files | **KEEP** → plan-03 | Fixtures stay synthetic (rule 4). A tool fetches public corpora at run time, never commits them, and commits only the success rates. Decided in D5 (section 8). | — | M |
 
 Gemini counts: 1 kept, 8 reframed, 1 deferred, 4 dropped (14 items). The better questions add 2 kept and 1 answered.
 
@@ -141,7 +141,7 @@ The output is `velocity/1` JSON, with one row per task and tool. A test fails wh
 | chain | arch-web-08, arch-cd-05 | **arch-web-08 runs** (op `chain`, COO 16, D3), with arch-cd-05's count display. |
 | values | arch-web-17, arch-cd-14 | **arch-web-17 runs**, taking its numbers from `selection/1` through the glue (E6). |
 | theme tokens | arch-web-04, arch-std-03, UI-2 PR 3 | Order: UI-2 PR 3, then arch-std-03, then arch-web-04. |
-| palettes | arch-cd-18, arch-cd-19, UI-2 (R1 PR #35, page PR 2) | arch-cd-18 then arch-cd-19, in one chat, on top of R1 and after UI-2 PR 2; final scope as arch-cd fixes PR #41. |
+| palettes | arch-cd-18, arch-cd-19, UI-2 (R1 PR #35, page PR 2) | arch-cd-18 then arch-cd-19, two prompts in order, on top of R1 and after UI-2 PR 2; final scope as arch-cd fixes PR #41. |
 | embedding API | arch-web-01..05, arch-cd-21 | **arch-web runs** (web-01 first: it removes the one global editor of the bridge and blocks web-02..05). The element name `<mzdraw-editor>` is the one literal, in one file. |
 | desktop app | arch-cd-22 | Owner: one component, two distributions (standalone app macOS + Windows; bundled by default in mzLab site and app through Tauri). COO 16: a separate shell for now, the shared `release.yml` pattern, signing later by the owner. arch-cd-22 runs last (wave 8). |
 
@@ -151,7 +151,7 @@ Columns:
 - **COO 16** is "yes" when the item adds a `draw_edit/1` op or field (agreement before its PR) or needs a change in `mzlab-mol` / `mzlab-feat`. Ops already agreed in section 8 say "agreed".
 - **Proof** is the independent check the prompt names.
 
-Status: RUN = running now or waiting for merge, Q = queued, P = has a prompt, N = new prompt in this PR, W = withdrawn.
+Status: RUN = running now or waiting for merge, Q = queued, P = has a prompt, N = new prompt in this PR, W = withdrawn. The prompts arch-std-15..22 are on PR #45 and all `arch-cd-*` on PR #41: they are on `main` after #45 and #41 merge; until then read them from those branches.
 
 | # | id | item | status | size | depends on | zone | COO 16 | proof |
 |---|---|---|---|---|---|---|---|---|
@@ -215,7 +215,7 @@ Status: RUN = running now or waiting for merge, Q = queued, P = has a prompt, N 
 | 58 | arch-cd-08 | radical, isotope, periodic table | P | S | web-07 | input | no | — |
 | 59 | arch-cd-15 | align, distribute, scale (+ E2) | P | S | std-15 | commands | no | geometry |
 | 60 | arch-web-21 | drop and copy as (+ E7) | P | S | std-17, CTX-MENU page | page clipboard | no | — |
-| 61 | arch-cd-18 + 19 | palette tear-off, named layouts | P | M | UI-2 PR 2 | `palettes.rs` + page | no | — |
+| 61 | arch-cd-18, arch-cd-19 | palette tear-off, then named layouts (two prompts, in order) | P | M + S | UI-2 PR 2 | `palettes.rs` + page | no | — |
 | 62 | arch-cd-20 | context-menu refine | P | S | CTX-MENU page | `context.rs` | no | — |
 | 63 | arch-cd-26 | history panel | P | S | — | editor + page | no | log |
 | 64 | arch-cd-04 | double-bond position, dashed on `k` | P | S | web-20 | document bonds | yes (`pos`) | CDXML |
@@ -285,8 +285,14 @@ Wave 0 (running now): UI-2 (R1, PR 2, PR 3), CTX-MENU page, arch-std-01, -05, -0
 | **4** | as above | plan-11, plan-07, arch-web-07, arch-web-13, arch-std-16, arch-std-10, arch-web-03, arch-std-07 |
 | **5** | as above | arch-web-16, arch-web-17, arch-web-08, arch-std-19, plan-12, arch-cd-25, arch-web-05 |
 | **6** | as above | plan-16, arch-std-21, arch-web-15, arch-web-18, arch-web-19, arch-web-09, arch-web-11, plan-08 |
-| **7** | as above | arch-web-20, arch-std-20, arch-web-21, arch-cd-15, arch-cd-08, arch-cd-18 + 19 (one chat), arch-cd-20, arch-cd-26 |
-| **8** | as above | arch-cd-04, arch-cd-16, arch-web-04, arch-cd-22 |
+| **7** | as above | arch-web-20, arch-std-20, arch-web-21, arch-cd-15, arch-cd-08, arch-cd-18, arch-cd-19, arch-cd-20 |
+| **8** | as above | arch-cd-26, arch-cd-04, arch-cd-16, arch-web-04, arch-cd-22 |
+
+Same zone, serialize: inside a wave, launch one prompt per zone at a time.
+- Wave 4: arch-std-16 and arch-std-10 both touch `svg.rs` / scene.
+- Wave 5: arch-std-19 and plan-12 both touch `io.rs`.
+- Wave 6: plan-16, arch-web-11 and plan-08 all touch the page (`web/index.html`, `web/mzdraw.js`).
+- Wave 7: arch-web-21, arch-cd-18 and arch-cd-19 all touch the page; arch-cd-19 also follows arch-cd-18 in `palettes.rs`.
 
 Order inside a wave puts the analytical edge and the agent route early (plan-04, plan-05/06, plan-15) without starving drawing speed and file fidelity (std-22, std-18, std-15, cd-03). After the first `velocity/1` report, the coordinator may move the largest-gap items (hover hotkeys, chain, templates) one wave earlier; their zones allow it.
 
@@ -302,7 +308,7 @@ These are listed here, not rewritten. Each chat applies its edit when it starts.
 7. **E7 arch-web-21:** build "Copy as" on arch-std-17's payload list in Rust; "copy as KET" is in the chooser, with no `Ctrl+Shift+K`.
 8. **E8 arch-web-18:** reuse arch-std-08's label-unit tokenizer for composed labels; the op names are `abbr.expand` / `abbr.contract`.
 9. **E9 arch-web-20:** one field `k` with arch-cd-04's dashed kinds; V3000 types 9 and 10 from arch-cd-23. A dative bond's valence meaning is `mzlab-mol`'s: if it is missing at the pin, list the gap for COO 16.
-10. **E10 arch-cd:** done. `arch-cd-20-context-menu-refine.md` was added at `0733735` (PR #41 head `cf29991`), and arch-cd applied E2, E4 and E9 to its own prompts.
+10. **E10 arch-cd:** done. `arch-cd-20-context-menu-refine.md` exists on `claude/arch-cd` (added at `0733735`; PR #41 head `87520eb`), and arch-cd applied E2, E4 and E9 to its own prompts.
 11. **E11 every prompt that adds a `draw_edit/1` op or field:** add its row to the plan-01 table and get COO 16's agreement before the PR (the ones in section 8 are already agreed).
 12. **E12 every prompt whose feature calls an engine:** go through `glue.rs` (plan-04), never call `mzlab_feat` from `lib.rs` directly.
 13. **E13 every prompt:** hot files (`docs/mzdraw.md` Built state, `measured` in `tools/wasm-cap.toml`) conflict in every PR. Merge `origin/main` only on a real conflict, rerun, push. Do not edit the e2e step count, which is counted from the file now. Hand off at about 150k tokens with a pushed WIP branch and a one-line state note (replaces "200k").

@@ -1,12 +1,13 @@
 # plan-04: engine glue callable natively, so parity covers mzLab engines
 
-Proposed by `docs/plan/backlog.md` (row 15; finding F1; backlog Q2). Size S. Wave 1. Depends on: none (CTX-MENU PR #37, which also touched the bridge, is merged).
+Proposed by `docs/plan/backlog.md` (row 12; finding F1; backlog D2). Size S. Wave 1. Depends on: none (CTX-MENU PR #37, which also touched the bridge, is merged).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-04 glue-native: received, starting on branch `claude/plan-04-glue-native`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. This slice moves code and adds a native door; it adds no feature. Every later slice that shows the answer of a mzLab engine (CIP, cuts, mechanism, highlight, selection values) builds on it.
 
 ## Scope

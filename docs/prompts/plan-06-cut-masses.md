@@ -1,12 +1,13 @@
 # plan-06: formula and exact m/z of the pieces of a cut
 
-Proposed by `docs/plan/backlog.md` (row 29; Gemini card 1). Size M. Wave 3. Depends on: plan-04, plan-05.
+Proposed by `docs/plan/backlog.md` (row 28; Gemini card 1). Size M. Wave 3. Depends on: plan-04, plan-05.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-06 cut-masses: received, starting on branch `claude/plan-06-cut-masses`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Annotation, never prediction: the user chooses the bonds and the mode; the editor computes and shows the numbers.
 
 ## Scope

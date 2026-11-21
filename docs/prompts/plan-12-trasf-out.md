@@ -1,12 +1,13 @@
 # plan-12: a drawn parent → product saved as a `trasf/1` transformation record
 
-Proposed by `docs/plan/backlog.md` (row 47; Gemini bold idea 2 (reframed: `trasf/1` exists in `mzlab-mol`)). Size M. Wave 5. Depends on: plan-11.
+Proposed by `docs/plan/backlog.md` (row 45; Gemini bold idea 2 (reframed: `trasf/1` exists in `mzlab-mol`)). Size M. Wave 5. Depends on: plan-11.
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-12 trasf-out: received, starting on branch `claude/plan-12-trasf-out`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. This ties drawings to the transformation-product screening of mzLab with no new engine.
 
 ## Scope

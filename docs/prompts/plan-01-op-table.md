@@ -1,12 +1,13 @@
 # plan-01: one table of the `draw_edit/1` operations, served as JSON
 
-Proposed by `docs/plan/backlog.md` (row 12; finding F2: the log of mzDraw has 12 operations, the reader of mzLab 7). Size S. Wave 1. Depends on: none (COO 16 agreement on ownership, backlog Q1).
+Proposed by `docs/plan/backlog.md` (row 9; finding F2: the log of mzDraw has 12 operations, the reader of mzLab 7). Size S. Wave 1. Depends on: none (COO 16 agreement on ownership, backlog D1).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
 > DEV plan-01 op-table: received, starting on branch `claude/plan-01-op-table`.
 
 ## Role
+Model: Sonnet, effort medium.
 DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. This slice adds no edit operation: it makes the language one table that the reader, the writer, the docs and mzLab can all read.
 
 ## Scope
