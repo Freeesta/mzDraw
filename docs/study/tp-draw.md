@@ -1,6 +1,6 @@
 # mzDraw for transformation products (ARCH study `tp-draw`)
 
-This is a report only: no code depends on this file. It reviews six feature ideas from an external LLM (Gemini). It checks each idea against the owner's three priorities and against what mzDraw has built or planned, and picks what to build first. The prompts it adds are `docs/prompts/tp-01` to `tp-07`.
+This is a report only: no code depends on this file. It reviews six feature ideas from an external LLM (Gemini). It checks each idea against the owner's three priorities and against what mzDraw has built or planned, and picks what to build first. The prompts it adds are `docs/prompts/tp-01` to `tp-11`.
 
 Owner priorities (a mass spectrometrist):
 1. draw the transformation products (TPs) of a parent fast;
@@ -29,40 +29,42 @@ How to read it:
 | T10 | CXSMILES `m:` (multicentre S-groups), https://docs.chemaxon.com/lts-iodine/chemaxon-extended-smiles-and-smarts-cxsmiles-and-cxsmarts.html ; V3000 `ENDPTS` / `ATTACH=ANY` (secondary: depth-first.com 2021) | read; the BIOVIA spec `*` | Position variation is a multicentre S-group or a generic bond, which is query or Markush territory. |
 | T11 | Mass-shift table, Molecules 2019, 24:1203, Table 4, https://pmc.ncbi.nlm.nih.gov/articles/PMC6480032/table/molecules-24-01203-t004/ | read | −CH2 −14.0157, −H2 −2.0157, +O 15.9949, +H2O 18.0106, +C6H8O6 176.0321. +SO3 79.9568 and +C2H2O 42.0106 were computed from IUPAC masses and are not read in a source; tp-05 tests them against the glue's nuclides. |
 | T12 | Elsevier artwork sizing, https://www.elsevier.com/authors/policies-and-guidelines/artwork-and-media-instructions/artwork-sizing ; ACS JACS/ES&T/AC guidelines PDFs | read | These numbers already sit in arch-std-16. The "ACS Document 1996" values (bond 14.4 pt = 0.200 in, line 0.6 pt, Arial 10 pt) come from a secondary source (Wikipedia) `*`. |
-| T13 | mzLab `mzlab-mol` at the pin `ccd4680`: `transform.rs` (`trasf/1`), `delta.rs`, `substruct.rs` | read (code) | `trasf/1` already has an **uncertain product**: `delta`, `sites` (parent atoms with support `p`) and a `region` (`zone` / `multicenter` / `whole`), with no product structure. `delta.rs` parses, adds and prints formula deltas. Masses are not in `mzlab-mol`; they are in `mzlab-core`, reached through the glue. |
+| T13 | mzLab `mzlab-mol` at the pin `ccd4680`: `transform.rs` (`trasf/1`), `delta.rs`, `substruct.rs` | read (code) | `trasf/1` already has an **uncertain product**: `delta`, `sites` (parent atoms with support `p`) and a `region` (`zone` / `multicenter` / `whole`), with no product structure. `delta.rs` parses, adds and prints formula deltas. No mass table was found in `mzlab-mol` (grep at the pin), which agrees with backlog E6. That the masses are in `mzlab-core` (`nuclides.rs`) is taken from backlog §0 F1 and was not re-read here `*`. The TP prompts take masses through arch-web-17 (`selection/1` through the glue, E6). |
 
 ## 2. What exists or is planned (the overlap map)
 | need | built | planned | gap |
 |---|---|---|---|
-| arrows tied to structures | no: an arrow is two free points | none | **tp-01** |
-| copy a parent and keep its coordinates | copy/paste (new ids, no correspondence) | plan-11 atom maps; plan-14 orientation by fitting | **tp-02**: derive with maps; no fitting needed, because the coordinates are inherited |
-| show what changed | none | plan-15 id diff and plan-16 proposal layer (for agent patches, not parent vs TP) | **tp-03**: a lens on the maps |
-| lay out a scheme | none | plan-13 one row; plan-14 orientation | **tp-04**: a tree/DAG with the symmetry contract |
-| arrow labels | a typed text above the arrow | arch-web-13 adds `below` | **tp-05**: computed from the structures |
-| masses, adduct m/z | none | arch-web-17 values (glue) | reused by tp-05 and tp-06 |
+| arrows tied to structures | no: an arrow is two free points | none | **tp-01** (fields, follow), **tp-02** (tool, commands) |
+| copy a parent and keep its coordinates | copy/paste (new ids, no correspondence) | plan-11 atom maps; plan-14 orientation by fitting | **tp-03**: derive with maps; no fitting needed, because the coordinates are inherited |
+| show what changed | none | plan-15 id diff and plan-16 proposal layer (for agent patches, not parent vs TP) | **tp-04**: a lens on the maps |
+| lay out a scheme | none | plan-13 one row; plan-14 orientation | **tp-05** (core, properties), **tp-06** (page, Graphviz proof) |
+| arrow labels | a typed text above the arrow | arch-web-13 adds `below` | **tp-07**: computed from the structures |
+| masses, adduct m/z | none | arch-web-17 values (glue) | reused by tp-07 and tp-09 |
 | confidence level | `ann` with Schymanski and other scales (built) | — | none |
-| per-TP data, SDF | `atom.data`, SDF out (built) | — | **tp-06** names the fields and adds the table |
+| per-TP data, SDF | `atom.data`, SDF out (built) | — | **tp-08** (import, numbering) names the fields; **tp-09** writes the table |
 | journal sizes | presets `acs-1996`, `slides` | arch-std-16 export profiles | none: idea 6's "preset compiler" duplicates arch-std-16 |
 | uncertain TP (L3) | — | plan-12 writes `trasf/1`, including the uncertain form | idea 3, reframed (V3) |
 
 ## 3. Verdicts
 | id | idea | verdict | why |
 |---|---|---|---|
-| V1 | ghost-parent scaffold lock + diff lens | **WIN, build first** (tp-02, tp-03) | Priority 1. It is the fastest path from parent to TP. It needs no fitting, because the TP *is* the parent's coordinates plus an edit. The atom maps (plan-11) make the lens exact, and they feed plan-12's `trasf/1`. **Dropped part:** the 0-100 % "rigidity slider", which has no measurable meaning; a clean-up of the changed atoms is arch-std-15's. |
-| V2 | Δm/z metro-map auto-layout | **WIN, build first, split** (tp-01, tp-04, tp-05; later V2b) | Priority 2. The core is a layered tree/DAG layout of anchored arrows with a measurable symmetry contract (§4). Δm/z labels on edges are prior art (GNPS, T9), so we claim no novelty. **Later (V2b):** y by Δm/z or RT, lane pins for convergent pathways, and 45°/90° polyline routing. These need a polyline arrow and real use of tp-04 first. |
-| V3 | living Markush cloud for L3 positional isomers | **KEEP, reframed, after tp-03; no prompt yet** | Its value is real: L3 hydroxylation isomers are common (T2). As Markush or position-variation bonds it breaks rule 13 (T10: query/multicentre S-groups). How it stays in scope: draw the **parent** with a **site mark**, a document object listing parent atom ids and a delta (`+O`). It is an annotation, not a query, and it maps one to one onto `trasf/1`'s uncertain form (`delta`, `sites`, `region kind multicenter`, T13). The formula is parent + delta (`delta.rs`). "Fan out" = one `tp:derive` per site (tp-07's `sites`). "Collapse" = keep one of them and move the annotation to L2/L1. Export goes through `trasf/1` (plan-12) and enumerated SMILES. CXSMILES `m:` and V3000 `ENDPTS` are **not written**; they are listed as not carried. A prompt waits for plan-12. |
+| V1 | ghost-parent scaffold lock + diff lens | **WIN, build first** (tp-03, tp-04) | Priority 1. It is the fastest path from parent to TP. It needs no fitting, because the TP *is* the parent's coordinates plus an edit. The atom maps (plan-11) make the lens exact, and they feed plan-12's `trasf/1`. **Dropped part:** the 0-100 % "rigidity slider", which has no measurable meaning; a clean-up of the changed atoms is arch-std-15's. |
+| V2 | Δm/z metro-map auto-layout | **WIN, build first, split** (tp-01, tp-02, tp-05, tp-06, tp-07; later V2b) | Priority 2. The core is a layered tree/DAG layout of anchored arrows with a measurable symmetry contract (§4). Δm/z labels on edges are prior art (GNPS, T9), so we claim no novelty. **Later (V2b):** y by Δm/z or RT, lane pins for convergent pathways, and 45°/90° polyline routing. These need a polyline arrow and real use of tp-04 first. |
+| V3 | living Markush cloud for L3 positional isomers | **KEEP, reframed, after tp-03; no prompt yet** | Its value is real: L3 hydroxylation isomers are common (T2). As Markush or position-variation bonds it breaks rule 13 (T10: query/multicentre S-groups). How it stays in scope: draw the **parent** with a **site mark**, a document object listing parent atom ids and a delta (`+O`). It is an annotation, not a query, and it maps one to one onto `trasf/1`'s uncertain form (`delta`, `sites`, `region kind multicenter`, T13). The formula is parent + delta (`delta.rs`). "Fan out" = one `tp:derive` per atom listed in the mark: an explicit patch per site, *not* tp-10's `sites`, which lists where a named step's test holds and is a different thing. The two can agree for hydroxylation, but the mark's list is the analyst's, from the evidence. "Collapse" = keep one of them and move the annotation to L2/L1. Export goes through `trasf/1` (plan-12) and enumerated SMILES. CXSMILES `m:` and V3000 `ENDPTS` are **not written**; they are listed as not carried. A prompt waits for plan-12. |
 | V4 | data-bound arrows (width from peak area) | **DROP** | Peak areas of different TPs are not comparable without standards, because ionisation efficiency differs. A width suggests a flux that was not measured. Even with a "relative uncalibrated" legend, it invites a wrong reading in a figure. `AREA` can be kept as data (tp-06) and is not drawn. |
-| V5 | arrow-pull mass-shift autocomplete | **KEEP, reduced** (tp-07, second round) | Priority 1. The reduced form is a fixed table of standard steps, applied at a site the person or agent chooses, with the delta checked. It has no ranking and no rule engine (SMARTS stays out, rule 13). `Tab` is not used (WCAG 2.1.2, Built state), so `[` / `]` cycle the sites. |
-| V6 | live-linked SI table + journal preset compiler | **WIN, build first, reduced** (tp-06) | Priority 3. The table is a view of the drawing: import a list, number, export CSV/JSON with S66-style `Form_Diff` / `Mass_Diff` columns (T4). **Dropped part:** the preset compiler, because arch-std-16 covers it. It is called "NORMAN-style", never "NORMAN-ready", because no validator was run. A table drawn on the canvas comes later. |
+| V5 | arrow-pull mass-shift autocomplete | **KEEP, reduced** (tp-10 table and CLI, tp-11 page field; second round) | Priority 1. The reduced form is a fixed table of standard steps, applied at a site the person or agent chooses, with the delta checked. It has no ranking and no rule engine (SMARTS stays out, rule 13). `Tab` is not used (WCAG 2.1.2, Built state), so `[` / `]` cycle the sites while the step field is open (`Alt+[` / `Alt+]` still rotate). |
+| V6 | live-linked SI table + journal preset compiler | **WIN, build first, reduced** (tp-08, tp-09) | Priority 3. The table is a view of the drawing: import a list, number, export CSV/JSON with S66-style `Form_Diff` / `Mass_Diff` columns (T4). **Dropped part:** the preset compiler, because arch-std-16 covers it. It is called "NORMAN-style", never "NORMAN-ready", because no validator was run. A table drawn on the canvas comes later. |
 | — | rejected by the source: 3D viewer, freeform graphics, MS2/reaction prediction | **agree** | Already dropped (backlog §4) or out of the editor's role. Prediction stays in mzLab's engines, framed as candidates. |
 
-**Build first:** V2's base and layout (tp-01 → tp-04), V1 (tp-02 → tp-03) and V6 (tp-06, after tp-05). Order: tp-01, tp-04, tp-02, tp-03, tp-05, tp-06, then tp-07.
-- tp-01 and tp-04 come first because they answer the owner's top pain and need nothing new from mzLab.
-- tp-02 waits for plan-11.
+**Build first:** V2 (tp-01, tp-02, tp-05, tp-06, tp-07), V1 (tp-03, tp-04) and V6 (tp-08, tp-09).
+- Order: tp-01, tp-02, tp-05, tp-06, tp-03, tp-04, tp-07, tp-08, tp-09, then tp-10 and tp-11.
+- tp-01, tp-02, tp-05 and tp-06 come first: they answer the owner's top pain and need nothing new from mzLab beyond COO 16's yes on two fields.
+- tp-03 waits for plan-11.
+- tp-07 and tp-09 wait for arch-web-17.
 
 ## 4. Arrow organisation: what "symmetric" means (summary)
-The normative text is in `docs/prompts/tp-04-pathway-layout.md`. In short:
-- an anchored arrow joins two structures by id (tp-01), and its ends follow the structures;
+The normative text is in `docs/prompts/tp-05-pathway-layout.md`. In short:
+- an anchored arrow joins two structures by id (tp-01). Its ends follow the structures when an editor *command* moves them; a bare `move` op does not re-route, and `pathway:route` does;
 - the pathway is laid out as layers by generation (longest path), a primary-parent forest, and a tidy tree in y (Walker, made linear by Buchheim–Jünger–Leipert `*`);
 - the columns are equally gapped, and a gap is widened only to keep slopes ≤ `max_angle` and arrows ≥ `min_arrow`;
 - arrows are straight lines between box centres, clipped at the boxes.
@@ -74,11 +76,20 @@ The 14 properties are tests:
 - bounded slope and length, no collision and no crossing of primary arrows;
 - compactness and locality.
 
-The tolerance is 1e-4 bond lengths, the 4 decimals of the document. Graphviz `dot` is the independent check of layers and crossings.
+Each property is checked twice: on the unrounded layout with ε = 1e-9, and on the saved document (4 decimals) with ε = 3e-4. Translation is claimed only for shifts on the document's 1e-4 grid. Mirror is claimed only for single-root components. Only the first component's first root is a fixed point; later components are stacked below it.
 
-## 5. Risks and limits stated
-- tp-02 and tp-03 depend on plan-11 (atom maps, wave 4). Without maps the lens refuses and never guesses.
-- Masses (tp-05, tp-06) go through the glue (plan-04); they are never re-typed in `mzdraw`.
+Graphviz `dot` (tp-06) is the independent check of layers and crossings. It is optional: without it, the script says "skipped".
+
+## 5. Backlog lines (for the coordinator)
+- **Rows for tp-01..11:** left to COO-MZDRAW. PR #55 adds §10 with rows 76-79 and was not merged when this PR was written, so numbering them here would collide.
+- **Edits to existing prompts**, for §9.5 of the backlog. This branch was cut before §9 reached `main`, and rule 6 allows a merge of `main` only on a real conflict, so the coordinator pastes these two lines:
+  - **E20 plan-13:** for an arrow with `from`/`to` (tp-01), `scheme:row` sets no end itself and calls tp-01's `route`; free arrows keep plan-13's own rule. plan-13's `gap` argument (1.0) is not tp-05's `pathway.col_gap` (2.5); keep the names apart. If plan-13 merges before tp-01, tp-01 makes this change (its prompt says so).
+  - **E21 plan-14 (replaces E18):** series orientation is **not** covered by the TP prompts. tp-03 inherits the parent's coordinates, so a TP made by `tp:derive` needs no orientation, and tp-05 only moves whole structures. E18 (`scheme:orient-series`) stays for structures drawn or imported separately (tp-08 imports SMILES, whose computed coordinates are not oriented). After tp-08, `tp:import` runs `scheme:orient` on each parent → TP pair when plan-14 exists. plan-14 must not duplicate tp-05's layout: it rotates and flips, and never places structures.
+- **Zones:** `tp.rs` (tp-03, tp-04, tp-10) and `pathway.rs` (tp-05, tp-07) are added to §5 of the backlog.
+
+## 6. Risks and limits stated
+- tp-03 and tp-04 depend on plan-11 (atom maps, wave 4). Without maps the lens refuses and never guesses.
+- Masses (tp-07, tp-09) come from arch-web-17 (`selection/1` through the glue, E6). They are never typed in `mzdraw`. The electron mass of tp-09's proof (CODATA 2022) is taken from backlog §1.1 and was not re-read here `*`.
 - No InChIKey column until `mzlab-mol` has InChI (a COO 16 question).
-- tp-01 adds two `draw_edit/1` fields (`from`, `to`) and needs COO 16 agreement first. The other prompts add no op; they add commands, `out` values, settings and reserved data names.
+- tp-01 adds two `draw_edit/1` fields (`from`, `to`) and needs COO 16 agreement first. The other prompts add no op or field. They add request rows (D13): commands, `out` values, settings, `draw-result/1` keys (`failed.stage` `command`, `failed.rows`), and reserved data names. tp-07 marks its labels by a rule on their text, not by a stored flag.
 - Novelty: none is claimed. T9 is prior art for Δm/z edge labels. The absence of a generation × Δm/z layout in the tools searched proves nothing.
