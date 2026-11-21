@@ -155,6 +155,8 @@ pub struct Editor {
     pub(crate) press: Option<Press>,
     /// What the last change did, as an i18n key with one parameter, for the screen reader line.
     pub said: (&'static str, String),
+    /// The numbers of a line that has more than one (`draw2.say.pathway`: structures, arrows, gaps), by name; valid only with the `said` they were set with.
+    pub said_params: Vec<(&'static str, u32)>,
     /// A report that stays visible until the next step (the stereo guard), as an i18n key with one parameter; empty when none.
     pub notice: (&'static str, String),
     /// The last refused operation, an i18n key.
@@ -179,7 +181,7 @@ pub struct Editor {
     pub(crate) ctx: crate::context::Context,
     /// An agent's patch held apart from the drawing (`proposal`), and whether a press on a hunk number is being swallowed.
     pub(crate) proposal: Option<crate::proposal::Proposal>,
-    pub(crate) eat: bool,
+    pub eat: Option<u32>,
 }
 
 impl Default for Editor {
@@ -195,6 +197,7 @@ impl Default for Editor {
             over: Overlay::default(),
             press: None,
             said: ("", String::new()),
+            said_params: Vec::new(),
             notice: ("", String::new()),
             error: "",
             gesture: Default::default(),
@@ -209,7 +212,7 @@ impl Default for Editor {
             orient_steps: Vec::new(),
             ctx: Default::default(),
             proposal: None,
-            eat: false,
+            eat: None,
         }
     }
 }

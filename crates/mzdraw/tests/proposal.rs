@@ -288,31 +288,319 @@ fn a_hunk_is_said_in_words() {
 }
 
 #[test]
-fn a_big_proposal_is_held_shown_and_accepted_in_time() {
-    // as many independent hunks as the cap allows: nothing in the marks, the numbers or the accept may be quadratic in the hunks
-    let n = mzdraw::proposal::MAX_OPS as u32;
-    let big: Vec<Op> = (0..n)
-        .map(|i| {
-            Op::parse(&json!({"op":"atom.add","id":1 + i,"el":"C","x":f64::from(i % 50),"y":f64::from(i / 50)}))
-                .unwrap()
-        })
-        .collect();
-    let mut e = Editor::default();
-    let at = Instant::now();
-    assert_eq!(e.propose(big).unwrap(), n as usize);
-    let scene = e.scene();
-    let json = e.proposal_json();
-    assert!(scene.data.len() > 7 * n as usize && json.len() > n as usize);
-    e.accept_all().unwrap();
-    assert_eq!(e.doc().atoms.len(), n as usize);
-    let ms = at.elapsed().as_millis();
-    assert!(ms < 3000, "{ms} ms for {n} hunks");
-}
-
-#[test]
 fn the_page_flags_are_distinct() {
     assert_eq!(
         PROPOSAL & (mzdraw::editor::MENU | mzdraw::editor::ASK | mzdraw::editor::PALETTES),
         0
     );
+}
+
+// ---- hostile sizes: the size is in the id lists and in the number of hunks, not only in the number of operations ----
+
+/// A document of `n` carbons on a grid, in one chain (`chained`) or each alone, built from its JSON (no operation is run, so the
+/// building is linear).
+fn grid(n: u32, chained: bool) -> Document {
+    let atoms: Vec<Value> = (1..=n)
+        .map(|i| json!({"id": i, "el": "C", "x": f64::from(i % 100) * 2.0, "y": f64::from(i / 100) * 2.0}))
+        .collect();
+    let bonds: Vec<Value> = if chained {
+        (1..n)
+            .map(|i| json!({"id": n + i, "a": i, "b": i + 1, "o": 1}))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let doc = json!({"format": "mzdraw/1", "next": 2 * n + 1, "atoms": atoms, "bonds": bonds});
+    Document::from_json(&doc.to_string()).unwrap()
+}
+
+fn editor(doc: Document) -> Editor {
+    let mut e = Editor::default();
+    e.session = Session::new(doc);
+    e
+}
+
+/// The best of three runs of `f`, in milliseconds (noise only ever adds time).
+fn best(mut f: impl FnMut()) -> f64 {
+    (0..3)
+        .map(|_| {
+            let at = Instant::now();
+            f();
+            at.elapsed().as_secs_f64() * 1000.0
+        })
+        .fold(f64::MAX, f64::min)
+}
+
+/// The time of `run` on the input of `n` and of `4n` (built by `setup`, outside the clock) must not differ by more than a factor 8:
+/// linear work gives 4 and quadratic work 16; the floor of 100 ms keeps noise out.
+fn scales<T>(what: &str, n: u32, setup: impl Fn(u32) -> T, run: impl Fn(&T)) {
+    let (small, big) = (setup(n), setup(4 * n));
+    let (a, b) = (best(|| run(&small)), best(|| run(&big)));
+    assert!(
+        b <= (a * 8.0).max(100.0),
+        "{what}: {a:.1} ms for {n}, {b:.1} ms for {}",
+        4 * n
+    );
+}
+
+#[test]
+fn one_remove_naming_every_atom_of_a_big_drawing_is_held_marked_and_accepted() {
+    let n = 20_000;
+    let mut e = editor(grid(n, true));
+    let remove = Op::Remove {
+        atoms: (1..=n).collect(),
+        bonds: Vec::new(),
+        objects: Vec::new(),
+    };
+    let at = Instant::now();
+    assert_eq!(e.propose(vec![remove]).unwrap(), 1);
+    let _ = (e.scene(), e.proposal_json());
+    e.accept_hunk(1).unwrap();
+    assert!(e.doc().atoms.is_empty());
+    let ms = at.elapsed().as_millis();
+    assert!(ms < 20_000, "{ms} ms for one remove of {n} atoms");
+}
+
+#[test]
+fn one_move_of_all_atoms_is_one_hunk_and_the_ids_are_capped() {
+    let n = 20_000;
+    let mut e = editor(grid(n, true));
+    let mv = Op::Move {
+        atoms: (1..=n).collect(),
+        objects: Vec::new(),
+        dx: 1.0,
+        dy: 0.0,
+    };
+    assert_eq!(e.propose(vec![mv]).unwrap(), 1);
+    e.accept_all().unwrap();
+    // more ids than the cap in one operation is refused at once, however few operations there are
+    let mv = Op::Move {
+        atoms: (1..=mzdraw::proposal::MAX_IDS as u32 + 1).collect(),
+        objects: Vec::new(),
+        dx: 1.0,
+        dy: 0.0,
+    };
+    let at = Instant::now();
+    assert_eq!(
+        e.propose(vec![mv]).unwrap_err().key,
+        "error.draw2.proposalSize"
+    );
+    assert!(at.elapsed().as_millis() < 500);
+}
+
+#[test]
+fn grouping_scales_with_the_operations_and_the_ids() {
+    // `diff::hunks` itself (the proposal caps the operations; the function does not): one hunk per operation, then one hunk for a
+    // move and a remove that name the same long list. A search of the hunks so far for each operation, or for each id, is
+    // quadratic here: 80 000 operations are 3 billion comparisons
+    scales(
+        "n operations in n hunks",
+        5_000,
+        |n| {
+            (
+                grid(n, false),
+                (0..n)
+                    .map(|i| Op::parse(&json!({"op":"atom.set","id":1 + i,"chg":1})).unwrap())
+                    .collect::<Vec<Op>>(),
+            )
+        },
+        |(doc, ops)| assert_eq!(mzdraw::diff::hunks(doc, ops).len(), ops.len()),
+    );
+    scales(
+        "one move and one remove over a list of n ids",
+        5_000,
+        |n| {
+            let ids: Vec<u32> = (1..=n).collect();
+            (
+                grid(n, false),
+                vec![
+                    Op::Move {
+                        atoms: ids.clone(),
+                        objects: Vec::new(),
+                        dx: 0.5,
+                        dy: 0.0,
+                    },
+                    Op::Remove {
+                        atoms: ids,
+                        bonds: Vec::new(),
+                        objects: Vec::new(),
+                    },
+                ],
+            )
+        },
+        |(doc, ops)| assert_eq!(mzdraw::diff::hunks(doc, ops).len(), 1),
+    );
+}
+
+#[test]
+fn marking_and_saying_a_proposal_scales() {
+    // the parts of the proposal itself, on a proposal held once (holding it applies it to a copy, and drawing the drawing under it
+    // is the painter's: the cost of the operation `move` and of the painter on a big drawing is theirs, not this layer's)
+    scales(
+        "marks and words of n hunks",
+        400,
+        |n| {
+            let mut e = editor(grid(4 * n, false));
+            e.propose(
+                (0..n)
+                    .map(|i| Op::parse(&json!({"op":"atom.set","id":1 + i,"chg":1})).unwrap())
+                    .collect(),
+            )
+            .unwrap();
+            e
+        },
+        |e| {
+            let _ = (e.proposal_marks(), e.proposal_json());
+        },
+    );
+    scales(
+        "marks and words of one hunk over a list of n ids",
+        5_000,
+        |n| {
+            let mut e = editor(grid(n, true));
+            e.propose(vec![Op::Move {
+                atoms: (1..=n).collect(),
+                objects: Vec::new(),
+                dx: 0.5,
+                dy: 0.0,
+            }])
+            .unwrap();
+            e
+        },
+        |e| {
+            let _ = (e.proposal_marks(), e.proposal_json());
+        },
+    );
+}
+
+#[test]
+fn two_thousand_separate_accepts_through_the_request_are_fast_and_all_or_none() {
+    let n = mzdraw::proposal::MAX_OPS as u32;
+    let log: Vec<Value> = (0..n).map(|i| json!({"op":"atom.add","id":1 + i,"el":"C","x":f64::from(i % 50),"y":f64::from(i / 50)})).collect();
+    let set: Vec<Value> = (0..n)
+        .map(|i| json!({"op":"atom.set","id":1 + i,"chg":1}))
+        .collect();
+    let accept: Vec<u32> = (1..=n).collect();
+    let r = json!({"log": log, "propose": set, "accept": accept, "out": "log"});
+    let at = Instant::now();
+    mzdraw::replay::replay(&r.to_string()).unwrap();
+    assert!(at.elapsed().as_millis() < 30_000);
+    // one number out of range at the end: nothing at all is accepted
+    let mut bad: Vec<u32> = (1..n).collect();
+    bad.push(n + 1);
+    let r = json!({"log": log, "propose": set, "accept": bad, "out": "log"});
+    let e = mzdraw::replay::replay(&r.to_string()).unwrap_err();
+    assert_eq!(e.key, "error.draw2.proposalHunk");
+    let r =
+        json!({"log": log, "propose": set, "accept": [1, 2, n + 1], "out": "log", "report": true});
+    let v: Value = serde_json::from_str(&mzdraw::replay::replay(&r.to_string()).unwrap()).unwrap();
+    assert_eq!(
+        v["failed"],
+        json!({"stage": "proposal", "op": 2, "key": "error.draw2.proposalHunk", "id": n + 1})
+    );
+}
+#[test]
+fn the_accept_list_of_a_request_is_all_or_none() {
+    let mut e = drawing();
+    e.propose(patch()).unwrap();
+    let before = e.doc().to_json();
+    let (k, x) = e.accept_hunks(&[2, 4, 9]).unwrap_err();
+    assert_eq!((k, x.key), (2, "error.draw2.proposalHunk"));
+    let (k, x) = e.accept_hunks(&[2, 2]).unwrap_err();
+    assert_eq!((k, x.key), (1, "error.draw2.proposalHunk"));
+    assert_eq!(e.doc().to_json(), before, "nothing was accepted");
+    e.accept_hunks(&[3, 1]).unwrap();
+    assert_ne!(e.doc().to_json(), before);
+}
+
+#[test]
+fn enter_and_delete_are_the_drawings_until_a_hunk_has_the_keyboard() {
+    let mut e = drawing();
+    e.propose(patch()).unwrap();
+    // with an atom focused, Delete removes it and Enter grows a bond, as ever: the proposal is not touched (and so ends, said at once)
+    e.over.focus = Some(1);
+    let atoms = e.doc().atoms.len();
+    e.key("Enter", 0);
+    assert_eq!(e.doc().atoms.len(), atoms + 1, "Enter grew a bond");
+    assert!(
+        e.said.0 == "draw2.say.proposalStale" || e.said.0 == "draw2.say.bond",
+        "{:?}",
+        e.said
+    );
+    assert_eq!(e.proposal_json(), "null");
+    // once `]` gave a hunk the keyboard, Enter is the proposal's even with an atom focused; Escape gives the keys back
+    let mut f = drawing();
+    f.propose(patch()).unwrap();
+    f.over.focus = Some(1);
+    f.key("]", 0);
+    f.key("Escape", 0); // ends the review (and leaves the focus, as ever)
+    f.over.focus = Some(1);
+    f.key("Delete", 0);
+    assert!(
+        f.doc().atom(1).is_none(),
+        "Delete deleted the focused atom after Escape"
+    );
+    assert_eq!(f.proposal_json(), "null");
+}
+
+#[test]
+fn an_edit_ends_the_proposal_and_says_so_at_once() {
+    let mut e = drawing();
+    e.propose(patch()).unwrap();
+    e.set_tool("atom:N");
+    e.pointer_event(0, 1, 400.0, 400.0, 0, 0, 0.0);
+    e.pointer_event(2, 1, 400.0, 400.0, 0, 0, 10.0);
+    assert_eq!(e.proposal_json(), "null");
+    assert_eq!(e.said.0, "draw2.say.proposalStale");
+}
+
+#[test]
+fn a_second_finger_is_not_swallowed_after_the_proposal_ended_mid_press() {
+    let mut e = drawing();
+    e.propose(patch()).unwrap();
+    let marks = e.proposal_marks();
+    let Some(mzdraw::scene::Mark::Num { p, .. }) = marks
+        .iter()
+        .find(|m| matches!(m, mzdraw::scene::Mark::Num { .. }))
+    else {
+        panic!("no number");
+    };
+    let (x, y) = e.view.to_px(p.0, p.1);
+    e.pointer_event(0, 7, x, y, 2, 0, 0.0);
+    assert_eq!(e.eat, Some(7));
+    // the proposal ends while the finger is down; another finger is the tool's
+    e.reject_all().unwrap();
+    let f = e.pointer_event(0, 8, 5.0, 5.0, 2, 0, 50.0);
+    assert!(e.eat.is_none());
+    let _ = f;
+}
+
+#[test]
+fn an_add_that_names_no_id_is_marked_where_it_will_stand() {
+    use mzdraw::scene::Mark;
+    let mut e = drawing();
+    e.propose(ops(json!([{"op":"atom.add","el":"O","x":20.0,"y":2.0}])))
+        .unwrap();
+    let marks = e.proposal_marks();
+    assert!(marks
+        .iter()
+        .any(|m| matches!(m, Mark::Dot { p, .. } if *p == (20.0, 2.0))));
+    let at = marks
+        .iter()
+        .find_map(|m| match m {
+            Mark::Num { p, .. } => Some(*p),
+            _ => None,
+        })
+        .unwrap();
+    assert!(
+        at.0 > 19.0,
+        "the number is by the atom, not at the origin: {at:?}"
+    );
+    // a hunk with no point to mark takes the middle of the drawing
+    let mut e = drawing();
+    e.propose(ops(
+        json!([{"op":"rotate","atoms":[1,2],"deg":30.0,"x":0.0,"y":0.0}]),
+    ))
+    .unwrap();
+    let _ = e.proposal_marks();
 }

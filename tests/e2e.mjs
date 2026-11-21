@@ -816,6 +816,101 @@ try {
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
   });
 
+  // tp-06: "Arrange pathway", the button of the objects palette and the item of the canvas menu, on the messy star of tp-05 and the others of tests/data/log/pathway-page.json
+  const pgold = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway-page.json"), "utf8")).cases;       // the page's golden: bytes of the command `pathway:tree`
+  const cycle = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway.json"), "utf8")).refused[0].request.import;
+  const PT = '[data-testid="d2-pathway-tree"]';
+  const saved = (pg, what = "mzdraw") => pg.evaluate(`window.MZDRAW.save(${JSON.stringify(what)})`);
+  const openDoc = async (pg, text, atoms) => { await pg.evaluate(t => /** @type {any} */ (window).MZDRAW.open(t), text); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms }); };
+
+  await step("pathway: the button Arrange pathway lays the messy star out by mouse and by keyboard (the button, the context menu); the SVG equals the golden, one undo step, the line says what it did", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    // an empty drawing: the button says why and nothing changes
+    await tool(pg, "pathway-tree"); await frames(pg);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.schemeEmpty')"));
+    const g = pgold[0];
+    await openDoc(pg, g.request.import, 12);
+    const messy = await saved(pg);
+    await shot(pg, "tp-06-messy-star-before");
+    // mouse
+    await tool(pg, "pathway-tree"); await frames(pg);
+    eq(await saved(pg), g.out.mzdraw); eq(await saved(pg, "svg"), g.out.svg);
+    eq(await pg.innerText("#d2-live"), "Pathway arranged: 4 structures, 3 arrows, no gap widened.");
+    // the page's log (a drawing that was opened has none before) is the end of the log of the replay of the command (its first operations make the opened drawing)
+    const log = JSON.parse(await saved(pg, "log")), native = JSON.parse(g.out.log);
+    assert(log.length > 0 && log.every(o => o.op === "move" || o.op === "obj.set"), "the log holds the moves and the routes of the command");
+    eq(log, native.slice(native.length - log.length));
+    await tool(pg, "fit"); await frames(pg);
+    await shot(pg, "tp-06-messy-star-after");
+    await tool(pg, "undo"); eq(await saved(pg), messy);                    // one step
+    // keyboard: the focus on the button, Enter
+    await reveal(pg, PT); await pg.focus(PT); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await saved(pg), g.out.mzdraw); eq(await saved(pg, "svg"), g.out.svg);
+    await tool(pg, "undo"); eq(await saved(pg), messy);
+    // keyboard: the context menu of the canvas (the Menu key) and its item
+    await pg.evaluate("window.MZDRAW.pan(0, 500)"); await tool(pg, "select"); await frames(pg);          // the keyboard menu opens at the middle of the canvas: bring an empty spot there
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await pg.keyboard.press("ContextMenu");
+    await until(pg, 'document.getElementById("d2-menu").hidden === false');
+    const item = '[data-testid="d2-ctx-pathway.tree"]';
+    assert((await pg.evaluate("document.getElementById('d2-menu').dataset.target")) === "canvas", "the menu of the keyboard is the one of the canvas: " + await pg.evaluate("document.getElementById('d2-menu').dataset.target"));
+    eq(await pg.innerText(item + " .n"), await pg.evaluate("I18N.t('draw2.ctx.pathway.tree')"));
+    await pg.focus(item); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await saved(pg), g.out.mzdraw);
+    await tool(pg, "undo"); eq(await saved(pg), messy);
+    // mouse: the right button on an empty spot of the canvas, then the item
+    const box = await pg.locator("#d2-canvas").boundingBox();
+    await pg.mouse.click(box.x + 60, cy - 300, { button: "right" }); await until(pg, 'document.getElementById("d2-menu").hidden === false');
+    await pg.click(item); await frames(pg);
+    eq(await saved(pg), g.out.mzdraw);
+    await tool(pg, "undo"); eq(await saved(pg), messy);
+  });
+
+  await step("pathway: a cycle is refused with its text and nothing moves; the other pathways of the golden are laid out (binary tree down, steeper limit, convergent DAG, unbalanced tree)", async () => {
+    await openDoc(pg, cycle, 12);
+    const before = await saved(pg);
+    await tool(pg, "pathway-tree"); await frames(pg);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.schemeCycle')"));
+    assert(/cycle/.test(await pg.innerText("#d2-live")), "the text names the cycle");
+    eq(await saved(pg), before);
+    // the settings panel: the direction down, set from the select the schema gave
+    await pg.click("#d2-style-more summary");
+    eq(await pg.locator('[id="d2-style-pathway.dir"] option').allInnerTexts(), await pg.evaluate("['right', 'down'].map(v => I18N.t('draw2.style.choice.pathway.dir.' + v))"));
+    eq(await pg.inputValue('[id="d2-style-pathway.dir"]'), "right");
+    eq(await pg.inputValue('[id="d2-style-pathway.order"]'), "id");
+    await pg.selectOption('[id="d2-style-pathway.dir"]', "down");
+    await until(pg, "JSON.parse(window.MZDRAW.style()).style['pathway.dir'] === 'down'");
+    await openDoc(pg, pgold[1].request.import, 45);
+    const bin = await saved(pg);
+    await shot(pg, "tp-06-binary-tree-before");
+    await tool(pg, "pathway-tree"); await frames(pg);
+    eq(await saved(pg), pgold[1].out.mzdraw); eq(await saved(pg, "svg"), pgold[1].out.svg);
+    await tool(pg, "fit"); await frames(pg);
+    await shot(pg, "tp-06-binary-tree-down");
+    await tool(pg, "undo"); eq(await saved(pg), bin);
+    await pg.selectOption('[id="d2-style-pathway.dir"]', "right");
+    await until(pg, "!('pathway.dir' in JSON.parse(window.MZDRAW.style()).style)");                // the default is not written
+    // a steeper limit: one gap is widened and the line says so
+    await pg.fill('[id="d2-style-pathway.max_angle"]', "20"); await pg.keyboard.press("Enter");
+    await until(pg, "JSON.parse(window.MZDRAW.style()).style['pathway.max_angle'] === 20");
+    await openDoc(pg, pgold[3].request.import, 12);
+    await tool(pg, "pathway-tree"); await frames(pg);
+    eq(await saved(pg), pgold[3].out.mzdraw); eq(await saved(pg, "svg"), pgold[3].out.svg);
+    eq(await pg.innerText("#d2-live"), "Pathway arranged: 4 structures, 3 arrows, 1 gap widened.");
+    await pg.fill('[id="d2-style-pathway.max_angle"]', "40"); await pg.keyboard.press("Enter");
+    await until(pg, "JSON.parse(window.MZDRAW.style()).style['pathway.max_angle'] === 40");
+    // the DAG and the unbalanced tree (the kill test: before and after)
+    for (const [i, name, atoms] of [[4, "dag", 15], [2, "unbalanced", 27]]) {
+      await openDoc(pg, pgold[i].request.import, atoms);
+      await shot(pg, `tp-06-${name}-before`);
+      await tool(pg, "pathway-tree"); await frames(pg);
+      eq(await saved(pg), pgold[i].out.mzdraw);
+      await tool(pg, "fit"); await frames(pg);
+      await shot(pg, `tp-06-${name}-after`);
+    }
+    await tool(pg, "clear");
+    await pg.click("#d2-style-more summary");                                  // folded again, as it was found
+  });
+
   await step("style: a preset or your own values change the screen and the saved SVG, in points, and not the document; the settings file is saved and opened", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0, style: "mzlab" });
     await pg.fill("#d2-text", "C[C@H](N)C(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 6 });
@@ -849,7 +944,8 @@ try {
     // your own values: the fields come from the module's schema; the module judges each value
     await pg.click("#d2-style-more summary");
     const fields = await pg.evaluate("[...document.querySelectorAll('#d2-style-fields input, #d2-style-fields select')].map(i => i.id.replace('d2-style-', ''))");
-    eq(fields, JSON.parse(await pg.evaluate("window.MZDRAW.settings_schema()")).fields.map(f => f.key).concat(["colour"]));
+    const schema = JSON.parse(await pg.evaluate("window.MZDRAW.settings_schema()"));
+    eq(fields, schema.fields.map(f => f.key).concat(schema.choices.map(c => c.key), ["colour"]));          // the numbers, then the words of the pathway, then the colours
     eq(await pg.inputValue("#d2-style-line_width"), "1.35");
     await pg.fill("#d2-style-line_width", "3"); await pg.press("#d2-style-line_width", "Enter");
     await until(pg, "JSON.parse(window.MZDRAW.style()).style.line_width === 3");
@@ -1269,6 +1365,40 @@ try {
     await frames(pg);
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
+  });
+
+  await step("tablet with touch and a pen: on a reloaded page the button Arrange pathway lays the messy star out by a tap and by a pen; a cycle is refused with its text; each press is undone", async () => {
+    const g = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway-page.json"), "utf8")).cases[0];
+    const cyc = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway.json"), "utf8")).refused[0].request.import;
+    const PT = '[data-testid="d2-pathway-tree"]';
+    await pg.reload(); await until(pg, "document.documentElement.dataset.d2Ready === '1'");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    const open = async text => { await pg.evaluate(t => /** @type {any} */ (window).MZDRAW.open(t), text); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); };
+    const saved = what => pg.evaluate(`window.MZDRAW.save(${JSON.stringify(what)})`);
+    await open(g.request.import); await want(pg, { atoms: 12 });
+    const messy = await saved("mzdraw");
+    await reveal(pg, PT); await pg.tap(PT); await frames(pg);
+    eq(await saved("mzdraw"), g.out.mzdraw); eq(await saved("svg"), g.out.svg);
+    eq(await pg.innerText("#d2-live"), "Pathway arranged: 4 structures, 3 arrows, no gap widened.");
+    await shot(pg, "tp-06-messy-star-touch");
+    await tool(pg, "undo"); eq(await saved("mzdraw"), messy);
+    // a pen: the pointer of the pen presses the same button
+    const cdp = await pg.context().newCDPSession(pg);
+    await reveal(pg, PT);
+    const b = await pg.locator(PT).boundingBox(), px = b.x + b.width / 2, py = b.y + b.height / 2;
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: px, y: py, pointerType: "pen", button: "none", buttons: 0 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: px, y: py, pointerType: "pen", button: "left", buttons: 1, clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: px, y: py, pointerType: "pen", button: "left", buttons: 0, clickCount: 1 });
+    await frames(pg);
+    eq(await saved("mzdraw"), g.out.mzdraw);
+    await tool(pg, "undo"); eq(await saved("mzdraw"), messy);
+    // a cycle: the refusal in words, nothing moves
+    await open(cyc); await want(pg, { atoms: 12 });
+    const before = await saved("mzdraw");
+    await reveal(pg, PT); await pg.tap(PT); await frames(pg);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.schemeCycle')"));
+    eq(await saved("mzdraw"), before);
+    await tool(pg, "clear");
   });
 
   await step("atom map by touch: tap the atom, tap the field, type, tap Set; the number is drawn and written to SMILES and RXN files", async () => {
@@ -1915,6 +2045,23 @@ try {
     assert(moved.y > a.y + 1e-6 || moved.y2 !== a.y2, "the arrow followed the move: " + JSON.stringify([a, moved]));
     eq([moved.from, moved.to], await ringIds(pg));
     await shot(pg, "tp02-arrow-followed");
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+  });
+  await step("pathway: a cycle drawn by hand with the arrow tool (A to B, then B to A) is refused by Arrange pathway with its text and nothing moves; once the second arrow is undone the layout runs", async () => {
+    await twoRings(pg, cx, cy, 250);
+    const drag = async (x0, y0, x1, y1) => { await tool(pg, "arrow"); await pg.mouse.move(x0, y0); await pg.mouse.down(); await pg.mouse.move((x0 + x1) / 2, (y0 + y1) / 2, { steps: 5 }); await pg.mouse.move(x1, y1, { steps: 5 }); await pg.mouse.up(); };
+    await drag(cx - 250, cy - 15, cx + 250, cy - 15); await want(pg, { objects: 1 });
+    await drag(cx + 250, cy + 15, cx - 250, cy + 15); await want(pg, { objects: 2 });
+    const [l, r] = await ringIds(pg), arrows = (await pathDoc(pg)).objects;
+    eq(arrows.map(a => [a.from, a.to]), [[l, r], [r, l]]);                      // anchored both ways: a cycle
+    const before = await pathDoc(pg);
+    await tool(pg, "pathway-tree"); await frames(pg);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.schemeCycle')"));
+    eq(await pathDoc(pg), before);
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+    await tool(pg, "undo"); await want(pg, { objects: 1 });                     // one direction only: a pathway of two structures
+    await tool(pg, "pathway-tree"); await frames(pg);
+    eq(await pg.innerText("#d2-live"), "Pathway arranged: 2 structures, 1 arrow, no gap widened.");
     eq(await replayEq(pg), { mzdraw: true, svg: true });
   });
   await step("pathway:anchor by keyboard: a free arrow is selected, the context menu opens with Shift+F10, A then Enter anchors it; Route arrows (Menu key, R, Enter) puts displaced arrows back and the page equals the golden; one undo each", async () => {

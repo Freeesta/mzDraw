@@ -373,12 +373,8 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             .map(|_| ())
             .map_err(|err| (None, err));
         if run.is_ok() {
-            for (i, &n) in r.accept.iter().enumerate() {
-                run = e.accept_hunk(n).map_err(|err| (Some(i), err));
-                if run.is_err() {
-                    break;
-                }
-            }
+            // all or none: the list is checked on a copy before the first hunk is accepted
+            run = e.accept_hunks(&r.accept).map_err(|(i, err)| (Some(i), err));
         }
         if let Err((i, err)) = run {
             if !r.envelope() {

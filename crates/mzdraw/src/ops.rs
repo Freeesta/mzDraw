@@ -5,6 +5,7 @@ use crate::build;
 use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind, Writer, MAX_ID};
 use crate::m;
 use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 
 /// The direction of a flip.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -796,8 +797,12 @@ impl Document {
                 let (deg, x, y) = (round4(*deg), round4(*x), round4(*y));
                 let t = deg * std::f64::consts::PI / 180.0;
                 let (c, s) = (m::cos(t), m::sin(t));
+                // the pool does not change while atoms move: one index for the whole list
+                let index: HashMap<u32, usize> = (self.atoms.iter().enumerate())
+                    .map(|(i, a)| (a.id, i))
+                    .collect();
                 for id in atoms {
-                    let Some(i) = self.atom_index(*id) else {
+                    let Some(&i) = index.get(id) else {
                         return err("error.draw2.noAtom", *id);
                     };
                     inv.push(Inv::SetAtom(self.atoms[i].clone()));
@@ -871,12 +876,14 @@ impl Document {
                 bonds,
                 objects,
             } => {
-                if let Some(&id) = objects.iter().find(|&&id| self.object(id).is_none()) {
+                let have: HashSet<u32> = self.objects.iter().map(|o| o.id).collect();
+                if let Some(&id) = objects.iter().find(|id| !have.contains(id)) {
                     return err("error.draw2.noObject", id);
                 }
                 self.remove(atoms, bonds, done, inv)?;
+                let gone: HashSet<u32> = objects.iter().copied().collect();
                 for i in (0..self.objects.len()).rev() {
-                    if objects.contains(&self.objects[i].id) {
+                    if gone.contains(&self.objects[i].id) {
                         inv.push(Inv::PutObj(i, self.objects.remove(i)));
                     }
                 }
@@ -985,20 +992,28 @@ impl Document {
         done: &mut Vec<Op>,
         inv: &mut Vec<Inv>,
     ) -> Result<(), OpError> {
-        if let Some(&id) = atoms.iter().find(|&&id| self.atom(id).is_none()) {
+        // sets, so that a long list costs its length and not its length times the pool
+        let have: HashSet<u32> = self.atoms.iter().map(|a| a.id).collect();
+        if let Some(&id) = atoms.iter().find(|id| !have.contains(id)) {
             return err("error.draw2.noAtom", id);
         }
-        if let Some(&id) = bonds.iter().find(|&&id| self.bond(id).is_none()) {
+        let have: HashSet<u32> = self.bonds.iter().map(|b| b.id).collect();
+        if let Some(&id) = bonds.iter().find(|id| !have.contains(id)) {
             return err("error.draw2.noBond", id);
         }
+        let (gone_atoms, gone_bonds): (HashSet<u32>, HashSet<u32>) = (
+            atoms.iter().copied().collect(),
+            bonds.iter().copied().collect(),
+        );
         for i in (0..self.bonds.len()).rev() {
             let b = &self.bonds[i];
-            if bonds.contains(&b.id) || atoms.contains(&b.a) || atoms.contains(&b.b) {
+            if gone_bonds.contains(&b.id) || gone_atoms.contains(&b.a) || gone_atoms.contains(&b.b)
+            {
                 inv.push(Inv::PutBond(i, self.bonds.remove(i)));
             }
         }
         for i in (0..self.atoms.len()).rev() {
-            if atoms.contains(&self.atoms[i].id) {
+            if gone_atoms.contains(&self.atoms[i].id) {
                 inv.push(Inv::PutAtom(i, self.atoms.remove(i)));
             }
         }

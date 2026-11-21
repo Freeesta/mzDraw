@@ -259,35 +259,62 @@ pub struct Hunk {
     pub ops: Vec<Op>,
 }
 
-/// A union-find over ids.
+/// A union-find over ids: iterative (no recursion on a long chain), with the smaller set joined under the larger one and the path
+/// compressed, so a call is near constant; the representative of a set is its smallest id, so the hunks do not depend on the order.
 #[derive(Default)]
-struct Sets(BTreeMap<u32, u32>);
+struct Sets {
+    parent: BTreeMap<u32, u32>,
+    size: BTreeMap<u32, u32>,
+    least: BTreeMap<u32, u32>,
+}
 
 impl Sets {
-    fn find(&mut self, id: u32) -> u32 {
-        let p = *self.0.entry(id).or_insert(id);
-        if p == id {
-            return id;
+    fn root(&mut self, id: u32) -> u32 {
+        let mut r = id;
+        while let Some(&p) = self.parent.get(&r) {
+            if p == r {
+                break;
+            }
+            r = p;
         }
-        let r = self.find(p);
-        self.0.insert(id, r);
+        let mut at = id;
+        while at != r {
+            let next = self.parent.insert(at, r).unwrap_or(r);
+            at = next;
+        }
+        self.parent.entry(r).or_insert(r);
         r
     }
+    /// The smallest id of the set of `id`.
+    fn find(&mut self, id: u32) -> u32 {
+        let r = self.root(id);
+        *self.least.get(&r).unwrap_or(&r)
+    }
     fn join(&mut self, a: u32, b: u32) {
-        let (a, b) = (self.find(a), self.find(b));
-        if a != b {
-            self.0.insert(a.max(b), a.min(b));
+        let (ra, rb) = (self.root(a), self.root(b));
+        if ra == rb {
+            return;
         }
+        let (la, lb) = (self.find(a), self.find(b));
+        let (sa, sb) = (
+            *self.size.get(&ra).unwrap_or(&1),
+            *self.size.get(&rb).unwrap_or(&1),
+        );
+        let (big, small) = if sa >= sb { (ra, rb) } else { (rb, ra) };
+        self.parent.insert(small, big);
+        self.size.insert(big, sa + sb);
+        self.least.insert(big, la.min(lb));
     }
 }
 
 /// Splits a list of ids by the piece each belongs to, in the order of first appearance.
 fn split(sets: &mut Sets, lists: &[&[u32]]) -> Vec<(u32, Vec<Vec<u32>>)> {
     let mut out: Vec<(u32, Vec<Vec<u32>>)> = Vec::new();
+    let mut at: BTreeMap<u32, usize> = BTreeMap::new();
     for (k, list) in lists.iter().enumerate() {
         for &id in *list {
             let r = sets.find(id);
-            let i = out.iter().position(|p| p.0 == r).unwrap_or_else(|| {
+            let i = *at.entry(r).or_insert_with(|| {
                 out.push((r, vec![Vec::new(); lists.len()]));
                 out.len() - 1
             });
@@ -335,8 +362,9 @@ pub fn hunks(a: &Document, ops: &[Op]) -> Vec<Hunk> {
         }
     }
     let mut out: Vec<(u32, Hunk)> = Vec::new();
+    let mut at: BTreeMap<u32, usize> = BTreeMap::new();
     let mut put = |root: u32, op: Op| {
-        let i = out.iter().position(|h| h.0 == root).unwrap_or_else(|| {
+        let i = *at.entry(root).or_insert_with(|| {
             out.push((
                 root,
                 Hunk {

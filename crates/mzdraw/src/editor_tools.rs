@@ -654,6 +654,11 @@ impl Editor {
 
     /// `key` with the time stamp `t` of the press in milliseconds, which joins repeated nudges into one undo step.
     pub fn key_at(&mut self, key: &str, mods: u32, t: f64) -> u32 {
+        let f = self.key_inner(key, mods, t);
+        f | self.settle_proposal()
+    }
+
+    fn key_inner(&mut self, key: &str, mods: u32, t: f64) -> u32 {
         let ctrl = mods & CTRL != 0;
         let shift = mods & SHIFT != 0;
         let lower = key.to_ascii_lowercase();

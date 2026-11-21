@@ -15,6 +15,9 @@ use std::collections::BTreeMap;
 
 /// The most operations a proposal may hold: the patch is applied once to a copy to check it, and every hunk is marked on the screen.
 pub const MAX_OPS: usize = 2000;
+/// The most ids the operations of a proposal may name in all (one `remove` or `move` can carry a list): the cost of holding, marking
+/// and saying a proposal grows with it.
+pub const MAX_IDS: usize = 50_000;
 /// The ids a line of the live text names before it says "and more".
 const SAID_IDS: usize = 6;
 
@@ -25,6 +28,9 @@ pub(crate) struct Proposal {
     open: Vec<bool>,
     /// The hunk (0-based) that has the keyboard.
     cur: usize,
+    /// Whether Enter, Delete and Backspace are the proposal's: set when a hunk was given the keyboard (`]`, `[`, a tap, Show), cleared by
+    /// Escape and by a press on the canvas that is not on a number; until then they edit the drawing as ever.
+    review: bool,
     at: u64,
 }
 
@@ -127,6 +133,10 @@ impl Editor {
         if ops.len() > MAX_OPS {
             return Err(err("error.draw2.proposalSize", 0));
         }
+        let ids: usize = ops.iter().map(|o| touched(o).len()).sum();
+        if ids > MAX_IDS {
+            return Err(err("error.draw2.proposalSize", 0));
+        }
         // the whole patch must apply to the drawing as it is: checked on a copy
         self.doc().clone().apply(&ops)?;
         let hunks = diff::hunks(self.doc(), &ops);
@@ -135,6 +145,7 @@ impl Editor {
             open: vec![true; n],
             hunks,
             cur: 0,
+            review: false,
             at: self.session.generation(),
         });
         self.said = ("draw2.say.proposed", n.to_string());
@@ -186,6 +197,29 @@ impl Editor {
         Ok(())
     }
 
+    /// Accepts the hunks `ns` (1-based) in that order, one undo step each, all or none: the numbers must be open and different, and
+    /// the hunks must apply in that order (checked on a copy first). The error carries the index in `ns` of the first that fails.
+    pub fn accept_hunks(&mut self, ns: &[usize]) -> Result<(), (usize, OpError)> {
+        let mut copy = self.doc().clone();
+        let mut seen = std::collections::BTreeSet::new();
+        for (k, &n) in ns.iter().enumerate() {
+            let i = self.hunk_index(n).map_err(|e| (k, e))?;
+            if !seen.insert(n) {
+                return Err((
+                    k,
+                    err("error.draw2.proposalHunk", n.min(u32::MAX as usize) as u32),
+                ));
+            }
+            let ops = self.proposal.as_ref().map(|p| &p.hunks[i].ops);
+            copy.apply(ops.map_or(&[], Vec::as_slice))
+                .map_err(|e| (k, e))?;
+        }
+        for (k, &n) in ns.iter().enumerate() {
+            self.accept_hunk(n).map_err(|e| (k, e))?;
+        }
+        Ok(())
+    }
+
     /// Rejects the hunk `n` (1-based): it is dropped, the drawing and the log do not change.
     pub fn reject_hunk(&mut self, n: usize) -> Result<(), OpError> {
         let i = self.hunk_index(n)?;
@@ -234,6 +268,7 @@ impl Editor {
         let i = self.hunk_index(n)?;
         if let Some(p) = self.proposal.as_mut() {
             p.cur = i;
+            p.review = true;
         }
         self.said = ("draw2.say.hunk", n.to_string());
         self.error = "";
@@ -279,38 +314,67 @@ impl Editor {
         }
     }
 
-    /// The keys of an open proposal: `]` and `[` the next and previous hunk, Enter accepts the hunk with the keyboard, Delete or
-    /// Backspace rejects it, with Ctrl all of them. `None`: not a key of the proposal.
+    /// The keys of an open proposal: `]` and `[` the next and previous hunk (nothing else on the keyboard uses them without Alt); once a
+    /// hunk has the keyboard (`review`), Enter accepts it and Delete or Backspace rejects it, which edit the drawing otherwise (grow a
+    /// bond, delete the selection); with Ctrl, which nothing else uses, they act on all hunks at any time. Escape ends the review
+    /// (and goes on as it always does). `None`: not a key of the proposal.
     pub(crate) fn proposal_key(&mut self, key: &str, ctrl: bool) -> Option<u32> {
+        let review = self.live_proposal().is_some_and(|p| p.review);
         let what = match (key, ctrl) {
             ("]" | "}", false) => "next",
             ("[" | "{", false) => "prev",
-            ("enter", false) => "accept",
+            ("enter", false) if review => "accept",
             ("enter", true) => "accept-all",
-            ("delete" | "backspace", false) => "reject",
+            ("delete" | "backspace", false) if review => "reject",
             ("delete" | "backspace", true) => "reject-all",
+            ("escape", _) => {
+                if let Some(p) = self.proposal.as_mut() {
+                    p.review = false;
+                }
+                return None;
+            }
             _ => return None,
         };
         Some(self.proposal_action(what))
     }
 
-    /// A press on the number of a hunk gives it the keyboard; the rest of that press (move, release) is swallowed. Returns the
-    /// flags to answer with, or `None` when the event is not for the proposal.
+    /// An open proposal ended by an edit of the person (or an undo): said at once, so that nothing is left on screen that does not act.
+    /// Returns `PROPOSAL | REPAINT` when it ended now.
+    pub fn settle_proposal(&mut self) -> u32 {
+        if self.proposal.is_some() && self.live_proposal().is_none() {
+            self.proposal = None;
+            self.eat = None;
+            self.said = ("draw2.say.proposalStale", String::new());
+            return PROPOSAL | REPAINT;
+        }
+        0
+    }
+
+    /// A press on the number of a hunk gives it the keyboard; the rest of that press (move, release) is swallowed, and only that
+    /// pointer's. A press elsewhere ends the review. Returns the flags to answer with, or `None` when the event is not for the proposal.
     pub(crate) fn proposal_pointer(
         &mut self,
         phase: u32,
+        id: u32,
         x: f64,
         y: f64,
         kind: u32,
         mods: u32,
     ) -> Option<u32> {
-        if self.eat {
+        if self.live_proposal().is_none() {
+            self.eat = None;
+            return None;
+        }
+        if let Some(own) = self.eat {
+            if own != id {
+                return None;
+            }
             if phase == UP || phase == CANCEL {
-                self.eat = false;
+                self.eat = None;
             }
             return Some(HANDLED);
         }
-        if phase != DOWN || mods & (SECONDARY | MIDDLE) != 0 || self.live_proposal().is_none() {
+        if phase != DOWN || mods & (SECONDARY | MIDDLE) != 0 {
             return None;
         }
         let reach = Self::reach(kind).max(self.style.metrics(self.view.scale, true).font);
@@ -323,9 +387,15 @@ impl Editor {
                 }
                 _ => None,
             })
-            .min_by(|a, b| a.0.total_cmp(&b.0))?;
-        self.eat = true;
-        Some(self.proposal_action(&format!("select:{}", hit.1)) | HANDLED)
+            .min_by(|a, b| a.0.total_cmp(&b.0));
+        let Some((_, n)) = hit else {
+            if let Some(p) = self.proposal.as_mut() {
+                p.review = false;
+            }
+            return None;
+        };
+        self.eat = Some(id);
+        Some(self.proposal_action(&format!("select:{n}")) | HANDLED)
     }
 
     /// The marks of the open hunks over the drawing, in document units: added things in the accent colour, removed ones struck in
@@ -359,9 +429,7 @@ impl Editor {
             };
             for op in &h.ops {
                 match op {
-                    Op::AtomAdd {
-                        id: Some(_), x, y, ..
-                    } => {
+                    Op::AtomAdd { x, y, .. } => {
                         marks.push(Mark::Dot {
                             p: (*x, *y),
                             c: colour::ACCENT,
@@ -480,8 +548,15 @@ impl Editor {
                     }
                 }
             }
-            // the number sits above the middle of what the hunk touches
-            let n = pts.len().max(1) as f64;
+            // the number sits above the middle of what the hunk touches; a hunk that touches nothing the marks can place (an operation
+            // that names no id) takes the middle of the drawing
+            if pts.is_empty() {
+                pts.push(
+                    d.bounds()
+                        .map_or((0.0, 0.0), |b| ((b.0 + b.2) / 2.0, (b.1 + b.3) / 2.0)),
+                );
+            }
+            let n = pts.len() as f64;
             let (cx, cy) = pts.iter().fold((0.0, 0.0), |s, q| (s.0 + q.0, s.1 + q.1));
             marks.push(Mark::Num {
                 p: (cx / n, cy / n + 0.7),
@@ -501,7 +576,9 @@ impl Editor {
             .filter(|(i, _)| p.open[*i])
             .map(|(i, h)| serde_json::json!({ "n": i + 1, "say": say(h) }))
             .collect();
-        serde_json::json!({ "cur": p.cur + 1, "hunks": hunks }).to_string()
+        // `speak`: the live line is about the hunk with the keyboard (a proposal was just made, or a hunk was given the keyboard)
+        let speak = matches!(self.said.0, "draw2.say.hunk" | "draw2.say.proposed");
+        serde_json::json!({ "cur": p.cur + 1, "hunks": hunks, "speak": speak }).to_string()
     }
 }
 
