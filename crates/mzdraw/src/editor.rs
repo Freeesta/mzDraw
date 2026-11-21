@@ -23,6 +23,8 @@ pub const FOCUS: u32 = 64;
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
 pub const CTRL: u32 = 2;
+/// Bit 4 of a pointer event is the eraser end of a pen; bit 8 is Alt (Option) on a key.
+pub const ALT: u32 = 8;
 
 /// Pointer kinds: mouse, pen, finger. A finger needs a wider reach.
 pub const MOUSE: u32 = 0;
@@ -149,6 +151,10 @@ pub struct Editor {
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
     pub(crate) clip: String,
     pub(crate) pasted: u32,
+    /// The last nudge or turn by keys, to join the next press to it as one undo step.
+    pub(crate) nudge: Option<crate::editor_nudge::Nudge>,
+    /// The "move here" mode: with a selection, a click on an empty spot brings the selection there.
+    pub move_here: bool,
     /// The open context menu and what the page was asked to do after its last item (`context`).
     pub(crate) ctx: crate::context::Context,
 }
@@ -172,6 +178,8 @@ impl Default for Editor {
             style: Style::default(),
             clip: String::new(),
             pasted: 0,
+            nudge: None,
+            move_here: false,
             ctx: Default::default(),
         }
     }
@@ -504,6 +512,7 @@ impl Editor {
         self.session = Session::new(doc);
         self.over = Overlay::default();
         self.press = None;
+        self.nudge = None;
         self.said = ("draw2.say.opened", self.doc().atoms.len().to_string());
         self.error = "";
         Ok(())

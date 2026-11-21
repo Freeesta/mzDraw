@@ -8,4 +8,5 @@
 # with it linked, 500659 B without).
 cap = 4000000
 # 2026-11-21: 584638 B with the drawing checks std/1 (stereo family, +16634 B over 568004 B).
-measured = 584638
+# 2026-11-21: 589976 B with drag-free editing (keys, Move here; +5338 B over 584638 B).
+measured = 589976

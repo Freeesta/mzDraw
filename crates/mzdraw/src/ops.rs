@@ -957,6 +957,8 @@ pub struct Session {
     pub doc: Document,
     undo: Vec<Step>,
     redo: Vec<Vec<Op>>,
+    /// Counts every change of the history (a step, an undo, a redo): lets a caller know that nothing happened in between.
+    generation: u64,
 }
 
 impl Session {
@@ -965,6 +967,7 @@ impl Session {
             doc,
             undo: Vec::new(),
             redo: Vec::new(),
+            generation: 0,
         }
     }
 
@@ -974,8 +977,33 @@ impl Session {
         if !done.is_empty() {
             self.undo.push(Step { ops: done, inv });
             self.redo.clear();
+            self.generation += 1;
         }
         Ok(())
+    }
+
+    /// Like `run`, but the operations join the last undo step (one undo reverts both) when there is one; the log keeps every
+    /// operation. Used to coalesce repeated nudges the way one drag is one step.
+    pub fn run_into_last(&mut self, ops: &[Op]) -> Result<(), OpError> {
+        let (done, inv) = self.doc.apply(ops)?;
+        if done.is_empty() {
+            return Ok(());
+        }
+        match self.undo.last_mut() {
+            Some(last) => {
+                last.ops.extend(done);
+                last.inv.extend(inv);
+            }
+            None => self.undo.push(Step { ops: done, inv }),
+        }
+        self.redo.clear();
+        self.generation += 1;
+        Ok(())
+    }
+
+    /// The count of changes of the history so far.
+    pub fn generation(&self) -> u64 {
+        self.generation
     }
 
     /// Number of steps that can be undone.
@@ -997,6 +1025,7 @@ impl Session {
         };
         self.doc.revert(s.inv);
         self.redo.push(s.ops);
+        self.generation += 1;
         true
     }
 
@@ -1008,6 +1037,7 @@ impl Session {
         if let Ok((done, inv)) = self.doc.apply(&ops) {
             self.undo.push(Step { ops: done, inv });
         }
+        self.generation += 1;
         true
     }
 

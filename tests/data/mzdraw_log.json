@@ -828,6 +828,115 @@
           }
         ]
       }
+    },
+    {
+      "name": "moved and turned by keys and by move here (single move and rotate ops)",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 37.76\"/>\n<n id=\"3\" p=\"58.98 30.00\"/>\n<n id=\"4\" p=\"80.19 51.21\" Element=\"8\" NumHydrogens=\"1\"><t><s font=\"3\" size=\"10\" face=\"0\">OH</s></t></n>\n<b id=\"5\" B=\"2\" E=\"3\"/>\n<b id=\"6\" B=\"3\" E=\"4\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"3.1392\" y2=\"-0.3317\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"4.1051\" y2=\"-0.0729\"/>\n<atom id=\"a3\" elementType=\"O\" x2=\"4.8122\" y2=\"-0.7800\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"S\"/>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[3.1392,-0.3317,0]},{\"label\":\"C\",\"location\":[4.1051,-0.0729,0]},{\"label\":\"O\",\"location\":[4.8122,-0.78,0]}],\"bonds\":[{\"type\":1,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.433},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":1.0,\"y\":0.433},{\"op\":\"atom.add\",\"id\":3,\"el\":\"O\",\"x\":1.5,\"y\":-0.433},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"move\",\"atoms\":[1,2,3],\"dx\":0.1,\"dy\":0.0},{\"op\":\"move\",\"atoms\":[1,2,3],\"dx\":0.1,\"dy\":0.0},{\"op\":\"move\",\"atoms\":[1,2,3],\"dx\":0.0,\"dy\":1.0},{\"op\":\"move\",\"atoms\":[1,2,3],\"dx\":-0.1,\"dy\":0.0},{\"op\":\"rotate\",\"atoms\":[1,2,3],\"deg\":15.0,\"x\":1.0,\"y\":0.5},{\"op\":\"rotate\",\"atoms\":[1,2,3],\"deg\":15.0,\"x\":1.0,\"y\":0.5},{\"op\":\"rotate\",\"atoms\":[1,2,3],\"deg\":-15.0,\"x\":1.0,\"y\":0.5},{\"op\":\"move\",\"atoms\":[1,2,3],\"dx\":3.25,\"dy\":-1.5}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    3.1392   -0.3317    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    4.1051   -0.0729    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    4.8122   -0.7800    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 3 2 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 3.139200 -0.331700 0.000000 0\nM  V30 2 C 4.105100 -0.072900 0.000000 0\nM  V30 3 O 4.812200 -0.780000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 1 2\nM  V30 2 1 2 3\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":3.1392,\"y\":-0.3317},{\"id\":2,\"el\":\"C\",\"x\":4.1051,\"y\":-0.0729},{\"id\":3,\"el\":\"O\",\"x\":4.8122,\"y\":-0.78}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    3.1392   -0.3317    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    4.1051   -0.0729    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    4.8122   -0.7800    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "CCO",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"118.59pt\" height=\"89.61pt\" viewBox=\"0 0 118.59 89.61\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-7db980b3 d-7db980b3\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":3.1392,\"y\":-0.3317},{\"id\":2,\"el\":\"C\",\"x\":4.1051,\"y\":-0.0729},{\"id\":3,\"el\":\"O\",\"x\":4.8122,\"y\":-0.78}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1}]}</metadata>\n<title id=\"t-7db980b3\">C2H6O</title>\n<desc id=\"d-7db980b3\">C2H6O.</desc>\n<line x1=\"34.2\" y1=\"41.96\" x2=\"63.18\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"63.18\" y1=\"34.2\" x2=\"79.13\" y2=\"50.15\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"84.39\" y=\"55.41\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"88.59\" y=\"55.41\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n</svg>\n"
+      },
+      "request": {
+        "import": "CCO",
+        "log": [
+          {
+            "atoms": [
+              1,
+              2,
+              3
+            ],
+            "dx": 0.1,
+            "dy": 0,
+            "objects": [],
+            "op": "move"
+          },
+          {
+            "atoms": [
+              1,
+              2,
+              3
+            ],
+            "dx": 0.1,
+            "dy": 0,
+            "objects": [],
+            "op": "move"
+          },
+          {
+            "atoms": [
+              1,
+              2,
+              3
+            ],
+            "dx": 0,
+            "dy": 1,
+            "objects": [],
+            "op": "move"
+          },
+          {
+            "atoms": [
+              1,
+              2,
+              3
+            ],
+            "dx": -0.1,
+            "dy": 0,
+            "objects": [],
+            "op": "move"
+          },
+          {
+            "atoms": [
+              1,
+              2,
+              3
+            ],
+            "deg": 15,
+            "op": "rotate",
+            "x": 1.0,
+            "y": 0.5
+          },
+          {
+            "atoms": [
+              1,
+              2,
+              3
+            ],
+            "deg": 15,
+            "op": "rotate",
+            "x": 1.0,
+            "y": 0.5
+          },
+          {
+            "atoms": [
+              1,
+              2,
+              3
+            ],
+            "deg": -15,
+            "op": "rotate",
+            "x": 1.0,
+            "y": 0.5
+          },
+          {
+            "atoms": [
+              1,
+              2,
+              3
+            ],
+            "dx": 3.25,
+            "dy": -1.5,
+            "objects": [],
+            "op": "move"
+          }
+        ]
+      }
     }
   ],
   "contexts": [

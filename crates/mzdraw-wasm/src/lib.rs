@@ -110,13 +110,15 @@ pub fn pointer(phase: u32, x: f64, y: f64, kind: u32, mods: u32, id: u32, t: f64
     act(|e| e.pointer_event(phase, id, x, y, kind, mods, t))
 }
 
+/// A key press: `mods` bit 1 Shift, bit 2 Ctrl/Cmd, bit 8 Alt/Option; `t` the time stamp of the event in milliseconds (repeated
+/// nudges within a second are one undo step).
 #[wasm_bindgen]
-pub fn key(key: &str, mods: u32) -> u32 {
-    act(|e| e.key(key, mods))
+pub fn key(key: &str, mods: u32, t: f64) -> u32 {
+    act(|e| e.key_at(key, mods, t))
 }
 
 /// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
-/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, or a tool name (`select`, `atom:N`, `bond:2`,
+/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
 /// `bond:up`, `label:Ph`, `arrow`, `plus`, `text:<one line>`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
@@ -134,6 +136,7 @@ pub fn command(what: &str) -> u32 {
         "rotate-r" => e.rotate(-15.0),
         "flip-h" => e.flip(Axis::H),
         "flip-v" => e.flip(Axis::V),
+        "move-here" => e.set_move_here(!e.move_here),
         tool => e.set_tool(tool),
     })
 }
@@ -407,7 +410,7 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check, std}` (`check` is
+/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, moveHere, clip, say: {key, what}, error, check, std}` (`check` is
 /// the `check/1` document or null; `std` is `{none, lines}`: `lines` lists the drawing checks that have findings, `[{key, grade, n}]`, as `Editor::save("std")` reports them, and `none` is true when something is drawn and there are none).
 #[wasm_bindgen]
 pub fn state() -> String {
@@ -456,7 +459,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -465,6 +468,7 @@ pub fn state() -> String {
             e.doc().objects.len(),
             e.session.can_undo(),
             e.session.can_redo(),
+            e.move_here,
             !e.clipboard("mzdraw").is_empty(),
             q(e.said.0),
             q(&e.said.1),
