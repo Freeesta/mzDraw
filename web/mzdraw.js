@@ -258,11 +258,8 @@ function refresh() {
     if (c === "redo") /** @type {HTMLButtonElement} */ (b).disabled = !st.redo;
     if (c === "copy" || c === "cut" || c === "duplicate") /** @type {HTMLButtonElement} */ (b).disabled = !st.selected;
     if (c === "paste") /** @type {HTMLButtonElement} */ (b).disabled = !st.clip;
-    // what "Label arrows" writes now, and what that means, as the module says (the choice is the scheme's, else the Preferences')
-    if (c === "pathway-label") {
-      const tip = `${t("draw2.tool.pathway-label.title")} ${t(st.labels.adduct ? "draw2.labels.nowAdduct" : "draw2.labels.now", { mode: t(`draw2.prefs.pathway.label.${st.labels.mode}`), adduct: st.labels.adduct, meaning: t(st.labels.meaning) })}`;
-      b.setAttribute("title", tip); b.setAttribute("aria-label", tip);
-    }
+    // what "Label arrows" writes now, and what that means, as the module says (the choice is the scheme's, else the Preferences'); the tooltip stays the catalog's
+    if (c === "pathway-label") b.setAttribute("aria-description", t(st.labels.adduct ? "draw2.labels.nowAdduct" : "draw2.labels.now", { mode: t(`draw2.prefs.pathway.label.${st.labels.mode}`), adduct: st.labels.adduct, meaning: t(st.labels.meaning) }));
   }
   $("d2-outline").replaceChildren(...st.outline.map((/** @type {any} */ s, /** @type {number} */ i) => {
     const li = document.createElement("li");

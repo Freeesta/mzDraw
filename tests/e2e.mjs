@@ -2499,14 +2499,14 @@ try {
   // mass-label-ui: the mass-label choice of a scheme (document field `labels`, operation `doc.labels`). The items of the canvas menu choose the mode and
   // the adduct; the module writes the field and the labels in one undo step; the page equals the goldens of tests/data/log/mass-label-ui.json
   const mlGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/mass-label-ui.json"), "utf8")).values;
-  const mlOpen = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), mlGold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9 }); return tpDoc(); };
+  const mlOpen = async () => { await pg.evaluate(text => { const m = /** @type {any} */ (window).MZDRAW; m.open(m.replay(JSON.stringify({ import: text, out: "mzdraw" }))); }, mlGold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9 }); return tpDoc(); };
   const mlItem = id => `[data-testid="d2-ctx-${id}"]`;
   const mlLabels = () => pg.evaluate("JSON.parse(window.MZDRAW.state()).labels");
-  await step("mass labels by mouse: right-click the canvas, the group Label mode, delta+mass, then the group Label adduct; the page equals the goldens, one undo each; the tooltip says what the mode means", async () => {
+  await step("mass labels by mouse: right-click the canvas, the group Label mode, delta+mass, then the group Label adduct; the page equals the goldens, one undo each; the button says, for assistive tools, what the mode means", async () => {
     const before = await mlOpen(), area = await pg.locator("#d2-canvas").boundingBox(), at = [area.x + 12, area.y + area.height - 12];
     eq((await mlLabels()).mode, "delta"); eq((await mlLabels()).own, false);
     const PL = '[data-testid="d2-pathway-label"]';
-    eq(await pg.getAttribute(PL, "title"), await pg.evaluate("I18N.t('draw2.tool.pathway-label.title') + ' ' + I18N.t('draw2.labels.now', { mode: I18N.t('draw2.prefs.pathway.label.delta'), meaning: I18N.t('draw2.labels.meaning.delta') })"));
+    eq(await pg.getAttribute(PL, "aria-description"), await pg.evaluate("I18N.t('draw2.labels.now', { mode: I18N.t('draw2.prefs.pathway.label.delta'), meaning: I18N.t('draw2.labels.meaning.delta') })"));
     await pg.mouse.click(...at, { button: "right" }); await tpShown();
     const ids = (await tpMenu()).ids;
     assert(["pathway.labelmode", "labelmode.delta", "labelmode.mass", "labelmode.delta+mass", "labelmode.name+delta", "pathway.labeladduct", "labeladduct.none", "labeladduct.[M+H]+"].every(i => ids.includes(i)), "the items: " + ids);
@@ -2523,7 +2523,7 @@ try {
     eq(await pg.getAttribute(mlItem("labelmode.delta+mass"), "aria-checked"), "true");
     await pg.click(mlItem("pathway.labeladduct")); await pg.click(mlItem("labeladduct.[M+H]+")); await tpShown(false); await frames(pg);
     eq(await tpSvg(), mlGold[1].out);
-    eq(await pg.getAttribute(PL, "title"), await pg.evaluate("I18N.t('draw2.tool.pathway-label.title') + ' ' + I18N.t('draw2.labels.nowAdduct', { mode: I18N.t('draw2.prefs.pathway.label.delta+mass'), adduct: '[M+H]+', meaning: I18N.t('draw2.labels.meaning.delta+mass') })"));
+    eq(await pg.getAttribute(PL, "aria-description"), await pg.evaluate("I18N.t('draw2.labels.nowAdduct', { mode: I18N.t('draw2.prefs.pathway.label.delta+mass'), adduct: '[M+H]+', meaning: I18N.t('draw2.labels.meaning.delta+mass') })"));
     await shot(pg, "mass-label-ui-menu");
     // the file keeps the choice: saved, cleared, opened again
     const saved = await tpDoc(); assert(saved.includes('"labels":{"adduct":"[M+H]+","mode":"delta+mass"}'), "the document holds the choice");
