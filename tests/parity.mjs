@@ -1,5 +1,5 @@
 // Golden parity: the editor module (.wasm, target/pkg-node) replays every command log of tests/data/mzdraw_log.json to the same bytes as
-// the native crate (its example `replay`) and as the recorded outputs (held natively by crates/mzdraw/tests/replay.rs too); a refused
+// the native crate (its example `replay`) and as the recorded outputs (held natively by crates/mzdraw/tests/replay.rs too), and the context menu of a right-click on each kind of target (`contexts`); a refused
 // request is the same keyed JSON error on both sides.
 // Run after tools/build_site.sh and `cargo build -p mzdraw --example replay`:  node tests/parity.mjs
 import { createRequire } from "node:module";
@@ -23,11 +23,18 @@ for (const c of fx.cases) for (const out of Object.keys(c.out)) {
   check(a.stdout === b.stdout, `${c.name} as ${out}: wasm == native`);
   check(a.stdout === c.out[out], `${c.name} as ${out}: the recorded bytes`);
 }
+// the context menu (JSON) of a right-click on each kind of target
+for (const c of fx.contexts) {
+  const request = JSON.stringify(c.request), a = site(request), b = native(request);
+  check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
+  check(a.stdout === b.stdout, `${c.name}: wasm == native`);
+  check(a.stdout === c.out && JSON.parse(c.out).items.length > 0, `${c.name}: the recorded menu`);
+}
 for (const c of fx.refused) {
   const request = JSON.stringify(c.request), a = site(request), b = native(request);
   check(a.status === 1 && b.status === 1, `${c.error_key}: refused on both sides`);
   check(a.stderr === b.stderr && JSON.parse(a.stderr || "{}").error_key === c.error_key, `${c.error_key}: the same keyed error`);
 }
-check(fx.cases.length >= 3 && fx.refused.length >= 1, "the fixture has cases");
+check(fx.cases.length >= 3 && fx.refused.length >= 1 && fx.contexts.length >= 7, "the fixture has cases");
 console.log(`parity: ${n - bad}/${n} checks ok`);
 process.exit(bad ? 1 : 0);

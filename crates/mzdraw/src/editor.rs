@@ -149,6 +149,8 @@ pub struct Editor {
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
     pub(crate) clip: String,
     pub(crate) pasted: u32,
+    /// The open context menu and what the page was asked to do after its last item (`context`).
+    pub(crate) ctx: crate::context::Context,
 }
 
 impl Default for Editor {
@@ -170,6 +172,7 @@ impl Default for Editor {
             style: Style::default(),
             clip: String::new(),
             pasted: 0,
+            ctx: Default::default(),
         }
     }
 }
