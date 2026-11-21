@@ -49,9 +49,10 @@ fn act(f: impl FnOnce(&mut Editor) -> u32) -> u32 {
     })
 }
 
-/// After a change: the drawing checks `std/1` and, with the `mzlab` feature, the structure check.
+/// After a change: the drawing checks `std/1` (not the pathway findings: a full layout of 1000 nodes takes 73 ms in release, more than a
+/// live check should; they are in `out: std`, `report` and `expect`) and, with the `mzlab` feature, the structure check.
 fn recheck(p: &mut Page) {
-    let report = mzdraw::pathway::report_with(p.editor.doc(), &p.editor.style);
+    let report = mzdraw::conform::report(p.editor.doc());
     p.std = report.counts_json();
     p.std_none = !p.editor.doc().atoms.is_empty() && report.checks.is_empty();
     live_check(p);

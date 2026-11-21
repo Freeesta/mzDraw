@@ -73,6 +73,8 @@ pub enum Refusal {
     Cycle(u32),
     /// More than `MAX_ARROWS` anchored arrows or `MAX_NODES` structures: the layout is refused before any walk (a hostile document).
     Size,
+    /// The moves are refused by the document (a coordinate out of range): the key and id of the operation.
+    Apply(&'static str, u32),
 }
 
 /// The most anchored arrows a pathway may have.
@@ -87,13 +89,14 @@ impl Refusal {
             Refusal::Duplicate(_) => "error.draw2.schemeDuplicate",
             Refusal::Cycle(_) => "error.draw2.schemeCycle",
             Refusal::Size => "error.draw2.schemeSize",
+            Refusal::Apply(key, _) => key,
         }
     }
 
     pub fn id(&self) -> u32 {
         match self {
             Refusal::Empty | Refusal::Size => 0,
-            Refusal::Duplicate(i) | Refusal::Cycle(i) => *i,
+            Refusal::Duplicate(i) | Refusal::Cycle(i) | Refusal::Apply(_, i) => *i,
         }
     }
 }
@@ -838,7 +841,7 @@ fn displacement(v: f64) -> f64 {
 /// The operations of a layout: one `move` per structure whose rounded displacement is not zero, ordered by the structure's smallest
 /// atom id; then, ordered by arrow id, the routing operations of every edge on the moved document (so that they are exactly what a
 /// later route of the arrows would compute).
-pub fn ops(doc: &Document, style: &Style, lay: &Layout) -> Vec<Op> {
+pub fn ops(doc: &Document, style: &Style, lay: &Layout) -> Result<Vec<Op>, Refusal> {
     let mut out = Vec::new();
     for (nd, c) in lay.nodes.iter().zip(&lay.centres) {
         let (cx, cy) = (
@@ -856,8 +859,9 @@ pub fn ops(doc: &Document, style: &Style, lay: &Layout) -> Vec<Op> {
         }
     }
     let mut moved = doc.clone();
-    if moved.apply(&out).is_err() {
-        return Vec::new();
+    // a layout that leaves the page (a coordinate past `MAX_COORD`) is refused with the key of the operation, never dropped
+    if let Err(e) = moved.apply(&out) {
+        return Err(Refusal::Apply(e.key, e.id));
     }
     let boxes: Vec<Rect> = lay
         .nodes
@@ -874,7 +878,7 @@ pub fn ops(doc: &Document, style: &Style, lay: &Layout) -> Vec<Op> {
             ));
         }
     }
-    out
+    Ok(out)
 }
 
 /// The findings of a layout for the report `std/1`: `std.scheme.gapRaised` (info, one per raised gap: the first root of the
@@ -919,7 +923,7 @@ pub fn report_with(doc: &Document, style: &Style) -> Report {
 /// The command `pathway:tree`: the operations of one undo step, or the refusal.
 pub fn command(doc: &Document, style: &Style) -> Result<Vec<Op>, Refusal> {
     let lay = layout(doc, style)?;
-    Ok(ops(doc, style, &lay))
+    ops(doc, style, &lay)
 }
 
 /// `boxes/1`: the boxes the layout uses, label ink included, in bond lengths at 4 decimals: every structure by its smallest atom id,

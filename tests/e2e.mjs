@@ -1237,6 +1237,30 @@ try {
     } finally { await t.ctx.close(); }
   });
 
+  await step("style: the pathway fields hold their defaults, are set by touch and by keyboard, and a value out of bounds is refused with its key", async () => {
+    const t = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true });
+    try {
+      const f = k => `[id="d2-style-pathway.${k}"]`;
+      const tap = async sel => { await t.pg.locator(sel).scrollIntoViewIfNeeded(); const b = await t.pg.locator(sel).boundingBox(); await t.pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+      const style = async () => JSON.parse(await t.pg.evaluate("window.MZDRAW.style()")).style;
+      await tap("#d2-style-more summary");
+      eq([await t.pg.inputValue(f("col_gap")), await t.pg.inputValue(f("row_gap")), await t.pg.inputValue(f("max_angle")), await t.pg.inputValue(f("min_arrow"))], ["2.5", "1", "40", "1.2"]);
+      // by touch: tap the field, enter the value
+      await tap(f("col_gap")); await t.pg.fill(f("col_gap"), "3"); await t.pg.press(f("col_gap"), "Enter");
+      await until(t.pg, "JSON.parse(window.MZDRAW.style()).style['pathway.col_gap'] === 3");
+      // by keyboard: focus, type, Enter
+      await t.pg.focus(f("max_angle")); await t.pg.fill(f("max_angle"), "30"); await t.pg.keyboard.press("Enter");
+      await until(t.pg, "JSON.parse(window.MZDRAW.style()).style['pathway.max_angle'] === 30");
+      // out of bounds: refused with its key, nothing changes
+      await t.pg.fill(f("max_angle"), "95"); await t.pg.keyboard.press("Enter");
+      await until(t.pg, "document.querySelector('[id=\"d2-style-pathway.max_angle\"]').getAttribute('aria-invalid') === 'true'");
+      eq(await t.pg.innerText("#d2-style-note"), await t.pg.evaluate("I18N.t('error.draw2.styleValue')"));
+      eq((await style())["pathway.max_angle"], 30);
+      // the labels and the unit come from the language file
+      eq(await t.pg.evaluate("I18N.t('draw2.style.unit.deg')"), "degrees");
+    } finally { await t.ctx.close(); }
+  });
+
   await step("tablet with touch: the PFAS scale and level 2c of the annotation, set by tapping", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await tool(pg, "bond:down"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });

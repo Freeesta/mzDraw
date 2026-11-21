@@ -67,7 +67,7 @@ fn style(sets: &[&str]) -> Style {
 fn saved(d: &Document, s: &Style) -> Document {
     let lay = pathway::layout(d, s).unwrap();
     let mut session = mzdraw::Session::new(d.clone());
-    session.run(&pathway::ops(d, s, &lay)).unwrap();
+    session.run(&pathway::ops(d, s, &lay).unwrap()).unwrap();
     session.doc
 }
 
@@ -558,6 +558,7 @@ fn p1_p2_p3_determinism_order_independence_translation() {
         let ops = |d: &Document| {
             let lay = pathway::layout(d, &s).unwrap();
             pathway::ops(d, &s, &lay)
+                .unwrap()
                 .iter()
                 .map(|o| o.to_json())
                 .collect::<Vec<_>>()
@@ -637,7 +638,7 @@ fn p4_idempotence_and_one_undo_step() {
             let (d, s) = (doc(name), style(&sets));
             let out = saved(&d, &s);
             let lay = pathway::layout(&out, &s).unwrap();
-            let again = pathway::ops(&out, &s, &lay);
+            let again = pathway::ops(&out, &s, &lay).unwrap();
             assert!(
                 again.is_empty(),
                 "{name} {sets:?}: P4 {:?}",
@@ -941,7 +942,7 @@ fn two_hundred_nodes_in_time() {
     let (d, s) = (doc("big200"), style(&[]));
     let t = std::time::Instant::now();
     let lay = pathway::layout(&d, &s).unwrap();
-    let ops = pathway::ops(&d, &s, &lay);
+    let ops = pathway::ops(&d, &s, &lay).unwrap();
     let ms = t.elapsed().as_secs_f64() * 1000.0;
     println!("big200: layout and ops in {ms:.1} ms ({} ops)", ops.len());
     if !cfg!(debug_assertions) {
@@ -1109,4 +1110,51 @@ fn the_test_only_order_key_is_never_written_to_a_settings_file() {
     assert!(s.to_json().contains("\"pathway.order\":\"mz\""));
     let file = r#"{"format":"mzdraw-settings/1","style":{"pathway.order":"reverse-id"}}"#;
     assert!(Style::from_text(file).is_err());
+}
+
+#[test]
+fn a_layout_that_leaves_the_page_is_refused_with_a_key_and_changes_nothing() {
+    // the first root is the rightmost structure, at the edge of the page (1e6); the layers go right of it, past the edge
+    let d = synthetic(4, &[(3, 2), (2, 1), (1, 0)]);
+    let mut v: Value = serde_json::from_str(&d.to_json()).unwrap();
+    let xmax = d.atoms.iter().map(|a| a.x).fold(f64::MIN, f64::max);
+    let dx = 999_999.0 - xmax;
+    for a in v["atoms"].as_array_mut().unwrap() {
+        a["x"] = json!(((a["x"].as_f64().unwrap() + dx) * 1e4).round() / 1e4);
+    }
+    for o in v["objects"].as_array_mut().unwrap() {
+        for k in ["x", "x2"] {
+            o[k] = json!(((o[k].as_f64().unwrap() + dx) * 1e4).round() / 1e4);
+        }
+    }
+    let d = Document::from_json(&v.to_string()).unwrap();
+    let s = style(&[]);
+    let lay = pathway::layout(&d, &s).unwrap();
+    let err = pathway::ops(&d, &s, &lay).unwrap_err();
+    assert!(matches!(err, Refusal::Apply(..)), "{err:?}");
+    assert!(err.key().starts_with("error.draw2."), "{}", err.key());
+    let req = json!({"import": d.to_json(), "commands": [{"command": "pathway:tree"}]}).to_string();
+    assert_eq!(mzdraw::replay::replay(&req).unwrap_err().key, err.key());
+    let mut e = Editor::default();
+    e.import(&d.to_json()).unwrap();
+    let before = e.doc().to_json();
+    assert!(e.run_command("pathway:tree", &json!({})).is_err());
+    assert_eq!(e.doc().to_json(), before);
+}
+
+#[test]
+fn a_thousand_nodes_in_time_for_layout_ops_and_the_std_report() {
+    let edge: Vec<(usize, usize)> = (0..pathway::MAX_NODES - 1).map(|i| (i, i + 1)).collect();
+    let d = synthetic(pathway::MAX_NODES, &edge);
+    let s = style(&[]);
+    let t = std::time::Instant::now();
+    let lay = pathway::layout(&d, &s).unwrap();
+    let layout_ms = t.elapsed().as_secs_f64() * 1000.0;
+    let t = std::time::Instant::now();
+    let ops = pathway::ops(&d, &s, &lay).unwrap();
+    let ops_ms = t.elapsed().as_secs_f64() * 1000.0;
+    let t = std::time::Instant::now();
+    let _ = pathway::report_with(&d, &s);
+    let report_ms = t.elapsed().as_secs_f64() * 1000.0;
+    println!("1000 nodes: layout {layout_ms:.1} ms, ops {ops_ms:.1} ms ({} ops), std report {report_ms:.1} ms", ops.len());
 }
