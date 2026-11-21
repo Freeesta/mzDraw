@@ -1,6 +1,6 @@
-# plan-27: one goal in, one canonical reversible patch out (`plan`)
+# plan-27: one goal in, one canonical reversible patch out (`goal`)
 
-Proposed by `docs/plan/backlog.md` §10 (row 76; third external report, idea `plan`). Size M. Wave 4. Depends on: plan-01 (op table), plan-20 (`draw-result/1`). Each goal kind is gated on the prompt that builds its engine (below).
+Proposed by `docs/plan/backlog.md` §10 (row 76; third external report, idea `plan`). Size M. Wave 4. Depends on: plan-01 (op table), plan-20 (`draw-result/1`; edit E21 of §10.5). Each goal kind is gated on the prompt that builds its engine (below).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
@@ -14,29 +14,31 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- A new module `crates/mzdraw/src/plan.rs` and a request field `"goal":{...}` (a JSON object, one key = the goal kind) plus optional `"budget":N` (most ops allowed in the patch; default 500). The answer is `draw-result/1` with a new key `patch` (the ops, in `draw_edit/1`, before `out`); with `dry_run` nothing else is applied, without it the patch is applied and `out` is written as usual.
+- A new module `crates/mzdraw/src/plan.rs` and a request field `"goal":{...}` (a JSON object, one key = the goal kind) plus optional `"budget":N` (most ops allowed in the patch; default 500).
+- Order inside a request: `import`, `style`, `set`, then the goal's patch, then `log` (so a log may use the ids the patch created; they are in `created`). A request with `goal` always answers `draw-result/1` (as `dry_run` and `expect` do, E21), with the key `patch` (the ops, in `draw_edit/1`) before `out`. With `dry_run` nothing is applied; otherwise the patch is applied and `out` is written as usual.
 - Goal kinds of v1, each only when its engine exists (a kind whose engine is not merged is refused as unsupported):
   - `{"draw":"SMILES","at":[x,y]}`: the structure laid out by `mzlab-mol` (the import path), as `atom.add` / `bond.add` ops with new ids; always available;
   - `{"row":["SMILES",...],"arrow":true}`: a one-line scheme; after plan-13;
   - `{"attach":{"at":ID,"template":NAME}}`: a template or abbreviation on an atom; after arch-web-19 (`tmpl`) or arch-web-18;
-  - `{"swap":{"select":{...},"el":"F"}}`: element change on a selector match; after plan-24.
+  - `{"swap":{"select":{...},"el":"F"}}`: element change on the atoms a plan-24 selector resolves to; after plan-24. The selector is a parameter of this goal only: the patch holds plain ids, and selectors inside ops stay deferred (§9.3).
 - Canonical: the same goal on the same document gives byte-identical patches (ids from the document's counter, ops in a fixed order).
+- A grant (plan-28) checks the patch's ops like any op of the log.
 - Errors, by plan-20's rule: an unknown or not yet supported goal kind is an invalid request (exit 2, `error/1`, key `error.draw2.planUnsupported`, the supported kinds listed in `params`); a supported goal that needs more ops than `budget` is a verdict (exit 1, `failed.stage` `plan`, key `error.draw2.planBudget`).
 
 Out (do not do here):
 - Natural-language goals or any model (DROP, backlog §1.2 do-not 4).
-- Planning across goals (one goal per request; batch through mzLab's stdin streaming).
+- More than one goal per request (batch through mzLab's stdin streaming).
 
 ## CLI twin (rule 15)
 - `{"goal":{"draw":"c1ccccc1O"},"dry_run":true}` gives the patch; `{"goal":...}` applies it. Native replay test: replaying `patch` as a `log` gives the same bytes as the goal request.
-- Add feature `plan` to plan-19's runner (`--arm` list).
+- Add feature `plan` to plan-19's runner (`--arm` list; D21).
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md`, `docs/plan/backlog.md` §9 and §10.
 - `replay.rs`, `outcome.rs` (plan-20), `io.rs` / `layout.rs` (the import and layout path), `schema.rs` (plan-01).
 
 ## Agreement needed before the PR
-No `draw_edit/1` op (the patch uses table ops only). Rows in the `request` section of plan-01's table: `goal`, `budget`, and the new `draw-result/1` key `patch` and stage `plan` (plan-20's key table gains them; D13).
+No `draw_edit/1` op (the patch uses table ops only). Rows in the `request` section of plan-01's table: `goal`, `budget`; the `draw-result/1` key `patch` and stage `plan` are plan-20's key table, edited by E21 (D13, D20).
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.
@@ -51,13 +53,14 @@ No `draw_edit/1` op (the patch uses table ops only). Rows in the `request` secti
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product; never claim novelty without a prior-art link; patent clearance is "unverified".
 
 ## Work
-1. `draw` goal, canonical patch.
+1. `draw` goal, canonical patch, request order.
 2. Budget, errors, the gated kinds that exist at your start.
 3. Runner feature, doc section (the goal kinds and their gate).
 
 ## Tests to add
 - Canonical: two runs of every goal give the same bytes; the patch replayed as a `log` gives the same document.
 - Every patch is inverted exactly by undo (the property test of `ops.rs` over goal patches).
+- A log after a goal can address the atoms the goal created.
 - An unsupported kind is exit 2 with the supported list; a budget of 3 for benzene is exit 1 with stage `plan`.
 - Parity cases; native replay test.
 - **Fails without the change**: `goal` is an unknown field before the slice.

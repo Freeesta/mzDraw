@@ -20,7 +20,7 @@ Out (do not do here):
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2, §2.4 molfile and KET rows).
-- The CTfile V3000 collection blocks (BIOVIA CTfile Formats: behind a request form, not read by the study; implement from what `mzlab-mol` reads and writes and say so in the PR).
+- The CTfile V3000 collection blocks: BIOVIA CTfile Formats, Chemistry 2026, public copy at https://www.3ds.com/assets/invest/2026-01/biovia_chemistry_2026_ctfile_formats.pdf (read by ARCH PLAN-2 on 2026-11-21: STEABS, STERACn, STERELn and the chiral flag; see `docs/plan/backlog.md` §10.1). Implement from what `mzlab-mol` reads and writes, and apply edit E20 (§10.5: no group is set from a default).
 - KET schema (https://raw.githubusercontent.com/epam/ketcher/master/packages/ketcher-core/src/domain/serializers/ket/schema.json).
 - `crates/mzdraw/src/io.rs`, `crates/mzdraw/src/ket.rs`.
 

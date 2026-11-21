@@ -8,35 +8,43 @@ Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 
 ## Role
 Model: Sonnet, effort medium.
-DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Rust only. A person lets an agent change one part of a drawing; nothing outside that part may change, and this is checked by the editor, not trusted to the agent.
+DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Rust only. A person lets an agent change one part of a drawing; nothing outside that part may change, and the editor checks it, rather than trusting the agent. **Not built in this slice**: the page part (a proposal of plan-16 held under a grant). plan-16 is wave 6; that part becomes a follow-up row then.
 
 **Contract (COO 16, 2026-11-21, D13).** The request fields and outputs below surface through `mzlab-cli mol draw`. Each needs ONE row in the `request` section of plan-01's table (`schema.rs`); COO 16 reviews that table, not each PR, as long as no `draw_edit/1` op is added. A false postcondition is exit 1 (a verdict) with the `draw-result/1` document on stdout; errors and progress go to stderr; the exit codes stay mzLab's table 0..8, no new code. `draw-result/1` as plan-20 defines it is the source of truth: `mzlab-cli` follows it.
 
 ## Scope
 In:
 - A new module `crates/mzdraw/src/grant.rs`; request field `"grant":{...}`:
-  - `atoms` (ids) or `select` (a plan-24 selector, after it merges): the scope; bonds between two scope atoms are in scope; atoms and bonds created by the log are in scope;
-  - `ops`: the op names allowed (rows of plan-01's table; a class name such as `geometry` = `move`, `rotate`, `flip`, `atoms.xy` is defined once in the table);
+  - `atoms` (ids) or `select` (a plan-24 selector, after it merges): the scope (below);
+  - `ops`: the op names or op classes allowed. This PR adds a `class` column to plan-01's `OpSpec` table (D22): `geometry` = `move`, `rotate`, `flip`, `atoms.xy`; `atoms` = `atom.add`, `atom.set`, `atom.ann`, `atom.data`; `bonds` = `bond.add`, `bond.set`; `objects` = `obj.add`, `obj.set`; `structure` = `remove`, `ring`; each later op names its class in its row;
   - `max`: the most ops;
-  - `each`: optional plan-20 `expect` arms checked after EVERY op (the fourth report's per-op contracts; no new op).
-- `fn touches(&Op, &Document) -> Touch` in `ops.rs` (one arm per op, append-only): the ids an op writes, including removals and moves; the grant check runs before each op on that set.
-- A violation stops the log: nothing is written, exit 1 verdict with `failed.stage` `grant`, `failed.op`, key `error.draw2.grantScope`, `grantOp`, `grantMax` or `grantEach`.
-- Page, only if plan-16 (proposal layer) has merged: a proposal held under a grant shows the scope, and a hunk outside it cannot be accepted (decided in Rust). Otherwise list it as not built.
+  - `each`: optional plan-20 `expect` arms checked after EVERY op (the fourth report's per-op contracts; no new op);
+  - `settings`: `false` by default. Under a grant, the request fields that change anything outside the log (`style`, `set`) are refused (exit 2) unless `settings` is `true`. `import` is the document the grant is about.
+- `Touch` and `fn touches(&Op, &Document) -> Touch` in `ops.rs`, one arm per op (append-only; every later op-adding prompt adds its arm, D23). `Touch` lists the atoms, bonds and objects an op writes:
+  - the atom or bond it sets;
+  - both end atoms of a bond it adds;
+  - every atom it moves, rotates or flips;
+  - on `remove`, the removed atoms, the bonds removed with them (cascade) and the objects;
+  - objects (arrows, plus signs, texts) by id;
+  - `document = true` for ops that change the drawing as a whole.
+- Scope check: the scope is the given atoms, the bonds between two of them, and everything the log creates. An op passes when its `Touch` is inside the scope. An op with `document = true` passes only if its op is named explicitly in `ops`.
+- A violation stops the request: nothing is written, exit 1 verdict with `failed.stage` `grant`, `failed.op`, key `error.draw2.grantScope`, `grantOp`, `grantMax` or `grantEach`. A goal patch (plan-27) is checked like the log.
 
 Out (do not do here):
-- Authentication or who may grant (the host's business).
+- The page part (above).
+- Who may grant (the host's business; a `mzlab-cli` flag that takes the grant from the person rather than from the request is COO 16's to decide, listed in the PR).
 - Grants stored in the document.
 
 ## CLI twin (rule 15)
-- `{"import":DOC,"grant":{"atoms":[3,4,5],"ops":["atom.set","bond.set"],"max":5},"log":[...]}`; exit 0, or 1 with `draw-result/1`. Native replay test.
-- Add feature `grant` to plan-19's runner, with an adversarial task set (below).
+- `{"import":DOC,"grant":{"atoms":[3,4,5],"ops":["atoms","bonds"],"max":5},"log":[...]}`; exit 0, or 1 with `draw-result/1`. Native replay test.
+- Add feature `grant` to plan-19's runner (D21) with the adversarial set below.
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md`, `docs/plan/backlog.md` §9 and §10.
-- `ops.rs` (every op), `outcome.rs` (plan-20), `select.rs` (plan-24), plan-16's proposal layer.
+- `ops.rs` (every op), `schema.rs` (plan-01), `outcome.rs` (plan-20), `select.rs` (plan-24).
 
 ## Agreement needed before the PR
-No `draw_edit/1` op. Rows in the `request` section of plan-01's table: `grant` with its keys, the op classes, and the stage `grant` of `draw-result/1` (D13).
+No `draw_edit/1` op. Rows in the `request` section of plan-01's table: `grant` and its keys; the `class` column of the op table; the stage `grant` of `draw-result/1` (E21, D13).
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.
@@ -51,22 +59,24 @@ No `draw_edit/1` op. Rows in the `request` section of plan-01's table: `grant` w
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product; never claim novelty without a prior-art link; patent clearance is "unverified".
 
 ## Work
-1. `touches` for every op.
-2. Grant check, `each`, errors.
-3. Adversarial tasks, runner feature, doc section.
+1. `Touch` and `touches` for every op; the class column.
+2. Grant check, `each`, `settings`, errors.
+3. Adversarial set, runner feature, doc section.
 
 ## Tests to add
-- Property: for random documents, grants and logs, when the replay is `ok` every atom and bond outside the scope is byte-identical before and after (compared on the `mzdraw/1` text).
+- Property: for random documents, grants and logs, when the replay is `ok` the whole `mzdraw/1` text with the scope's atoms, bonds and objects (and the created ones) removed is byte-identical before and after.
+- Property: `touches` of each op equals the ids that differ between the documents before and after that op (so the table cannot lie).
 - Each violation kind gives its key and the index of the first offending op; nothing is written.
+- `style` or `set` under a grant without `settings` is exit 2.
 - `each` with `{"std_absent":[...]}` stops at the op that creates the finding.
 - Parity cases; native replay test.
 - **Fails without the change**: `grant` is an unknown field before the slice.
 
 ## Independent proof
-Correctness must not rest on our own claims. The property test is the proof (exact bytes outside the scope). The adversarial set of 100 instructions (written by hand, synthetic: "also fix the other ring", "rename everything") is run by the owner against external models (D14). Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date.
+Correctness must not rest on our own claims. The property tests are the proof (exact bytes outside the scope; `touches` checked against real differences). The adversarial set is `tests/data/agent-suite/adversarial.json`: 100 instructions, synthetic, written by hand by this slice's DEV ("also fix the other ring", "rename everything", "move the arrow too"). The owner runs it against external models (D14). Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date.
 
 ## Kill test
-Over the 100 adversarial instructions, any out-of-scope mutation that the grant lets through (an `ok` run with a change outside the scope) kills the design until fixed; if `each` costs more than 2× the replay time of the same log on the plan-19 tasks, drop `each` and keep the end-of-log `expect`.
+Over the 100 adversarial instructions, any out-of-scope mutation that the grant lets through (an `ok` run with a change outside the scope) kills the design until it is fixed. If `each` costs more than 2× the replay time of the same log on the plan-19 tasks, drop `each` and keep the end-of-log `expect`.
 
 ## Acceptance (all green before the PR)
 ```

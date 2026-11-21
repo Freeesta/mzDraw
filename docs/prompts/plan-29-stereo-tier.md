@@ -1,6 +1,6 @@
-# plan-29: the stereo tier of each centre, never defaulted silently
+# plan-29: the stereo tier of each centre, never assumed
 
-Proposed by `docs/plan/backlog.md` §10 (row 78; fourth external report, "stereo tier ledger", reduced to what arch-std-12 does not cover). Size S. Wave 5. Depends on: arch-std-12 (`stg`), arch-std-19 (V3000 / KET collections), plan-22 (loss manifest), plan-23 (digest).
+Proposed by `docs/plan/backlog.md` §10 (row 78; fourth external report, "stereo tier ledger", reduced to what arch-std-12 and -19 do not cover). Size S–M. Wave 5. Depends on: arch-std-12 (`stg`), arch-std-19 with edit E20 (§10.5), plan-22 (loss manifest), plan-23 (digest).
 
 ## Confirm message
 Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; use `send_message` with that session id), first thing:
@@ -8,31 +8,33 @@ Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 
 ## Role
 Model: Sonnet, effort medium.
-DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Rust only. arch-std-12 stores the enhanced-stereo group of a centre (`stg`: `abs`, `and<n>`, `or<n>`). What stays implicit is a wedged centre with no group, and the V2000 chiral flag, which decides the meaning of every wedge in a file without being drawn.
+DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Rust only. arch-std-12 stores the enhanced-stereo group of a centre (`stg`: `abs`, `and<n>`, `or<n>`). Two things stay implicit: a wedged centre with no group, and the V2000 chiral flag, which changes the meaning of every wedge in a file without being drawn. IUPAC 2006 ST-6 says the chiral-flag behaviour is not followed (`docs/study/arch-std.md` §2.2), so mzDraw never assumes a tier: it notes what the file said.
 
 **Contract (COO 16, 2026-11-21, D13).** The request fields and outputs below surface through `mzlab-cli mol draw`. Each needs ONE row in the `request` section of plan-01's table (`schema.rs`); COO 16 reviews that table, not each PR, as long as no `draw_edit/1` op is added. A false postcondition is exit 1 (a verdict) with the `draw-result/1` document on stdout; errors and progress go to stderr; the exit codes stay mzLab's table 0..8, no new code. `draw-result/1` as plan-20 defines it is the source of truth: `mzlab-cli` follows it.
 
 ## Scope
 In:
-- The tier of a stereocentre, derived, never stored separately: `none` (no stereo mark), `absolute` (`stg` `abs`), `relative` (`or<n>`: one of two enantiomers, unknown which), `racemic` (`and<n>`: both), `undefined` (wedged but no `stg`).
-- Readers say what they assumed: when a reader sets `stg` from a default (V2000 chiral flag; V3000 centres with wedges outside every collection, where the counts-line flag applies), the import notes (rule 13, "opened with ... listed") list the centres and the rule used. CTfile 2026 (read): flag on = absolute for all wedged centres; flag off = a mixture of the drawn isomer and its enantiomer; collections take precedence over the flag.
-- A `std/1` check `std.stereo.tierUndefined` (info): a wedged centre with no group.
-- The tier per centre in the digest (`stereo` entries of plan-23 gain the tier) and an `expect` arm `{"stereo_tier":{"ID":"absolute",...}}` (plan-20).
-- Writers: the V2000 chiral flag is computed from the tiers (all `absolute` → 1; all `racemic` in one group → 0); any other mix cannot be said in V2000 and is a `loss/1` item of plan-22 (`what`: `stereo-tier`).
+- The tier of a stereocentre is derived and never stored separately: `none` (no stereo mark), `absolute` (`stg` `abs`), `relative` (`or<n>`), `racemic` (`and<n>`), `undefined` (wedged but no `stg`).
+- Readers never set `stg` from a default (D19). A V2000 chiral flag (0 or 1) and a V3000 wedged centre outside every collection leave the centre `undefined`. The import notes (rule 13: "opened with ... listed") list those centres, the flag value, and what CTfile 2026 says it means (read, §10.1: flag on = absolute for all wedged centres; flag off = the drawn isomer and its enantiomer). The person or agent then sets the group with `stereo.group` (arch-std-12). E20 makes arch-std-19's reader follow this rule.
+- A `std/1` check `std.stereo.tierUndefined` (info): a wedged centre with no group, with the import note's rule if there was one.
+- The digest of plan-23 gains a new per-centre key `centres`: `[[atom id, tier], ...]`, ascending ids. The per-bond `stereo` entries are unchanged.
+- An `expect` arm `{"stereo_tier":{"ID":"absolute",...}}` (plan-20).
+- Writing V2000 adds no rule of its own: arch-std-19's write rule stands (chiral flag 1 only when every centre is `abs`; otherwise the groups are listed as lost), and plan-22's existing `enhanced-stereo` loss item reports it. No new loss kind.
 
 Out (do not do here):
 - Drawing the tier (arch-std-12's `stereo_labels`).
 - New fields or ops (the tier is derived from `stg`).
+- Any change to arch-std-19's write rule.
 
 ## CLI twin (rule 15)
-- `{"import":V2000,"out":"std"}`, `{"out":"digest"}`, `{"expect":[{"stereo_tier":{...}}]}`, `{"out":"loss:molfile"}`. Native replay tests with the page's bytes.
+- `{"import":V2000,"out":"std"}`, `{"out":"digest"}`, `{"expect":[{"stereo_tier":{...}}]}`. Native replay tests with the page's bytes.
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md`, `docs/plan/backlog.md` §10.
-- `docs/study/arch-std.md` §2.2 (IUPAC ST-6), arch-std-12 and -19 prompts, `io.rs` readers and writers, `loss.rs`, `digest.rs`, `conform.rs`.
+- `docs/study/arch-std.md` §2.2 (IUPAC ST-6), arch-std-12 and -19 prompts, `io.rs` readers, `digest.rs`, `conform.rs`, `loss.rs`.
 
 ## Agreement needed before the PR
-No `draw_edit/1` op or field. Rows in the `request` section of plan-01's table: the `expect` arm `stereo_tier` and the digest's tier key (D13). The `std/1` goldens with wedged centres and no group move: bless them and list them.
+No `draw_edit/1` op or field. Rows in the `request` section of plan-01's table: the `expect` arm `stereo_tier` and the digest key `centres` (D13, D24). The `std/1` goldens with wedged centres and no group move: bless them and list them.
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.
@@ -48,20 +50,21 @@ No `draw_edit/1` op or field. Rows in the `request` section of plan-01's table: 
 
 ## Work
 1. Tier function.
-2. Reader notes, `std.stereo.tierUndefined`.
-3. Digest key, `expect` arm, V2000 flag and loss item.
+2. Reader notes (with E20 in arch-std-19 if it has merged; otherwise in this slice's reader arm), `std.stereo.tierUndefined`.
+3. Digest key `centres`, `expect` arm, doc section.
 
 ## Tests to add
-- Each tier from a synthetic V3000 file with all three collections; a V2000 file with flag 0 and flag 1 gives `racemic` and `absolute`, with the import note naming the rule.
-- A document with mixed tiers written as V2000 lists a `stereo-tier` loss; as V3000 it lists none.
-- Round trip V3000 → document → V3000 keeps every tier (property over random groups).
+- Each tier from a synthetic V3000 file with all three collections.
+- A V2000 file with flag 0 and one with flag 1: both leave every wedged centre `undefined`, and the note names the flag and its CTfile meaning.
+- A V3000 centre with wedges outside every collection is `undefined` and noted.
+- Round trip V3000 → document → V3000 keeps every group (property over random groups).
 - **Fails without the change**: the check key does not exist before the slice.
 
 ## Independent proof
-Correctness must not rest on our own claims. For synthetic files with each collection kind, the InChI stereo flags (absolute vs relative or racemic, through RDKit's InChI in the tool, reading V3000 enhanced stereo where the version does) agree with our tier; where the InChI version cannot tell, say so. Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date.
+Correctness must not rest on our own claims. For synthetic files with each collection kind, the InChI stereo layer flags given by RDKit's InChI in the tool are compared with our tier. **Unverified**: what InChI's `/s1`, `/s2` and `/s3` mean (`/s3` and the "absolute" flag are not in `docs/study`; the InChI FAQ answered 404 on 2026-11-21). The DEV reads the InChI technical manual (the version RDKit bundles) and writes down what it says. If it cannot be read, the comparison is marked "not verified" in the PR. Reference programs and data are fetched at run time by a script under `tools/`, never committed (rule 4: synthetic data only in tests); what is committed is the reference output for our synthetic inputs, or the success rate, with the program name, version and date.
 
 ## Kill test
-If arch-std-12 and -19 already assign and report every default (no centre is left `undefined` after any reader, and the import notes already list the rule), ship only the digest key and the V2000 loss item and drop the check (say so in the PR).
+If arch-std-12 and -19 (with E20) already leave no centre `undefined` without a note and already list the flag, ship only the digest key `centres` and the `expect` arm, and drop the check (say so in the PR).
 
 ## Acceptance (all green before the PR)
 ```
