@@ -21,12 +21,21 @@ pub const ASK_TEXT: u32 = 32;
 pub const FOCUS: u32 = 64;
 /// The layout of the palettes changed (`Layout`): the page should lay them out again.
 pub const PALETTES: u32 = 128;
+/// An item of the context menu needs the page to finish it: read `context_ask` (`context`).
+pub const ASK: u32 = 256;
+/// The page should open the context menu: a finger or a pen held still, the secondary button of a mouse or the barrel button of a
+/// pen, the Menu key or Shift+F10. The page calls `context_menu` at the point of the event, or at `context_anchor` for a key.
+pub const MENU: u32 = 512;
 
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
 pub const CTRL: u32 = 2;
 /// Bit 4 of a pointer event is the eraser end of a pen; bit 8 is Alt (Option) on a key.
 pub const ALT: u32 = 8;
+/// The secondary button of a mouse (right) or the barrel button of a pen: the context menu, not the tool.
+pub const SECONDARY: u32 = 16;
+/// The middle button of a mouse: it pans the view, with the secondary one when it is dragged.
+pub const MIDDLE: u32 = 32;
 
 /// Pointer kinds: mouse, pen, finger. A finger needs a wider reach.
 pub const MOUSE: u32 = 0;

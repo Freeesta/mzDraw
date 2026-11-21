@@ -1,10 +1,10 @@
 //! The context menu: one menu per target (atom, bond, selection, object, empty canvas, empty document), every item runs as one undo
 //! step that undoes exactly, an item that is not offered does nothing, and a menu older than the last change is refused.
 
-use mzdraw::context::{ASK, EMPTY_NOTICE};
+use mzdraw::context::EMPTY_NOTICE;
 use mzdraw::doc::ObjKind;
-use mzdraw::editor::{CHANGED, MOUSE};
-use mzdraw::editor_touch::{DOWN, UP};
+use mzdraw::editor::{ASK, CHANGED, HANDLED, MENU, MIDDLE, MOUSE, PEN, SECONDARY, SHIFT, TOUCH};
+use mzdraw::editor_touch::{DOWN, ERASER, MOVE, UP};
 use mzdraw::{Editor, Op};
 use serde_json::Value;
 
@@ -573,4 +573,196 @@ fn a_coordinate_that_is_not_finite_never_reaches_the_view() {
         (e.view.scale, e.view.ox, e.view.oy),
         (view.scale, view.ox, view.oy)
     );
+}
+
+#[test]
+fn a_finger_or_a_pen_held_still_asks_for_the_menu_and_a_mouse_does_not() {
+    for kind in [TOUCH, PEN] {
+        let (mut e, at) = scenario("atom");
+        e.set_tool("atom:N");
+        let doc = e.doc().to_json();
+        // held half a second over an atom: the menu is asked for, the atom is selected, the tool does not act
+        e.pointer_event(DOWN, 1, at.0, at.1, kind, 0, 1000.0);
+        let f = e.pointer_event(UP, 1, at.0, at.1, kind, 0, 1600.0);
+        assert_eq!(f & (MENU | HANDLED), MENU | HANDLED, "kind {kind}");
+        assert_eq!(e.over.sel_atoms, [1]);
+        assert_eq!(e.doc().to_json(), doc, "the tool did not act");
+        // held over an empty spot with a tool that would draw: the menu, no atom
+        e.pointer_event(DOWN, 1, 40.0, 40.0, kind, 0, 2000.0);
+        let f = e.pointer_event(UP, 1, 40.0, 40.0, kind, 0, 2700.0);
+        assert_ne!(f & MENU, 0, "kind {kind}: empty canvas");
+        assert_eq!(e.doc().to_json(), doc, "kind {kind}: nothing was drawn");
+        // a short press is the tool's, not the menu's
+        e.pointer_event(DOWN, 1, 40.0, 40.0, kind, 0, 3000.0);
+        let f = e.pointer_event(UP, 1, 40.0, 40.0, kind, 0, 3100.0);
+        assert_eq!(f & MENU, 0, "kind {kind}: short");
+        assert_ne!(e.doc().to_json(), doc, "kind {kind}: the tool drew");
+    }
+    // moved: a drag; a mouse held still: a click; the eraser end of a pen held still: no menu
+    let (mut e, at) = scenario("atom");
+    e.pointer_event(DOWN, 1, at.0, at.1, TOUCH, 0, 0.0);
+    e.pointer_event(MOVE, 1, at.0 + 30.0, at.1, TOUCH, 0, 300.0);
+    assert_eq!(
+        e.pointer_event(UP, 1, at.0 + 30.0, at.1, TOUCH, 0, 900.0) & MENU,
+        0
+    );
+    e.pointer_event(DOWN, 1, at.0, at.1, MOUSE, 0, 2000.0);
+    assert_eq!(
+        e.pointer_event(UP, 1, at.0, at.1, MOUSE, 0, 3000.0) & MENU,
+        0
+    );
+    e.pointer_event(DOWN, 1, at.0, at.1, PEN, ERASER, 4000.0);
+    assert_eq!(
+        e.pointer_event(UP, 1, at.0, at.1, PEN, ERASER, 4800.0) & MENU,
+        0
+    );
+}
+
+#[test]
+fn the_menu_key_and_shift_f10_ask_for_the_menu_at_the_focus() {
+    let (mut e, _) = scenario("canvas");
+    assert_eq!(e.key("ContextMenu", 0) & (MENU | HANDLED), MENU | HANDLED);
+    assert_eq!(e.key("F10", SHIFT) & MENU, MENU);
+    assert_eq!(e.key("F10", 0) & MENU, 0, "F10 alone is not the menu");
+    // nothing focused or selected: the middle of the canvas; the focus: that atom; else the first selected object
+    assert_eq!(e.context_anchor(800.0, 600.0), (400.0, 300.0));
+    assert_eq!(e.context_anchor(f64::NAN, 600.0), (0.0, 300.0));
+    e.key("Home", 0);
+    let on = atom_px(&e, e.over.focus.unwrap());
+    assert_eq!(e.context_anchor(800.0, 600.0), on);
+    let m = parse(&e.context_menu(on.0, on.1));
+    assert_eq!(
+        m["target"], "atom",
+        "the menu at the anchor is the menu of the focused atom"
+    );
+    e.over.focus = None;
+    e.over.sel_atoms.clear();
+    e.over.sel_bonds.clear();
+    let obj = e.doc().objects[0].id;
+    e.over.sel_objs = vec![obj];
+    assert_eq!(e.context_anchor(800.0, 600.0), object_px(&e, obj));
+    e.over.sel_objs.clear();
+    e.over.sel_atoms = vec![3, 4];
+    assert_eq!(e.context_anchor(800.0, 600.0), atom_px(&e, 3));
+}
+
+#[test]
+fn the_menu_is_valid_until_the_state_it_was_built_from_changes() {
+    let (mut e, at) = scenario("atom");
+    assert!(!e.context_valid(), "no menu yet");
+    e.context_menu(at.0, at.1);
+    assert!(e.context_valid());
+    e.pointer_move(1.0, 1.0, MOUSE);
+    assert!(
+        e.context_valid(),
+        "a pointer over the canvas changes nothing the menu depends on"
+    );
+    e.zoom(at.0, at.1, 1.1);
+    assert!(!e.context_valid(), "the view moved");
+    e.context_menu(at.0, at.1);
+    e.over.sel_atoms.push(2);
+    assert!(!e.context_valid(), "the selection changed");
+    e.context_menu(at.0, at.1);
+    e.undo();
+    assert!(!e.context_valid(), "the document changed");
+    e.context_menu(at.0, at.1);
+    e.context_close();
+    assert!(!e.context_valid(), "closed");
+}
+
+#[test]
+fn data_and_annotation_are_asked_for_the_structure_anchor() {
+    let (mut e, _) = scenario("atom");
+    let at = atom_px(&e, 3);
+    for (id, what) in [("atom.data", "data"), ("atom.ann", "annotation")] {
+        e.context_menu(at.0, at.1);
+        assert_eq!(e.context_run(id) & ASK, ASK);
+        assert_eq!(
+            e.context_ask(),
+            format!("{what}:1"),
+            "the first atom of the ring, not the one clicked"
+        );
+    }
+}
+
+#[test]
+fn the_secondary_button_asks_for_the_menu_and_its_drag_pans() {
+    let (mut e, at) = scenario("atom");
+    e.set_tool("atom:N");
+    let doc = e.doc().to_json();
+    // pressed and released in place: the menu is asked for on release, the tool does not act
+    let f = e.pointer_event(DOWN, 1, at.0, at.1, MOUSE, SECONDARY, 0.0);
+    assert_eq!(
+        f & (MENU | HANDLED),
+        HANDLED,
+        "nothing is asked before the release"
+    );
+    let f = e.pointer_event(UP, 1, at.0, at.1, MOUSE, 0, 50.0);
+    assert_eq!(f & (MENU | HANDLED), MENU | HANDLED);
+    assert_eq!(e.doc().to_json(), doc);
+    // a small shake is still a click; a drag pans the view (the first move past the slop takes the whole way) and asks for nothing
+    let view = (e.view.ox, e.view.oy);
+    e.pointer_event(DOWN, 1, at.0, at.1, MOUSE, SECONDARY, 100.0);
+    e.pointer_event(MOVE, 1, at.0 + 2.0, at.1, MOUSE, SECONDARY, 110.0);
+    assert_eq!(
+        (e.view.ox, e.view.oy),
+        view,
+        "within the slop the view stays"
+    );
+    e.pointer_event(MOVE, 1, at.0 + 30.0, at.1 + 10.0, MOUSE, SECONDARY, 120.0);
+    assert_eq!((e.view.ox - view.0, e.view.oy - view.1), (30.0, 10.0));
+    e.pointer_event(MOVE, 1, at.0 + 40.0, at.1 + 10.0, MOUSE, SECONDARY, 130.0);
+    assert_eq!(e.view.ox - view.0, 40.0);
+    let f = e.pointer_event(UP, 1, at.0 + 40.0, at.1 + 10.0, MOUSE, 0, 140.0);
+    assert_eq!(f & MENU, 0, "a drag is not a click");
+    assert_eq!(e.doc().to_json(), doc);
+    // the middle button pans and never asks for the menu, even in place
+    let view = (e.view.ox, e.view.oy);
+    e.pointer_event(DOWN, 1, 300.0, 300.0, MOUSE, MIDDLE, 200.0);
+    e.pointer_event(MOVE, 1, 310.0, 300.0, MOUSE, MIDDLE, 210.0);
+    assert_eq!(e.view.ox - view.0, 10.0);
+    assert_eq!(
+        e.pointer_event(UP, 1, 310.0, 300.0, MOUSE, 0, 220.0) & MENU,
+        0
+    );
+    e.pointer_event(DOWN, 1, 300.0, 300.0, MOUSE, MIDDLE, 300.0);
+    assert_eq!(
+        e.pointer_event(UP, 1, 300.0, 300.0, MOUSE, 0, 310.0) & MENU,
+        0
+    );
+    // a cancelled press asks for nothing; the left button is a left button again after all of it
+    e.pointer_event(DOWN, 1, at.0, at.1, MOUSE, SECONDARY, 400.0);
+    assert_eq!(e.pointer_event(3, 1, at.0, at.1, MOUSE, 0, 410.0) & MENU, 0);
+    e.pointer_event(DOWN, 1, 40.0, 40.0, MOUSE, 0, 500.0);
+    e.pointer_event(UP, 1, 40.0, 40.0, MOUSE, 0, 510.0);
+    assert_ne!(e.doc().to_json(), doc, "the tool draws again");
+}
+
+#[test]
+fn the_barrel_button_of_a_pen_asks_for_the_menu_and_never_uses_the_tool() {
+    let (mut e, at) = scenario("atom");
+    e.set_tool("atom:N");
+    let doc = e.doc().to_json();
+    let f = e.pointer_event(DOWN, 1, at.0, at.1, PEN, SECONDARY, 0.0);
+    assert_eq!(f & (MENU | HANDLED), MENU | HANDLED, "asked at the press");
+    assert_eq!(
+        e.pointer_event(UP, 1, at.0, at.1, PEN, 0, 30.0) & MENU,
+        0,
+        "once"
+    );
+    assert_eq!(e.doc().to_json(), doc, "no atom, no bond");
+    // the tip alone draws, the eraser end (which also reports a button) erases
+    e.pointer_event(DOWN, 1, 40.0, 40.0, PEN, 0, 100.0);
+    e.pointer_event(UP, 1, 40.0, 40.0, PEN, 0, 130.0);
+    assert_ne!(e.doc().to_json(), doc);
+    let f = e.pointer_event(
+        DOWN,
+        1,
+        40.0,
+        40.0,
+        PEN,
+        SECONDARY | mzdraw::editor_touch::ERASER,
+        200.0,
+    );
+    assert_eq!(f & MENU, 0);
 }

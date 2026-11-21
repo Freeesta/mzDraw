@@ -439,6 +439,685 @@
         "log": [],
         "out": "context:40,40"
       }
+    },
+    {
+      "name": "a finger held on an atom selects it and asks for the menu",
+      "out": "{\"anchor\":[304.0,180.0],\"flags\":[1,523],\"selected\":[[13],[],[]],\"target\":\"atom\",\"valid\":[true,false]}",
+      "request": {
+        "events": [
+          [
+            "pointer",
+            0,
+            1,
+            304,
+            180,
+            2,
+            0,
+            1000
+          ],
+          [
+            "pointer",
+            2,
+            1,
+            304,
+            180,
+            2,
+            0,
+            1600
+          ]
+        ],
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context-state:800,600"
+      }
+    },
+    {
+      "name": "a finger held on an empty spot asks for the menu and selects nothing",
+      "out": "{\"anchor\":[400.0,300.0],\"flags\":[1,521],\"selected\":[[],[],[]],\"target\":\"canvas\",\"valid\":[true,false]}",
+      "request": {
+        "events": [
+          [
+            "pointer",
+            0,
+            1,
+            400,
+            40,
+            2,
+            0,
+            1000
+          ],
+          [
+            "pointer",
+            2,
+            1,
+            400,
+            40,
+            2,
+            0,
+            1700
+          ]
+        ],
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context-state:800,600"
+      }
+    },
+    {
+      "name": "a tap does not ask for the menu",
+      "out": "{\"anchor\":[400.0,300.0],\"flags\":[1,3],\"selected\":[[],[],[]],\"target\":\"canvas\",\"valid\":[true,false]}",
+      "request": {
+        "events": [
+          [
+            "pointer",
+            0,
+            1,
+            304,
+            180,
+            2,
+            0,
+            1000
+          ],
+          [
+            "pointer",
+            2,
+            1,
+            304,
+            180,
+            2,
+            0,
+            1100
+          ]
+        ],
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context-state:800,600"
+      }
+    },
+    {
+      "name": "the secondary button released in place asks for the menu",
+      "out": "{\"anchor\":[400.0,300.0],\"flags\":[8,521],\"selected\":[[],[],[]],\"target\":\"canvas\",\"valid\":[true,false]}",
+      "request": {
+        "events": [
+          [
+            "pointer",
+            0,
+            1,
+            304,
+            180,
+            0,
+            16,
+            0
+          ],
+          [
+            "pointer",
+            2,
+            1,
+            304,
+            180,
+            0,
+            0,
+            60
+          ]
+        ],
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context-state:800,600"
+      }
+    },
+    {
+      "name": "a secondary drag pans and asks for nothing",
+      "out": "{\"anchor\":[400.0,300.0],\"flags\":[8,9,8],\"selected\":[[],[],[]],\"target\":\"canvas\",\"valid\":[true,false]}",
+      "request": {
+        "events": [
+          [
+            "pointer",
+            0,
+            1,
+            304,
+            180,
+            0,
+            16,
+            0
+          ],
+          [
+            "pointer",
+            1,
+            1,
+            340,
+            190,
+            0,
+            16,
+            30
+          ],
+          [
+            "pointer",
+            2,
+            1,
+            340,
+            190,
+            0,
+            0,
+            60
+          ]
+        ],
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context-state:800,600"
+      }
+    },
+    {
+      "name": "the barrel button of a pen asks for the menu at the press",
+      "out": "{\"anchor\":[400.0,300.0],\"flags\":[521,0],\"selected\":[[],[],[]],\"target\":\"canvas\",\"valid\":[true,false]}",
+      "request": {
+        "events": [
+          [
+            "pointer",
+            0,
+            1,
+            304,
+            180,
+            1,
+            16,
+            0
+          ],
+          [
+            "pointer",
+            2,
+            1,
+            304,
+            180,
+            1,
+            0,
+            40
+          ]
+        ],
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context-state:800,600"
+      }
+    },
+    {
+      "name": "the Menu key and Shift+F10 ask for the menu; the anchor is the focused atom",
+      "out": "{\"anchor\":[165.36,180.0],\"flags\":[73,520,520,0],\"selected\":[[2],[],[]],\"target\":\"atom\",\"valid\":[true,false]}",
+      "request": {
+        "events": [
+          [
+            "key",
+            "Home",
+            0,
+            0
+          ],
+          [
+            "key",
+            "ContextMenu",
+            0,
+            10
+          ],
+          [
+            "key",
+            "F10",
+            1,
+            20
+          ],
+          [
+            "key",
+            "F10",
+            0,
+            30
+          ]
+        ],
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context-state:800,600"
+      }
     }
   ]
 }
