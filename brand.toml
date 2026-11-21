@@ -1,0 +1,32 @@
+# The product name lives here and nowhere else. "mzDraw" is a codename: the product will be renamed before the first release.
+# crates/mzdraw/src/brand.rs holds the same values as constants and the test `brand` (crates/mzdraw/tests/brand.rs) fails when
+# the two differ; web/names.js and web/appname.js are written from brand.rs and checked by the same test (MZDRAW_BLESS=1 rewrites
+# them). The test `brand_no_literals` fails when the codename is written anywhere else in the code or in the texts of the page.
+# Files already written stay readable for ever: every id of an earlier name goes into `legacy_ids` (readers accept it, writers
+# use the current one).
+
+[product]
+name = "mzDraw"                 # the name people read; the page shows it through the {app} placeholder of the texts
+slug = "mzdraw"                 # the name in files: PNG keyword, PDF attachment names, SVG metadata id, MIME subtype, storage keys
+crate_prefix = "mzdraw"         # the crates are <crate_prefix> and <crate_prefix>-wasm
+component_tag = "mzdraw-editor" # the custom element mzLab embeds
+css_prefix = "mzd"              # the colour tokens are --<css_prefix>-*
+app_id = "MZDRAW"               # the global the page puts on window, for hosts and tests
+
+[formats]
+document = "mzdraw/1"           # the saved document
+settings = "mzdraw-settings/1"  # the settings file
+edit = "draw_edit/1"            # the command log: the language of mzLab, independent of the name
+bridge = "draw-bridge/1"        # the contract between the page and the wasm module, independent of the name
+first_document = "mzdraw/1"     # history: the id of the first document version, named by `since` in the edit schema; a rename never changes it
+# Earlier slugs, oldest first (empty while the codename is the name). A reader accepts `<slug>/N`, `<slug>-settings/N`, a PNG
+# keyword, a PDF attachment, an SVG metadata id and a storage key made with any of them; a writer uses the current slug.
+legacy_ids = []
+
+[site]
+repository = "Freeesta/mzDraw"                  # GitHub owner/name
+pages_url = "https://freeesta.github.io/mzDraw/" # case-sensitive: the path follows the repository name
+pages_base = "/mzDraw/"
+
+[citation]
+title = "mzDraw: a 2D molecule editor in Rust and WebAssembly"
