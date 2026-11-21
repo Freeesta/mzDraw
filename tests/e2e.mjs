@@ -1132,6 +1132,222 @@ try {
     eq(await rects(pg), home);
   });
   await ctx.close();
+  // The context menu of the canvas (web/context.js paints what Editor::context_menu builds; Rust decides every item)
+  const ring = async (pg, cx, cy) => { await tool(pg, "clear"); await tool(pg, "ring:6a"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 6, bonds: 6 }); await tool(pg, "select"); };
+  /** the pixel of the first line of the display list (it starts at an atom) and its middle (the bond) */
+  const firstLine = async pg => {
+    const d = await pg.evaluate("window.MZDRAW.scene().slice(0, 5)"), b = await pg.locator("#d2-canvas").boundingBox();
+    return { atom: [b.x + d[1], b.y + d[2]], end: [b.x + d[3], b.y + d[4]], bond: [b.x + (d[1] + d[3]) / 2, b.y + (d[2] + d[4]) / 2] };
+  };
+  /** the pixel of the right-most end of a line of the display list, an atom on the right of the drawing: a menu opened there leaves the structure in view */
+  const rightmost = async pg => {
+    const d = await pg.evaluate("window.MZDRAW.scene()"), b = await pg.locator("#d2-canvas").boundingBox(); let best = null;
+    for (let i = 0; i < d.length;) {
+      const op = d[i];
+      if (op === 1) { for (const [x, y] of [[d[i + 1], d[i + 2]], [d[i + 3], d[i + 4]]]) if (!best || x > best[0]) best = [x, y]; i += 7; }
+      else i += op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : 5;
+    }
+    return [b.x + best[0], b.y + best[1]];
+  };
+  const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+  const menuNow = pg => pg.evaluate(`(() => { const m = document.getElementById("d2-menu"); return m.hidden ? null : { target: m.dataset.target, kind: m.dataset.kind,
+    ids: [...m.querySelectorAll("button[data-id]")].map(b => b.dataset.id), active: document.activeElement.dataset.id || document.activeElement.className }; })()`);
+  const shown = (pg, on = true) => until(pg, `document.getElementById("d2-menu").hidden === ${!on}`);
+  const item = id => `[data-testid="d2-ctx-${id}"]`;
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, permissions: ["clipboard-read", "clipboard-write"] }));
+  await step("context menu, mouse: each target has its menu, the items run as one undo step, the keys are shown, the menu closes on any change and a stale one is refused", async () => {
+    const live = () => pg.innerText("#d2-live");
+    const open = async (x, y, target) => { await pg.mouse.click(x, y, { button: "right" }); await shown(pg); eq((await menuNow(pg)).target, target); };
+    // the menu of the browser never opens on the canvas (the event is cancelled) and the page opens nothing for it: the module decides
+    const cancelled = sel => pg.evaluate(`(() => { const e = new MouseEvent("contextmenu", { cancelable: true, bubbles: true }); document.querySelector(${JSON.stringify(sel)}).dispatchEvent(e); return e.defaultPrevented; })()`);
+    eq(await cancelled("#d2-canvas"), true); await shown(pg, false);
+    await ring(pg, cx, cy);
+    await tool(pg, "arrow"); await pg.mouse.click(cx + 250, cy + 100); await want(pg, { objects: 1 }); await tool(pg, "select");
+    const { atom, bond } = await firstLine(pg), before = await doc();
+    // an atom: its element is changed from the group, one undo step; the keys of the module are shown; it asks the page for its fields
+    await open(...atom, "atom");
+    eq((await menuNow(pg)).ids.slice(0, 9), ["atom.element", "atom.el.C", "atom.el.N", "atom.el.O", "atom.el.S", "atom.el.P", "atom.el.F", "atom.el.Cl", "atom.el.Br"]);
+    eq(await pg.innerText(`${item("edit.copy")} .k`), "Ctrl+C"); eq(await pg.innerText(`${item("atom.el.Cl")} .k`), "Shift+C");
+    eq(await pg.getAttribute(item("atom.el.C"), "aria-checked"), "true");
+    assert(!(await pg.isVisible(item("atom.el.N"))), "the group is folded");
+    eq(await cancelled("#d2-menu .ctx button"), true);                   // no menu of the browser on ours either
+    await pg.click(item("atom.element")); await pg.click(item("atom.el.N")); await shown(pg, false);
+    assert((await doc()) !== before, "the element changed"); eq(await pg.evaluate("document.activeElement.id"), "d2-canvas");
+    // it is the atom that was clicked that changed, and only that one: another atom gets its own element from its own menu
+    const els = async () => JSON.parse(await doc()).atoms.map(a => a.el).join("");
+    const changed = (await els()).indexOf("N"); assert(changed >= 0 && (await els()).split("N").length === 2, "one atom is nitrogen: " + (await els()));
+    const other = (await firstLine(pg)).end;
+    await open(...other, "atom"); await pg.click(item("atom.element")); await pg.click(item("atom.el.O")); await shown(pg, false);
+    const now = await els(); eq([now.indexOf("N"), now.split("O").length - 1], [changed, 1]); assert(now.indexOf("O") !== changed, "another atom: " + now);
+    await pg.keyboard.press("Control+z"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    await open(...atom, "atom"); await pg.click(item("atom.label")); await shown(pg, false);
+    eq(await pg.evaluate("document.activeElement.id"), "d2-label");
+    await pg.focus("#d2-canvas");
+    // a bond: its order and its wedge; the item that is already the state is checked
+    await open(...bond, "bond");
+    eq((await menuNow(pg)).ids, ["bond.o.1", "bond.o.2", "bond.o.3", "bond.s.up", "bond.s.down", "bond.s.wavy", "bond.reverse", "bond.delete"]);
+    // an item that is not offered is not on the keyboard walk
+    await pg.focus("#d2-menu .ctx"); const walk = [];
+    for (let i = 0; i < 9; i++) { await pg.keyboard.press("ArrowDown"); walk.push((await menuNow(pg)).active); }
+    assert(!walk.includes("bond.reverse") && walk.includes("bond.delete") && walk.includes("bond.o.1"), "the walk skips the disabled item: " + walk);
+    eq(await pg.getAttribute(item("bond.reverse"), "aria-disabled"), "true");
+    await pg.click(item("bond.s.up")); await shown(pg, false);
+    assert((await doc()) !== before, "the wedge was set");
+    await open(...bond, "bond"); eq(await pg.getAttribute(item("bond.s.up"), "aria-checked"), "true"); eq(await pg.getAttribute(item("bond.reverse"), "aria-disabled"), null, "a marked bond can be reversed");
+    await pg.keyboard.press("Escape"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    // an object: edit asks for the text field; delete is one undo step
+    await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "edit.delete"]);
+    await pg.click(item("edit.delete")); await want(pg, { objects: 0 }); await pg.keyboard.press("Control+z"); await want(pg, { objects: 1 });
+    // a selection: a click inside it keeps it; rotate is one undo step; copy as SMILES reaches the clipboard of the system
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 13 });
+    await open(...atom, "selection"); eq((await state(pg)).selected, 13);
+    const ids = (await menuNow(pg)).ids;
+    for (const id of ["edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "sel.rotate.l", "sel.flip.h", "edit.delete", "sel.copyas.molfile", "sel.copyas.smiles", "sel.copyas.svg", "sel.copyas.png"]) assert(ids.includes(id), id);
+    await pg.click(item("sel.rotate.l")); assert((await doc()) !== before, "rotated"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    await open(...atom, "selection"); await pg.click(item("sel.copyas")); await pg.click(item("sel.copyas.smiles")); await shown(pg, false);
+    await until(pg, "document.getElementById('d2-live').textContent.startsWith('Copied')");
+    assert((await pg.evaluate("navigator.clipboard.readText()")).length > 3, "the SMILES is on the clipboard");
+    // the menu closes when the module says it no longer describes the state: here the keys of the canvas change the selection, the
+    // clipboard and the drawing while the menu is open (the focus is put back on the canvas by hand: the menu would keep it)
+    const closesOn = async (target, keys, prepare = async () => { }) => {
+      await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas"); await prepare();
+      await open(...atom, target); await pg.focus("#d2-canvas"); await pg.keyboard.press(keys); await shown(pg, false);
+    };
+    await closesOn("atom", "Control+a"); await want(pg, { selected: 13 });                  // the selection changed
+    await closesOn("selection", "Control+c", async () => { await pg.keyboard.press("Control+a"); });       // the clipboard changed
+    await pg.keyboard.press("Escape");
+    const steps0 = await doc();
+    await closesOn("atom", "Control+z"); assert((await doc()) !== steps0, "the drawing changed"); // the drawing changed
+    await pg.keyboard.press("Control+Shift+z"); eq(await doc(), steps0);
+    // a right-button drag pans the view and opens no menu; a click in place does
+    await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas");
+    const where = (await firstLine(pg)).atom;
+    await pg.mouse.move(cx - 450, cy - 300); await pg.mouse.down({ button: "right" }); await pg.mouse.move(cx - 390, cy - 280, { steps: 5 }); await pg.mouse.up({ button: "right" });
+    await shown(pg, false);
+    const moved = (await firstLine(pg)).atom; eq([moved[0] - where[0], moved[1] - where[1]], [60, 20]);
+    await pg.mouse.move(cx - 390, cy - 280); await pg.mouse.down({ button: "middle" }); await pg.mouse.move(cx - 360, cy - 280, { steps: 3 }); await pg.mouse.up({ button: "middle" });
+    await shown(pg, false); eq((await firstLine(pg)).atom[0] - moved[0], 30);
+    await pg.keyboard.press("Control+a"); await pg.keyboard.press("Escape");
+    // an empty spot: the canvas menu; the menu closes on any change (here the wheel) and a stale one is refused
+    await open(cx - 450, cy - 300, "canvas"); eq((await state(pg)).selected, 0);
+    await pg.mouse.move(cx, cy); await pg.mouse.wheel(0, -120); await shown(pg, false);
+    const atom2 = (await firstLine(pg)).atom;                           // the wheel moved the view
+    await open(...atom2, "atom");
+    await pg.evaluate("window.MZDRAW.command('undo')");                // a change the page does not see: the module still knows
+    const after = await doc();
+    await pg.click(item("atom.chg.plus")); await shown(pg, false);
+    eq(await doc(), after); eq(await live(), await pg.evaluate("I18N.err({ error_key: 'error.draw2.contextStale', params: {} }).message"));
+    await pg.keyboard.press("Control+Shift+z");
+    // Clear all, then the empty document: no export item, a notice in words instead
+    await open(cx - 450, cy - 300, "canvas"); await pg.click(item("canvas.clear")); await want(pg, { atoms: 0, objects: 0 });
+    await open(cx - 450, cy - 300, "canvas");
+    assert(!(await menuNow(pg)).ids.includes("canvas.save"), "no export on an empty canvas");
+    eq(await pg.innerText("#d2-menu .note"), await pg.evaluate("I18N.t('draw2.ctx.empty')"));
+    eq(await pg.getAttribute(item("canvas.clear"), "aria-disabled"), "true");
+    await pg.keyboard.press("Escape");
+    await ring(pg, cx, cy);
+    await open(cx - 450, cy - 300, "canvas"); eq((await menuNow(pg)).ids.includes("canvas.save"), true);
+    await shot(pg, "context-menu-light");
+    await pg.keyboard.press("Escape");
+  });
+
+  await step("context menu, keyboard: the Menu key and Shift+F10 open it on the focused atom, arrows, Home, End and letters walk it, Enter runs, Escape gives the canvas back", async () => {
+    await ring(pg, cx, cy); await pg.focus("#d2-canvas");
+    await pg.keyboard.press("Home"); await until(pg, `${STATE}.focus === 1`);
+    const before = await doc();
+    await pg.keyboard.press("ContextMenu"); await shown(pg);
+    let m = await menuNow(pg);
+    eq([m.target, m.kind, m.active], ["atom", "key", "atom.element"]);
+    eq([await pg.getAttribute("#d2-menu .ctx", "role"), await pg.getAttribute("#d2-menu .ctx", "aria-orientation")], ["menu", "vertical"]);
+    await pg.keyboard.press("ArrowDown"); eq((await menuNow(pg)).active, "atom.chg.plus", "the focus moved to the next item");
+    await pg.keyboard.press("ArrowUp"); eq((await menuNow(pg)).active, "atom.element");
+    await pg.keyboard.press("End"); eq((await menuNow(pg)).active, "atom.connected");
+    await pg.keyboard.press("ArrowDown"); eq((await menuNow(pg)).active, "atom.element", "the walk wraps");
+    await pg.keyboard.press("ArrowRight"); eq((await menuNow(pg)).active, "atom.el.C", "Right opens the group");
+    await pg.keyboard.press("ArrowLeft"); eq((await menuNow(pg)).active, "atom.element"); assert(!(await pg.isVisible(item("atom.el.N"))), "folded again");
+    await pg.keyboard.press("c"); eq((await menuNow(pg)).active, "atom.chg.plus", "a letter goes to the next item that starts with it");
+    await pg.keyboard.press("Home"); await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("Enter");
+    await shown(pg, false);
+    eq(await pg.evaluate("document.activeElement.id"), "d2-canvas");
+    assert((await doc()) !== before, "Enter ran the charge item");
+    await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    // Enter on a group opens it and moves the focus in; Space runs an item as Enter does
+    await pg.keyboard.press("ContextMenu"); await shown(pg);
+    await pg.keyboard.press("Enter"); eq((await menuNow(pg)).active, "atom.el.C", "Enter on a group opens it and moves the focus in");
+    await pg.keyboard.press("ArrowDown"); await pg.keyboard.press(" "); await shown(pg, false);
+    assert((await doc()) !== before, "Space ran the element item"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    // Shift+F10 does the same; Escape closes it and nothing changed
+    await pg.keyboard.press("Shift+F10"); await shown(pg); eq((await menuNow(pg)).target, "atom");
+    await pg.keyboard.press("Escape"); await shown(pg, false); eq(await pg.evaluate("document.activeElement.id"), "d2-canvas"); eq(await doc(), before);
+    // no focus and no selection: the middle of the canvas; the menu of an empty spot
+    await pg.keyboard.press("Escape"); await pg.keyboard.press("ContextMenu"); await shown(pg);
+    const c = await menuNow(pg);
+    assert(["canvas", "atom", "bond"].includes(c.target), c.target);
+    await pg.keyboard.press("Escape");
+  });
+  await ctx.close();
+
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, colorScheme: "dark" }));
+  await step("context menu, dark: the colours come from the page's variables", async () => {
+    await ring(pg, cx, cy);
+    const { atom } = await firstLine(pg);
+    await pg.mouse.click(...atom, { button: "right" }); await shown(pg);
+    await pg.click(item("atom.element"));
+    const bg = await pg.evaluate("getComputedStyle(document.querySelector('#d2-menu .ctx')).backgroundColor");
+    assert(bg !== "rgb(243, 244, 246)" && bg !== "rgba(0, 0, 0, 0)", "the dark panel colour " + bg);
+    // the group is open and the menu grew: it still lies inside the window
+    const r = await pg.locator("#d2-menu .ctx").boundingBox();
+    assert(r.x >= 0 && r.y >= 0 && r.x + r.width <= 1280 && r.y + r.height <= 800, "inside the window: " + JSON.stringify(r));
+    await shot(pg, "context-menu-dark");
+    await pg.keyboard.press("Escape");
+  });
+  await ctx.close();
+
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+  await step("context menu, touch and pen: a long press opens it (on an atom and on an empty canvas), a short tap draws, the items are 44 px and a tap runs one", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    await tool(pg, "ring:6a"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 6, bonds: 6 }); await tool(pg, "select");
+    const atom = await rightmost(pg), before = await doc();
+    // a short tap opens nothing; a finger held still opens the menu of what is under it and selects it
+    await touch("touchStart", [atom]); await pg.waitForTimeout(100); await touch("touchEnd", []);
+    await shown(pg, false);
+    await touch("touchStart", [atom]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await shown(pg); let m = await menuNow(pg); eq([m.target, m.kind], ["atom", "touch"]); await want(pg, { selected: 1 });
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-menu .ctx > button')].filter(b => b.getBoundingClientRect().height < 44).length"), 0);
+    const r = await pg.locator("#d2-menu .ctx").boundingBox();
+    assert(r.x >= 0 && r.y >= 0 && r.x + r.width <= 768 && r.y + r.height <= 1024, "the menu is inside the window");
+    await shot(pg, "context-menu-tablet");
+    // a tap on an item runs it
+    const [bx, by] = await center(pg, item("atom.chg.plus"));
+    await pg.touchscreen.tap(bx, by); await shown(pg, false);
+    assert((await doc()) !== before, "the charge item ran"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    // an empty spot held still: the canvas menu, nothing is drawn even with a tool that draws
+    await tool(pg, "atom:N");
+    await touch("touchStart", [[cx - 300, cy - 300]]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await shown(pg); eq((await menuNow(pg)).target, "canvas"); eq(await doc(), before);
+    // a press elsewhere closes it and still draws
+    await touch("touchStart", [[cx - 300, cy - 300]]); await touch("touchEnd", []);
+    await shown(pg, false); await want(pg, { atoms: 7 }); await pg.keyboard.press("Control+z");
+    // the pen: held still opens it (the pen kind), a stroke does not
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    await pen("mouseMoved", ...atom); await pen("mousePressed", ...atom); await pg.waitForTimeout(700); await pen("mouseReleased", ...atom);
+    await shown(pg); eq((await menuNow(pg)).kind, "pen");
+    await pg.keyboard.press("Escape"); await shown(pg, false);
+    // the barrel button of a pen asks for the menu at the press, and the tool does not act (no stray atom)
+    await tool(pg, "atom:N"); const d0 = await doc();
+    const barrel = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "right", buttons: type === "mousePressed" ? 2 : 0, clickCount: 1 });
+    await barrel("mouseMoved", ...atom); await barrel("mousePressed", ...atom);
+    await shown(pg); eq([(await menuNow(pg)).kind, (await menuNow(pg)).target], ["pen", "atom"]);
+    await barrel("mouseReleased", ...atom); await pg.waitForTimeout(100);
+    eq(await doc(), d0); assert((await menuNow(pg)) !== null, "the menu stays after the release");
+    await pg.keyboard.press("Escape"); await shown(pg, false);
+    // a menu from the keyboard on a device that also has a finger has the large targets
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("ContextMenu"); await shown(pg); eq((await menuNow(pg)).kind, "key");
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-menu .ctx button')].filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).length"), 0);
+    await pg.keyboard.press("Escape"); await shown(pg, false);
+  });
+  await ctx.close();
 } finally {
   await browser.close();
   if (server) server.close();
