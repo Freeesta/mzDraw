@@ -7,6 +7,7 @@ pub mod build;
 pub mod cdxml;
 pub mod cml;
 pub mod conform;
+pub mod context;
 pub mod doc;
 pub mod editor;
 mod editor_edit;

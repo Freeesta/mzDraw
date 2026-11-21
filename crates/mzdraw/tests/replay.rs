@@ -55,6 +55,16 @@ fn every_case_replays_to_the_recorded_bytes() {
             }
         }
     }
+    // the context menu of a right-click on each kind of target, as the `.wasm` gives it (tests/parity.mjs)
+    for case in fx["contexts"].as_array_mut().unwrap() {
+        let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+        if bless {
+            case["out"] = json!(got);
+        }
+        assert_eq!(case["out"], json!(got), "{}", case["name"]);
+        let menu: Value = serde_json::from_str(&got).unwrap();
+        assert!(menu["target"].is_string() && menu["items"].is_array());
+    }
     if bless {
         std::fs::write(fixture(), serde_json::to_string_pretty(&fx).unwrap() + "\n").unwrap();
     }

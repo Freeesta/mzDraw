@@ -149,6 +149,8 @@ pub struct Editor {
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
     pub(crate) clip: String,
     pub(crate) pasted: u32,
+    /// The open context menu and what the page was asked to do after its last item (`context`).
+    pub(crate) ctx: crate::context::Context,
 }
 
 impl Default for Editor {
@@ -170,6 +172,7 @@ impl Default for Editor {
             style: Style::default(),
             clip: String::new(),
             pasted: 0,
+            ctx: Default::default(),
         }
     }
 }
@@ -323,6 +326,10 @@ impl Editor {
 
     /// Zooms by `factor` keeping the point under the pointer still (scale 8-240 px per bond).
     pub fn zoom(&mut self, px: f64, py: f64, factor: f64) -> u32 {
+        // a number that is not finite (or a factor that is not positive) would poison the view for good
+        if ![px, py, factor].iter().all(|v| v.is_finite()) || factor <= 0.0 {
+            return 0;
+        }
         let (x, y) = self.view.to_doc(px, py);
         self.view.scale = (self.view.scale * factor).clamp(8.0, 240.0);
         self.view.ox = px - x * self.view.scale;

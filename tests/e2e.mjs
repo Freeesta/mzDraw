@@ -432,6 +432,28 @@ try {
     await shot(pg, "labels");
   });
 
+  await step("labels: a group on the left of its bond is written reversed (CO2H as HO2C), by keyboard and by pointer; the bond on its other side keeps it as written", async () => {
+    const labs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms.map(a => a.lab || "");
+    const drawn = () => pg.evaluate("Array.from(window.MZDRAW.strings())");       // the display list the canvas paints
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await pg.keyboard.press("l");                             // the label by keyboard: L, the text, Enter
+    await pg.keyboard.type("CO2H"); await pg.keyboard.press("Enter"); await want(pg, { tool: "label:CO2H" });
+    await pg.mouse.click(cx, cy);     // the first atom: its bond leaves to the right
+    eq(await labs(), ["CO2H", ""]);
+    eq((await drawn()).filter(t => ["HO", "2", "C", "CO", "H"].includes(t)), ["HO", "2", "C"]);
+    const svg = await pg.evaluate("window.MZDRAW.save('svg')");
+    assert(svg.indexOf(">HO<") > 0 && svg.indexOf(">HO<") < svg.indexOf(">2<") && svg.indexOf(">2<") < svg.indexOf(">C<") && !svg.includes(">CO<"), "the SVG says HO2C, as the canvas does");
+    await shot(pg, "label-reversal");
+    // the same group on the atom the bond leaves to the left: as written
+    await tool(pg, "undo"); eq(await labs(), ["", ""]);
+    await pg.fill("#d2-label", "CO2H"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:CO2H" });
+    await pg.mouse.click(cx + 35, cy - 20);                   // the second atom: its bond leaves to the left
+    eq(await labs(), ["", "CO2H"]);
+    eq((await drawn()).filter(t => ["HO", "2", "C", "CO", "H"].includes(t)), ["CO", "2", "H"]);
+    await shot(pg, "label-written");
+  });
+
   await step("a reaction: arrow by click and by drag, plus, text typed and set on the arrow, selected, moved, copied, erased", async () => {
     const objs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).objects || [];
     await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0 });
@@ -691,6 +713,17 @@ try {
     assert(await pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), "the panel does not scroll the page sideways");
   });
 
+  await step("tablet with touch: a group label on the left of its bond is written reversed", async () => {
+    const drawn = () => pg.evaluate("Array.from(window.MZDRAW.strings())");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await pg.fill("#d2-label", "CO2H"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:CO2H" });
+    await pg.touchscreen.tap(cx, cy);
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms.map(a => a.lab || ""), ["CO2H", ""]);
+    eq((await drawn()).filter(t => ["HO", "2", "C", "CO", "H"].includes(t)), ["HO", "2", "C"]);
+    await shot(pg, "label-reversal-touch");
+  });
+
   await step("two fingers pan and zoom without drawing; a long press selects; a cancelled touch commits nothing; a pen draws and its eraser end erases", async () => {
     const cdp = await ctx.newCDPSession(pg);
     const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) });
@@ -749,4 +782,6 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 18 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+// the steps this file declares: one that does not run is a failure, and a PR that adds a step needs no edit here
+const declared = (readFileSync(fileURLToPath(import.meta.url), "utf8").match(/await step\(/g) || []).length;
+process.exit(steps.length === declared && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);

@@ -209,6 +209,60 @@ pub fn saved_summary(text: &str) -> String {
     }
 }
 
+/// The context menu of a right-click, a long press or the Menu key at (`x`, `y`) pixels, as JSON `{"target", "items": [{"id", "label",
+/// "key"?, "enabled", "checked"?, "children"?}], "notice"?}` (`target`: atom, bond, selection, object or canvas). `kind` is the pointer
+/// kind (0 mouse, 1 pen, 2 finger). The selection follows what is under the pointer, as a click makes it.
+#[wasm_bindgen]
+pub fn context_menu(x: f64, y: f64, kind: u32) -> String {
+    with(|p| p.editor.context_menu_at(x, y, kind))
+}
+
+/// Runs an item of the open menu (one undo step) and closes the menu. Flags as `command`, plus 128 when the page has to finish the
+/// job: read `context_ask`. A menu older than the last change refuses (`error.draw2.contextStale` in `state().error`).
+#[wasm_bindgen]
+pub fn context_run(id: &str) -> u32 {
+    act(|e| e.context_run(id))
+}
+
+/// Closes the menu without running anything.
+#[wasm_bindgen]
+pub fn context_close() {
+    with(|p| p.editor.context_close())
+}
+
+/// What the page has to do after `context_run` answered 128: `element:<atom>`, `label:<atom>`, `data:<atom>`, `annotation:<atom>`,
+/// `text:<object>`, `import`, `fit`, `save-image`, `clipboard` or `copy-as:<molfile|smiles|svg|png>`; read once.
+#[wasm_bindgen]
+pub fn context_ask() -> String {
+    with(|p| p.editor.context_ask())
+}
+
+/// The selection as a text for the clipboard of another program: `molfile`, `smiles` or `svg`.
+#[wasm_bindgen]
+pub fn context_copy_as(kind: &str) -> Result<String, JsValue> {
+    with(|p| p.editor.context_copy_as(kind).map_err(js_err))
+}
+
+/// `png_plan` of the selection; the bytes the page draws go through `context_png_finish`.
+#[wasm_bindgen]
+pub fn context_png_plan() -> String {
+    with(|p| plan_json(p.editor.context_png_plan()))
+}
+
+/// `png_finish` for the selection: the PNG carries the selection as its document.
+#[wasm_bindgen]
+pub fn context_png_finish(png: &[u8]) -> Result<Vec<u8>, JsValue> {
+    with(|p| {
+        let e = &p.editor;
+        mzdraw::png::finish(
+            png,
+            &e.context_selection_doc(),
+            e.context_png_plan().density,
+        )
+        .ok_or_else(|| js_err("error.draw2.pngPlain"))
+    })
+}
+
 /// Opens a saved `mzdraw/1` document in place of the drawing (same bytes, empty history).
 #[wasm_bindgen]
 pub fn open(text: &str) -> Result<u32, JsValue> {
@@ -229,16 +283,17 @@ pub fn save(kind: &str) -> Result<String, JsValue> {
 /// size filled with the paper colour). The bytes of the canvas then go through `png_finish`.
 #[wasm_bindgen]
 pub fn png_plan() -> Result<String, JsValue> {
-    with(|p| {
-        let plan = p.editor.png_plan();
-        Ok(format!(
-            r#"{{"svg":{},"width":{},"height":{},"paper":"{}"}}"#,
-            serde_json::Value::from(plan.svg),
-            plan.width,
-            plan.height,
-            plan.paper
-        ))
-    })
+    with(|p| Ok(plan_json(p.editor.png_plan())))
+}
+
+fn plan_json(plan: mzdraw::png::Plan) -> String {
+    format!(
+        r#"{{"svg":{},"width":{},"height":{},"paper":"{}"}}"#,
+        serde_json::Value::from(plan.svg),
+        plan.width,
+        plan.height,
+        plan.paper
+    )
 }
 
 /// The PNG the page drew, with the document inside (it opens again as a drawing) and its resolution.
