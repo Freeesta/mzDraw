@@ -19,6 +19,7 @@ I18N.add("en", {
   "draw2.import.sgroups": "S-groups are not supported; left out: {n}.",
   "draw2.import.dataLeft": "Data fields a drawing cannot hold (too many, too long, or with < or > in the name) were left out: {n}.",
   "draw2.import.other": "Things mzDraw does not draw (shapes, images, curves, R-group definitions) were left out: {n}.",
+  "draw2.import.codePage": "Some text of the file is in a character set mzDraw does not decode: it was read as Latin-1 and some characters may be wrong ({n} pieces of text).",
   "draw2.import.stereoGroups": "Enhanced stereo groups (and / or) are not kept; read as their wedges only: {n}.",
   "draw2.export": "Save",
   "draw2.export.molfile": "Molfile",

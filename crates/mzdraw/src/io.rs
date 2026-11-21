@@ -37,6 +37,11 @@ pub struct Imported {
     pub other: usize,
     /// Enhanced-stereo groups "and" / "or": the centres are drawn with their wedges, the grouping is not kept.
     pub stereo_groups: usize,
+    /// Binary CDX: text runs of a font whose code page is not decoded (read as Latin-1, so some characters may be wrong).
+    pub code_page_runs: usize,
+    /// Binary CDX: properties of tags the SDK pages read do not list (styles, colours, widths), skipped by their length. Counted,
+    /// not said on the page: every file of ChemDraw has dozens and they are no content.
+    pub props_skipped: usize,
 }
 
 impl Imported {
@@ -55,6 +60,7 @@ impl Imported {
             ("draw2.import.stereoGroups", self.stereo_groups),
             ("draw2.import.other", self.other),
             ("draw2.import.dataLeft", self.data_left),
+            ("draw2.import.codePage", self.code_page_runs),
         ]
         .into_iter()
         .filter(|n| n.1 > 0)
@@ -407,8 +413,10 @@ pub fn import_bytes(bytes: &[u8]) -> Result<(Document, Imported), &'static str> 
             format: "cdx",
             ..Imported::default()
         };
-        let root = crate::cdx::tree(bytes).ok_or(crate::cdx::KEY)?;
-        let d = crate::cdxml::from_tree(&root, &mut info, crate::cdx::KEY)?;
+        let tree = crate::cdx::tree(bytes).ok_or(crate::cdx::KEY)?;
+        info.code_page_runs = tree.code_page_runs;
+        info.props_skipped = tree.props_skipped;
+        let d = crate::cdxml::from_tree(&tree.root, &mut info, crate::cdx::KEY)?;
         return checked(d, info, crate::cdx::KEY);
     }
     import(std::str::from_utf8(bytes).map_err(|_| "error.draw2.import")?)

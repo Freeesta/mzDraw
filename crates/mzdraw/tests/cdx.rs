@@ -409,7 +409,7 @@ fn what_cdx_holds_that_is_not_drawn_is_counted_and_unknown_items_are_skipped_by_
     f.extend([0, 0]);
     f.extend([0x08, 0x80, 4, 0, 0, 0, 0, 0]);
     f.extend([0xFE, 0xBF, 5, 0, 0, 0]);
-    property(&mut f, 0x0200, &[1, 2, 3]);
+    property(&mut f, 0x3FFD, &[1, 2, 3]);
     f.extend([0, 0]);
     f.extend([0x03, 0x80, 6, 0, 0, 0]);
     f.extend([0x04, 0x80, 7, 0, 0, 0]);
@@ -420,6 +420,8 @@ fn what_cdx_holds_that_is_not_drawn_is_counted_and_unknown_items_are_skipped_by_
     let (d, info) = import_bytes(&f).unwrap();
     assert_eq!((d.atoms.len(), d.atoms[0].el.as_str()), (1, "N"));
     assert_eq!(info.other, 3, "{info:?}");
+    // the two properties of unlisted tags were skipped by their length and counted
+    assert_eq!(info.props_skipped, 2, "{info:?}");
 }
 
 #[test]
@@ -632,4 +634,158 @@ fn the_golden_cdx_is_what_the_writer_makes_and_a_request_reads_it() {
         }
     }
     assert_eq!(fixtures[10].0, "foreign");
+}
+
+fn head() -> Vec<u8> {
+    let mut f = b"VjCD0100".to_vec();
+    f.extend([4, 3, 2, 1]);
+    f.extend([0u8; 16]);
+    f
+}
+
+/// A document, a page and a text object with the given property of tag 0x0700, then the ends and the end mark.
+fn with_string(string: &[u8]) -> Vec<u8> {
+    let mut f = head();
+    f.extend([
+        0x00, 0x80, 1, 0, 0, 0, 0x01, 0x80, 2, 0, 0, 0, 0x06, 0x80, 3, 0, 0, 0,
+    ]);
+    property(&mut f, 0x0200, &[coord(1.0), coord(2.0)].concat());
+    property(&mut f, 0x0700, string);
+    f.extend([0; 8]);
+    f
+}
+
+/// A string of runs with the given starts (font 3, face 0), then the text.
+fn string_of(starts: &[u16], text: &[u8]) -> Vec<u8> {
+    let mut s = (starts.len() as u16).to_le_bytes().to_vec();
+    for st in starts {
+        s.extend(st.to_le_bytes());
+        s.extend([3, 0, 0, 0, 200, 0, 0, 0]);
+    }
+    s.extend(text);
+    s
+}
+
+#[test]
+fn a_hostile_string_is_refused_before_it_costs_anything() {
+    // the starts of the runs jump between 0 and 65535: each run would copy 64 kB of a text that holds a few bytes (10 000 runs in
+    // a 100 kB file); such a string is refused at once, and so is every string whose starts decrease, lie beyond the text or do
+    // not begin at 0
+    let hostile: Vec<u16> = (0..10_000)
+        .map(|i| if i % 2 == 0 { 0 } else { 65535 })
+        .collect();
+    let t0 = std::time::Instant::now();
+    for starts in [
+        hostile,
+        vec![0, 5, 3],
+        vec![0, 9],
+        vec![1, 2],
+        vec![0; 7000],
+    ] {
+        let f = with_string(&string_of(&starts, b"abcd"));
+        let e = import_bytes(&f).err();
+        // a run list that is non-decreasing and inside the text is the one that is read
+        let fine = starts.iter().all(|s| *s <= 4)
+            && starts[0] == 0
+            && starts.windows(2).all(|w| w[0] <= w[1]);
+        assert_eq!(e.is_none(), fine, "{:?}", &starts[..starts.len().min(4)]);
+        if !fine {
+            assert_eq!(e, Some("error.draw2.cdx"));
+        }
+    }
+    assert!(
+        t0.elapsed().as_secs() < 2,
+        "refused fast, not after the copies"
+    );
+    // more runs than the file may hold elements: refused before any is built
+    let many = vec![0u16; 6000];
+    let mut f = head();
+    f.extend([0x00, 0x80, 1, 0, 0, 0]);
+    for _ in 0..70 {
+        f.extend([0x06, 0x80, 0, 0, 0, 0]);
+        property(&mut f, 0x0200, &[coord(1.0), coord(2.0)].concat());
+        property(&mut f, 0x0700, &string_of(&many, b""));
+        f.extend([0, 0]);
+    }
+    f.extend([0, 0]);
+    // 70 texts of 6000 runs: 420 000 elements, over the bound of the XML reader
+    assert_eq!(import_bytes(&f).unwrap_err(), "error.draw2.cdx");
+}
+
+#[test]
+fn a_listed_property_of_the_wrong_size_refuses_the_file_and_trailing_bytes_are_not_read_in_silence()
+{
+    let node = |tag: u16, data: &[u8]| {
+        let mut f = head();
+        f.extend([
+            0x00, 0x80, 1, 0, 0, 0, 0x01, 0x80, 2, 0, 0, 0, 0x03, 0x80, 3, 0, 0, 0, 0x04, 0x80, 4,
+            0, 0, 0,
+        ]);
+        property(&mut f, 0x0200, &[coord(1.0), coord(2.0)].concat());
+        property(&mut f, tag, data);
+        f.extend([0; 8]);
+        f
+    };
+    assert!(import_bytes(&node(0x0402, &6i16.to_le_bytes())).is_ok());
+    // an element number of 3 bytes, a position of 5, a charge of 0 bytes, a bond order of 6: refused, not defaulted
+    for (tag, data) in [
+        (0x0402, &[1u8, 2, 3][..]),
+        (0x0200, &[0; 5]),
+        (0x0421, &[]),
+        (0x0600, &[0; 6]),
+        (0x0400, &[1, 2, 3]),
+    ] {
+        assert_eq!(
+            import_bytes(&node(tag, data)).unwrap_err(),
+            "error.draw2.cdx",
+            "{tag:#x}"
+        );
+    }
+    // the charge of ChemDraw 8.0, four bytes with the charge in the high byte, is read
+    let (d, _) = import_bytes(&node(0x0421, &0x0100_0000i32.to_le_bytes())).unwrap();
+    assert_eq!(d.atoms[0].chg, 1);
+    // after the end of the document: nothing, or the end mark of the file; any other byte is refused
+    let ok = node(0x0402, &6i16.to_le_bytes());
+    let mut with_mark = ok.clone();
+    with_mark.extend([0, 0]);
+    assert!(import_bytes(&with_mark).is_ok());
+    for tail in [&[0u8][..], &[0, 0, 0], &[1, 2, 3], &[0x80, 0]] {
+        let mut f = ok.clone();
+        f.extend(tail);
+        assert_eq!(import_bytes(&f).unwrap_err(), "error.draw2.cdx", "{tail:?}");
+    }
+}
+
+#[test]
+fn a_code_page_that_is_not_decoded_is_said() {
+    let doc = |page: u16, text: &[u8]| {
+        let mut f = head();
+        f.extend([0x00, 0x80, 1, 0, 0, 0]);
+        let mut fonts = vec![1, 0, 1, 0, 3, 0];
+        fonts.extend(page.to_le_bytes());
+        fonts.extend([1, 0, b'F']);
+        property(&mut f, 0x0100, &fonts);
+        f.extend([0x01, 0x80, 2, 0, 0, 0, 0x06, 0x80, 3, 0, 0, 0]);
+        property(&mut f, 0x0200, &[coord(10.0), coord(20.0)].concat());
+        property(&mut f, 0x0700, &string_of(&[0], text));
+        f.extend([0; 8]);
+        let (d, info) = import_bytes(&f).unwrap();
+        (d.objects[0].text.clone(), info)
+    };
+    // 1252 gives its own characters for 0x80..=0x9F; ISO 8859-1 and 65001 are read; nothing is said for them
+    for (page, text, want) in [
+        (1252, &b"\x80 5 \x99"[..], "€ 5 ™"),
+        (28591, b"\xE9", "é"),
+        (65001, "β".as_bytes(), "β"),
+    ] {
+        let (got, info) = doc(page, text);
+        assert_eq!(got, want);
+        assert_eq!((info.code_page_runs, info.notes().len()), (0, 0), "{page}");
+    }
+    // Mac Roman (10000) or Shift-JIS (932) is read as Latin-1 and the page says so
+    for page in [10000, 932] {
+        let (_, info) = doc(page, b"ab");
+        assert_eq!(info.code_page_runs, 1, "{page}");
+        assert_eq!(info.notes(), [("draw2.import.codePage", 1)], "{page}");
+    }
 }

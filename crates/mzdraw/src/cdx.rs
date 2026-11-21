@@ -223,6 +223,13 @@ fn order(v: i64) -> Option<String> {
     Some(names.join(" "))
 }
 
+/// The characters of the bytes 0x80..=0x9F in code page 1252 (Latin-1 has controls there); a byte the page leaves undefined is the
+/// control of the same value.
+const CP1252: [char; 32] = [
+    '€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8d}', 'Ž', '\u{8f}',
+    '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9d}', 'ž', 'Ÿ',
+];
+
 /// What is gathered while reading: the code pages of the fonts of the font table (font id, code page).
 #[derive(Default)]
 struct Fonts(Vec<(u16, u16)>);
@@ -243,25 +250,51 @@ impl Fonts {
         }
     }
 
-    /// The text of a run of bytes in the font `id`.
-    fn decode(&self, id: u16, bytes: &[u8]) -> String {
-        let utf8 = self.0.iter().any(|f| f.0 == id && f.1 == 65001);
-        if utf8 {
-            String::from_utf8_lossy(bytes).into_owned()
-        } else {
-            bytes.iter().map(|b| char::from(*b)).collect()
+    /// The text of a run of bytes in the font `id`, and whether its code page is one this reader cannot decode (UTF-8 65001,
+    /// 1252, ISO 8859-1 28591 and an undefined page 0 are read; any other is read as Latin-1 and reported).
+    fn decode(&self, id: u16, bytes: &[u8]) -> (String, bool) {
+        match self.0.iter().find(|f| f.0 == id).map(|f| f.1) {
+            Some(65001) => (String::from_utf8_lossy(bytes).into_owned(), false),
+            Some(1252) => (
+                bytes
+                    .iter()
+                    .map(|b| match *b {
+                        0x80..=0x9F => CP1252[usize::from(*b - 0x80)],
+                        b => char::from(b),
+                    })
+                    .collect(),
+                false,
+            ),
+            page => (
+                bytes.iter().map(|b| char::from(*b)).collect(),
+                !matches!(page, None | Some(0) | Some(28591)),
+            ),
         }
     }
 }
 
 /// A CDXString as `s` elements, one per style run: the count of runs, then per run its start, font, face, size and color (ten
-/// bytes), then the text. With no run the text is one run in Latin-1. `None` for a string cut short.
-fn text_runs(data: &[u8], fonts: &Fonts) -> Option<Vec<Element>> {
+/// bytes), then the text; with no run the text is one run. Also the number of runs in a code page that is not decoded. `None`
+/// for a string that is cut short, whose first run does not start at 0, whose starts decrease or lie beyond the text, or whose
+/// runs would not fit in `budget` more elements: the file is refused (the runs cut disjoint pieces of the text, so what is
+/// decoded is never more than what the file holds).
+fn text_runs(data: &[u8], fonts: &Fonts, budget: usize) -> Option<(Vec<Element>, usize)> {
     let runs = usize::from(u16_at(data, 0)?);
+    if runs > budget {
+        return None;
+    }
     let text = data.get(2usize.checked_add(runs.checked_mul(10)?)?..)?;
-    let run = |from: usize, to: usize, font: Option<(u16, u16)>| {
-        let from = from.min(text.len());
-        let bytes = &text[from..to.clamp(from, text.len())];
+    let mut starts = Vec::with_capacity(runs + 1);
+    for i in 0..runs {
+        starts.push(usize::from(u16_at(data, 2 + 10 * i)?));
+    }
+    starts.push(text.len());
+    if (runs > 0 && starts[0] != 0) || starts.windows(2).any(|w| w[0] > w[1]) {
+        return None;
+    }
+    let mut pieces = Vec::new();
+    let mut unknown = 0;
+    let mut piece = |bytes: &[u8], font: Option<(u16, u16)>| {
         let mut s = Element {
             name: "s".into(),
             ..Element::default()
@@ -270,35 +303,26 @@ fn text_runs(data: &[u8], fonts: &Fonts) -> Option<Vec<Element>> {
             s.attrs.push(("font".into(), font.to_string()));
             s.attrs.push(("face".into(), face.to_string()));
         }
-        s.text = fonts.decode(font.map_or(0, |f| f.0), bytes);
-        s
+        let (t, odd) = fonts.decode(font.map_or(0, |f| f.0), bytes);
+        s.text = t;
+        unknown += usize::from(odd);
+        pieces.push(s);
     };
-    let mut pieces = Vec::new();
     if runs == 0 {
-        pieces.push(run(0, text.len(), None));
+        piece(text, None);
     }
     for i in 0..runs {
         let at = 2 + 10 * i;
-        let start = usize::from(u16_at(data, at)?);
-        // the next run starts where this one ends; the last one ends with the text
-        let end = if i + 1 < runs {
-            usize::from(u16_at(data, at + 10)?)
-        } else {
-            text.len()
-        };
-        pieces.push(run(
-            start,
-            end,
-            Some((u16_at(data, at + 2)?, u16_at(data, at + 4)?)),
-        ));
+        let font = (u16_at(data, at + 2)?, u16_at(data, at + 4)?);
+        piece(&text[starts[i]..starts[i + 1]], Some(font));
     }
-    Some(pieces)
+    Some((pieces, unknown))
 }
 
-/// The attribute CDXML gives a property: its name and value. `None` for a tag not listed and for a size the pages do not give
-/// the property: it is skipped.
-fn attribute(tag: u16, data: &[u8]) -> Option<(&'static str, String)> {
-    Some(match tag {
+/// The attribute CDXML gives a listed property: its name and value; `Some(None)` when it says nothing to write (an unspecified bond
+/// order); `None` for a size the pages do not give the property (the file is refused).
+fn attribute(tag: u16, data: &[u8]) -> Option<Option<(&'static str, String)>> {
+    Some(Some(match tag {
         0x0012 => ("SupersededBy", int(data, false)?.to_string()),
         // 2D position: y, x -> "x y"
         0x0200 => {
@@ -331,20 +355,40 @@ fn attribute(tag: u16, data: &[u8]) -> Option<(&'static str, String)> {
         0x0421 if data.len() == 4 => ("Charge", (int(data, true)? >> 24).to_string()),
         0x0421 => ("Charge", int(data, true)?.to_string()),
         0x0422 => ("Radical", int(data, false)?.to_string()),
-        0x0600 => ("Order", order(int(data, false)?)?),
+        0x0600 => match order(int(data, false)?) {
+            Some(o) => ("Order", o),
+            None => return Some(None),
+        },
         0x0601 => ("Display", named(DISPLAYS, int(data, true)?)),
         0x0604 => ("B", int(data, false)?.to_string()),
         0x0605 => ("E", int(data, false)?.to_string()),
         0x0A00 => ("GraphicType", named(GRAPHICS, int(data, true)?)),
         0x0A02 => ("ArrowType", arrow_type(int(data, true)?)),
         0x0A07 => ("SymbolType", named(SYMBOLS, int(data, true)?)),
-        _ => return None,
-    })
+        _ => return Some(None),
+    }))
 }
 
-/// The element tree of a CDX file: the document object is the root, named `CDXML` (objects with no document around them are given one). `None` for anything that is not a whole,
-/// well-formed file within the bounds (cut short, an item longer than the file, nested too deep, too many objects, no document).
-pub(crate) fn tree(bytes: &[u8]) -> Option<Element> {
+/// The tags `attribute` reads.
+const LISTED: [u16; 17] = [
+    0x0012, 0x0200, 0x0204, 0x0207, 0x0208, 0x0400, 0x0402, 0x0420, 0x0421, 0x0422, 0x0600, 0x0601,
+    0x0604, 0x0605, 0x0A00, 0x0A02, 0x0A07,
+];
+
+/// What a CDX file gave: the element tree, and what was passed over.
+pub(crate) struct Tree {
+    pub root: Element,
+    /// Properties of tags the pages read do not list (styles, colours, widths ...), skipped by their length.
+    pub props_skipped: usize,
+    /// Text runs of a font whose code page is not decoded (read as Latin-1).
+    pub code_page_runs: usize,
+}
+
+/// The element tree of a CDX file: the document object is the root, named `CDXML` (objects with no document around them are
+/// given one). `None` for anything that is not a whole, well-formed file within the bounds: cut short, an item longer than the
+/// file, nested too deep, too many objects, a known property of a size the pages do not give, a damaged string, or bytes after
+/// the end of the document other than the two-byte end mark of the file.
+pub(crate) fn tree(bytes: &[u8]) -> Option<Tree> {
     if !is_cdx(bytes) || bytes.len() < HEADER {
         return None;
     }
@@ -352,7 +396,9 @@ pub(crate) fn tree(bytes: &[u8]) -> Option<Element> {
     // the open objects, innermost last; the bottom one collects the document
     let mut open = vec![Element::default()];
     let mut count = 0;
+    let (mut props_skipped, mut code_page_runs) = (0, 0);
     let mut fonts = Fonts::default();
+    let end_ok = |at: usize| bytes[at..].is_empty() || bytes[at..] == [0, 0];
     loop {
         let tag = u16_at(bytes, at)?;
         at += 2;
@@ -362,12 +408,20 @@ pub(crate) fn tree(bytes: &[u8]) -> Option<Element> {
                 // overview page is one): they are read as the content of one
                 let mut top = open.pop()?;
                 top.name = "CDXML".to_string();
-                return (!top.children.is_empty()).then_some(top);
+                return (!top.children.is_empty() && at == bytes.len()).then_some(Tree {
+                    root: top,
+                    props_skipped,
+                    code_page_runs,
+                });
             }
             let done = open.pop()?;
             if open.len() == 1 && done.name == "CDXML" {
-                // the document is closed: what follows (the end mark of the file) is not read
-                return Some(done);
+                // the document is closed: nothing may follow but the end mark of the file
+                return end_ok(at).then_some(Tree {
+                    root: done,
+                    props_skipped,
+                    code_page_runs,
+                });
             }
             open.last_mut()?.children.push(done);
         } else if tag & 0x8000 != 0 {
@@ -401,20 +455,20 @@ pub(crate) fn tree(bytes: &[u8]) -> Option<Element> {
             }
             let top = open.last_mut()?;
             match tag {
-                // the font table gives the code pages of the fonts; the color table is of no use
+                // the font table gives the code pages of the fonts
                 0x0100 => fonts.table(data),
                 0x0700 => {
-                    if let Some(runs) = text_runs(data, &fonts) {
-                        count += runs.len();
-                        if count > MAX_ELEMENTS {
-                            return None;
-                        }
-                        top.children.extend(runs);
-                    }
+                    // the cap is checked before any run is built
+                    let (runs, odd) = text_runs(data, &fonts, MAX_ELEMENTS - count)?;
+                    count += runs.len();
+                    code_page_runs += odd;
+                    top.children.extend(runs);
                 }
-                _ => top
-                    .attrs
-                    .extend(attribute(tag, data).map(|(k, v)| (k.to_string(), v))),
+                t if LISTED.contains(&t) => {
+                    let found = attribute(t, data)?;
+                    top.attrs.extend(found.map(|(k, v)| (k.to_string(), v)));
+                }
+                _ => props_skipped += 1,
             }
         }
     }

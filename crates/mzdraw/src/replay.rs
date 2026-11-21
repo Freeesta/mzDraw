@@ -9,8 +9,8 @@ use crate::outcome::{read_expect, Expectation, Failed, IdSets, Outcome};
 struct Request {
     /// A structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES.
     import: Option<String>,
-    /// The bytes of a file to start from, in base64 (RFC 4648, padding optional, blanks ignored): a binary CDX file or a PNG saved
-    /// by mzDraw. Read after `import` when both are given.
+    /// The bytes of a file to start from, in base64 (RFC 4648, padding optional, blanks ignored): a binary CDX file, or a PNG or a PDF
+    /// saved by mzDraw. Read after `import` when both are given.
     import_base64: Option<Vec<u8>>,
     log: Vec<Op>,
     /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `pdf` (the PDF file as base64; the CLI `--raw` writes the file), `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
