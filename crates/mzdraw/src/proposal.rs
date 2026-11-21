@@ -70,6 +70,10 @@ pub fn say(h: &Hunk) -> Vec<(&'static str, String)> {
                 c[2][0].push(*id)
             }
             Op::BondSet { id, .. } => c[2][1].push(*id),
+            Op::Colour { atoms, bonds, .. } => {
+                c[2][0].extend(atoms);
+                c[2][1].extend(bonds);
+            }
             Op::ObjSet { id, .. } => c[2][2].push(*id),
             Op::Move { atoms, objects, .. } => {
                 c[3][0].extend(atoms);
@@ -510,6 +514,21 @@ impl Editor {
                         if let Some((a, b)) = bonds
                             .get(id)
                             .and_then(|(a, b)| Some((at.get(a)?, at.get(b)?)))
+                        {
+                            let mid = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+                            ring(&mut marks, &mut pts, mid, colour::ACCENT);
+                        }
+                    }
+                    Op::Colour {
+                        atoms, bonds: bs, ..
+                    } => {
+                        for q in atoms.iter().filter_map(|i| at.get(i)) {
+                            ring(&mut marks, &mut pts, *q, colour::ACCENT);
+                        }
+                        for (a, b) in bs
+                            .iter()
+                            .filter_map(|i| bonds.get(i))
+                            .filter_map(|(a, b)| Some((at.get(a)?, at.get(b)?)))
                         {
                             let mid = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
                             ring(&mut marks, &mut pts, mid, colour::ACCENT);

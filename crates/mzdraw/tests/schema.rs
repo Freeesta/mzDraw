@@ -46,6 +46,11 @@ fn full_ops() -> Vec<Op> {
             id: 1,
             ann: r#"[{"level":"2b"}]"#.into(),
         },
+        Op::Colour {
+            atoms: vec![1, 2],
+            bonds: vec![3],
+            col: "#d00000".into(),
+        },
         Op::BondSet {
             id: 3,
             o: Some(2),
@@ -119,12 +124,12 @@ fn every_operation_of_the_writer_is_a_row_with_exactly_its_fields() {
         v["op"].as_str().unwrap().to_string()
     };
     let names: BTreeSet<String> = ops.iter().map(name).collect();
-    // the 13 rows read here; `merge` is not read yet
+    // the 14 rows read here; `merge` is not read yet
     let read: BTreeSet<String> = (OPS.iter().filter(|o| o.mzdraw))
         .map(|o| o.name.to_string())
         .collect();
     assert_eq!(names, read);
-    assert_eq!(read.len(), 13);
+    assert_eq!(read.len(), 14);
     for op in ops {
         let v: Value = serde_json::from_str(&op.to_json()).unwrap();
         let spec = schema::spec(v["op"].as_str().unwrap()).unwrap();

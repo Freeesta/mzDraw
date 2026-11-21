@@ -219,10 +219,11 @@ impl Painter<'_> {
         let (Some(p), Some(q)) = (self.doc.atom(b.a), self.doc.atom(b.b)) else {
             return;
         };
+        // the lens (a display of a diff) wins; else an explicit colour; else the ink
         self.ink = if self.lens.bonds.contains(&b.id) {
             colour::ACCENT
         } else {
-            colour::INK
+            crate::ink::index(&b.col()).unwrap_or(colour::INK)
         };
         let (mut s, mut e) = (self.pos(p), self.pos(q));
         let (dx, dy) = (e.0 - s.0, e.1 - s.1);
@@ -410,7 +411,7 @@ impl Painter<'_> {
             let ink = if self.lens.atoms.contains(&a.id) {
                 colour::ACCENT
             } else {
-                colour::INK
+                crate::ink::index(&a.col()).unwrap_or(colour::INK)
             };
             self.text(tx, y + dy, size(digit), ink, &s, 1.0);
             tx += width(&s, size(digit));
@@ -424,8 +425,11 @@ impl Painter<'_> {
         }
         let (x, y) = self.pos(a);
         let f = self.font;
+        // an explicit colour overrides the element colour and the mono ink alike
         let c = if self.lens.atoms.contains(&a.id) {
             colour::ACCENT
+        } else if let Some(c) = crate::ink::index(&a.col()) {
+            c
         } else if self.m.mono {
             colour::INK
         } else {

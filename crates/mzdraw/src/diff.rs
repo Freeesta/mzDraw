@@ -212,12 +212,34 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                 ann: if ann.is_empty() { "[]".into() } else { ann },
             });
         }
+        if x.col() != y.col() {
+            out.push(Op::Colour {
+                atoms: vec![y.id],
+                bonds: Vec::new(),
+                col: y.col(),
+            });
+        }
     }
     for y in &b.bonds {
         let Some(x) = a_bond(y.id).filter(|x| same_bond(x, y)) else {
+            // a bond added now: its colour is said with it
+            if !y.col().is_empty() {
+                out.push(Op::Colour {
+                    atoms: Vec::new(),
+                    bonds: vec![y.id],
+                    col: y.col(),
+                });
+            }
             continue;
         };
         let rev = x.a != y.a;
+        if x.col() != y.col() {
+            out.push(Op::Colour {
+                atoms: Vec::new(),
+                bonds: vec![y.id],
+                col: y.col(),
+            });
+        }
         if x.o != y.o || x.s != y.s || rev {
             out.push(Op::BondSet {
                 id: y.id,
@@ -476,6 +498,7 @@ pub(crate) fn touched(op: &Op) -> Vec<u32> {
         | Op::AtomAnn { id, .. }
         | Op::BondSet { id, .. }
         | Op::ObjSet { id, .. } => vec![*id],
+        Op::Colour { atoms, bonds, .. } => atoms.iter().chain(bonds).copied().collect(),
         Op::Rotate { atoms, .. } | Op::Flip { atoms, .. } => atoms.clone(),
         Op::Move { atoms, objects, .. } => atoms.iter().chain(objects).copied().collect(),
         Op::Remove {

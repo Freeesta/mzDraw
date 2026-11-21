@@ -23,11 +23,11 @@ const SPEC = /** @type {Record<string, any>} */ ({
   objects: { keep: ["arrow", "plus", "scheme-row", "pathway-tree", "pathway-label"], items: [], head: "text", owns: "text:", fields: ["text"], more: "text" },
   file: { items: ["open", "save", "saveas", "clear", "palettes"], head: "open" },
   history: { items: ["undo", "redo"], head: "undo" },
-  edit: { items: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v", "scheme-orient"], head: "more" },
+  edit: { items: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v", "colour", "scheme-orient"], head: "more" },
   view: { items: ["zoom-out", "zoom-in", "fit"], head: "fit" },
 });
 /** the buttons that open a flyout of their own, and the icon of each */
-const OPENERS = { saveas: "formats", palettes: "palettes" };
+const OPENERS = { saveas: "formats", palettes: "palettes", colour: "colour" };
 
 /** @type {any} */ let ctx = null;
 /** the palettes by id: element, its parts, and what it holds @type {Record<string, any>} */

@@ -251,6 +251,13 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
                 ann,
             });
         }
+        if !a.col().is_empty() {
+            ops.push(Op::Colour {
+                atoms: vec![base + a.id],
+                bonds: Vec::new(),
+                col: a.col(),
+            });
+        }
     }
     for b in &new.bonds {
         ops.push(Op::BondAdd {
@@ -260,6 +267,13 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             o: b.o,
             s: b.s,
         });
+        if !b.col().is_empty() {
+            ops.push(Op::Colour {
+                atoms: Vec::new(),
+                bonds: vec![base + b.id],
+                col: b.col(),
+            });
+        }
     }
     for o in &new.objects {
         let arrow = o.t == ObjKind::Arrow;
@@ -627,10 +641,13 @@ impl Editor {
         if kind.starts_with("tptable") {
             return self.table_notes.borrow().clone();
         }
-        Some(("draw2.export.mapsLost", self.doc().maps_lost(kind)))
-            .filter(|l| l.1 > 0)
-            .into_iter()
-            .collect()
+        [
+            ("draw2.export.mapsLost", self.doc().maps_lost(kind)),
+            ("draw2.export.coloursLost", self.doc().colours_lost(kind)),
+        ]
+        .into_iter()
+        .filter(|l| l.1 > 0)
+        .collect()
     }
 
     /// Adds the structure of a text (SMILES, molfile or SDF, `mzdraw/1`) to the right of the drawing, as one undo step.

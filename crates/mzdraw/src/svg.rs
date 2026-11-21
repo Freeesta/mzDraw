@@ -13,6 +13,11 @@ pub(crate) const PALETTE: [&str; 13] = [
     "#1f7a1f", "#b05a00", "#000000", "#2d5d8c", "#5c5850",
 ];
 
+/// The colour of an index of the display list: a token of the palette, or an explicit colour (`ink`, a negative index).
+pub(crate) fn paint(index: f32) -> String {
+    crate::ink::hex_of(index).unwrap_or_else(|| PALETTE[index as usize % PALETTE.len()].to_string())
+}
+
 /// A number with at most two decimals, trailing zeros left out. Written through `mzlab_mol::fixed`: one `f64` given to the
 /// formatter of the standard library (`{}`, `to_string`) costs 22 kB of module.
 pub(crate) fn num(v: f32) -> String {
@@ -212,14 +217,14 @@ pub(crate) fn drawn_with(
         if op == scene::LINE {
             s.push_str(&format!(
                 "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{}\" stroke-width=\"{}\"/>\n",
-                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), num(d[i + 4]), PALETTE[d[i + 6] as usize % PALETTE.len()], num(d[i + 5])
+                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), num(d[i + 4]), paint(d[i + 6]), num(d[i + 5])
             ));
             i += 7;
         } else if op == scene::TEXT {
             let anchor = if d[i + 6] == 0.0 { "middle" } else { "start" };
             s.push_str(&format!(
                 "<text x=\"{}\" y=\"{}\" font-size=\"{}\" fill=\"{}\" text-anchor=\"{anchor}\" dominant-baseline=\"central\">{}</text>\n",
-                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), PALETTE[d[i + 4] as usize % PALETTE.len()], crate::xml::escape(&sc.strings[d[i + 5] as usize])
+                num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), paint(d[i + 4]), crate::xml::escape(&sc.strings[d[i + 5] as usize])
             ));
             i += 7;
         } else if op == scene::TRI {
@@ -231,7 +236,7 @@ pub(crate) fn drawn_with(
                 num(d[i + 4]),
                 num(d[i + 5]),
                 num(d[i + 6]),
-                PALETTE[d[i + 7] as usize % PALETTE.len()]
+                paint(d[i + 7])
             ));
             i += 8;
         } else if op == scene::RECT {

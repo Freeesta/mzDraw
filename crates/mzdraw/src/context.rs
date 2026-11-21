@@ -101,6 +101,15 @@ fn checked(mut v: Value, on: bool) -> Value {
     v
 }
 
+/// Puts `v` before the item `id` of `items`.
+fn put_before(items: &mut Vec<Value>, id: &str, v: Value) {
+    let at = items
+        .iter()
+        .position(|i| i["id"] == id)
+        .unwrap_or(items.len());
+    items.insert(at, v);
+}
+
 fn group(id: &str, label: &str, children: Vec<Value>) -> Value {
     json!({"id": id, "label": label, "enabled": true, "children": children})
 }
@@ -285,6 +294,7 @@ impl Editor {
             "atom.chg.minus" => self.add_charge(atom, -1),
             "atom.el.more" => self.ask(format!("element:{atom}")),
             "atom.label" => self.ask(format!("label:{atom}")),
+            "colour.custom" => self.ask("colour".into()),
             "atom.data" => self.ask(format!("data:{}", self.anchor_of(atom))),
             "atom.ann" => self.ask(format!("annotation:{}", self.anchor_of(atom))),
             "obj.edit" => match open.target {
@@ -381,6 +391,13 @@ impl Editor {
                 };
                 return self.run(&[set], "draw2.say.wedge", "");
             }
+        }
+        if let Some(key) = id.strip_prefix("colour.") {
+            let hex = match key {
+                "auto" => Some(""),
+                _ => crate::ink::PALETTE.iter().find(|p| p.0 == key).map(|p| p.2),
+            };
+            return hex.map_or(0, |h| self.colour(h));
         }
         match id.strip_prefix("sel.copyas.") {
             Some(kind @ ("molfile" | "smiles" | "svg" | "png")) => {
@@ -497,7 +514,30 @@ impl Editor {
             items.insert(6, item("tp.derive", "Derive TP", "Shift+D", true));
             items.insert(7, item("tp.step", "Apply step...", "", true));
         }
+        let now = self.doc().atom(a).map(|x| x.col());
+        put_before(&mut items, "edit.copy", self.colour_group(now));
         items
+    }
+
+    /// The group `Colour` of the menus: automatic, the palette, a custom colour (asked on the page). `now` is the colour of what
+    /// the menu is about (`Some("")` automatic, `None` mixed or none), which gets the check.
+    fn colour_group(&self, now: Option<String>) -> Value {
+        let is = |hex: &str| now.as_deref() == Some(hex);
+        let mut kids = vec![checked(item("colour.auto", "Automatic", "", true), is(""))];
+        for (key, label, hex) in crate::ink::PALETTE {
+            kids.push(checked(
+                item(&format!("colour.{key}"), label, "", true),
+                is(hex),
+            ));
+        }
+        let custom = now
+            .as_deref()
+            .is_some_and(|c| !c.is_empty() && crate::ink::name(c).is_none());
+        kids.push(checked(
+            item("colour.custom", "Custom...", "", true),
+            custom,
+        ));
+        group("edit.colour", "Colour", kids)
     }
 
     fn bond_items(&self, b: u32) -> Vec<Value> {
@@ -513,6 +553,7 @@ impl Editor {
             ),
             checked(item("bond.s.wavy", "Wavy", "Y", true), s == WEDGE_WAVY),
             item("bond.reverse", "Reverse direction", "", s != 0),
+            self.colour_group(self.doc().bond(b).map(|x| x.col())),
             item("bond.delete", "Delete", "Del", true),
         ]
     }
@@ -541,6 +582,21 @@ impl Editor {
             item("edit.delete", "Delete", "Del", true),
             group("sel.copyas", "Copy as", copy_as),
         ];
+        let d = self.doc();
+        let cols: Vec<String> = (d.atoms.iter())
+            .filter(|a| self.over.sel_atoms.contains(&a.id))
+            .map(|a| a.col())
+            .chain(
+                (d.bonds.iter())
+                    .filter(|b| self.over.sel_bonds.contains(&b.id))
+                    .map(|b| b.col()),
+            )
+            .collect();
+        let same = cols
+            .first()
+            .filter(|c| cols.iter().all(|x| x == *c))
+            .cloned();
+        put_before(&mut items, "edit.delete", self.colour_group(same));
         if self.style.pathway_derive {
             items.insert(5, item("tp.derive", "Derive TP", "Shift+D", atoms));
             items.insert(6, item("tp.step", "Apply step...", "", atoms));

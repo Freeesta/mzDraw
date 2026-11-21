@@ -93,6 +93,13 @@
 </div>
 <!-- the flyouts of the palettes, over everything; the save formats are written here, the rest is built -->
 <div id="d2-flys">
+  <div id="d2-fly-colour">
+    <div id="d2-colour-list" role="group" data-i18n-aria-label="draw2.colour.list" aria-label="Colours"></div>
+    <div class="row d2-colour-custom"><label for="d2-colour-hex" data-i18n="draw2.colour.custom">Custom colour</label>
+      <input id="d2-colour-hex" type="text" maxlength="7" size="9" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="#rrggbb" title="A colour as #rgb or #rrggbb" data-i18n-title="draw2.colour.hex.title">
+      <button id="d2-colour-set" type="button" data-i18n="draw2.colour.set" title="Colour the selection with this colour" data-i18n-title="draw2.colour.set.title">Apply</button></div>
+    <p id="d2-colour-note" role="status"></p>
+  </div>
   <div id="d2-fly-saveas">
     <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
         <button id="d2-ex-v3000" type="button" data-i18n="draw2.export.v3000" title="Save the drawing as a V3000 molfile" data-i18n-title="draw2.export.v3000.title">Molfile V3000</button>

@@ -28,6 +28,70 @@ impl Editor {
         ((x0 + x1) / 2.0, (y0 + y1) / 2.0)
     }
 
+    /// Sets the explicit colour of the selected atoms and bonds (the bonds between selected atoms count), or of the atom with the
+    /// keyboard focus when nothing is selected, as one undo step. `col` is `#rgb` / `#rrggbb`, or empty for automatic (the element
+    /// colour, or the mono ink). A colour that is not valid is `error.draw2.colour`; nothing to colour is `error.draw2.colourNone`;
+    /// a selection that has the colour already changes nothing.
+    pub fn colour(&mut self, col: &str) -> u32 {
+        let Some(col) = crate::ink::canon(col) else {
+            self.error = "error.draw2.colour";
+            return REPAINT;
+        };
+        let d = self.doc();
+        let mut atoms = self.over.sel_atoms.clone();
+        if atoms.is_empty() && self.over.sel_bonds.is_empty() {
+            atoms.extend(self.over.focus);
+        }
+        let mut bonds = self.over.sel_bonds.clone();
+        bonds.extend(
+            (d.bonds.iter())
+                .filter(|b| atoms.contains(&b.a) && atoms.contains(&b.b))
+                .map(|b| b.id),
+        );
+        atoms.retain(|&i| d.atom(i).is_some_and(|a| a.col() != col));
+        bonds.retain(|&i| d.bond(i).is_some_and(|b| b.col() != col));
+        bonds.sort_unstable();
+        bonds.dedup();
+        if atoms.is_empty() && bonds.is_empty() {
+            let any = !self.over.sel_atoms.is_empty()
+                || !self.over.sel_bonds.is_empty()
+                || self.over.focus.is_some();
+            self.error = if any { "" } else { "error.draw2.colourNone" };
+            return REPAINT;
+        }
+        let what = if col.is_empty() {
+            "automatic".to_string()
+        } else {
+            col.clone()
+        };
+        self.run(
+            &[Op::Colour { atoms, bonds, col }],
+            "draw2.say.coloured",
+            &what,
+        )
+    }
+
+    /// The colour the selected atoms and bonds (or the focused atom) have in common: `Some("")` when they are all automatic,
+    /// `None` when nothing is selected or the colours differ.
+    pub fn selection_colour(&self) -> Option<String> {
+        let d = self.doc();
+        let o = &self.over;
+        let mut cols: Vec<String> = (d.atoms.iter())
+            .filter(|a| o.sel_atoms.contains(&a.id))
+            .map(|a| a.col())
+            .chain(
+                (d.bonds.iter())
+                    .filter(|b| o.sel_bonds.contains(&b.id))
+                    .map(|b| b.col()),
+            )
+            .collect();
+        if cols.is_empty() {
+            cols.extend(o.focus.and_then(|f| d.atom(f)).map(|a| a.col()));
+        }
+        let first = cols.first()?.clone();
+        cols.iter().all(|c| *c == first).then_some(first)
+    }
+
     /// Turns the selection (or everything) by `deg` degrees counter-clockwise around its centre.
     pub fn rotate(&mut self, deg: f64) -> u32 {
         let atoms = self.target();

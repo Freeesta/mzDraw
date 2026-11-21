@@ -125,6 +125,7 @@ export function contextMenu(h) {
     const i = asked.indexOf(":"), what = i < 0 ? asked : asked.slice(0, i), arg = i < 0 ? "" : asked.slice(i + 1);
     if (what === "clipboard") navigator.clipboard?.writeText(ed.clipboard("molfile")).catch(() => { });      // best effort: the editor keeps its own copy
     else if (what === "element") { h.pick("atoms", "d2-element"); h.say(t("draw2.ctx.say.element")); }
+    else if (what === "colour") { h.pick("colour", "d2-colour-hex"); h.say(t("draw2.ctx.say.colour")); }
     else if (what === "label") { h.pick("charges", "d2-label"); h.say(t("draw2.ctx.say.label")); }
     else if (what === "text") { h.pick("objects", "d2-text-tool"); h.say(t("draw2.ctx.say.text")); }
     else if (what === "import") side("d2-text");

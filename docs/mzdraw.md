@@ -101,6 +101,7 @@ Generated from `schema::json()` (`"out":"schema"`); the test `crates/mzdraw/test
 | `atom.set` | mzdraw/1 | true | true | SetAtom | `id` uint*<br>`el` string (an element symbol)<br>`chg` int (-128..=127)<br>`iso` uint (0..=65535)<br>`rad` uint (0..=255)<br>`h` uint (0..=255)<br>`lab` string (the empty text takes the label away)<br>`map` uint (atom-to-atom map number 1..=999; 0 takes it away; not read by mzLab) |
 | `atom.data` | mzdraw/1 | true | false | SetAtom | `id` uint*<br>`data` string[][2]* (the empty list takes the data away) |
 | `atom.ann` | mzdraw/1 | true | false | SetAtom | `id` uint*<br>`ann` json[]* (the empty list takes the annotation away) |
+| `colour` | mzdraw/1 | true | false | SetAtom, SetBond | `atoms` uint[] (atom ids; not read by mzLab)<br>`bonds` uint[] (bond ids; not read by mzLab)<br>`col` string* (`#rgb` or `#rrggbb` in any case, kept as `#rrggbb`; the empty text is automatic and takes the colour away (the element colour, or the ink of the mono style, shows again); not read by mzLab) |
 | `bond.set` | mzdraw/1 | true | true | SetBond | `id` uint*<br>`o` uint (0..=255)<br>`s` uint (0..=255)<br>`rev` bool (default false) |
 | `rotate` | mzdraw/1 | true | false | SetAtom per atom | `atoms` uint[] (default empty)<br>`deg` number* (degree; counter-clockwise)<br>`x` number* (bond length)<br>`y` number* (bond length) |
 | `flip` | mzdraw/1 | true | false | SetAtom per atom | `atoms` uint[] (default empty)<br>`axis` enum* (h, v)<br>`at` number* (bond length) |

@@ -97,6 +97,42 @@ function mapField() {
   input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(); } });
 }
 
+/** the colour flyout: Automatic, the palette the module lists (each with its name as text, not by colour alone), and a field for a
+ * colour typed as hex. A choice goes to the module, which judges it and colours the selected atoms and bonds (or the focused atom) in
+ * one undo step; the page decides nothing about colours. */
+function colourField() {
+  const list = $("d2-colour-list"), input = /** @type {HTMLInputElement} */ ($("d2-colour-hex")), note = $("d2-colour-note");
+  const rows = [{ key: "auto", hex: "" }, ...JSON.parse(ed.colour_palette())];
+  const choose = (/** @type {string} */ hex, /** @type {string} */ name) => {
+    const f = after(ed.set_colour(hex)), st = JSON.parse(ed.state());
+    note.textContent = f & CHANGED ? t("draw2.colour.done", { name }) : st.error ? t(st.error) : t("draw2.colour.done", { name });
+    $("d2-live").textContent = note.textContent;
+    if (st.error === "error.draw2.colour") input.setAttribute("aria-invalid", "true"); else input.removeAttribute("aria-invalid");
+    return f;
+  };
+  list.replaceChildren(...rows.map(r => {
+    const b = document.createElement("button"), chip = document.createElement("span"), name = document.createElement("span");
+    b.type = "button"; b.dataset.testid = "d2-colour-" + r.key; b.dataset.hex = r.hex;
+    chip.className = "chip" + (r.key === "auto" ? " auto" : ""); chip.setAttribute("aria-hidden", "true");
+    if (r.hex) chip.style.background = r.hex;
+    name.className = "txt"; name.textContent = t("draw2.colour." + r.key);
+    b.title = r.key === "auto" ? t("draw2.colour.auto.title") : t("draw2.colour.title", { name: name.textContent });
+    b.append(chip, name);
+    b.addEventListener("click", e => { choose(r.hex, name.textContent || ""); if (e.detail) cv.focus({ preventScroll: true }); });
+    return b;
+  }));
+  const apply = () => { const f = choose(input.value.trim(), input.value.trim()); if (f & CHANGED) input.value = ""; };
+  $("d2-colour-set").addEventListener("click", apply);
+  input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(); } });
+}
+
+/** the colour in use on the selection is the pressed one; a mixed selection presses none @param {any} st */
+function colourState(st) {
+  const now = st.colour;
+  for (const b of /** @type {NodeListOf<HTMLElement>} */ ($("d2-colour-list").querySelectorAll("button"))) b.setAttribute("aria-pressed", String(now !== null && b.dataset.hex === now));
+}
+
 /** the annotation of each structure: level, identifier, evidence, note; what is typed is given to the module, which decides @param {any[]} outline */
 function annFields(outline) {
   const box = $("d2-ann"), active = document.activeElement;
@@ -157,6 +193,7 @@ function valuesText(v, adducts) {
 function refresh() {
   const st = JSON.parse(ed.state());
   show(st);
+  colourState(st);
   for (const b of document.querySelectorAll("button[data-cmd]")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
     if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
@@ -498,6 +535,8 @@ function save(what, name, type) {
     const lost = ed.maps_lost(what);   // the module says what the format cannot hold; nothing is dropped in silence
     // the TP table says what it left empty (cells with no engine, no adduct, no name...), each with its text
     const left = what.startsWith("tptable") ? JSON.parse(ed.save_notes()).map((/** @type {[string, number]} */ [key, n]) => t(key, { n })) : [];
+    const dim = ed.colours_lost(what);
+    if (dim) left.unshift(t("draw2.export.coloursLost", { n: dim }));
     if (lost) left.unshift(t("draw2.export.mapsLost", { n: lost }));
     if (left.length) { note.textContent = left.join(" "); $("d2-live").textContent = note.textContent; } else open("saveas", false);
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
@@ -661,7 +700,7 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
-  mapField(); proposalEvents(); stepEvents();
+  mapField(); colourField(); proposalEvents(); stepEvents();
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); layout(); refresh();

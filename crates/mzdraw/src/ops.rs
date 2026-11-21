@@ -54,6 +54,13 @@ pub enum Op {
     /// Replaces the annotation kept on an atom (the annotation of its structure: `ann` is the JSON text of a list of entries,
     /// `ann::canon`); the empty list takes it away.
     AtomAnn { id: u32, ann: String },
+    /// Sets the explicit colour of atoms and bonds (`col` is `#rgb` or `#rrggbb`; the empty text is automatic and takes the colour
+    /// away: the element colour or the mono ink shows again). The inverse restores each atom and bond as it was.
+    Colour {
+        atoms: Vec<u32>,
+        bonds: Vec<u32>,
+        col: String,
+    },
     /// Sets the order and/or the wedge mark of a bond; a new order other than 1 drops the mark. `rev` swaps the two ends (the narrow
     /// end of a wedge moves to the other atom).
     BondSet {
@@ -231,6 +238,12 @@ impl Op {
                 w.text("op", "atom.ann");
                 w.int("id", i64::from(*i));
                 w.raw("ann", ann);
+            }
+            Op::Colour { atoms, bonds, col } => {
+                w.text("op", "colour");
+                ids(&mut w, "atoms", atoms, false);
+                ids(&mut w, "bonds", bonds, false);
+                w.text("col", col);
             }
             Op::BondSet { id: i, o, s, rev } => {
                 w.text("op", "bond.set");
@@ -464,6 +477,11 @@ impl Op {
             "atom.ann" => Op::AtomAnn {
                 id: g.u("id")?.ok_or(())?,
                 ann: (g.0.get("ann").filter(|a| a.is_array()).ok_or(())?).to_string(),
+            },
+            "colour" => Op::Colour {
+                atoms: g.ids("atoms")?,
+                bonds: g.ids("bonds")?,
+                col: g.s("col")?.ok_or(())?,
             },
             "bond.set" => Op::BondSet {
                 id: g.u("id")?.ok_or(())?,
@@ -827,6 +845,41 @@ impl Document {
                 inv.push(Inv::SetAtom(self.atoms[i].clone()));
                 self.atoms[i].set_ann(&text);
                 done.push(Op::AtomAnn { id: *id, ann: text });
+            }
+            Op::Colour { atoms, bonds, col } => {
+                let Some(col) = crate::ink::canon(col) else {
+                    return err("error.draw2.colour", 0);
+                };
+                let index = (atoms.len() > 16).then(|| self.atom_positions());
+                for id in atoms {
+                    let Some(i) = Self::position(self, &index, *id) else {
+                        return err("error.draw2.noAtom", *id);
+                    };
+                    inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                    crate::ink::put(&mut self.atoms[i].more, &col);
+                }
+                // a long list of bonds: one index of the pool, not one search per bond
+                let by_id: Option<HashMap<u32, usize>> = (bonds.len() > 16).then(|| {
+                    (self.bonds.iter().enumerate())
+                        .map(|(i, b)| (b.id, i))
+                        .collect()
+                });
+                for id in bonds {
+                    let at = match &by_id {
+                        Some(m) => m.get(id).copied(),
+                        None => self.bond_index(*id),
+                    };
+                    let Some(i) = at else {
+                        return err("error.draw2.noBond", *id);
+                    };
+                    inv.push(Inv::SetBond(self.bonds[i].clone()));
+                    crate::ink::put(&mut self.bonds[i].more, &col);
+                }
+                done.push(Op::Colour {
+                    atoms: atoms.clone(),
+                    bonds: bonds.clone(),
+                    col,
+                });
             }
             Op::BondSet { id, o, s, rev } => {
                 let Some(i) = self.bond_index(*id) else {

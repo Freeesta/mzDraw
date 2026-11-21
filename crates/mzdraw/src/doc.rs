@@ -123,6 +123,11 @@ pub fn data_valid(data: &[(String, String)]) -> bool {
 }
 
 impl Atom {
+    /// The explicit colour (`ink`): `#rrggbb`, empty for automatic.
+    pub fn col(&self) -> String {
+        crate::ink::get(&self.more)
+    }
+
     /// The data kept on this atom (empty for most atoms; a field `data` of another shape is not data and is left alone).
     pub fn data(&self) -> Data {
         let text = self
@@ -205,6 +210,13 @@ pub struct Bond {
     pub o: u8,
     pub s: u8,
     pub more: More,
+}
+
+impl Bond {
+    /// The explicit colour (`ink`): `#rrggbb`, empty for automatic.
+    pub fn col(&self) -> String {
+        crate::ink::get(&self.more)
+    }
 }
 
 /// What a drawing object other than a molecule is.

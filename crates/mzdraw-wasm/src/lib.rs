@@ -430,6 +430,28 @@ pub fn maps_lost(kind: &str) -> u32 {
     with(|p| p.editor.doc().maps_lost(kind) as u32)
 }
 
+/// How many atoms and bonds with an explicit colour `save(kind)` leaves out of the file because the format has no place for it.
+#[wasm_bindgen]
+pub fn colours_lost(kind: &str) -> u32 {
+    with(|p| p.editor.doc().colours_lost(kind) as u32)
+}
+
+/// Sets the explicit colour of the selected atoms and bonds (or the focused atom): `#rgb` or `#rrggbb`, or the empty text for
+/// automatic; one undo step. A text that is not a colour, or nothing to colour, changes nothing (`error` in `state`).
+#[wasm_bindgen]
+pub fn set_colour(text: &str) -> u32 {
+    act(|e| e.colour(text))
+}
+
+/// The colours of the picker as JSON `[{"key", "name", "hex"}]`; the automatic colour is the empty text and is the page's first entry.
+#[wasm_bindgen]
+pub fn colour_palette() -> String {
+    let rows: Vec<String> = (mzdraw::ink::PALETTE.iter())
+        .map(|(k, n, h)| format!(r#"{{"key":"{k}","name":"{n}","hex":"{h}"}}"#))
+        .collect();
+    format!("[{}]", rows.join(","))
+}
+
 /// Sets the atom-to-atom map (1..=999, 0 for none) of the focused atom, or of the only selected one; a refusal changes nothing
 /// (`error` in `state`).
 #[wasm_bindgen]
@@ -682,8 +704,9 @@ pub fn state() -> String {
             )
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
+        let colour = e.selection_colour().map_or("null".to_string(), |c| q(&c));
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),

@@ -23,6 +23,7 @@ mod editor_step;
 mod editor_tools;
 pub mod editor_touch;
 pub mod formats;
+pub mod ink;
 pub mod io;
 pub mod ket;
 pub mod label;
