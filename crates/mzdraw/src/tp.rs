@@ -13,6 +13,9 @@ use crate::route::{self, Rect, Structures};
 use crate::settings::Style;
 use std::collections::{BTreeSet, HashMap};
 
+pub mod steps;
+pub use steps::{name_of, sites, step, steps_json, Kind, Sites, Step, STEPS};
+
 /// Ids at or above this name a new atom of the patch (`NEW + k` is the k-th `atom.add`, k from 1): a real id never reaches it
 /// (`doc::MAX_ID` is `1 << 31`).
 pub const NEW: u32 = 1 << 31;
@@ -30,6 +33,23 @@ const PATCH: &str = "error.draw2.tpPatch";
 const MAPS: &str = "error.draw2.tpMaps";
 const SIZE: &str = "error.draw2.tpSize";
 const MAP_DUP: &str = "error.draw2.tpMapDup";
+const DELTA: &str = "error.draw2.tpDelta";
+
+/// The arguments of the output `sites`: `{"of": atom id, "step": NAME}` and nothing else. An unknown step is `error.draw2.tpStep`
+/// (an invalid request), anything else that is not that shape `error.draw2.request`.
+pub fn sites_args(args: &serde_json::Value) -> Result<(u32, String), &'static str> {
+    const BAD: &str = "error.draw2.request";
+    let o = args.as_object().filter(|o| o.len() == 2).ok_or(BAD)?;
+    let of = match o.get("of").and_then(serde_json::Value::as_u64) {
+        Some(i) if i > 0 && i < u64::from(crate::doc::MAX_ID) => i as u32,
+        _ => return Err(BAD),
+    };
+    let name = o.get("step").and_then(|v| v.as_str()).ok_or(BAD)?;
+    if step(name).is_none() {
+        return Err("error.draw2.tpStep");
+    }
+    Ok((of, name.to_string()))
+}
 
 /// The operations that derive a transformation product of the structure that holds `of`: the maps given to the parent when it has
 /// none, the copy (atoms, bonds, labels, wedges; not data or annotation), the `patch` on the copy, and the routed arrow. `at` is the
@@ -41,6 +61,34 @@ pub fn derive(
     of: u32,
     patch: &[Op],
     at: Option<(f64, f64)>,
+) -> Result<Vec<Op>, &'static str> {
+    derive_expecting(doc, style, of, patch, at, None)
+}
+
+/// `derive` where the patch is a named step at a site (`steps::patch`): the delta of the copy must be the step's, else
+/// `error.draw2.tpDelta` and nothing is written. A site where the step's test fails is `error.draw2.tpSite`.
+pub fn derive_step(
+    doc: &Document,
+    style: &Style,
+    of: u32,
+    step_name: &str,
+    site: u32,
+    at: Option<(f64, f64)>,
+) -> Result<Vec<Op>, &'static str> {
+    let (row, patch) = steps::patch(doc, of, step_name, site)?;
+    derive_expecting(doc, style, of, &patch, at, Some(row.delta))
+}
+
+/// `derive` that also checks the delta of the copy against `want_delta` (the canonical spelling of `mzlab_mol::delta::print`, the
+/// formula of all the atoms the copy holds minus the formula of the parent): another delta is `error.draw2.tpDelta`, nothing is
+/// written. The check is on the record's counts, so it holds whatever the patch is.
+pub fn derive_expecting(
+    doc: &Document,
+    style: &Style,
+    of: u32,
+    patch: &[Op],
+    at: Option<(f64, f64)>,
+    want_delta: Option<&str>,
 ) -> Result<Vec<Op>, &'static str> {
     if doc.atom(of).is_none() {
         return Err("error.draw2.noAtom");
@@ -322,6 +370,11 @@ pub fn derive(
     if overvalent(&after, &mine, &parent, &to_copy).is_some() || !record_ok(&after, &copied) {
         return Err(PATCH);
     }
+    if want_delta
+        .is_some_and(|want| steps::delta_between(&parent, &part_of(&after, &copied)) != want)
+    {
+        return Err(DELTA);
+    }
 
     // the arrow, from the smallest atom of the parent to the smallest of the copy, then routed (between the two boxes, with the
     // structures of the small document: the parent and the copy)
@@ -350,7 +403,12 @@ pub fn derive(
 
 /// Whether the copy (the atoms `ids` of `d` and the bonds between them) is a record `mzlab-mol` accepts (`Mol::validate`).
 fn record_ok(d: &Document, ids: &BTreeSet<u32>) -> bool {
-    let part = Document {
+    part_of(d, ids).to_mol_stereo().validate().is_ok()
+}
+
+/// The atoms `ids` of `d` and the bonds between them, as a document of their own.
+fn part_of(d: &Document, ids: &BTreeSet<u32>) -> Document {
+    Document {
         atoms: (d.atoms.iter())
             .filter(|a| ids.contains(&a.id))
             .cloned()
@@ -361,8 +419,7 @@ fn record_ok(d: &Document, ids: &BTreeSet<u32>) -> bool {
             .collect(),
         next: d.next,
         ..Document::default()
-    };
-    part.to_mol_stereo().validate().is_ok()
+    }
 }
 
 fn centre(b: Rect) -> (f64, f64) {

@@ -97,15 +97,23 @@ fn pathway_args(name: &str, args: &Value) -> Result<Option<u32>, &'static str> {
 }
 
 /// The arguments of `tp:derive`: `{"of": atom id, "patch": [operations on the parent's ids], "at": [x, y]}` (`patch` and `at` may be
-/// left out). In a patch a negative id names a new atom of the patch: `-1` the first `atom.add`, `-2` the second, and so on.
-type Derive = (u32, Vec<Op>, Option<(f64, f64)>);
+/// left out) or `{"of", "step": NAME, "site": ID, "at"}` (a named step at a site in place of a `patch`: tp-10). In a patch a negative
+/// id names a new atom of the patch: `-1` the first `atom.add`, `-2` the second, and so on.
+type Derive = (u32, Patch, Option<(f64, f64)>);
+
+/// What a derive applies to the copy.
+pub(crate) enum Patch {
+    Ops(Vec<Op>),
+    /// A step of the table `tp::STEPS` and the atom or bond id of its site.
+    Step(String, u32),
+}
 
 fn derive_args(args: &Value) -> Result<Derive, &'static str> {
     const BAD: &str = "error.draw2.request";
     let obj = args.as_object().ok_or(BAD)?;
     if !obj
         .keys()
-        .all(|k| matches!(k.as_str(), "of" | "patch" | "at"))
+        .all(|k| matches!(k.as_str(), "of" | "patch" | "at" | "step" | "site"))
     {
         return Err(BAD);
     }
@@ -127,6 +135,22 @@ fn derive_args(args: &Value) -> Result<Derive, &'static str> {
             _ => return Err(BAD),
         },
     };
+    // a step and its site, in place of a patch
+    match (obj.get("step"), obj.get("site")) {
+        (None, None) => {}
+        (Some(step), Some(site)) if !obj.contains_key("patch") => {
+            let name = step.as_str().ok_or(BAD)?;
+            if crate::tp::step(name).is_none() {
+                return Err("error.draw2.tpStep");
+            }
+            let site = match site.as_u64() {
+                Some(i) if i > 0 && i < u64::from(crate::doc::MAX_ID) => i as u32,
+                _ => return Err(BAD),
+            };
+            return Ok((of, Patch::Step(name.to_string(), site), at));
+        }
+        _ => return Err(BAD),
+    }
     let list = match obj.get("patch") {
         None => &Vec::new(),
         Some(v) => v.as_array().ok_or(BAD)?,
@@ -157,7 +181,7 @@ fn derive_args(args: &Value) -> Result<Derive, &'static str> {
         }
         patch.push(Op::parse(&op)?);
     }
-    Ok((of, patch, at))
+    Ok((of, Patch::Ops(patch), at))
 }
 
 /// Runs one command as one undo step, with the route operations of the arrows that follow. The error is an i18n key and the id it
@@ -179,7 +203,13 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     }
     if name == "tp:derive" {
         let (of, patch, at) = derive_args(args).map_err(bad)?;
-        let ops = crate::tp::derive(e.doc(), &e.style, of, &patch, at).map_err(bad)?;
+        let ops = match &patch {
+            Patch::Ops(p) => crate::tp::derive(e.doc(), &e.style, of, p, at),
+            Patch::Step(name, site) => {
+                crate::tp::derive_step(e.doc(), &e.style, of, name, *site, at)
+            }
+        }
+        .map_err(bad)?;
         return e.run_guarded(&ops);
     }
     if name == "scheme:row" {

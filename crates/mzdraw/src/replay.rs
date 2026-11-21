@@ -23,6 +23,8 @@ struct Request {
     accept: Vec<usize>,
     /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `trasf` (the record `trasf/1` and its two records, one per line), `sdf`, `svg`, `pdf` (the PDF file as base64; the CLI `--raw` writes the file), `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
     out: Option<String>,
+    /// The `args` of an output that takes some (`sites`: `{"of": atom id, "step": NAME}`), read when there is no `command`.
+    out_args: Option<serde_json::Value>,
     /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
     style: Option<String>,
     /// Settings applied after `style`, each `<section>.<key>=<value>` (`Editor::set`): the `--set` of the CLI.
@@ -159,9 +161,15 @@ impl Request {
                 .collect::<Result<_, _>>()?,
             (None, None) => Vec::new(),
         };
-        if v.get("args").is_some() && v.get("command").is_none() {
-            return Err(BAD);
-        }
+        // `args` belongs to `command`, except for the output `sites`, which takes `{"of", "step"}`
+        let out_args = match (v.get("args"), v.get("command")) {
+            (Some(a), None) if v.get("out").and_then(|o| o.as_str()) == Some("sites") => {
+                crate::tp::sites_args(a)?;
+                Some(a.clone())
+            }
+            (Some(_), None) => return Err(BAD),
+            _ => None,
+        };
         let flag = |k: &str| match v.get(k) {
             None => Ok(false),
             Some(x) => x.as_bool().ok_or(BAD),
@@ -213,6 +221,7 @@ impl Request {
             import_base64,
             log,
             out: text_of("out")?,
+            out_args,
             set,
             style: match v.get("style") {
                 // a settings object may be given in place: it is read as its own text
@@ -272,7 +281,17 @@ pub struct Reply {
 }
 
 /// The output `Editor::save` writes, or the context menu of `context:<x>,<y>` (for the golden parity of the menu).
-fn produce(e: &mut Editor, out: &str, flags: &[u32]) -> Result<String, &'static str> {
+fn produce(
+    e: &mut Editor,
+    out: &str,
+    flags: &[u32],
+    args: Option<&serde_json::Value>,
+) -> Result<String, &'static str> {
+    // `sites` (with `args` `{"of", "step"}`): where the step applies in the structure of that atom (`sites/1`)
+    if out == "sites" {
+        let (of, step) = crate::tp::sites_args(args.ok_or("error.draw2.request")?)?;
+        return crate::tp::sites(e.doc(), of, &step).map(|s| s.json());
+    }
     // `context:<x>,<y>`: the context menu (JSON) of a right-click at that pixel of the default view
     if let Some(at) = out.strip_prefix("context:") {
         let xy = at
@@ -393,7 +412,7 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         })
         .collect();
     let kind = r.out.as_deref().unwrap_or(crate::brand::SLUG);
-    let written = produce(&mut e, kind, &flags);
+    let written = produce(&mut e, kind, &flags, r.out_args.as_ref());
     // a refused transformation names its first atom, as a refused operation does
     let fail_out = |key| OpError {
         key,

@@ -10,7 +10,8 @@
 //!
 //! The data holds the ASCII `-`; the drawing paints a true minus sign (U+2212) in the tokens that are signed deltas (`display`).
 //! Not built here: the mass modes (no mass table in `mzlab-mol`: they need the glue of arch-web-17, so they are refused with
-//! `error.draw2.labelMass`) and the step names (tp-10: refused with `error.draw2.labelSteps`).
+//! `error.draw2.labelMass`). The step names (tp-10) are written by the mode `name+delta`: the name of the one step of `tp::STEPS`
+//! whose delta is the label, then the delta (`dehydrogenation -H2`); a delta that two steps share (`+O`) or none has is the delta alone.
 
 use crate::doc::{Document, ObjKind};
 use crate::label;
@@ -51,12 +52,12 @@ impl Mode {
         }
     }
 
-    /// The refusal of a mode this build cannot write, `None` for `delta`.
+    /// The refusal of a mode this build cannot write, `None` for `delta` and `name+delta`.
     fn refusal(self) -> Option<&'static str> {
         match self {
             Mode::Delta => None,
             Mode::Mass | Mode::DeltaMass => Some("error.draw2.labelMass"),
-            Mode::NameDelta => Some("error.draw2.labelSteps"),
+            Mode::NameDelta => None,
         }
     }
 }
@@ -148,8 +149,9 @@ fn is_delta(t: &str) -> bool {
 
 /// Whether `text` may be rewritten without `force`: empty, or only tokens this command writes.
 pub fn owned(text: &str, isomer: &str) -> bool {
-    text.split_whitespace()
-        .all(|t| t == isomer || t == ISOMER || is_delta(t) || is_mass(t))
+    text.split_whitespace().all(|t| {
+        t == isomer || t == ISOMER || is_delta(t) || is_mass(t) || crate::tp::step(t).is_some()
+    })
 }
 
 /// The text as painted: the `-` of a token that is a signed delta becomes the true minus sign (U+2212). The data is not changed.
@@ -306,7 +308,14 @@ pub fn plan(doc: &Document, mode: Mode, opts: &Opts) -> Result<Plan, OpError> {
             out.skipped += 1;
             continue;
         }
-        let text = if d.is_empty() { opts.isomer.clone() } else { d };
+        let text = match (d.is_empty(), mode) {
+            (true, _) => opts.isomer.clone(),
+            (false, Mode::NameDelta) => match crate::tp::name_of(&d) {
+                Some(name) => format!("{name} {d}"),
+                None => d,
+            },
+            (false, _) => d,
+        };
         if now == text {
             out.labelled += 1;
         } else if opts.force || owned(now, &opts.isomer) {

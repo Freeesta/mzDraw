@@ -148,11 +148,10 @@ fn a_second_run_changes_nothing() {
 }
 
 #[test]
-fn modes_that_need_masses_or_names_are_refused_with_their_keys_and_change_nothing() {
+fn modes_that_need_masses_are_refused_with_their_key_and_change_nothing() {
     for (mode, key) in [
         ("mass", "error.draw2.labelMass"),
         ("delta+mass", "error.draw2.labelMass"),
-        ("name+delta", "error.draw2.labelSteps"),
     ] {
         let mut e = editor(&scheme(&[&ETHANE, &ETHANOL], &[(0, 1, "")]));
         e.set(&format!("pathway.label={mode}")).unwrap();
@@ -440,4 +439,42 @@ fn the_labels_of_a_thousand_arrows_scale_linearly_and_more_are_refused() {
         crowded <= 6 * base.max(5000),
         "{base} us without, {crowded} us with 50000 plus signs"
     );
+}
+
+const PROPENE: S = S(&["C", "C", "C"], &[1, 2]);
+
+#[test]
+fn name_and_delta_writes_the_name_of_the_one_step_with_that_delta_else_the_delta_alone() {
+    // -H2 is dehydrogenation only; +O is shared by hydroxylation and n-oxidation, so it has no name
+    let mut e = editor(&scheme(
+        &[&ETHANE, &ETHENE, &ETHANOL, &PROPANE, &PROPENE],
+        &[(0, 1, ""), (0, 2, ""), (3, 4, "")],
+    ));
+    e.set("pathway.label=name+delta").unwrap();
+    run(&mut e, json!({})).unwrap();
+    assert_eq!(
+        texts(&e),
+        ["dehydrogenation -H2", "+O", "dehydrogenation -H2"]
+    );
+    // the written label is ours: a second run is a no-op, and after the structures change it follows them
+    let once = e.doc().to_json();
+    run(&mut e, json!({})).unwrap();
+    assert_eq!(e.doc().to_json(), once);
+    assert!(owned("dehydrogenation -H2", "isomer") && owned("hydroxylation", "isomer"));
+    assert!(
+        !owned("hydroxylation (CYP)", "isomer"),
+        "a remark makes it the person's"
+    );
+    // a delta with two steps, and a delta that no step has, are not named
+    let mut e = editor(&scheme(
+        &[&PROPANE, &ETHANE, &ETHANOL],
+        &[(0, 1, ""), (1, 2, "")],
+    ));
+    e.set("pathway.label=name+delta").unwrap();
+    run(&mut e, json!({})).unwrap();
+    assert_eq!(texts(&e), ["-CH2", "+O"]);
+    // the mode `delta` still writes the delta alone
+    let mut e = editor(&scheme(&[&ETHANE, &ETHENE], &[(0, 1, "")]));
+    run(&mut e, json!({})).unwrap();
+    assert_eq!(texts(&e), ["-H2"]);
 }
