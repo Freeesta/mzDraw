@@ -5,7 +5,8 @@
 export const NAMES = Object.freeze({
   name: "mzDraw",                             // the visible name (the texts say {app}, see appname.js)
   slug: "mzdraw",                             // the `out` kind of the document
-  version: "mzdraw/1",                           // the document format the module must speak
+  version: "mzdraw/1",                           // the document format of the day
+  bridge: "draw-bridge/1",                         // what the module must speak to this page
   global: "MZDRAW",                            // the editor module on window, for hosts and the tests
   tag: "mzdraw-editor",                               // the custom element
   wasm: "mzdraw_wasm",                             // the module of pkg/

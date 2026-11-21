@@ -20,6 +20,13 @@ pub const DOCUMENT_ID: &str = "mzdraw/1";
 pub const SETTINGS_ID: &str = "mzdraw-settings/1";
 /// The command log (language of mzLab; does not depend on the name).
 pub const EDIT_ID: &str = "draw_edit/1";
+/// The contract between the page and the module: the page checks that the `.wasm` it loaded speaks it. Independent of the name
+/// (like `EDIT_ID`), so a rename neither changes it nor makes an old page and a new module look alike by accident.
+pub const BRIDGE_ID: &str = "draw-bridge/1";
+/// The id of the first version of the document: history, never changed by a rename. The edit schema names it as the version that
+/// introduced the operations that existed then (`since`), so `out: schema` keeps its bytes under any name; an operation added
+/// later says `DOCUMENT_ID`, the version of the day.
+pub const FIRST_DOCUMENT_ID: &str = "mzdraw/1";
 /// Earlier slugs, oldest first.
 #[cfg(not(test))]
 pub const LEGACY_IDS: &[&str] = &[];
@@ -167,5 +174,72 @@ mod tests {
         let mut e = Editor::default();
         e.open(&d.to_json()).unwrap();
         assert_eq!(e.save(OLD).unwrap(), e.save(SLUG).unwrap());
+    }
+
+    fn fixture(name: &str) -> Vec<u8> {
+        let path = format!("{}/tests/legacy/{name}", env!("CARGO_MANIFEST_DIR"));
+        std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"))
+    }
+
+    #[test]
+    fn every_file_of_an_earlier_name_opens_and_is_written_again_under_the_current_one() {
+        let want = Document::from_json(&String::from_utf8(fixture("document.json")).unwrap())
+            .unwrap()
+            .to_json();
+        assert!(want.contains(DOCUMENT_ID) && !want.contains(OLD));
+        assert_eq!(want, doc().to_json());
+        // the route of the page and of `mzlab-cli mol draw --import`: the bytes of a file
+        for name in ["document.json", "drawing.svg", "drawing.png", "drawing.pdf"] {
+            let bytes = fixture(name);
+            assert!(
+                !String::from_utf8_lossy(&bytes).contains(DOCUMENT_ID),
+                "{name} is a file of the earlier name"
+            );
+            let mut e = Editor::default();
+            e.import_bytes(&bytes)
+                .unwrap_or_else(|k| panic!("{name}: {k}"));
+            let saved = e.save(SLUG).unwrap();
+            assert!(
+                saved.contains(&format!("\"format\":\"{DOCUMENT_ID}\"")),
+                "{name}"
+            );
+            assert!(!saved.contains(OLD), "{name}");
+            assert_eq!(e.doc().atoms.len(), 2, "{name}");
+            assert_eq!(e.save("smiles").unwrap(), "C=O", "{name}");
+        }
+        // a PNG, an SVG and a PDF written again by this program say the current name
+        let mut e = Editor::default();
+        e.import_bytes(&fixture("drawing.svg")).unwrap();
+        assert!(e.svg().contains(&format!("<metadata id=\"{SLUG}\">")) && !e.svg().contains(OLD));
+    }
+
+    #[test]
+    fn a_settings_file_of_an_earlier_name_keeps_its_style_and_export_and_is_written_under_the_current_one(
+    ) {
+        let text = String::from_utf8(fixture("settings.json")).unwrap();
+        let mut e = Editor::default();
+        e.set_style(&text).unwrap();
+        assert!(e.settings_json().contains("\"preset\":\"slides\""));
+        // `export.default` names the document by the earlier slug: it is the document, under the current slug
+        assert_eq!(e.export.default, SLUG);
+        assert_eq!(e.export.background, "none");
+        let written = e.settings_json();
+        assert!(
+            written.contains(&format!("\"format\":\"{SETTINGS_ID}\"")),
+            "{written}"
+        );
+        assert!(
+            written.contains(&format!("\"default\":\"{SLUG}\"")) && !written.contains(OLD),
+            "{written}"
+        );
+        // the setting by name (`--set export.default=<slug>`) and the refusals that stay
+        let mut x = crate::palettes::Export::default();
+        x.set("default", OLD).unwrap();
+        assert_eq!(x.default, SLUG);
+        x.set("default", "svg").unwrap();
+        assert_eq!(e.set(&format!("export.default={OLD}")), Ok(0));
+        assert_eq!(e.export.default, SLUG);
+        assert_eq!(e.set("export.default=other"), Err("error.draw2.export"));
+        assert_eq!(e.export.default, SLUG, "a refusal changes nothing");
     }
 }

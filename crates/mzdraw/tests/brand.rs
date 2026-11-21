@@ -91,6 +91,8 @@ fn brand_toml_and_brand_rs_say_the_same() {
         ("formats.document", brand::DOCUMENT_ID),
         ("formats.settings", brand::SETTINGS_ID),
         ("formats.edit", brand::EDIT_ID),
+        ("formats.bridge", brand::BRIDGE_ID),
+        ("formats.first_document", brand::FIRST_DOCUMENT_ID),
         ("site.repository", brand::REPOSITORY),
         ("site.pages_url", brand::PAGES_URL),
         ("site.pages_base", brand::PAGES_BASE),
@@ -195,14 +197,20 @@ fn list(names: impl Iterator<Item = String>) -> String {
 }
 
 fn names_js() -> String {
+    names_js_with(brand::LEGACY_IDS)
+}
+
+/// `web/names.js` as it is written when the earlier slugs are `legacy` (a rename in the future).
+fn names_js_with(legacy: &[&str]) -> String {
     use brand::*;
-    let old = |f: &dyn Fn(&str) -> String| list(LEGACY_IDS.iter().map(|s| f(s)));
+    let old = |f: &dyn Fn(&str) -> String| list(legacy.iter().map(|s| f(s)));
     let tokens = format!("--{CSS_PREFIX}-");
     let wasm = format!("{CRATE_PREFIX}_wasm");
     [
         ("@NAME@", NAME),
         ("@SLUG@", SLUG),
         ("@DOC@", DOCUMENT_ID),
+        ("@BRIDGE@", BRIDGE_ID),
         ("@APP@", APP_ID),
         ("@TAG@", COMPONENT_TAG),
         ("@WASM@", &wasm),
@@ -222,7 +230,8 @@ const NAMES_JS: &str = r#"// GENERATED from brand.toml by crates/mzdraw/tests/br
 export const NAMES = Object.freeze({
   name: "@NAME@",                             // the visible name (the texts say {app}, see appname.js)
   slug: "@SLUG@",                             // the `out` kind of the document
-  version: "@DOC@",                           // the document format the module must speak
+  version: "@DOC@",                           // the document format of the day
+  bridge: "@BRIDGE@",                         // what the module must speak to this page
   global: "@APP@",                            // the editor module on window, for hosts and the tests
   tag: "@TAG@",                               // the custom element
   wasm: "@WASM@",                             // the module of pkg/
@@ -241,8 +250,10 @@ export const NAMES = Object.freeze({
 fn appname_js() -> String {
     format!(
         "// GENERATED from brand.toml by crates/mzdraw/tests/brand.rs (MZDRAW_BLESS=1 cargo test -p mzdraw --test brand): do not edit.\n\
-// The visible name of the program, a classic script because i18n.js reads it before any module runs: the texts say {{app}}.\n\
-window.APP_NAME = \"{}\";\n",
+// The visible name of the program, a classic script in the head because i18n.js reads it before any module runs: the texts say\n\
+// {{app}}. The title is set here, at once, so that the tab is never blank; i18n.js writes the same text from the catalog.\n\
+window.APP_NAME = \"{}\";\n\
+document.title = window.APP_NAME;\n",
         brand::NAME
     )
 }
@@ -262,6 +273,33 @@ fn the_page_learns_the_name_from_files_written_from_brand_rs() {
             "{path} differs from brand.rs: MZDRAW_BLESS=1 cargo test -p mzdraw --test brand"
         );
     }
+}
+
+#[test]
+fn the_files_of_the_page_list_the_earlier_names_when_there_are_some() {
+    // a rename in the future: two earlier slugs, oldest first
+    let js = names_js_with(&["first", "second"]);
+    for (key, want) in [
+        (
+            "autosaveOld",
+            r#"["first-autosave.json", "second-autosave.json"]"#,
+        ),
+        (
+            "settingsOld",
+            r#"["first-settings.json", "second-settings.json"]"#,
+        ),
+        (
+            "clipOld",
+            r#"["application/x-first+json", "application/x-second+json"]"#,
+        ),
+    ] {
+        assert!(js.contains(&format!("  {key}: {want},\n")), "{key}:\n{js}");
+    }
+    // the current names are written once, from the slug in use, and none of the earlier ones leaks into them
+    assert!(js.contains(&format!("autosave: \"{}-autosave.json\"", brand::SLUG)));
+    // with no earlier name the lists are empty, as in the file of the page
+    assert_eq!(names_js_with(&[]), names_js());
+    assert!(names_js().contains("autosaveOld: [],"));
 }
 
 // ---- brand_no_literals
@@ -427,13 +465,27 @@ fn brand_no_literals() {
     for f in &scripts {
         bad.extend(found(f, literals(&read(f), true), &mut used));
     }
-    bad.extend(found(
-        "web/index.html",
-        html_lines(&read("web/index.html")),
-        &mut used,
-    ));
-    let css = read("web/mzdraw.css");
-    bad.extend(found("web/mzdraw.css", literals(&css, true), &mut used));
+    // every page and every catalog file of the page: the text of an HTML file without its comments, a JSON file line by line
+    let (pages, catalogs) = (files("web", "html"), files("web", "json"));
+    assert!(
+        pages.contains(&"web/index.html".to_string()),
+        "the page was found"
+    );
+    for f in &pages {
+        bad.extend(found(f, html_lines(&read(f)), &mut used));
+    }
+    for f in &catalogs {
+        let lines = read(f)
+            .lines()
+            .enumerate()
+            .map(|(n, l)| (n + 1, l.to_string()))
+            .collect();
+        bad.extend(found(f, lines, &mut used));
+    }
+    // the style sheets: their strings (the comments of a sheet may name the product)
+    for f in files("web", "css") {
+        bad.extend(found(&f, literals(&read(&f), true), &mut used));
+    }
     assert!(bad.is_empty(), "the codename is written outside brand.toml (say `{{app}}` in a text, read `NAMES` in a script, use `brand::` in Rust):\n{}", bad.join("\n"));
     for (k, u) in used.iter().enumerate() {
         assert!(

@@ -988,6 +988,8 @@ impl Export {
     pub fn set(&mut self, key: &str, value: &str) -> Result<(), &'static str> {
         let v = value.trim();
         match key {
+            // the document under the slug of an earlier name is the document: written again under the current one
+            "default" if crate::brand::is_doc_kind(v) => self.default = crate::brand::SLUG.into(),
             "default" if FORMATS.contains(&v) => self.default = v.into(),
             "background" if v == "white" || v == "none" => self.background = v.into(),
             "default" | "background" => return Err("error.draw2.export"),

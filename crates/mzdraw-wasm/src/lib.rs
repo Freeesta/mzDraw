@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 
 /// Stable version of the bridge: the page checks that the loaded `.wasm` is the one it was built with.
-const BRIDGE: &str = mzdraw::brand::DOCUMENT_ID;
+const BRIDGE: &str = mzdraw::brand::BRIDGE_ID;
 
 #[derive(Default)]
 struct Page {

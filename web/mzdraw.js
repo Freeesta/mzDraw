@@ -21,7 +21,7 @@ const cv = /** @type {HTMLCanvasElement} */ ($("d2-canvas")), g = /** @type {Can
 async function load() {
   const mod = await import(`./pkg/${NAMES.wasm}.js`);
   await mod.default();
-  if (mod.version() !== NAMES.version) throw new Error("version");
+  if (mod.version() !== NAMES.bridge) throw new Error("version");
   return mod;
 }
 
