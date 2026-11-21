@@ -70,7 +70,7 @@ pub struct Unknown {
 }
 
 /// A JSON object from (key, value as JSON text) pairs, keys in alphabetical order.
-fn object(mut pairs: Vec<(String, String)>) -> String {
+pub(crate) fn object(mut pairs: Vec<(String, String)>) -> String {
     crate::m::sort(&mut pairs);
     let body: Vec<String> = pairs
         .iter()
@@ -250,13 +250,14 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],{},"fields":[{}]}}"#,
         PRESETS.join("\",\""),
         crate::values::ADDUCTS
             .iter()
             .map(|a| format!("\"{a}\""))
             .collect::<Vec<_>>()
             .join(","),
+        crate::prefs::json(),
         fields.join(",")
     )
 }
@@ -485,6 +486,44 @@ impl Style {
             }
         }
         Ok(())
+    }
+
+    /// Sets a setting of the sections `style`, `display` and `pathway` from its name `<section>.<key>` and its text, as the `--set`
+    /// of the CLI gives it; the error is an i18n key and changes nothing.
+    pub fn apply(&mut self, name: &str, value: &str) -> Result<(), &'static str> {
+        let (section, key) = name.split_once('.').ok_or("error.draw2.set")?;
+        match section {
+            "style" => self.set(key, value),
+            "display" => self.set_display(key, value),
+            "pathway" => self.set_pathway(key, value),
+            _ => Err("error.draw2.set"),
+        }
+    }
+
+    /// The value of a setting of the sections `style`, `display` and `pathway` as the text `apply` takes back (a number as it is
+    /// shown, a word, the adducts as a comma list); `None` for a setting that is none.
+    pub fn value(&self, name: &str) -> Option<String> {
+        let on = |b: bool| if b { "on" } else { "off" }.to_string();
+        let number = |key: &str| {
+            FIELDS
+                .iter()
+                .find(|f| f.key == key)
+                .map(|f| f.of(self).to_string())
+        };
+        match name {
+            "style.preset" => Some(self.name.clone()),
+            "style.colour" => Some(if self.mono { "mono" } else { "element" }.into()),
+            "display.maps" => Some(on(self.maps)),
+            "display.values" => Some(self.values.name().into()),
+            "display.adducts" => Some(self.adducts.join(",")),
+            "display.lens" => Some(self.lens.name().into()),
+            "pathway.dir" => self.choice(name).map(Into::into),
+            "pathway.order" | "pathway.number" | "pathway.label" => {
+                self.choice(name).map(Into::into)
+            }
+            "pathway.derive" => Some(on(self.pathway_derive)),
+            _ => number(name.strip_prefix("style.").unwrap_or(name)),
+        }
     }
 
     /// The effective word of a key of `CHOICES` (`pathway.dir`, `pathway.order`), the default when the file leaves it out; `None` for any other key.

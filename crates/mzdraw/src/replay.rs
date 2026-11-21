@@ -46,6 +46,8 @@ struct Request {
     /// `values`: the answer is `values/1` (`values::document_json`): the calculated values of every structure and, when `atoms` is
     /// given, of those atoms as one selection. `true` is no selection. It stands alone with the editing fields (no `out`, no `report`).
     values: Option<Option<Vec<u32>>>,
+    /// `feedback`: the answer is `feedback/1` (`feedback::build`): `(kind, with the command log, user agent, language)`.
+    feedback: Option<(String, bool, String, String)>,
 }
 
 /// One event of the request field `events`.
@@ -55,7 +57,7 @@ enum Event {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 18] = [
+const FIELDS: [&str; 19] = [
     "propose",
     "accept",
     "diff",
@@ -74,6 +76,7 @@ const FIELDS: [&str; 18] = [
     "id",
     "events",
     "values",
+    "feedback",
 ];
 
 impl Request {
@@ -225,6 +228,46 @@ impl Request {
                 Some(Some(ids))
             }
         };
+        let feedback = match v.get("feedback") {
+            None => None,
+            // `"bug"`, or `{"kind", "log", "agent", "lang"}` and nothing else (`kind` is the only one required)
+            Some(f) => {
+                let bad = "error.draw2.feedback";
+                let text = |o: &serde_json::Value, k: &str| match o.get(k) {
+                    None => Ok(String::new()),
+                    Some(x) => x.as_str().map(str::to_string).ok_or(bad),
+                };
+                match f {
+                    serde_json::Value::String(kind) => {
+                        Some((kind.clone(), false, String::new(), String::new()))
+                    }
+                    serde_json::Value::Object(o) => {
+                        if o.keys()
+                            .any(|k| !["kind", "log", "agent", "lang"].contains(&k.as_str()))
+                        {
+                            return Err(bad);
+                        }
+                        let log = match o.get("log") {
+                            None => false,
+                            Some(x) => x.as_bool().ok_or(bad)?,
+                        };
+                        Some((text(f, "kind")?, log, text(f, "agent")?, text(f, "lang")?))
+                    }
+                    _ => return Err(bad),
+                }
+            }
+        };
+        if feedback.is_some()
+            && (values.is_some()
+                || propose.is_some()
+                || v.get("id").is_some()
+                || v.get("out").is_some()
+                || flag("report")?
+                || flag("dry_run")?
+                || v.get("expect").is_some())
+        {
+            return Err("error.draw2.feedbackAlone");
+        }
         if values.is_some()
             && (v.get("out").is_some()
                 || flag("report")?
@@ -236,6 +279,7 @@ impl Request {
         Ok(Request {
             diff: None,
             values,
+            feedback,
             propose,
             accept,
             events,
@@ -454,6 +498,18 @@ pub fn replay_with(
             Event::Key(key, mods, t) => e.key_at(key, *mods, *t),
         })
         .collect();
+    if let Some((kind, with_log, agent, lang)) = &r.feedback {
+        let log = e.session.log_json();
+        let params = crate::feedback::Params {
+            kind,
+            with_log: *with_log,
+            log: &log,
+            agent,
+            lang,
+        };
+        let text = crate::feedback::build(&params).map_err(fail)?.json();
+        return Ok(Reply { text, ok: true });
+    }
     if let Some(select) = &r.values {
         let text =
             crate::values::document_json(e.doc(), &e.style.adducts, select.as_deref(), engine);

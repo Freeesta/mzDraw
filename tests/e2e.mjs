@@ -73,8 +73,10 @@ async function until(pg, expr, ms = 10000) {
     await new Promise(r => setTimeout(r, 25));
   }
 }
-async function context(browser, opts) {
-  const ctx = await browser.newContext({ acceptDownloads: true, ...opts }), pg = await ctx.newPage();
+async function context(browser, opts, init = null) {
+  const ctx = await browser.newContext({ acceptDownloads: true, ...opts });
+  if (init) await ctx.addInitScript(init);
+  const pg = await ctx.newPage();
   pg.on("pageerror", e => errs.push(["pageerror", String(e)]));
   pg.on("console", m => { if (m.type() === "error") errs.push(["console.error", m.text()]); });
   pg.on("response", r => { if (r.status() >= 400) errs.push(["http " + r.status(), r.url()]); });
@@ -2453,6 +2455,142 @@ try {
   });
   await ctx.close();
 
+  // prefs: the Preferences flyout of the File palette (the gear), built from the module's schema; every option is a setting, so the page equals the goldens
+  // of tests/data/log/prefs.json after the keyboard, the touch and the pen way, and the settings are kept and saved
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  const pfGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/prefs.json"), "utf8")).cases;
+  const pfSvg = () => pg.evaluate("window.MZDRAW.save('svg')");
+  /** the picture equals the golden, or says where it first differs */
+  const pfSame = async (gold, what) => { const s = await pfSvg(); let i = 0; while (i < s.length && s[i] === gold[i]) i++; assert(s === gold, `${what}: differs at ${i}: ${JSON.stringify(s.slice(Math.max(0, i - 60), i + 80))} vs ${JSON.stringify(gold.slice(Math.max(0, i - 60), i + 80))}`); };
+  const pfOpenDoc = async () => { await pg.evaluate(text => { const m = /** @type {any} */ (window).MZDRAW; m.open(m.replay(JSON.stringify({ import: text, out: "mzdraw" }))); }, pfGold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); };
+  const pfShown = async open => { await until(pg, `document.getElementById("d2-fly-prefs").hidden === ${!open}`); await frames(pg); };
+  const pfSel = setting => `#d2-fly-prefs [data-setting="${setting}"]`;
+  /** where the centre of a control of the panel is, after the panel has scrolled it into view (a finger or a pen scrolls it by hand) */
+  const pfAt = async sel => { await pg.locator(sel).scrollIntoViewIfNeeded(); return center(pg, sel); };
+  const pfAria = async () => pg.evaluate("document.querySelector('[data-testid=\"d2-prefs\"]').getAttribute('aria-label')");
+  await step("preferences by keyboard: the gear in the File palette opens the panel without blocking the canvas, atom colours toggle to the golden pictures, Escape closes and gives the focus back; the panel is built from the schema", async () => {
+    await pfOpenDoc();
+    await pfSame(pfGold[0].out.svg, "the default colours");
+    eq(await pfAria(), await pg.evaluate("I18N.t('draw2.tool.prefs.title')"));
+    assert((await pg.locator('[data-testid="d2-prefs"] svg[data-icon="gear"]').count()) === 1, "a gear icon on a real button");
+    await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter"); await pfShown(true);
+    // the groups and the rows are the schema's, in its order, with its texts
+    const schema = JSON.parse(await pg.evaluate("window.MZDRAW.settings_schema()"));
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-fly-prefs fieldset[data-group] > legend')].map(l => l.textContent)"), await pg.evaluate(g => g.map(x => I18N.t(x.label)), schema.groups));
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-fly-prefs [data-setting]')].map(e => e.dataset.setting).filter(Boolean)"), schema.prefs.map(p => p.setting));
+    eq(await pg.inputValue(pfSel("style.colour")), "element");
+    await pg.focus(pfSel("style.colour")); await pg.keyboard.press("ArrowDown"); await frames(pg);
+    eq(await pg.inputValue(pfSel("style.colour")), "mono");
+    await pfSame(pfGold[1].out.svg, "one colour: the golden picture");
+    assert(await pg.evaluate("(() => JSON.parse(window.MZDRAW.style()).style.colour === 'mono')()"), "the setting is in the settings file");
+    eq(await pg.inputValue("#d2-style-colour"), "mono", "the style panel shows the same");
+    await shot(pg, "prefs-keyboard");
+    // the canvas still takes the keyboard: the panel is no modal dialog
+    eq(await pg.evaluate("document.getElementById('d2-fly-prefs').getAttribute('aria-modal')"), null);
+    await pg.keyboard.press("Escape"); await pfShown(false);
+    eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-prefs");
+    // a number of the style, kept and refused in words
+    await pg.keyboard.press("Enter"); await pfShown(true);
+    await pg.fill(pfSel("style.line_width"), "999"); await pg.press(pfSel("style.line_width"), "Enter"); await until(pg, `document.querySelector('[data-setting="style.line_width"]').getAttribute("aria-invalid") === "true"`);
+    eq(await pg.innerText("#d2-prefs-note"), await pg.evaluate("I18N.t('error.draw2.styleValue')"));
+    await pg.fill(pfSel("style.line_width"), "2"); await pg.press(pfSel("style.line_width"), "Enter"); await until(pg, "JSON.parse(window.MZDRAW.style()).style.line_width === 2");
+    eq(await pg.inputValue("#d2-style-line_width"), "2");
+    // the group Display is reset to its defaults: the first golden again, and the line width of the group Style is left alone
+    await pg.click('#d2-fly-prefs [data-reset="display"]'); await frames(pg);
+    assert((await pfSvg()).includes('stroke-width="2"'), "the other groups are left alone");
+    eq(await pg.inputValue(pfSel("style.colour")), "element");
+    await pg.click('#d2-fly-prefs [data-reset="style"]'); await frames(pg);
+    await pfSame(pfGold[0].out.svg, "all groups reset: the first golden again");
+    await pg.keyboard.press("Escape"); await pfShown(false);
+  });
+  await step("preferences: the theme, the default download and the adducts are settings too; they are kept in the browser, saved in the settings file and come back on the next visit", async () => {
+    await pg.click('[data-testid="d2-prefs"]'); await pfShown(true);
+    await pg.selectOption(pfSel("ui.theme"), "dark"); await until(pg, "document.documentElement.dataset.theme === 'dark'");
+    await pg.selectOption(pfSel("export.default"), "png"); await pg.selectOption(pfSel("export.background"), "none");
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.export_settings()")).default, "png");
+    await pg.selectOption(pfSel("display.values"), "formula");
+    await pg.locator('#d2-fly-prefs fieldset[data-setting="display.adducts"] input[value="[M+Na]+"]').check(); await frames(pg);
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.style()")).style["display.adducts"], "[M+H]+,[M+Na]+,[M-H]-");
+    await shot(pg, "prefs-theme");
+    const file = JSON.parse(await pg.evaluate("window.MZDRAW.style()"));
+    eq(file.ui, { theme: "dark" }); eq(file.export, { background: "none", default: "png" });
+    // a file of a newer version keeps its unknown keys of `ui` and the theme goes with the file
+    await pg.evaluate("window.MZDRAW.set_style(JSON.stringify({ format: 'mzdraw-settings/1', style: {}, ui: { theme: 'light', density: 'tight' } }))");
+    await pg.evaluate("window.MZDRAW.set('ui.theme=light')");
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.style()")).ui, { density: "tight", theme: "light" });
+    await pg.selectOption(pfSel("ui.theme"), "dark");
+    const kept = await pg.evaluate("Number(document.documentElement.dataset.d2Style || 0)");
+    await until(pg, `Number(document.documentElement.dataset.d2Style || 0) > ${kept}`);
+    await pg.reload(); await until(pg, "document.documentElement.dataset.d2Ready === '1'"); await frames(pg);
+    eq(await pg.evaluate("document.documentElement.dataset.theme"), "dark", "the theme is kept");
+    eq(await pg.evaluate("window.MZDRAW.get('ui.theme')"), "dark");
+    await pg.click('[data-testid="d2-prefs"]'); await pfShown(true);
+    eq(await pg.inputValue(pfSel("ui.theme")), "dark"); eq(await pg.inputValue(pfSel("export.default")), "svg");     // the settings opened again are those of the file the module wrote last
+    await pg.click('#d2-fly-prefs [data-reset="appearance"]'); await until(pg, "document.documentElement.dataset.theme === undefined");
+    await pg.keyboard.press("Escape");
+  });
+  await step("preferences by touch: tap the gear, switch the colours and reset the group Display with a finger; the page equals the goldens", async () => {
+    await pg.evaluate("window.MZDRAW.set_style('mzlab')"); await pfOpenDoc();
+    await pfSame(pfGold[0].out.svg, "picture");
+    await pg.touchscreen.tap(...await center(pg, '[data-testid="d2-prefs"]')); await pfShown(true);
+    await pg.selectOption(pfSel("style.colour"), "mono"); await frames(pg);
+    await pfSame(pfGold[1].out.svg, "one colour");
+    await shot(pg, "prefs-touch");
+    await pg.touchscreen.tap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
+    await pfSame(pfGold[0].out.svg, "reset by a tap");
+    await pg.touchscreen.tap(...await pfAt("#d2-prefs-close")); await pfShown(false);
+    eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-prefs", "Close gives the focus back to the gear");
+  });
+  await step("preferences by pen: a pen tap on the gear, on the colours and on the reset of the group Display; the page equals the goldens", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const tap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    await pg.evaluate("window.MZDRAW.set_style('mzlab')"); await pfOpenDoc();
+    await tap(...await center(pg, '[data-testid="d2-prefs"]')); await pfShown(true);
+    await pg.selectOption(pfSel("style.colour"), "mono"); await frames(pg);
+    await pfSame(pfGold[1].out.svg, "one colour");
+    await tap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
+    await pfSame(pfGold[0].out.svg, "reset by a pen tap");
+    await shot(pg, "prefs-pen");
+    await tap(...await pfAt("#d2-prefs-close")); await pfShown(false);
+    eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-prefs", "Close gives the focus back to the gear");
+  });
+  await ctx.close();
+
+  await step("preferences: a stored dark theme is on the page before the first paint and before the module loads; a corrupt stored theme drops only itself with a note; without storage the page still starts", async () => {
+    // the stored word is on the root when the body appears, before the module is ready
+    let c = await context(browser, { viewport: { width: 1280, height: 800 }, colorScheme: "light" }, () => {
+      localStorage.setItem("d2-theme", "dark");
+      new MutationObserver((_, o) => { if (document.body) { /** @type {any} */ (window).__atBody = [document.documentElement.dataset.theme || "", document.documentElement.dataset.d2Ready || ""]; o.disconnect(); } }).observe(document, { childList: true, subtree: true });
+    });
+    eq(await c.pg.evaluate("window.__atBody"), ["dark", ""], "the first paint has the stored theme, the module is not ready yet");
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined, "the module's settings say auto: the stored word is taken off once it is ready");
+    await c.ctx.close();
+    // a corrupt stored theme: the file's style and layout are kept, the note says what was dropped
+    c = await context(browser, { viewport: { width: 1280, height: 800 } });
+    await c.pg.evaluate(async name => { const w = await (await (await navigator.storage.getDirectory()).getFileHandle(name, { create: true })).createWritable(); await w.write(JSON.stringify({ format: "mzdraw-settings/1", style: { colour: "mono" }, layout: { preset: "tablet" }, ui: { theme: "sepia" } })); await w.close(); }, "mzdraw-settings.json");
+    await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
+    eq(JSON.parse(await c.pg.evaluate("window.MZDRAW.style()")).style.colour, "mono");
+    eq(await c.pg.evaluate("window.MZDRAW.get('ui.theme')"), "auto");
+    eq(await c.pg.innerText("#d2-style-note"), await c.pg.evaluate("I18N.t('error.draw2.ui')"));
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined);
+    await c.pg.evaluate(() => localStorage.setItem("d2-theme", "dark")); await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
+    await c.pg.evaluate(async name => { const w = await (await (await navigator.storage.getDirectory()).getFileHandle(name, { create: true })).createWritable(); await w.write(JSON.stringify({ format: "mzdraw-settings/1", style: {} })); await w.close(); }, "mzdraw-settings.json");
+    await c.pg.evaluate(() => localStorage.setItem("d2-theme", "dark")); await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined, "a stored dark theme the module's settings do not have is taken off");
+    await c.ctx.close();
+    // storage that throws: the page starts, in the theme of the system
+    c = await context(browser, { viewport: { width: 1280, height: 800 } }, () => {
+      const boom = () => { throw new Error("no storage"); };
+      Object.defineProperty(window, "localStorage", { get: boom });
+      Object.defineProperty(navigator, "storage", { get: () => ({ getDirectory: boom }) });
+    });
+    eq(await c.pg.evaluate("document.documentElement.dataset.d2Ready"), "1");
+    await c.pg.click('[data-testid="d2-prefs"]'); await c.pg.selectOption('#d2-fly-prefs [data-setting="ui.theme"]', "dark");
+    await until(c.pg, "document.documentElement.dataset.theme === 'dark'");
+    await c.ctx.close();
+  });
+
   // tp-04: the diff lens (display.lens: off, tint, tint+ghost) on the products of anchored arrows, from the keyboard (Shift+L), the
   // Style panel, the canvas menu by touch and by pen; the page equals the goldens of tests/data/log/tp-lens.json after each way
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
@@ -2912,6 +3050,126 @@ try {
       assert(await p.locator('[id="d2-style-display.values"]').evaluate(el => el.getBoundingClientRect().height >= 24), "a finger can hit the select");
     } finally { await t.ctx.close(); }
   });
+
+  // feedback-about: the About box and the report box. The report is a prefilled new issue of the repository opened in a NEW TAB by a link; the URL is
+  // made in Rust (`feedback`), nothing is sent by the page itself, and the command log is off unless the box is ticked. Keyboard, touch and pen.
+  {
+    const { ctx: fb, pg: fp } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true });
+    await fb.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(base).origin });
+    // the new tab is intercepted: nothing reaches GitHub, and the page itself must never ask for it
+    await fb.route(/^https:\/\/github\.com\//, r => r.fulfill({ status: 200, contentType: "text/html", body: "<title>issue</title>" }));
+    const ghReq = [];
+    fp.on("request", r => { if (/github\.com/.test(r.url())) ghReq.push(r.url()); });
+    const opened = async act => { const [pop] = await Promise.all([fb.waitForEvent("page"), act()]); await pop.waitForURL(/github\.com/); const u = new URL(pop.url()); await pop.close(); return u; };
+    const shown = (id, on = true) => until(fp, `document.getElementById("${id}").hidden === ${!on}`);
+    const about = async () => JSON.parse(await fp.evaluate("window.MZDRAW.about()"));
+    const log = () => fp.evaluate("window.MZDRAW.save('log')");
+    const UA = await fp.evaluate("navigator.userAgent");
+    /** what an opened issue must say: the repository, the form, the title, the page version, the user agent and the language */
+    const readIssue = async (u, template, hasLog) => {
+      eq(u.origin + u.pathname, (await about()).repository + "/issues/new");
+      eq(u.searchParams.get("template"), template);
+      eq(u.searchParams.get("title"), template === "bug.yml" ? "Bug:" : "Improvement:");
+      const page = u.searchParams.get("page");
+      assert(page.includes("Version: " + (await about()).version) && page.includes("Browser: " + UA.slice(0, 300)) && /Language: \S+/.test(page), page);
+      eq(u.searchParams.has("log"), hasLog);
+      if (hasLog) eq(u.searchParams.get("log"), await log());
+      assert(u.href.length <= 6000, "the URL stays under the limit");
+    };
+    await step("feedback by keyboard: the report button opens a popover (no modal), Bug / Improvement by the arrows, the log box is off by default; Enter opens the prefilled issue of the right form in a new tab; Escape closes and gives the focus back", async () => {
+      await tool(fp, "clear"); await want(fp, { atoms: 0 });
+      await fp.focus("#d2-canvas"); await fp.keyboard.press("Enter"); await want(fp, { atoms: 1 });           // one operation in the log
+      assert((await log()).length > 4, "the log has an operation");
+      await fp.focus("#d2-report-open"); await fp.keyboard.press("Enter"); await shown("d2-report");
+      eq(await fp.getAttribute("#d2-report-open", "aria-expanded"), "true");
+      eq(await fp.evaluate("document.querySelector('dialog[open]') === null && document.getElementById('d2-report').getAttribute('role')"), "group");
+      eq(await fp.evaluate("document.activeElement.value"), "bug");
+      eq(await fp.isChecked("#d2-report-log"), false, "the log is off by default");
+      assert((await fp.innerText("#d2-report")).includes("visible publicly on GitHub"), "the box says the log is public");
+      await shot(fp, "feedback-report");
+      await fp.keyboard.press("ArrowRight"); eq(await fp.evaluate("document.activeElement.value"), "improvement");
+      await fp.keyboard.press("Tab"); await fp.keyboard.press("Tab");                                         // the log box, then the button
+      eq(await fp.evaluate("document.activeElement.id"), "d2-report-go");
+      await readIssue(await opened(() => fp.keyboard.press("Enter")), "improvement.yml", false);
+      // ticked: the log of the drawing is in the link, as the module wrote it
+      await fp.keyboard.press("Shift+Tab"); eq(await fp.evaluate("document.activeElement.id"), "d2-report-log"); await fp.keyboard.press("Space");
+      eq(await fp.isChecked("#d2-report-log"), true);
+      await fp.keyboard.press("Tab");
+      await readIssue(await opened(() => fp.keyboard.press("Enter")), "improvement.yml", true);
+      eq(await fp.innerText("#d2-report-note"), "");
+      await fp.keyboard.press("Escape"); await shown("d2-report", false);
+      eq(await fp.evaluate("document.activeElement.id"), "d2-report-open");
+      eq(ghReq, [], "the page asked nothing of GitHub");
+    });
+    await step("feedback: a log too long for the link is left out with a keyed note and Copy the log; no operation gives the other note; the copied text is the log", async () => {
+      await tool(fp, "clear"); await want(fp, { atoms: 0 }); await fillIn(fp, "#d2-text", "C".repeat(90)); await saveAs(fp, "#d2-add"); await want(fp, { atoms: 90 });
+      await fp.click("#d2-report-open"); await shown("d2-report");
+      await fp.check("input[value=bug]"); await fp.check("#d2-report-log");
+      const u = await opened(() => fp.click("#d2-report-go"));
+      await readIssue(u, "bug.yml", false);
+      eq(await fp.innerText("#d2-report-note"), await fp.evaluate("I18N.t('feedback.logTooLong')"));
+      eq(await fp.isVisible("#d2-report-copy"), true);
+      await shot(fp, "feedback-report-long");
+      await fp.click("#d2-report-copy");
+      await until(fp, `document.getElementById("d2-report-note").textContent === I18N.t("draw2.report.copied")`);
+      eq(await fp.evaluate("navigator.clipboard.readText()"), await log());
+      await fp.click("#d2-report-close"); await shown("d2-report", false);
+      await fp.evaluate("window.MZDRAW.open(window.MZDRAW.save('mzdraw'))");                                  // the drawing stays, its history is empty: no operation to log
+      await fp.click("#d2-report-open"); await shown("d2-report"); await fp.check("#d2-report-log");
+      await readIssue(await opened(() => fp.click("#d2-report-go")), "bug.yml", false);
+      eq(await fp.innerText("#d2-report-note"), await fp.evaluate("I18N.t('feedback.noLog')"));
+      eq(ghReq, [], "the page asked nothing of GitHub");
+      await fp.click("#d2-report-close");
+    });
+    await step("About by keyboard: the name from the catalog, one line of what it is, the version, the links to the repository and the licence, the privacy sentence and the report button; Escape closes", async () => {
+      await fp.focus("#d2-about-open"); await fp.keyboard.press("Enter"); await shown("d2-about");
+      const a = await about();
+      eq(await fp.innerText("#d2-about-name"), await fp.evaluate("I18N.t('draw2.name')"));
+      eq(await fp.innerText("#d2-about-name"), a.name);
+      assert((await fp.innerText("#d2-about-version")).includes(a.version), "the version");
+      eq(await fp.getAttribute("#d2-about-repo", "href"), a.repository);
+      eq(await fp.getAttribute("#d2-about-licence", "href"), a.licence);
+      eq(await fp.getAttribute("#d2-about-repo", "rel"), "noopener noreferrer");
+      const text = await fp.innerText("#d2-about");
+      assert(text.includes("Once the page is loaded it works offline and sends nothing") && text.includes("Report a bug / suggest an improvement"), text);
+      await shot(fp, "feedback-about");
+      await fp.keyboard.press("Tab"); await fp.keyboard.press("Tab");
+      // the report button of the box opens the report box in its place
+      await fp.focus("#d2-about-report"); await fp.keyboard.press("Enter"); await shown("d2-report"); await shown("d2-about", false);
+      await fp.keyboard.press("Escape"); await shown("d2-report", false);
+      await fp.focus("#d2-about-open"); await fp.keyboard.press("Enter"); await shown("d2-about");
+      await fp.keyboard.press("Escape"); await shown("d2-about", false);
+      eq(await fp.evaluate("document.activeElement.id"), "d2-about-open");
+      // Escape closes an open box also when the focus is elsewhere (on the canvas); the focus stays there
+      await fp.keyboard.press("Enter"); await shown("d2-about"); await fp.focus("#d2-canvas"); await fp.keyboard.press("Escape"); await shown("d2-about", false);
+      eq(await fp.evaluate("document.activeElement.id"), "d2-canvas");
+      eq(ghReq, [], "the page asked nothing of GitHub");
+    });
+    await step("feedback by touch: tap About, tap its report button, tap Improvement, tap Open on GitHub; the targets are 44 px; the issue is the improvement form", async () => {
+      const tap = async sel => { const [x, y] = await center(fp, sel); await fp.touchscreen.tap(x, y); };
+      await tap("#d2-about-open"); await shown("d2-about");
+      await tap("#d2-about-report"); await shown("d2-report"); await shown("d2-about", false);
+      for (const sel of ["#d2-report-go", "#d2-report-close"]) assert((await fp.locator(sel).boundingBox()).height >= 43, sel + " is a target for a finger");
+      await tap("input[value=improvement]");
+      await readIssue(await opened(() => tap("#d2-report-go")), "improvement.yml", false);
+      await tap("#d2-report-close"); await shown("d2-report", false);
+      eq(ghReq, [], "the page asked nothing of GitHub");
+    });
+    await step("feedback by pen: a pen tap on the report button, on Bug, on the log box and on Open on GitHub; the issue is the bug form with the log", async () => {
+      await tool(fp, "clear"); await fp.focus("#d2-canvas"); await fp.keyboard.press("Enter"); await want(fp, { atoms: 1 });
+      const cdp = await fb.newCDPSession(fp);
+      const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+      const tap = async sel => { const [x, y] = await center(fp, sel); await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+      await tap("#d2-report-open"); await shown("d2-report");
+      await fp.setChecked("#d2-report-log", false);
+      await tap("input[value=bug]"); await tap("#d2-report-log"); assert(await fp.isChecked("#d2-report-log"), "a pen tap ticks the log box");
+      assert((await log()).length > 4, "pen step: the log has an operation " + await log());
+      await readIssue(await opened(() => tap("#d2-report-go")), "bug.yml", true);
+      await tap("#d2-report-close"); await shown("d2-report", false);
+      eq(ghReq, [], "the page asked nothing of GitHub");
+    });
+    await fb.close();
+  }
 
   await ctx.close();
 } finally {

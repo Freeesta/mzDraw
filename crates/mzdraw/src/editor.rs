@@ -179,6 +179,8 @@ pub struct Editor {
     /// Where the palettes of the page are, and what Save writes: the `layout` and `export` objects of the settings file.
     pub layout: crate::palettes::Layout,
     pub export: crate::palettes::Export,
+    /// The interface preferences (`ui.theme`).
+    pub ui: crate::prefs::Ui,
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
     pub(crate) clip: String,
     pub(crate) pasted: u32,
@@ -330,6 +332,7 @@ impl Default for Editor {
             style: Style::default(),
             layout: Default::default(),
             export: Default::default(),
+            ui: Default::default(),
             measurer: None,
             table_notes: std::cell::RefCell::default(),
             measured: Vec::new(),
@@ -819,17 +822,41 @@ impl Editor {
                 Some(t) => crate::palettes::Layout::read(&value(t, "error.draw2.layout")?)?,
                 None => Default::default(),
             };
+            let ui = match take("ui") {
+                Some(t) => crate::prefs::Ui::read(&value(t, "error.draw2.ui")?)?,
+                None => Default::default(),
+            };
             let export = match take("export") {
                 Some(t) => crate::palettes::Export::read(&value(t, "error.draw2.export")?)?,
                 None => Default::default(),
             };
             self.layout.replace(layout);
             self.export = export;
+            self.ui = ui;
             flags |= PALETTES;
         }
         self.style = style;
         self.said = ("draw2.say.style", self.style.name.clone());
         Ok(flags)
+    }
+
+    /// `set_style` for a settings file kept in the browser: a `ui` object that is not one this version can read (a theme that is none, a
+    /// value that is not text) is dropped with the note `error.draw2.ui` and the rest of the file is taken; a file that is refused for
+    /// any other reason is refused whole. An explicit `set` of a bad value stays an error. Returns the flags and the note ("" for none).
+    pub fn set_style_stored(&mut self, text: &str) -> Result<(u32, &'static str), &'static str> {
+        let mut note = "";
+        let mut text = text.to_string();
+        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&text) {
+            let bad = v
+                .get("ui")
+                .is_some_and(|ui| crate::prefs::Ui::read(ui).is_err());
+            if let (true, Some(o)) = (bad, v.as_object_mut()) {
+                o.remove("ui");
+                text = v.to_string();
+                note = "error.draw2.ui";
+            }
+        }
+        self.set_style(&text).map(|f| (f, note))
     }
 
     /// The settings file of the editor: the style, the layout of the palettes and the export defaults (the last two only
@@ -839,6 +866,7 @@ impl Editor {
         for (key, v) in [
             ("layout", self.layout.to_text()),
             ("export", self.export.to_text()),
+            ("ui", self.ui.to_text()),
         ] {
             if let Some(v) = v {
                 s.unknown.file.retain(|(k, _)| k != key);
@@ -981,9 +1009,56 @@ impl Editor {
             "display" => self.style.set_display(key, value).map(|_| REPAINT),
             "pathway" => self.style.set_pathway(key, value).map(|_| 0),
             "export" => self.export.set(key, value).map(|_| 0),
+            "ui" => self.ui.set(key, value).map(|_| 0),
             "layout" => self.layout.set(key, value).map(|_| PALETTES),
             _ => Err("error.draw2.set"),
         }
+    }
+
+    /// The value of a setting as text (`<section>.<key>`: the shape of `set`), `None` for one that is none.
+    pub fn get(&self, setting: &str) -> Option<String> {
+        match setting.split_once('.')? {
+            ("export", "default") => Some(self.export.default.clone()),
+            ("export", "background") => Some(self.export.background.clone()),
+            ("ui", "theme") => Some(self.ui.theme.clone()),
+            _ => self.style.value(setting),
+        }
+    }
+
+    /// The settings that put a group of the preferences back to its defaults, in the order to apply them: the default of each
+    /// option of the group, and then, when the group holds the preset (which replaces the whole style), the current value of every
+    /// option of the other groups that the preset would change. `None` for a group that is none. The page applies the list with
+    /// `set` one by one; a script can send the same list as the `set` field of a replay request.
+    pub fn reset_commands(&self, group: &str) -> Option<Vec<String>> {
+        if !crate::prefs::GROUPS.iter().any(|g| g.0 == group) {
+            return None;
+        }
+        let rows = crate::prefs::all();
+        let mut out: Vec<String> = Vec::new();
+        let mut after = self.style.clone();
+        for r in rows.iter().filter(|r| r.group == group) {
+            let def = crate::prefs::default_of(&r.setting)?;
+            let _ = after.apply(&r.setting, &def);
+            out.push(format!("{}={def}", r.setting));
+        }
+        for r in rows.iter().filter(|r| r.group != group) {
+            let (now, then) = (self.style.value(&r.setting), after.value(&r.setting));
+            if now != then {
+                out.push(format!("{}={}", r.setting, now?));
+            }
+        }
+        Some(out)
+    }
+
+    /// Puts a group of the preferences back to its defaults (`reset_commands`), the settings applied one by one; a refusal stops
+    /// at the setting that failed and says its error key.
+    pub fn reset_group(&mut self, group: &str) -> Result<u32, &'static str> {
+        let list = self.reset_commands(group).ok_or("error.draw2.set")?;
+        let mut flags = 0;
+        for s in list {
+            flags |= self.set(&s)?;
+        }
+        Ok(flags | REPAINT)
     }
 
     /// The drawing as an SVG in the editor's style, carrying its document (`svg::carrying`).
