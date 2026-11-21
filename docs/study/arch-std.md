@@ -20,18 +20,18 @@ First pass (2026-11-20, morning): the network allowed a fixed list of hosts. Sec
 | S7 | Wiley "Guidelines for the Preparation of Figures"; Angewandte graphics guidelines; Advanced Materials ChemDraw settings | figure guide "Updated March 2025"; journal pages undated | https://onlinelibrary.wiley.com/pb-assets/assets/20500904/AG/Electronic-Artwork-Guidelines-CCR3-1741401216880.pdf ; https://onlinelibrary.wiley.com/page/journal/15213773/homepage/graphics-guidelines | figure guide read; journal pages **not read** (bot wall), extracts `*` |
 | S8 | Nature final submission and initial submission pages; Springer journal instructions | undated, read 2026-11-20 | https://www.nature.com/nature/for-authors/final-submission ; https://www.nature.com/nature/for-authors/initial-submission | Nature pages read; Springer journal PDFs are search extracts `*` |
 | S9 | BIOVIA "CTfile Formats" (molfile, SDF, RXN, RDF) | 2020 edition* | https://discover.3ds.com/ctfile-documentation-request-form | **not read**: behind a request form (the earlier slices were built from it, see `mzdraw-formats.md` §1) `*` |
-| S10 | CDX / CDXML SDK documentation (Revvity, formerly CambridgeSoft), public mirror | undated | https://chemapps.stolaf.edu/iupac/cdx/sdk/IntroCDXML.htm | **not read** in this study (host not allowed); slice 3d was built from it |
+| S10 | CDX / CDXML SDK documentation (Revvity, formerly CambridgeSoft), public mirror | undated | https://chemapps.stolaf.edu/iupac/cdx/sdk/IntroCDXML.htm | read (second pass: the CDXML introduction page answers; the object pages were the source of slice 3d) |
 | S11 | KET JSON schema, `ketcher-core` (Apache-2.0), JSON Schema draft-07 | Ketcher master `7f69095`, release v3.21.0 | https://raw.githubusercontent.com/epam/ketcher/master/packages/ketcher-core/src/domain/serializers/ket/schema.json | read |
 | S12 | Ketcher arrow modes (`RxnArrowMode`, value names only) | master `7f69095` | https://raw.githubusercontent.com/epam/ketcher/master/packages/ketcher-core/src/domain/entities/rxnArrow.ts | read |
 | S13 | CML Schema 3 (BlueObelisk `cml-schema`, Artistic-2.0) | commit `577a61d`, 2014-03-26 | https://github.com/BlueObelisk/cml-schema | read (README, schema header) |
 | S14 | Chemaxon documentation: CXSMILES/CXSMARTS, MRV, molfile pages | `docs.chemaxon.com/latest`, read 2026-11-20 | https://docs.chemaxon.com/latest/formats_chemaxon-extended-smiles-and-smarts-cxsmiles-and-cxsmarts.html ; https://docs.chemaxon.com/latest/formats_marvin-documents-mrv.html | read |
 | S15 | OpenSMILES specification (GNU FDL 1.2) | v1.0, 2016-05-15; repository commit `9240a28` (2026-04-13) | https://github.com/opensmiles/OpenSMILES (`opensmiles.asciidoc`) | read |
-| S16 | Daylight Theory Manual (SMILES, SMARTS) | 4.9* | https://www.daylight.com/dayhtml/doc/theory/ | **not read** (host not allowed) `*` |
+| S16 | Daylight Theory Manual (SMILES, SMARTS) | 4.9* | https://www.daylight.com/dayhtml/doc/theory/ | read (second pass): Daylight Theory Manual version 4.9, copyright 1992-2011 |
 | S17 | InChI Technical Manual, software 1.07 | revision 2024-01-19; latest release v1.07.5 (2026-02-17); `main` at `7f26903` (2026-11-10) carries the unreleased v2026.1 changelog | https://github.com/IUPAC-InChI/InChI (`INCHI-1-DOC/TechMan/InChI_TechMan.pdf`, `INCHI-1-DOC/CHANGELOG.md`) | read |
 | S18 | W3C SVG 1.1 (Second Edition), Recommendation | 2011-08-16 | https://www.w3.org/TR/2011/REC-SVG11-20110816/ | read (status) |
 | S19 | W3C SVG 2, Candidate Recommendation Snapshot | 2026-10-06 | https://www.w3.org/TR/2026/CR-SVG2-20261006/ | read (status) |
 | S20 | W3C PNG Specification (Third Edition), Recommendation | 2025-06-24 | https://www.w3.org/TR/2025/REC-png-3-20250624/ | read (status, chunk list) |
-| S21 | ISO 32000-2:2020 (PDF 2.0) | 2020 | https://www.pdfa.org/resource/iso-32000-2/ | **not read** (host not allowed) `*` |
+| S21 | ISO 32000-2:2020 (PDF 2.0) | 2020 | https://www.pdfa.org/resource/iso-32000-2/ | **not read** (bot wall in the second pass) `*` |
 | S22 | W3C WCAG 2.2, Recommendation | 2024-12-12 | https://www.w3.org/TR/2024/REC-WCAG22-20241212/ | read |
 | S23 | W3C WAI-ARIA 1.2, Recommendation; WAI-ARIA Graphics Module, Recommendation | 2023-06-06; 2018-10-02 | https://www.w3.org/TR/2023/REC-wai-aria-1.2-20230606/ ; https://www.w3.org/TR/graphics-aria-1.0/ | read (status) |
 | S24 | W3C SVG Accessibility API Mappings, Working Draft | 2026-10-21 | https://www.w3.org/TR/svg-aam-1.0/ | read (status) |
@@ -93,11 +93,11 @@ From S2 (read; ST-x rule numbers):
 | Wiley journals | Angewandte: 8.4 / 17.8 cm*; Chemistry Europe asks structures as `.cdx` with the journal template* | - | Chemistry Europe checklist 2018: 1.8 mm text height* | - | - | - | Advanced Materials ChemDraw settings: bond 17 pt, line 0.75 pt, bold 2.6 pt, hash 2.6 pt, spacing 18 %, margin 2 pt, Arial 12 pt* | extracts `*` (bot wall) |
 | Nature | single 89 mm; 1.5 columns 120-136 mm; double 183 mm | 247 mm | sans-serif (Helvetica or Arial), one font; initial submission 5-7 pt | 0.25 to 1 pt at final size | photos 300-600 dpi | final: AI, EPS, PDF, PostScript for line art; initial: `.ai .eps .pdf .ps .svg` as editable vector; no raw ChemDraw at final | ChemDraw converted to vector | S8, read |
 | RSC | single 8.3 cm, double 17.1 cm, depth 23.3 cm* | - | - | - | TIFF at 600 dpi or more* | TIFF; EPS or PDF converted to TIFF* | Chemical Science ChemDraw settings: chain 120°, bond 0.43 cm (12.2 pt), line 0.5 pt, bold 1.6 pt, spacing 20 %; book guide adds hash 1.8 pt* | extracts `*` (bot wall) |
-| Springer journals | 39 / 84 / 129 / 174 mm, depth 234 mm* | - | Helvetica or Arial 8-12 pt* | at least 0.1 mm (0.3 pt)* | 1200 / 300 / 600 dpi* | EPS, TIFF* | Monatshefte offers ChemDraw templates* | extracts `*` |
+| Springer (Monatshefte für Chemie) | large journals 84 / 174 mm, depth 234 mm; small journals 119 × 195 mm | 234 mm | Helvetica or Arial, about 2-3 mm (8-12 pt) | at least 0.1 mm (0.3 pt) | line art 1200 dpi, halftone 300 dpi | EPS for vector, TIFF for halftones, Office files; fonts embedded; RGB 8 bits | ChemDraw and ISIS/Draw configuration files offered for download (a journal resource: not copied, numbers not read from it) | https://link.springer.com/journal/706/submission-guidelines, read (second pass) |
 Rules for mzDraw from this table:
 - The built `acs-1996` preset satisfies the read ACS JOC rules (lines 0.6 pt ≥ 0.5 pt; text 10 pt ≥ 4.5 pt) and the read IUPAC limits (spacing 18 % ≤ 33 %; lines ≥ 0.5 pt).
 - No preset is shipped from an extract. RSC, Wiley-journal and Springer settings wait for a page that can be read; the coordinator can ask the owner to save the pages by hand.
-- **Export profiles** can be built now from the read rows (ACS JOC, Elsevier, Nature, Wiley general): width classes, maximum depth, minimum text and line at print size, accepted formats. The export check reports a drawing that, scaled to the chosen width, puts text or lines under the minimum (prompt 16).
+- **Export profiles** can be built now from the read rows (ACS JOC, Elsevier, Nature, Wiley general, Springer large and small journals): width classes, maximum depth, minimum text and line at print size, accepted formats. The export check reports a drawing that, scaled to the chosen width, puts text or lines under the minimum (prompt 16).
 - **SVG is accepted only by Nature's initial submission** among the pages read; every publisher read accepts PDF or EPS for vector art. So a journal route needs PDF (prompt 18); EPS is not proposed (Office turned EPS off, and PDF is accepted everywhere EPS is).
 
 ### 2.4 File formats (latest versions)
@@ -164,7 +164,7 @@ WCAG contrast (S22 formula, relative luminance of sRGB) of the Jmol colours as P
 | P | #FF8000 | 2.52 | 6.62 |
 | B | #FFB5B5 | 1.68 | 9.95 |
 | Si | #F0C8A0 | 1.56 | 10.70 |
-IUPAC 2008 sets the frame (S1 GR-0.5, read): black on white by default, colour by element following the CPK convention, red for emphasis, red with green avoided; the ACS JOC guide (S4, read) asks authors not to rely on colour alone and to meet 4.5:1 for text and 3:1 for other elements. On white only N, Br and I reach the 4.5:1 that small label text needs (1.4.3); O, P, S, F, Cl fail; on a dark ground N, Br and I fail instead. **No single set of colours serves both a light and a dark background at 4.5:1** (a colour needs relative luminance ≤ 0.183 for white and ≥ 0.204 for #121212). So mzDraw needs one palette per background, chosen for contrast first; the hue only follows the usual convention (N blue, O red, S yellow-brown, P orange, halogens green, I violet).
+IUPAC 2008 sets the frame (S1 GR-0.5, read): black on white by default, colour by element following the CPK convention, red for emphasis, red with green avoided; the ACS JOC guide (S4, read) asks authors not to rely on colour alone and to meet 4.5:1 for text and 3:1 for other elements. On white only N, Br and I reach the 4.5:1 that small label text needs (1.4.3); O, P, S, F, Cl fail; on a dark ground N, Br and I fail instead. **No single set of colours serves both a light and a dark background at 4.5:1** (a colour needs relative luminance ≤ 0.183 for white and ≥ 0.202 for #121212, whose own luminance is 0.0061). So mzDraw needs one palette per background, chosen for contrast first; the hue only follows the usual convention (N blue, O red, S yellow-brown, P orange, halogens green, I violet).
 A proposal, computed here (contrast against the background; closest pair of N, O, S, P, F, Cl, Br, I in CIE L*a*b* ΔE76 after simulating protanopia, deuteranopia and tritanopia with the matrices of S30 `*`):
 | element | light (on #FFFFFF) | contrast | dark (on #121212) | contrast |
 |---|---|---|---|---|
@@ -182,6 +182,31 @@ A proposal, computed here (contrast against the background; closest pair of N, O
 | Si | #5E5242 | 7.60 | #D8C8A8 | 11.37 |
 | other metals | #505A6A | 6.97 | #A8B4C8 | 8.95 |
 Closest pairs under simulation: light palette protan S/Cl ΔE 1.9, deutan O/S 3.3, tritan F/Cl 3.8 (normal vision F/Cl 13.3); dark palette protan N/I 6.7, deutan O/F 12.4, tritan P/Br 6.0. A random search with all eight colours at ≥ 4.5:1 on white reached a worst-case ΔE of only about 10 and needed near-black blues and browns: **on a light page, contrast and colour-blind distinctness pull against each other**. The way out is the one WCAG 1.4.1 already asks for: the element symbol (text) carries the identity and colour is a redundant cue, so the palette is chosen for contrast, `mono` stays one click away (built), and nothing else on the canvas (selection, warnings, evidence highlights) is told apart by hue alone. Colour-blind-safe qualitative palettes (S31 `*`) are the starting point for highlight colours, not for elements.
+
+### 2.8 Reading and editing the files of every program (owner requirement)
+Every format below opens into `mzdraw/1` and can then be edited; the import report always lists what was lost, and no fidelity to any program is claimed. "Spec" = an open, public specification exists (§1 sources) or only partial / reverse-engineered documentation. Placement per §2.10: (a) `mzlab-mol`, (b) `crates/mzdraw`. Built status from `docs/mzdraw-formats.md` §1a. A second, sourced inventory (owners, MIME types, publishers of each format) was still being gathered when this pass was written; facts here without a source in §1 are marked `*`.
+| format (ext) | who writes it | spec | mzDraw R / W | priority | place | effort |
+|---|---|---|---|---|---|---|
+| molfile V2000/V3000 (`.mol`), SDF (`.sdf`) | almost every program; PubChem, ChEBI, ChEMBL downloads | CTfile (behind a form, S9) | built / built | MUST (built) | (a) | - |
+| RXN, RDF (`.rxn`, `.rdf`) | ChemDraw, BIOVIA, Ketcher, Reaxys exports* | CTfile | built R; W V2000 only | MUST: V3000 and RDF out | (a) (move `rxn.rs`) | S |
+| SMILES, CXSMILES (`.smi`, `.cxsmi`) | everywhere | OpenSMILES (S15), Daylight (S16), Chemaxon (S14) | built / built (CXSMILES tail not written) | MUST: CXSMILES out | (a) | M |
+| InChI, InChIKey, AuxInfo | IUPAC software; databases | InChI Technical Manual (S17) | no / no | SHOULD: read InChI to structure and write, outside the wasm (decision 5) | (a), app and CLI | L |
+| KET (`.ket`) | Ketcher, Indigo, ELNs with Ketcher (eLabFTW, Chemotion)* | JSON schema (S11) | built / built | MUST (built); arrows, shapes, runs open | (b) | - |
+| CDXML (`.cdxml`) | ChemDraw, Signals, many converters | CDX SDK pages (S10) | built / built | MUST (built) | (b) | - |
+| CDX (`.cdx`) | ChemDraw (the default file of the most used editor); journals ask for it (§2.3) | same SDK (binary tags = CDXML objects) | no / no | **MUST** read (owner requirement), SHOULD write | (b) | L |
+| MRV (`.mrv`) | Marvin, Chemaxon tools | Chemaxon docs (S14) | built / no | SHOULD write | (b) | M |
+| CML (`.cml`) | Jmol, Avogadro, Bioclipse, converters* | CML Schema 3 (S13) | built / built | done | (b) | - |
+| SKC (`.skc`, ISIS/Draw sketch) | old ISIS/Draw files* | none public* | no / no | LATER | (b) | L |
+| ChemDoodle JSON (`.json`, ChemDoodle Web) | ChemDoodle Web Components* | documented by its vendor* | no / no | LATER | (b) | M |
+| JME string | JSME* | short public description* | no / no | LATER | (b) | S |
+| PDB / mmCIF ligand (`.pdb`, `.cif`), wwPDB CCD | RCSB, PDBe | wwPDB format guides* | no / no | SHOULD read (small molecules only; bonds from CONECT or the CCD) | (a) | M |
+| XYZ (`.xyz`), MOL2 (`.mol2`) | quantum chemistry, docking tools* | de facto (XYZ); Tripos/Certara description (MOL2)* | no / no | SHOULD read (bonds perceived by distance for XYZ) | (a) | M |
+| CIF small-molecule (CCDC, COD) | CCDC, COD* | IUCr CIF dictionaries* | no / no | LATER (3D, symmetry) | (a) | L |
+| SVG / PNG with embedded data | mzDraw (built); RDKit writes a molblock into PNG and SVG metadata (`mzdraw-formats.md` §2) | ours; RDKit keys* | own only / built | SHOULD: read RDKit's PNG/SVG structure metadata | (b) | S |
+| Office documents with ChemDraw / ISIS objects (`.docx`, `.pptx`) | Word and PowerPoint with ChemDraw (OLE objects; ChemDraw stores CDX in them, `mzdraw-formats.md` §2)* | OOXML is open; the OLE payload is CDX* | no / no | SHOULD read (after CDX): unzip, find the embedded objects, read their CDX | (b) | L (needs inflate and a compound-file reader of our own) |
+| PDF with structures | ChemDraw, Marvin may embed data* | no standard* | own only (after prompt 18) | LATER | (b) | - |
+| HELM, FASTA, sequences | biopolymer tools | Pistoia Alliance | refused with a reason | OUT (scope) | - | - |
+Consequences: CDX read is the largest missing reader and the one the owner's requirement makes MUST (it shares the object table of the built CDXML reader, so it is a tag reader in front of the same mapping); RXN V3000/RDF out, CXSMILES out, PDB/XYZ/MOL2 readers belong in `mzlab-mol` and go to COO 16; reading Office documents waits for CDX.
 
 ### 2.9 Export: the default download and its fallbacks
 Owner requirement (via the coordinator): the page downloads in every format it writes, and the default is the canvas image on a **white background**.
@@ -235,7 +260,7 @@ Units pt unless said; "bond spacing" is a fraction of the bond length. Built pre
 | `acs-1996` | 14.4 | 0.6 | 2.0 | 2.5 | 0.18 | 1.6 | 10, Arial/Helvetica | mono | built; S4 `*` |
 | `slides` | 21.6 | 1.5 | 4.0 | 4.0 | 0.18 | 2.5 | 16 | mono | built, ours |
 | `mzlab-dark` (proposed) | as `mzlab` | | | | | | | the dark palette of 2.7, background #121212 | prompt 03 |
-| `rsc`, `elsevier`, `wiley`, `nature` | - | - | - | - | - | - | - | - | not shipped until S5-S8 are read |
+| journal drawing presets (RSC, Wiley journals, Springer) | - | - | - | - | - | - | - | - | not shipped: no publisher page read in either pass gives drawing settings (bond length, widths, spacing); the RSC and Advanced Materials settings exist only as search extracts (§2.3) and Springer offers them only as a ChemDraw file. Journal **export profiles** (sizes, minimum text and lines, fonts) are proposed instead (prompt 16) |
 Fields the standards ask for that the style does not have yet (each a key of `mzdraw-settings/1`, read through `settings::FIELDS`): `chain_angle` (120°, layout only), `carbon_labels` none|terminal|all, `hydrogens` hetero|all|none, `hash_style` wedge|lines, `background` (colour), `palette` light|dark|mono, `crossing_gap` (pt, 0 = off), `font_family` (a list). Every new key is optional, defaults to the current look and keeps old files valid.
 
 ## 4. Conformance checklist (what the page must validate)
@@ -278,22 +303,22 @@ Built checks that stay as they are: valence and charge (`check/1`), import repor
 Priority for mzDraw: **MUST** (needed to be better than Ketcher for a chemist who publishes; or required by a standard the editor claims), **SHOULD** (competitive, a standard recommends it), **LATER** (valuable, depends on a decision or another slice), **OUT** (outside `CLAUDE.md` scope or outside the browser module). "Twin" = the scriptable form (rule 10: the page only emits commands; every function is producible from `mzlab-cli mol draw`). Size = Rust work in mzDraw: S one small PR, M 2-3, L 4+. "built" = in "Built state" of `mzdraw.md` (listed for completeness, no prompt).
 | # | feature | source | priority (reason) | twin | size |
 |---|---|---|---|---|---|
-| 1 | one bond length, 120° zigzag chains, regular rings for structures without coordinates (built) | S1 `*` | MUST (built) | replay `import` | - |
-| 2 | clean-up of an existing drawing (layout of `mzlab-mol` on chosen atoms, one undo step) | S1 `*` | MUST (a drawing drifts; Ketcher has it) | new op `atoms.xy` `{"op":"atoms.xy","atoms":[...],"xy":[[x,y],...]}`, inverse = old positions | M |
-| 3 | double-bond placement inside rings, centred for terminal ends (built) | S1 `*` | MUST (built) | - | - |
-| 4 | gap in the rear bond at a crossing | S1 `*` | SHOULD (only where a crossing cannot be avoided) | setting `style.crossing_gap` | S |
-| 5 | label reversal on the left side (`HO2C`, `MeO`, `F3C`, `H2N`) | S1 `*` | MUST (a left-side `CO2H` reads as C-bonded-O wrong) | rendering of `lab`, no op | S |
-| 6 | carbon labels none/terminal/all and hydrogen display modes | S1 `*` | SHOULD (journal styles differ) | settings `style.carbon_labels`, `style.hydrogens` | S |
-| 7 | charges moved off a crowded upper right | S1 `*` | SHOULD | rendering | S |
-| 8 | aromatic circle display | S1 `*` | LATER (discouraged for fused rings) | setting `style.aromatic=circle` | M |
-| 9 | wedge, hash, wavy marks, narrow end at atom `a` (built) | S2 `*`, S17 | MUST (built) | `bond.set` `s` | - |
-| 10 | hashed mark drawn as wedge or as parallel lines | S2 `*` | SHOULD | setting `style.hash_style` | S |
-| 11 | stereo drawing check (`std.stereo.*`) | S2 `*`, S17 | MUST (no free editor warns about ambiguous wedges; InChI conventions differ) | replay `"out":"std"` | M |
-| 12 | unknown E/Z: wavy bond to a substituent, optional crossed double bond, written to molfile (`3` on a double bond), SMILES (no `/` `\`), KET | S2 `*`, S9 `*`, S15 | SHOULD (metabolites with unknown geometry) | `bond.set` `s:3` on a double bond | M |
+| 1 | one bond length, 120° zigzag chains, regular rings for structures without coordinates (built) | S1 | MUST (built) | replay `import` | - |
+| 2 | clean-up of an existing drawing (layout of `mzlab-mol` on chosen atoms, one undo step) | S1 | MUST (a drawing drifts; Ketcher has it) | new op `atoms.xy` `{"op":"atoms.xy","atoms":[...],"xy":[[x,y],...]}`, inverse = old positions | M |
+| 3 | double-bond placement inside rings, centred for terminal ends (built) | S1 | MUST (built) | - | - |
+| 4 | gap in the rear bond at a crossing | S1 | SHOULD (only where a crossing cannot be avoided) | setting `style.crossing_gap` | S |
+| 5 | label reversal on the left side (`HO2C`, `MeO`, `F3C`, `H2N`) | S1 | MUST (a left-side `CO2H` reads as C-bonded-O wrong) | rendering of `lab`, no op | S |
+| 6 | carbon labels none/terminal/all and hydrogen display modes | S1 | SHOULD (journal styles differ) | settings `style.carbon_labels`, `style.hydrogens` | S |
+| 7 | charges moved off a crowded upper right | S1 | SHOULD | rendering | S |
+| 8 | aromatic circle display | S1 | LATER (discouraged for fused rings) | setting `style.aromatic=circle` | M |
+| 9 | wedge, hash, wavy marks, narrow end at atom `a` (built) | S2, S17 | MUST (built) | `bond.set` `s` | - |
+| 10 | hashed mark drawn as wedge or as parallel lines | S2 | SHOULD | setting `style.hash_style` | S |
+| 11 | stereo drawing check (`std.stereo.*`) | S2, S17 | MUST (no free editor warns about ambiguous wedges; InChI conventions differ) | replay `"out":"std"` | M |
+| 12 | unknown E/Z: wavy bond to a substituent (preferred, ST-4.4), crossed double bond only as an option for other software, written to molfile (`3` on a double bond), SMILES (no `/` `\`), KET | S2, S9 `*`, S15 | SHOULD (metabolites with unknown geometry) | `bond.set` `s:3` on a double bond | M |
 | 13 | enhanced stereo groups (absolute, and-n, or-n) and the chiral flag: kept, drawn (`&1`, `or1`), written (V3000, CXSMILES, KET) | S9 `*`, S14, S17 | SHOULD (built import loses the grouping) | new op `stereo.group` | M |
 | 14 | CIP labels (R/S, E/Z) on the canvas | S3 `*` | SHOULD (needs a CIP engine in `mzlab-mol`; `cip/1` is in `mzlab-feat` only) | setting `style.cip`; `mzlab-cli mol cip` | M |
 | 15 | allene and atropisomer stereo | S17 | LATER | `bond.set` | M |
-| 16 | geometry check (`std.geom.*`) | S1 `*` | MUST (a picture with clashes is not publishable) | replay `"out":"std"` | M |
+| 16 | geometry check (`std.geom.*`) | S1 | MUST (a picture with clashes is not publishable) | replay `"out":"std"` | M |
 | 17 | coordinate (dative) bond, hydrogen bond, bold and dashed display bonds | S9 `*`, S14, S17 | SHOULD (organometallics; InChI v2026.1 reads type 9) | `bond.add`/`bond.set` new order codes | M |
 | 18 | atom aliases (molfile `A`, CXSMILES `$...$`) kept and shown | S9 `*`, S14 | SHOULD (built import ignores them) | `atom.set` `lab` | S |
 | 19 | OpenSMILES file rules in the reader (names, CR/LF, blank and indented lines) | S15 | MUST (stated by the spec; tests missing) | replay `import` | S |
@@ -307,9 +332,9 @@ Priority for mzDraw: **MUST** (needed to be better than Ketcher for a chemist wh
 | 27 | SVG with `<title>`, `<desc>`, `role="img"`, language | S18, S22 1.1.1, S23 | MUST (figures in accessible reports) | `out` `svg` | S |
 | 28 | SVG 1.1 features only in what we write | S18, S19 | MUST (wide reader base; already true, pin by test) | `out` `svg` | S |
 | 29 | PNG `sRGB` chunk | S20 | SHOULD | `png::finish` | S |
-| 30 | PDF out with the document attached | S21 `*` | SHOULD (decision 4) | `out` `pdf` | L |
-| 31 | journal presets other than ACS | S5-S8 `*` | LATER (not read) | `style` | S each |
-| 32 | export checks (font list, minimum line width, column width) | S4-S8 `*` | SHOULD after S4-S8 are read | `"out":"std"` | S |
+| 30 | PDF out with the document attached | S21 `*`, §2.3 (every publisher read takes PDF) | SHOULD (decision 4; the journal route) | `out` `pdf` | L |
+| 31 | journal drawing presets other than ACS | S5, S7 extracts `*` | LATER (no readable page gives drawing settings) | `style` | S each |
+| 32 | journal export profiles and checks (sizes, minimum text and lines, fonts) | S4, S6, S7, S8 (read) | SHOULD | settings `export.profile`, `export.width`; `"out":"std"` | S |
 | 33 | element palettes per background with tested contrast, dark theme | S22, S29 | MUST (Jmol colours fail 4.5:1) | settings `style.palette`, `style.background` | S |
 | 34 | highlight colours safe for colour vision | S31 `*` | LATER (with evidence colours) | settings | S |
 | 35 | identification scale field and the levels of `schymanski-2014` and `charbonnet-2022` on the page | S27 `*`, S28 | SHOULD (PFAS studies use 1a-5b) | `atom.ann` `scale` | S |
@@ -324,10 +349,12 @@ Priority for mzDraw: **MUST** (needed to be better than Ketcher for a chemist wh
 | 44 | conformance report `std/1` on the page (list, click to select the atoms) | this study | MUST (the checks must be seen) | `"out":"std"` | S |
 | 45 | molfile, SDF, KET, CDXML, CML, MRV, RXN in; SVG, PNG out (built) | S9-S14, S18, S20 | MUST (built) | `import`, `out` | - |
 | 46 | CDX binary read | S10 | LATER | `import` | L |
-| 47 | Haworth, chair, Fischer templates | S2 `*` | LATER (class drawings, not for software reading) | templates | M |
+| 47 | Haworth, chair, Fischer templates | S2 | LATER (class drawings, not for software reading) | templates | M |
 | 48 | macromolecules, query features, S-groups other than abbreviations | `CLAUDE.md` | OUT (scope) | listed on import | - |
 | 49 | EMF / OLE clipboard | `mzdraw-formats.md` §1 | OUT of the page; LATER in the desktop app | - | L |
-Counts (rows 1-49, a row with two words counts under its first): MUST 18 (4 of them built: rows 1, 3, 9, 45; 14 to build), SHOULD 20, LATER 8, OUT 3.
+| 50 | default download: SVG on a white ground, start-anchored text, document carried; a Download menu with every format | §2.9 (S32, S8, measured sizes) | MUST (owner requirement) | `out` `svg`; setting `style.background` | S |
+| 51 | Copy puts PNG, molfile text and, where supported, SVG on the clipboard | §2.9 (S25, S33, S34) | MUST | clipboard payload list from Rust | S |
+Counts (rows 1-51, a row with two words counts under its first): MUST 20 (4 of them built: rows 1, 3, 9, 45), SHOULD 20, LATER 8, OUT 3. The formats of §2.8 are counted there.
 
 ## 6. Proposed DEV slices (prompts)
 One small slice each, in the order a coordinator can run them; none repeats a built feature. Each prompt is self-contained (`docs/prompts/arch-std-NN-slug.md`).
@@ -344,7 +371,15 @@ One small slice each, in the order a coordinator can run them; none repeats a bu
 | 09 | opensmiles-files | 19 | MUST |
 | 10 | label-display-modes | 6, 10 | SHOULD |
 | 11 | unknown-double-bond | 12 | SHOULD |
-| 12 | enhanced-stereo | 13 | SHOULD |
-| 13 | crossing-gap | 4 | SHOULD |
+| 12 | enhanced-stereo (document, operation, drawing) | 13 | SHOULD |
+| 13 | crossing-gap (after 02) | 4 | SHOULD |
 | 14 | ann-scales | 35 | SHOULD |
-Not prompted here: rows that belong to other studies (arrow kinds, text runs, clean-up wiring, PDF, CIP, InChI), rows waiting for a source (31, 32), and rows rated LATER.
+| 15 | clean-up (layout of `mzlab-mol`, op `atoms.xy`) | 2 | MUST |
+| 16 | export-profiles (ACS JOC, Elsevier, Nature, Wiley, Springer) | 32 | SHOULD |
+| 17 | export-default (SVG on white, Download menu, clipboard) | 50, 51 | MUST |
+| 18 | pdf-writer | 30 | SHOULD |
+| 19 | enhanced-stereo-files (V3000, KET; after 12) | 13 | SHOULD |
+| 20 | enhanced-stereo-cxsmiles (after 12) | 13, 21 | SHOULD |
+| 21 | text-runs (sub/superscripts, lines; KET, CDXML) | 23 | MUST |
+Slices that add to the log language `draw_edit/1` (11 `bond.set` s:3, 12 `stereo.group`, 15 `atoms.xy`, 21 `runs`) carry a coordination line: COO-MZDRAW asks COO 16 before queueing, because `mzlab-mol` must accept the same language.
+Not prompted here: rows that belong to other studies (arrow kinds, CIP, InChI), row 31 (no readable source), the formats of §2.8 that belong in `mzlab-mol` (their prompts go through COO 16), and rows rated LATER.

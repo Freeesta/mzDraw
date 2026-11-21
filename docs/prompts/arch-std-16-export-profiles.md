@@ -11,12 +11,12 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- A table of export profiles in Rust: `acs-joc` (one column ≤ 240 pt, two columns 300-504 pt, depth ≤ 660 pt, text ≥ 4.5 pt, lines ≥ 0.5 pt, fonts Arial/Helvetica), `elsevier` (30 / 90 / 140 / 190 mm, text ≥ 7 pt and sub/superscripts ≥ 6 pt, lines 0.10-1.5 pt, fonts Arial/Helvetica, Courier, Symbol, Times), `nature` (89 / 120-136 / 183 mm, depth ≤ 247 mm, lines 0.25-1 pt, sans-serif text 5-7 pt), `wiley` (80 / 180 mm). Each row cites its URL and date in a comment.
+- A table of export profiles in Rust: `acs-joc` (one column ≤ 240 pt, two columns 300-504 pt, depth ≤ 660 pt, text ≥ 4.5 pt, lines ≥ 0.5 pt, fonts Arial/Helvetica), `springer` (84 / 174 mm, depth 234 mm; small journals 119 × 195 mm; text 8-12 pt; lines ≥ 0.3 pt; Helvetica or Arial), `elsevier` (30 / 90 / 140 / 190 mm, text ≥ 7 pt and sub/superscripts ≥ 6 pt, lines 0.10-1.5 pt, fonts Arial/Helvetica, Courier, Symbol, Times), `nature` (89 / 120-136 / 183 mm, depth ≤ 247 mm, lines 0.25-1 pt, sans-serif text 5-7 pt), `wiley` (80 / 180 mm). Each row cites its URL and date in a comment.
 - A check `std.export.*` (in the `std/1` report of arch-std-01, `"out":"std"` with `"set":["export.profile=elsevier","export.width=single"]`): the drawing scaled to the width class puts text, sub/superscripts or lines below the minimum, exceeds the depth, or uses a font outside the list. The report gives the scale and the smallest text and line at print size.
 - The SVG and PNG can be written at the size of a width class (`export.width`), so the file arrives at its print size.
 
 Out (do not do here):
-- RSC, Wiley-journal (Angewandte, Chemistry Europe) and Springer profiles: their pages were not readable; PDF output (arch-std-18).
+- RSC and Wiley-journal (Angewandte, Chemistry Europe) profiles: their pages were not readable; PDF output (arch-std-18).
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.3 table and rules).

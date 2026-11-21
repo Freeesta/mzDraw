@@ -7,7 +7,7 @@ Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 > DEV arch-std-15 clean-up: received, starting on branch `claude/arch-std-15-clean-up`.
 
 ## Role
-DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. The layout is not yours: call `mzlab-mol` at the pinned commit, write no layout code (COO 16 rule).
+DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. The layout is not yours: call `mzlab-mol` at the pinned commit, write no layout code (COO 16 rule). Coordination: this slice adds to the log language `draw_edit/1` (the operation `atoms.xy`); COO-MZDRAW asks COO 16 before queueing it, because `mzlab-mol` (the CLI route of mzLab) must accept the same language. Do not start before the coordinator confirms.
 
 ## Scope
 In:

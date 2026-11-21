@@ -1,4 +1,4 @@
-# arch-std-12: enhanced stereo groups and the chiral flag
+# arch-std-12: enhanced stereo groups: document, operation, drawing
 
 Proposed by the study `docs/study/arch-std.md` (feature rows 13; priority SHOULD). One small slice.
 
@@ -7,21 +7,22 @@ Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 > DEV arch-std-12 enhanced-stereo: received, starting on branch `claude/arch-std-12-enhanced-stereo`.
 
 ## Role
-DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. 
+DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. First of three slices (12 the model and the drawing, 19 the V3000 and KET files, 20 CXSMILES). Coordination: this slice adds to the log language `draw_edit/1` (the operation `stereo.group`); COO-MZDRAW asks COO 16 before queueing it, because `mzlab-mol` (the CLI route of mzLab) must accept the same language. Do not start before the coordinator confirms.
 
 ## Scope
 In:
-- The document keeps enhanced-stereo groups per structure: `abs`, `and<n>`, `or<n>` (n ≥ 1) on stereocentres, and the chiral flag; one new operation with an exact inverse: `{"op":"stereo.group","atoms":[...],"g":"and1"}` (`"g":""` removes the atoms from any group; the inverse stores each atom's previous group).
-- Read from molfile V3000 (`MDLV30/STEABS`, `STERELn`, `STERACn` collections) and V2000 chiral flag, CXSMILES (the enhanced-stereo fields of the extension block) and KET; written to V3000, CXSMILES only if CXSMILES is written (else listed as lost), KET. The import note "enhanced-stereo groups not kept" goes away for what is now kept.
+- The document keeps enhanced-stereo groups on stereocentres: `abs`, `and<n>`, `or<n>` (n ≥ 1), as the field `stg` of an atom (an older mzDraw keeps it as an unknown field and writes it back, as the format rule says).
+- One new operation with an exact inverse: `{"op":"stereo.group","atoms":[...],"g":"and1"}`; `"g":""` takes the atoms out of any group; the inverse stores each atom's previous group.
 - Drawn as the style says, key `stereo_labels`: `words` (default; IUPAC ST-6: "and enantiomer" under a structure whose centres are all in one `and` group, nothing for `abs`; never "rac" or "rel", which ST-6.5 does not accept), `groups` (`&1`, `or1` next to each centre: the CTfile / CXSMILES convention, which IUPAC does not cover, ST-0.8), `off`.
+- Page: a small popover on a selected centre with Abs / And n / Or n, reachable from the keyboard; the outline says the group.
 
 Out (do not do here):
-- Recomputing InChI with enhanced stereo (outside the wasm), stereo perception (the record decides which atoms are centres).
+- Reading and writing files (slices 19 and 20); stereo perception (the record decides which atoms are centres); InChI.
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2 (ST-6 absolute and relative; InChI v2026.1 reads the V3000 collections), §2.4 molfile and CXSMILES rows).
-- Chemaxon CXSMILES page (https://docs.chemaxon.com/latest/formats_chemaxon-extended-smiles-and-smarts-cxsmiles-and-cxsmarts.html), "Enhanced stereochemical representation"; the CTfile V3000 collections (BIOVIA CTfile Formats; if you cannot read it, say so and implement from the files `mzlab-mol` already reads).
-- `crates/mzdraw/src/io.rs` (import notes), `crates/mzdraw/src/ket.rs`, `crates/mzdraw/src/ops.rs`.
+- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2 (ST-6 absolute and relative, ST-0.8)).
+- IUPAC 2006, HTML edition https://iupac.qmul.ac.uk/drawing/stereo.html, ST-6.
+- `crates/mzdraw/src/doc.rs`, `crates/mzdraw/src/ops.rs`, `crates/mzdraw/src/scene.rs`, `crates/mzdraw/src/settings.rs`.
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust (`crates/mzdraw`); `web/mzdraw.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.
@@ -33,13 +34,13 @@ Out (do not do here):
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product.
 
 ## Work
-1. Document field (`stg` on an atom, kept by older readers as an unknown field, written after the known fields as the format rule says).
-2. Operation, inverse, property test; page: a small popover on a selected centre with Abs / And n / Or n (keyboard reachable).
-3. Readers and writers; `docs/mzdraw-formats.md` §1a.
+1. Document field, validation (only on atoms the record calls stereocentres; else refused with a new key `error.draw2.stereoGroup`), writer order.
+2. Operation reader and writer by hand, inverse, property test.
+3. Drawing of both label styles in `scene.rs` (canvas and SVG); popover in the page (interface only).
 
 ## Tests to add
-- Unit: each group kind read and written in V3000, KET; round trip identical; the inverse restores the previous group.
-- Parity: a log with `stereo.group`. e2e: set "and1" on two centres by mouse, by keyboard, by touch; the label shows; save V3000 has the collection.
+- Unit: set, change and clear a group; undo gives the identical document; `words` writes "and enantiomer" only when every centre is in one `and` group.
+- Parity: a log with `stereo.group`. e2e: set "and1" on two centres by mouse, by keyboard, by touch; screenshot at deviceScaleFactor 2 of both label styles.
 
 ## Acceptance (all green before the PR)
 ```

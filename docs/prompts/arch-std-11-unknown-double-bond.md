@@ -7,7 +7,7 @@ Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 > DEV arch-std-11 unknown-double-bond: received, starting on branch `claude/arch-std-11-unknown-double-bond`.
 
 ## Role
-DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. 
+DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. Coordination: this slice adds to the log language `draw_edit/1` (`bond.set` and `bond.add` with `s: 3` on a bond of order 2); COO-MZDRAW asks COO 16 before queueing it, because `mzlab-mol` (the CLI route of mzLab) must accept the same language. Do not start before the coordinator confirms. Note: this slice touches four formats (molfile V2000/V3000, SMILES, KET); if it does not fit one small PR, finish the document, operation and drawing first and leave the formats to a follow-up, said in the handoff.
 
 ## Scope
 In:

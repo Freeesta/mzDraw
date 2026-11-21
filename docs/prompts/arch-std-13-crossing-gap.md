@@ -7,7 +7,7 @@ Send to the coordinator COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; 
 > DEV arch-std-13 crossing-gap: received, starting on branch `claude/arch-std-13-crossing-gap`.
 
 ## Role
-DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. 
+DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). You write code, tests and the docs of this slice only. arch-std-02 must be merged before you start (this slice reuses its crossing test); otherwise wait and tell the coordinator.
 
 ## Scope
 In:
