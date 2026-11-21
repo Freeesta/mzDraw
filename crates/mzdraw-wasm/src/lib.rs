@@ -2,6 +2,9 @@
 //! the display list (`scene` + `strings`) and shows what `state` says. All decisions are in the crate `mzdraw`; `replay` is the same
 //! function the native side runs, for the parity test. With the `mzlab` feature `state` carries the `check/1` warnings of the drawing
 //! (`mzlab_feat::chem::check`, the bytes of `mzlab-cli mol check`). Errors are JSON `{"error_key", "params"}` strings.
+#[cfg(feature = "mzlab")]
+pub mod glue;
+
 use mzdraw::editor::{Editor, CHANGED};
 use mzdraw::scene::Scene;
 use mzdraw::Axis;
@@ -59,31 +62,28 @@ fn live_check(p: &mut Page) {
     let doc = p.editor.doc();
     p.check.clear();
     let mut flagged = Vec::new();
-    if !doc.atoms.is_empty() {
-        let molfile = serde_json::Value::from(doc.to_molfile_for_check());
-        let request = format!(r#"{{"molfile":{molfile}}}"#);
-        if let Ok(j) = mzlab_feat::chem::check::check_json(&request) {
-            let v: serde_json::Value = serde_json::from_str(&j).unwrap_or_default();
-            for w in v["warnings"]
+    if let Some(j) = glue::check(doc) {
+        let v: serde_json::Value = serde_json::from_str(&j).unwrap_or_default();
+        let ids = glue::ids(doc);
+        for w in v["warnings"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|w| w["level"] == "warn")
+        {
+            for i in w["atoms"]
                 .as_array()
                 .into_iter()
                 .flatten()
-                .filter(|w| w["level"] == "warn")
+                .filter_map(|i| i.as_u64())
             {
-                for i in w["atoms"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|i| i.as_u64())
-                {
-                    // check/1 counts atoms from 0 in molfile order, which is the pool order
-                    if let Some(a) = doc.atoms.get(i as usize) {
-                        flagged.push(a.id);
-                    }
+                // check/1 counts atoms from 0 in molfile order, which is the pool order
+                if let Some(id) = ids.get(i as usize) {
+                    flagged.push(*id);
                 }
             }
-            p.check = j;
         }
+        p.check = j;
     }
     p.editor.set_warnings(flagged);
 }
@@ -474,6 +474,14 @@ pub fn state() -> String {
             if p.std.is_empty() { "[]" } else { &p.std },
         )
     })
+}
+
+/// Headless with engines: a replay request plus `"engines": [{"engine", "args"?}]` gives `{"engines": [...]}` (`glue::replay`), the same bytes
+/// as the native example `replay_glue`.
+#[cfg(feature = "mzlab")]
+#[wasm_bindgen]
+pub fn replay_glue(request: &str) -> Result<String, JsValue> {
+    glue::replay(request).map_err(|e| JsValue::from_str(&e.to_json()))
 }
 
 /// Headless: `{"import", "log", "out"}` gives the output text, the same bytes as the native `mzdraw::replay::replay`.

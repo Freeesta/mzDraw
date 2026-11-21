@@ -36,7 +36,7 @@ jobs:
         run: tools/build_site.sh
       - name: Golden parity wasm == native
         run: |
-          cargo build --locked -p mzdraw --example replay
+          cargo build --locked -p mzdraw --example replay && cargo build --locked -p mzdraw-wasm --example replay_glue
           node tests/parity.mjs
       - name: Playwright (Chromium)
         run: |
