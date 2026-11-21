@@ -53,6 +53,35 @@ impl Editor {
         self.run(&[Op::Flip { atoms, axis, at }], "draw2.say.flipped", "")
     }
 
+    /// Lays the structures, arrows, plus signs and texts of the selection (or of the drawing) out on one row, one undo step
+    /// (`scheme::row`, the command `scheme:row` with its default `gap` and no `wrap`; what the page's button runs).
+    pub fn scheme_row(&mut self) -> u32 {
+        self.scheme_row_with(1.0, 0.0)
+    }
+
+    /// The same with a `gap` and a `wrap` (bond lengths). When everything stands where the row puts it, nothing changes and the
+    /// status line says so.
+    pub fn scheme_row_with(&mut self, gap: f64, wrap: f64) -> u32 {
+        let opts = crate::scheme::Opts {
+            gap,
+            wrap,
+            atoms: self.over.sel_atoms.clone(),
+            objects: self.over.sel_objs.clone(),
+        };
+        match crate::scheme::row(self.doc(), &self.style, &opts) {
+            Ok(ops) if ops.is_empty() => {
+                self.said = ("draw2.say.schemeRowDone", String::new());
+                self.error = "";
+                REPAINT
+            }
+            Ok(ops) => self.run(&ops, "draw2.say.schemeRow", ""),
+            Err(key) => {
+                self.error = key;
+                REPAINT
+            }
+        }
+    }
+
     /// The selected atoms, the bonds between them and the selected objects as a document of their own, ids renumbered from 1
     /// (atoms, then bonds, then objects).
     pub(crate) fn selection_doc(&self) -> Document {
@@ -107,7 +136,7 @@ impl Editor {
     pub fn clipboard(&self, kind: &str) -> String {
         match (kind, Document::from_json(&self.clip)) {
             ("molfile", Ok(d)) => d.to_molfile(),
-            ("mzdraw", Ok(_)) => self.clip.clone(),
+            (k, Ok(_)) if crate::brand::is_doc_kind(k) => self.clip.clone(),
             _ => String::new(),
         }
     }

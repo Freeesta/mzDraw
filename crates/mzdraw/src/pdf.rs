@@ -6,15 +6,13 @@
 //! Reading back looks for `mzdraw.json` through the cross-reference table; every offset and length is checked, so a damaged or
 //! hostile file is refused, never a panic. A PDF of another program has no such file and is refused in words.
 
+use crate::brand::{attachment, attachments};
 use crate::doc::Document;
 use crate::scene;
 use crate::settings::Style;
 use crate::svg::{num, PALETTE};
 use mzlab_mol::fixed;
 
-/// The name of the embedded document and of the embedded molfile.
-const DOC_NAME: &str = "mzdraw.json";
-const MOL_NAME: &str = "mzdraw.mol";
 /// Where the baseline of a text is below its vertical centre, in units of the font size (the SVG centres the text).
 const BASELINE: f32 = 0.35;
 
@@ -187,10 +185,12 @@ pub fn to_pdf(doc: &Document, style: &Style) -> Vec<u8> {
         None => (String::new(), 1.0, 1.0),
     };
     let json = doc.to_json();
-    let mut files = vec![(DOC_NAME, "application#2Fjson", json.into_bytes())];
+    // the names of the embedded document and molfile come from the name in use (`brand`)
+    let (doc_name, mol_name) = (attachment("json"), attachment("mol"));
+    let mut files = vec![(doc_name.as_str(), "application#2Fjson", json.into_bytes())];
     if !doc.is_empty() {
         files.push((
-            MOL_NAME,
+            mol_name.as_str(),
             "chemical#2Fx-mdl-molfile",
             doc.to_molfile_v3000().into_bytes(),
         ));
@@ -325,7 +325,8 @@ fn embedded<'a>(bytes: &'a [u8], offsets: &[usize], name: &str) -> Option<&'a [u
 /// wrong with it.
 pub fn carried(bytes: &[u8]) -> Option<Result<Document, &'static str>> {
     let offsets = offsets(bytes)?;
-    let json = embedded(bytes, &offsets, DOC_NAME)?;
+    // the document is attached under the name in use or under an earlier one
+    let json = attachments("json").find_map(|name| embedded(bytes, &offsets, &name))?;
     Some(
         std::str::from_utf8(json)
             .map_err(|_| "error.draw2.import")

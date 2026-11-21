@@ -447,7 +447,7 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
             let d = crate::ket::from_ket(&v, &mut info)?;
             return checked(d, info, "error.draw2.ket");
         }
-        info.format = "mzdraw";
+        info.format = crate::brand::SLUG;
         return Ok((Document::from_json(t)?, info));
     }
     if t.contains("<CDXML") {

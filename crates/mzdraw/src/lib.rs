@@ -3,6 +3,7 @@
 //! its SVG form (`svg`). It depends on `mzlab-mol` and serde only, so it can leave this workspace; the mzLab glue lives in `mzdraw-wasm`.
 
 pub mod ann;
+pub mod brand;
 pub mod build;
 pub mod cdx;
 pub mod cdxml;
@@ -35,6 +36,7 @@ pub mod route;
 pub mod rxn;
 pub mod scene;
 pub mod schema;
+pub mod scheme;
 pub mod settings;
 pub mod svg;
 pub mod trasf;
@@ -45,5 +47,5 @@ pub use editor::Editor;
 pub use ops::{Axis, Op, OpError, Session};
 pub use settings::Style;
 
-/// The product name, kept here only (the page shows the i18n key `draw2.name`).
-pub const NAME: &str = "mzDraw";
+/// The product name, from the one place that holds it (`brand`).
+pub use brand::NAME;
