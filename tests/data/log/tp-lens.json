@@ -433,6 +433,15 @@
         "out": "lens",
         "report": true
       }
+    },
+    {
+      "name": "out lens of a pair with equal counts and a different net charge: delta null, as pathway:label has no text for it",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"lens/1\\\",\\\"arrows\\\":[{\\\"arrow\\\":3,\\\"added\\\":[],\\\"added_bonds\\\":[],\\\"changed\\\":[2],\\\"changed_bonds\\\":[],\\\"cleaved\\\":[],\\\"lost\\\":[],\\\"delta\\\":null}],\\\"skipped\\\":[]}\",\"created\":{},\"removed\":{}}",
+      "request": {
+        "import": "{\"format\": \"mzdraw/1\", \"next\": 10, \"atoms\": [{\"id\": 1, \"el\": \"C\", \"x\": 0, \"y\": 0, \"h\": 0, \"map\": 1}, {\"id\": 2, \"el\": \"C\", \"x\": 6, \"y\": 0, \"h\": 0, \"chg\": -1, \"map\": 1}], \"bonds\": [], \"objects\": [{\"id\": 3, \"t\": \"arrow\", \"x\": 1.5, \"y\": 0, \"x2\": 4.5, \"y2\": 0, \"from\": 1, \"to\": 2}]}",
+        "out": "lens",
+        "report": true
+      }
     }
   ]
 }

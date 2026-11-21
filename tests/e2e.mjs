@@ -2353,6 +2353,9 @@ try {
     await pen("mouseMoved", px, py); await pen("mousePressed", px, py); await pen("mouseReleased", px, py);
     await shown(false); await frames(pg); await lensAt("tint", "pen");
     eq(await lensDoc(), lensGold[0].out.mzdraw, "the document is as it was");
+  });
+  await ctx.close();
+
   // tp-08: a list of transformation products (CSV) pasted in the Add field (keyboard) or opened by the file button (touch) becomes the
   // pathway of tests/data/log/tp-import.json in one undo step; a list with errors adds nothing and says so
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
