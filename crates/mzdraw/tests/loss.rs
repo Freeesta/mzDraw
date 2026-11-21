@@ -399,10 +399,10 @@ fn chain(n: u32, wedges: bool) -> Document {
 }
 
 /// The seconds a listing may take: a release build does the largest drawing in about a second and must stay under two; a debug build
-/// is ten times slower.
+/// (about 0.7 s per format here) is allowed ten. The scaling test below is what fails a quadratic step.
 fn bound() -> u64 {
     if cfg!(debug_assertions) {
-        40
+        10
     } else {
         2
     }
@@ -439,6 +439,30 @@ fn a_drawing_at_the_cap_with_wedges_is_listed_in_time_and_one_above_it_is_refuse
             "{format}"
         );
         assert!(t.elapsed().as_secs() < 1, "{format}: refused at once");
+    }
+}
+
+/// The cost is linear in the drawing: twice the atoms take about twice the time, never four times (a bound in seconds does not fail a
+/// quadratic step that is merely slow; a ratio does).
+#[test]
+fn twice_the_drawing_takes_about_twice_the_time() {
+    let best = |n: u32, format: &str| {
+        let d = chain(n, true);
+        (0..2)
+            .map(|_| {
+                let t = std::time::Instant::now();
+                loss(&d, format).unwrap();
+                t.elapsed().as_secs_f64()
+            })
+            .fold(f64::MAX, f64::min)
+    };
+    for format in ["molfile", "cdxml", "ket"] {
+        let (small, big) = (best(12_500, format), best(25_000, format));
+        // below this the clock is noise and the bound above is all there is
+        if small > 0.05 {
+            assert!(big / small < 3.0, "{format}: {small:.3} s then {big:.3} s");
+        }
+        assert!(big < f64::from(bound() as u32), "{format}: {big:.3} s");
     }
 }
 
@@ -493,14 +517,25 @@ fn abbreviations_are_counted_as_the_atoms_they_are_written_as() {
 /// length of 1 are not compared for shape, and the ones that are compare in bond lengths).
 #[test]
 fn the_scale_of_a_drawing_gives_the_same_answer_with_and_without_a_wedge() {
+    // an arrow makes a reaction of it, for the reaction file
     let scaled = |wedge: u8| {
         parse(&format!(
             r#"{{"format":"mzdraw/1","next":9,"atoms":[{{"id":1,"el":"C","x":0.0,"y":0.0}},
             {{"id":2,"el":"C","x":2.0,"y":0.0}},{{"id":3,"el":"O","x":3.0,"y":1.7321}}],
-            "bonds":[{{"id":4,"a":1,"b":2,"o":1}},{{"id":5,"a":2,"b":3,"o":1,"s":{wedge}}}]}}"#
+            "bonds":[{{"id":4,"a":1,"b":2,"o":1}},{{"id":5,"a":2,"b":3,"o":1,"s":{wedge}}}],
+            "objects":[{{"id":6,"t":"arrow","x":6.0,"y":0.0,"x2":9.0,"y2":0.0}}]}}"#
         ))
     };
-    for format in ["molfile", "molfile-v3000", "ket", "cdxml", "cml", "sdf"] {
+    for format in [
+        "molfile",
+        "molfile-v3000",
+        "ket",
+        "cdxml",
+        "cml",
+        "sdf",
+        "smiles",
+        "rxn",
+    ] {
         let plain = loss(&scaled(0), format).unwrap();
         let marked = loss(&scaled(1), format).unwrap();
         assert!(
@@ -525,13 +560,34 @@ fn the_scale_of_a_drawing_gives_the_same_answer_with_and_without_a_wedge() {
     }
 }
 
-/// A SMILES of a drawing above 500 atoms is refused by every way to one (`out`, `expect`; the page's copy and its menu entry call the same
-/// `Document::to_smiles`), before the recursive writer can overflow a 1 MiB stack.
+/// A SMILES of a drawing with a connected piece above 500 atoms is refused by every way to one (`out`, `expect`; the page's copy and its
+/// menu entry call the same `Document::to_smiles`) before the recursive writer can overflow a 1 MiB stack; many small pieces are safe.
 #[test]
-fn every_way_to_a_smiles_refuses_a_long_chain_with_a_key() {
+fn every_way_to_a_smiles_refuses_a_long_piece_with_a_key_and_not_many_small_ones() {
     let run = std::thread::Builder::new()
         .stack_size(1 << 20)
         .spawn(|| {
+            // 100 pieces of 10 atoms: 1,000 atoms, each piece short
+            let mut many = Document::default();
+            for p in 0..100u32 {
+                for k in 0..10u32 {
+                    let id = p * 10 + k + 1;
+                    many.atoms
+                        .push(atom(id, "C", f64::from(p) * 20.0 + f64::from(k), 0.0));
+                    if k > 0 {
+                        many.bonds.push(Bond {
+                            id: 5000 + id,
+                            a: id - 1,
+                            b: id,
+                            o: 1,
+                            s: 0,
+                            more: vec![],
+                        });
+                    }
+                }
+            }
+            many.next = 9000;
+            let many_ok = many.to_smiles().is_ok();
             let ok = chain(500, false).to_smiles().is_ok();
             let over = chain(501, false).to_smiles().unwrap_err();
             let huge = chain(30_000, false);
@@ -543,11 +599,11 @@ fn every_way_to_a_smiles_refuses_a_long_chain_with_a_key() {
                 serde_json::Value::from(huge.to_json())
             );
             let verdict = mzdraw::replay::replay_at(&request, 0).unwrap();
-            (ok, over, saved, verdict.ok)
+            (many_ok, ok, over, saved, verdict.ok)
         })
         .unwrap();
-    let (ok, over, saved, verdict_ok) = run.join().unwrap();
-    assert!(ok);
+    let (many_ok, ok, over, saved, verdict_ok) = run.join().unwrap();
+    assert!(many_ok && ok);
     assert_eq!(
         (over, saved),
         ("error.draw2.smilesSize", "error.draw2.smilesSize")

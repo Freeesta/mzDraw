@@ -4,16 +4,20 @@
 //! the property test of `tests/loss.rs` writes random documents in every format, reads them back and holds the two to each other
 //! (what the round trip lost is in `loss`, and every item of `loss` is a real difference).
 //!
-//! The table cannot decide some cells: they depend on the drawing. The readers derive the wedge marks again from the stereo of the
-//! record, so whether a drawn mark comes back depends on the chemistry of the centre; a SMILES keeps the radical of some atoms and not of
-//! others; a reaction file makes its own plus signs between the structures; and the shape of the drawing is not kept by a SMILES (no
-//! coordinates), an SDF (records side by side again) or a reaction file (structures placed about the arrow), unless the layout they
-//! give is the one drawn. Those cells are `Carry::Probe`: `loss` writes the document, reads it back and compares (the round trip itself
-//! is the answer, a limit stated in `docs/built/loss-manifest.md`). The answer is per kind: when some of a kind do not come back, the
-//! reader does not say which, so every occurrence of that kind is listed.
+//! The table cannot decide some cells, because they depend on the drawing:
+//! - a wedge mark: the readers derive the marks again from the stereo of the record, so whether a drawn mark comes back depends on the
+//!   chemistry of the centre;
+//! - the radical in a SMILES: it is kept for some atoms and not for others;
+//! - the plus signs of a reaction file: it makes its own between the structures;
+//! - the shape: a SMILES has no coordinates, an SDF puts its records side by side again, a reaction file places the structures about
+//!   its arrow, unless the layout they give is the one drawn.
 //!
-//! The shape (`geometry`) is compared only for those formats, and in bond lengths: a molfile, a V3000 file, KET and CDXML rescale a
-//! drawing to a bond length of 1 and CDXML rounds to a hundredth of a point, which is neither checked nor a loss here.
+//! Those cells are `Carry::Probe`: `loss` writes the document, reads it back and compares (the round trip itself is the answer, a limit
+//! stated in `docs/built/loss-manifest.md`). The answer is per kind: when some of a kind do not come back, the reader does not say
+//! which, so every occurrence of that kind is listed.
+//!
+//! The shape (`geometry`) is compared only for those formats, and in bond lengths. A molfile, a V3000 file, KET and CDXML rescale a
+//! drawing to a bond length of 1, and CDXML rounds to a hundredth of a point (about 0.0005 of a bond): neither is checked or a loss here.
 
 use crate::doc::{Document, ObjKind};
 use crate::label::{self, Kind};
@@ -59,9 +63,6 @@ fn written_atoms(d: &Document) -> usize {
     }
     total
 }
-
-/// `loss` for `smiles` refuses a drawing above this many atoms before it calls the writer (see `formats::MAX_SMILES_ATOMS`).
-pub const MAX_SMILES_ATOMS: usize = crate::formats::MAX_SMILES_ATOMS;
 
 /// The shape of a drawing is compared by the distances between all its atoms, which grow with the square of the atom count: where the
 /// shape is part of the answer (SMILES, SDF, reaction file) a drawing above this many atoms is refused, and so is a file that reads
@@ -331,7 +332,7 @@ fn write(d: &Document, format: &str) -> Result<String, &'static str> {
 }
 
 /// What `format` drops or changes of this document, ordered by `what` then by the smallest id. An unknown format is
-/// `error.draw2.request`; a document above `MAX_THINGS` (or the limits of `MAX_SMILES_ATOMS`, `MAX_SHAPE_ATOMS`, `MAX_BACK_ATOMS`, `MAX_WRITTEN_ATOMS`) is `error.draw2.lossSize`; a document the writer refuses gives the writer's
+/// `error.draw2.request`; a document above `MAX_THINGS` (or the limits of `formats::MAX_SMILES_ATOMS` (a piece), `MAX_SHAPE_ATOMS`, `MAX_BACK_ATOMS`, `MAX_WRITTEN_ATOMS`) is `error.draw2.lossSize`; a document the writer refuses gives the writer's
 /// key (there is no file, so no loss to list).
 pub fn loss(d: &Document, format: &str) -> Result<Vec<Loss>, &'static str> {
     if !FORMATS.contains(&format) {
@@ -340,7 +341,7 @@ pub fn loss(d: &Document, format: &str) -> Result<Vec<Loss>, &'static str> {
     if d.atoms.len() + d.bonds.len() + d.objects.len() > MAX_THINGS {
         return Err("error.draw2.lossSize");
     }
-    if (format == "smiles" && d.atoms.len() > MAX_SMILES_ATOMS)
+    if (format == "smiles" && crate::formats::smiles_too_large(d))
         || (d.atoms.len() > MAX_SHAPE_ATOMS && carry("geometry", format) == Some(Carry::Probe))
     {
         return Err("error.draw2.lossSize");
@@ -358,7 +359,8 @@ pub fn loss(d: &Document, format: &str) -> Result<Vec<Loss>, &'static str> {
         if written_atoms(d) > MAX_WRITTEN_ATOMS {
             return Err("error.draw2.lossSize");
         }
-        // a file the reader refuses (its own bounds on elements and depth) is too large to check
+        // a file the reader refuses (its own bounds on elements and depth) is too large to check: the key is `error.draw2.lossSize`,
+        // not the reader's, and the schema row says so
         let back = crate::io::import(&write(d, format)?)
             .map_err(|_| "error.draw2.lossSize")?
             .0;

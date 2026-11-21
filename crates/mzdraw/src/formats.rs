@@ -12,16 +12,25 @@ use mzlab_mol::{GroupKind, Mol, StereoGroup};
 const QUERY_ATOMS: &[&str] = &["A", "AH", "Q", "QH", "X", "XH", "M", "MH", "*", "L"];
 
 /// The SMILES writer of `mzlab-mol` walks a chain by recursion and overflows a 1 MiB stack (the stack of the `.wasm`) between 2,000 and
-/// 4,000 atoms in a chain, a trap in the page and a crash in the CLI. A drawing above this many atoms is refused before the writer is
-/// called (`error.draw2.smilesSize`): every way to a SMILES goes through `Document::to_smiles`.
+/// 4,000 atoms in a chain, a trap in the page and a crash in the CLI. A drawing with a connected piece above this many atoms is refused
+/// before the writer is called (`error.draw2.smilesSize`): the writer recurses along one piece at a time, so many small pieces are
+/// safe. Every way to a SMILES goes through `Document::to_smiles`.
 pub const MAX_SMILES_ATOMS: usize = 500;
+
+/// Whether the largest connected piece of the drawing is above `MAX_SMILES_ATOMS` atoms (linear in the drawing).
+pub fn smiles_too_large(doc: &Document) -> bool {
+    doc.atoms.len() > MAX_SMILES_ATOMS
+        && crate::layout::pieces(doc)
+            .iter()
+            .any(|p| p.len() > MAX_SMILES_ATOMS)
+}
 
 impl Document {
     /// The whole canvas as one SMILES written by `mzlab-mol` (pieces joined by `.`, Kekulé bonds, stereo from the wedges as drawn,
     /// abbreviations expanded). An atom of the organic subset with its usual hydrogens is written without brackets; an R group is
-    /// the atom `[*]`, with its number as the atom class (`[*:1]`). The error is an i18n key; a drawing above `MAX_SMILES_ATOMS` atoms is `error.draw2.smilesSize`.
+    /// the atom `[*]`, with its number as the atom class (`[*:1]`). The error is an i18n key; a drawing with a piece above `MAX_SMILES_ATOMS` atoms is `error.draw2.smilesSize`.
     pub fn to_smiles(&self) -> Result<String, &'static str> {
-        if self.atoms.len() > MAX_SMILES_ATOMS {
+        if smiles_too_large(self) {
             return Err("error.draw2.smilesSize");
         }
         let m = self.to_mol_stereo();
