@@ -105,4 +105,21 @@ if command -v cargo >/dev/null 2>&1; then
   cargo update --workspace --offline >/dev/null 2>&1 || echo "rename: cargo update --workspace --offline did not run: run it before --locked" >&2
   cargo fmt >/dev/null 2>&1 || echo "rename: cargo fmt did not run" >&2
 fi
+# 4. a golden file that holds a file written under the name as base64 (a PDF: `JVBERi0` is `%PDF-`) cannot be rewritten as text: it is
+# recorded again by the existing bless of the replay test, which also puts the keys in order (the key of the document is sorted by its
+# new name). Any other change of a golden (a value that differs) was left wrong by the rename: that is an error, never accepted.
+if [ "${RENAME_DRY:-0}" != 1 ] && [ -d tests/data/log ] && command -v cargo >/dev/null 2>&1; then
+  keep=$(mktemp -d); cp tests/data/log/*.json "$keep/"
+  env "${app}_BLESS=1" cargo test --locked -q -p "$slug" --test replay >/dev/null 2>&1 || { echo "rename: the golden test did not run after the rename" >&2; exit 1; }
+  for f in tests/data/log/*.json; do
+    b=$(basename "$f")
+    if ! cmp -s "$f" "$keep/$b"; then
+      # a golden without a PDF may only change the order of its keys (the key of the document is sorted by its new name)
+      grep -q JVBERi0 "$keep/$b" || python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])) == json.load(open(sys.argv[2])) else 1)' "$keep/$b" "$f" \
+        || { echo "rename: re-recording changed the content of $b, which holds no PDF: the rename left it wrong" >&2; exit 1; }
+      echo "re-recorded $f"
+    fi
+  done
+  rm -rf -- "${keep:?}"
+fi
 echo "$( [ "${RENAME_DRY:-0}" = 1 ] && echo would\ rename || echo renamed ) $old_name -> $new (slug $slug, app id $app, css prefix --$css-): $changed files read, $renamed paths moved, legacy_ids = [$list]"
