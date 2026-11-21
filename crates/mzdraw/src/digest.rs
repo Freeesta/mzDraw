@@ -4,8 +4,8 @@
 //!
 //! Written by hand with the keys in a fixed order, numbers through `mzlab_mol::fixed` (one decimal): the same drawing gives the same
 //! bytes everywhere. The code of this module is one pass over the atoms and the bonds (a union-find, no `layout::pieces`, whose
-//! rescans are quadratic). The engine calls under it are not: `Document::to_mol` and `scene::label_extent` look through the bonds for
-//! every atom, so the cost of a drawing with bonds grows as atoms times bonds. That cost is capped, not removed: a drawing whose
+//! rescans are quadratic). One engine call under it is not: `scene::label_extent` looks through the bonds for
+//! every atom, so the cost of a drawing with bonds grows as atoms times bonds (`Document::to_mol` is linear). That cost is capped, not removed: a drawing whose
 //! `atoms * (bonds + 1)` is above `MAX_WORK` is refused (`error.draw2.digestSize`). The size of the answer is capped too (see the
 //! constants), so it can go into a prompt: what is cut is counted, never dropped silently. Boxes are in bond lengths, y up, label ink
 //! included (`scene::label_extent`, as the layout uses it).
@@ -34,8 +34,8 @@ pub const MAX_LABELS: usize = 150;
 pub const MAX_STEREO: usize = 50;
 pub const MAX_IDS: usize = 400;
 
-/// The work the engine calls under the digest may cost, as atoms * (bonds + 1) (see the module text): 25 million is a chain of 5,000
-/// atoms, a few hundredths of a second. A drawing of one atom per structure (no bond) costs next to nothing per atom and has no limit
+/// The work `scene::label_extent` under the digest may cost, as atoms * (bonds + 1) (see the module text): 25 million is a chain of
+/// 5,000 atoms. A drawing of one atom per structure (no bond) costs next to nothing per atom and has no limit
 /// of its own.
 pub const MAX_WORK: usize = 25_000_000;
 

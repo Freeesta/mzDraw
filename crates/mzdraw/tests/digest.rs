@@ -472,7 +472,7 @@ fn the_time_grows_with_the_size_not_with_its_square() {
     assert!(out.len() < 30_000, "{} bytes", out.len());
 }
 
-/// A star: one hub joined to `n - 1` leaves (a worst case for rescans of the bonds of an atom).
+/// A star: one hub joined to `n - 1` leaves (a worst case for `scene::label_extent`, which looks through the bonds for every atom).
 fn star(n: usize) -> String {
     let atoms: Vec<Value> = (0..n)
         .map(|i| {
@@ -486,8 +486,8 @@ fn star(n: usize) -> String {
     json!({"format": "mzdraw/1", "next": 2 * n + 2, "atoms": atoms, "bonds": bonds}).to_string()
 }
 
-/// The engine calls under the digest (the record, the label ink) look through the bonds for every atom: the cost of a drawing with
-/// bonds is atoms times bonds, not linear. It is capped: above `MAX_WORK` the drawing is refused with a key, and a drawing at the cap
+/// `scene::label_extent` under the digest looks through the bonds for every atom: the cost of a drawing with bonds is atoms times
+/// bonds, not linear. It is capped: above `MAX_WORK` the drawing is refused with a key, and a drawing at the cap
 /// stays within a bound. A chain and a star, the two shapes that make the product large.
 #[test]
 fn a_drawing_with_bonds_is_refused_above_the_work_cap_and_stays_within_a_bound_at_it() {
