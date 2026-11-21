@@ -227,3 +227,123 @@ fn opening_again_resets_the_text_and_altgr_brackets_walk_the_sites() {
     // another Ctrl+Alt key is not the field's
     assert_eq!(e.key("q", mzdraw::editor::CTRL | ALT), 0);
 }
+
+#[test]
+fn the_text_of_the_field_is_cut_at_64_characters_not_bytes() {
+    let mut e = trimethylamine();
+    e.step_open(Some(1));
+    // 100 characters of two bytes each: the cut is on characters, so it never splits one
+    let long: String = "é".repeat(100);
+    e.step_text(&long);
+    let text = field(&mut e)["text"].as_str().unwrap().to_string();
+    assert_eq!(text.chars().count(), 64);
+    assert_eq!(text, "é".repeat(64));
+    // exactly 64 is kept whole, 65 loses the last one
+    e.step_text(&"a".repeat(64));
+    assert_eq!(field(&mut e)["text"], "a".repeat(64));
+    e.step_text(&format!("{}b", "a".repeat(64)));
+    assert_eq!(field(&mut e)["text"], "a".repeat(64));
+    // the rows follow the cut text (a name that is not there lists nothing) and the first is chosen again
+    let f = field(&mut e);
+    assert_eq!(f["rows"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn ctrl_alt_with_a_letter_typed_in_the_open_field_is_not_the_drawings() {
+    let mut e = trimethylamine();
+    // with the field closed Ctrl+Alt+Z is the undo, as it always was (the change is scoped to the open field)
+    let imported = e.doc().to_json();
+    e.key("z", mzdraw::editor::CTRL | ALT);
+    assert_ne!(e.doc().to_json(), imported);
+    e.key("y", mzdraw::editor::CTRL | ALT);
+    assert_eq!(e.doc().to_json(), imported);
+    // with it open the keys typed into its input (AltGr arrives as Ctrl and Alt) are no undo, redo, select-all or duplicate
+    e.step_open(Some(1));
+    for k in ["z", "Z", "a", "d", "y"] {
+        assert_eq!(e.key(k, mzdraw::editor::CTRL | ALT), 0, "{k}");
+        assert_eq!(e.doc().to_json(), imported, "{k}");
+    }
+    // and with Shift as well (Ctrl+Alt+Shift+Z would be the redo)
+    assert_eq!(e.key("z", mzdraw::editor::CTRL | ALT | SHIFT), 0);
+    assert_eq!(e.doc().to_json(), imported);
+    // the field is still open and still takes its four bracket keys
+    assert_eq!(field(&mut e)["open"], true);
+    assert_ne!(e.key("}", mzdraw::editor::CTRL | ALT) & STEP, 0);
+}
+
+static CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// A stand-in engine with made-up round masses: the sum of the atoms of the one-structure molfile and its implicit hydrogens.
+fn counting_engine(
+    molfile: &str,
+    _adducts: &[String],
+) -> Result<mzdraw::values::Measured, &'static str> {
+    CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let table = |el: &str| match el {
+        "H" => (1.0, 0),
+        "C" => (12.0, 4),
+        "N" => (14.5, 3),
+        "O" => (16.25, 2),
+        "S" => (32.0, 2),
+        "Cl" => (35.5, 1),
+        "Br" => (79.0, 1),
+        _ => (0.0, 0),
+    };
+    let atoms: Vec<&str> = molfile
+        .lines()
+        .skip(4)
+        .take_while(|l| !l.starts_with("M  END") && l.len() > 31)
+        .filter(|l| {
+            l[31..34]
+                .trim()
+                .chars()
+                .next()
+                .is_some_and(char::is_alphabetic)
+        })
+        .map(|l| l[31..34].trim())
+        .collect();
+    // two carbons joined (ethane) have three hydrogens each, a lone atom has its full valence
+    let hydrogens: u32 = if atoms.len() == 2 {
+        6
+    } else {
+        atoms.iter().map(|a| table(a).1).sum()
+    };
+    let mass: f64 = atoms.iter().map(|a| table(a).0).sum::<f64>() + f64::from(hydrogens);
+    Ok(mzdraw::values::Measured {
+        mass,
+        average: None,
+        ion_mz: None,
+        pct: Vec::new(),
+        mz: Vec::new(),
+    })
+}
+
+#[test]
+fn the_element_masses_are_solved_from_seven_engine_calls_and_kept() {
+    // H = (2 CH4 - C2H6) / 2, C = CH4 - 4 H, and each other element is its hydride minus its hydrogens: O = H2O - 2 H, N = NH3 - 3 H,
+    // S = H2S - 2 H, Cl = HCl - H, Br = HBr - H
+    CALLS.store(0, std::sync::atomic::Ordering::SeqCst);
+    let m = mzdraw::values::element_masses(counting_engine).unwrap();
+    assert_eq!(CALLS.load(std::sync::atomic::Ordering::SeqCst), 7);
+    for (el, mass) in [
+        ("H", 1.0),
+        ("C", 12.0),
+        ("N", 14.5),
+        ("O", 16.25),
+        ("S", 32.0),
+        ("Cl", 35.5),
+        ("Br", 79.0),
+    ] {
+        assert!((m[el] - mass).abs() < 1e-9, "{el}: {}", m[el]);
+    }
+    assert_eq!(m.len(), 7);
+    // the field asks the first time it opens and keeps the answer for the session: opening again calls the engine no more
+    let mut e = trimethylamine();
+    e.measurer = Some(counting_engine);
+    CALLS.store(0, std::sync::atomic::Ordering::SeqCst);
+    e.step_open(Some(1));
+    assert_eq!(CALLS.load(std::sync::atomic::Ordering::SeqCst), 7);
+    e.step_close();
+    e.step_open(Some(1));
+    assert_eq!(CALLS.load(std::sync::atomic::Ordering::SeqCst), 7);
+}

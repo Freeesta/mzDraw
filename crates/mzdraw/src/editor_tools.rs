@@ -726,6 +726,11 @@ impl Editor {
         // the step field open: its keys are its own, the rest is typed into it (the page lets the browser type)
         // (on a layout where `[` and `]` are typed with AltGr the page sends Ctrl and Alt together: those two keys are the field's too)
         let altgr = ctrl && mods & ALT != 0 && matches!(lower.as_str(), "[" | "]" | "{" | "}");
+        // any other Ctrl+Alt key typed into the field is neither the field's nor the drawing's: the browser has it (it must not undo,
+        // redo, select all or duplicate while a text is being typed)
+        if self.step_field.is_some() && ctrl && mods & ALT != 0 && !altgr {
+            return 0;
+        }
         if self.step_field.is_some() && (!ctrl || altgr) {
             return self.step_key(&lower).map_or(0, |f| f | HANDLED);
         }

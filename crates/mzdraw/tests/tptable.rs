@@ -567,3 +567,46 @@ fn a_guarded_text_cell_round_trips_and_a_plain_quote_stays() {
     q.import("tp_id,smiles\n'a,CCO\n").unwrap();
     assert_eq!(cell(&table(&q)["rows"][0], "tp_id"), "'a");
 }
+
+#[test]
+fn a_structure_above_the_smiles_cap_has_an_empty_cell_and_a_keyed_note() {
+    // 501 atoms in one chain: above `formats::MAX_SMILES_ATOMS`, so no SMILES is written for it; the small one beside it keeps its own
+    let mut e = Editor::default();
+    e.import(&format!(
+        "{}.CCO",
+        "C".repeat(mzdraw::formats::MAX_SMILES_ATOMS + 1)
+    ))
+    .unwrap();
+    e.measurer = Some(engine);
+    for kind in ["tptable", "tptable-csv"] {
+        let text = e.save(kind).unwrap();
+        // the cell is empty and the reason is said, not left to be guessed: one note, for the big structure only
+        assert_eq!(
+            e.lost_on_save(kind),
+            vec![("draw2.export.tpSmiles", 1)],
+            "{kind}"
+        );
+        if kind == "tptable" {
+            let t: Value = serde_json::from_str(&text).unwrap();
+            let rows = t["rows"].as_array().unwrap();
+            let smiles: Vec<&str> = rows.iter().map(|r| cell(r, "smiles")).collect();
+            assert_eq!(
+                smiles.iter().filter(|s| s.is_empty()).count(),
+                1,
+                "{smiles:?}"
+            );
+            assert!(smiles.contains(&"CCO"), "{smiles:?}");
+            let note = &t["notes"][0];
+            assert_eq!(note["key"], "draw2.export.tpSmiles");
+            assert_eq!(note["count"], 1);
+            assert_eq!(note["items"].as_array().unwrap().len(), 1);
+        }
+    }
+    // the table itself says why: the detail key of the writer is the refusal of `save("smiles")` for that structure
+    let table = tptable::build(e.doc(), &e.style, e.measurer).unwrap();
+    let n = table
+        .notes
+        .iter()
+        .find(|n| n.key == "draw2.export.tpSmiles");
+    assert_eq!(n.map(|n| n.detail), Some("error.draw2.smilesSize"));
+}

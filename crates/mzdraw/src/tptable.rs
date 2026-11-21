@@ -37,16 +37,21 @@
 //! after the save. In the JSON the notes are also a key of the document.
 //!
 //! **CSV.** RFC 4180: a field with a comma, a quote, a line break or a space at either end is quoted, `"` is doubled, lines end in
-//! LF, the header is line 1. A text cell (`tp_id`, `parent_id`, `adduct`, `level`, `identifier`) that starts with `=`, `+`, `-` or
-//! `@` gets a leading `'` so that a spreadsheet does not read it as a formula (`draw2.export.tpGuard` counts them); the cells this
-//! module writes itself (`form_diff`, `mass_diff`, numbers) are not changed: **a spreadsheet may still read `+O` or `-CH2` as a
-//! formula**, so the columns are best imported as text.
+//! LF, the header is line 1. **The guard.** A text cell (`tp_id`, `parent_id`, `adduct`, `level`, `identifier`), and an `mz_obs` or `rt`
+//! that is not a number, gets a leading `'` when it starts with `=`, `+`, `-` or `@` (a spreadsheet would read it as a formula) and
+//! also when it starts with `'` (the escape of the escape): `guards` decides, `unguard` is its exact inverse (a `'` followed by one of
+//! those five characters is taken off, once), so export then import returns every cell unchanged. `draw2.export.tpGuard` counts the
+//! cells that got one. The import trims white space at the edge of a cell, so a cell with such an edge is not part of the contract
+//! (the drawing's data fields are trimmed already); `;` is the separator of `parent_id`. The cells this module writes itself
+//! (`form_diff`, `mass_diff`, numbers) are not changed: **a spreadsheet may still read `+O` or `-CH2` as a formula**, so the columns
+//! are best imported as text.
 //!
 //! **Limits, before any work.** More than `MAX_ATOMS` atoms or `MAX_STRUCTURES` structures is `error.draw2.tpTableSize`; the
 //! pathway layout refuses above 1000 anchored arrows (`error.draw2.schemeSize`) and a cycle (`error.draw2.schemeCycle`).
 //!
-//! **Reading it back.** `tp_list` reads a TP table as a list (`tp_id` the name, `parent_id` the parent, `mz_obs` the m/z; rows with
-//! one `tp_id` are one product with several parents); the derived columns are not read.
+//! **Reading it back.** `tp_list` reads a TP table as a list: `smiles`, `tp_id` (the name), `parent_id` (the parent; rows with one
+//! `tp_id` are one product with several parents), `mz_obs` (the m/z), `rt`, `adduct`, `level` and `identifier`, after `unguard`; the
+//! derived columns (`DERIVED`) are not read.
 
 use crate::doc::{Atom, Document, ObjKind};
 use crate::settings::Style;
@@ -91,7 +96,8 @@ pub const MAX_STRUCTURES: usize = 1_000;
 
 const KEY_SIZE: &str = "error.draw2.tpTableSize";
 
-/// The notes (i18n keys; the text of each is on the page in `web/lang/mzdraw.js`).
+/// The notes (i18n keys; the text of each is on the page in `web/lang/mzdraw.js`). The ninth, `tpGuard`, belongs to the CSV alone: it
+/// is in `lost` after `save("tptable-csv")` and is not in the `notes` of the JSON.
 pub const NOTE_KEYS: [&str; 9] = [
     "draw2.export.tpEngine",
     "draw2.export.tpMass",
@@ -494,12 +500,29 @@ fn field_csv(s: &str) -> String {
 }
 
 /// The columns of free text, whose cells a spreadsheet must not read as a formula, and the two columns typed as numbers (`mz_obs`, `rt`),
-/// guarded when what is there is not a number (a field of an SDF is any text).
+/// guarded when what is there is not a number (a field of an SDF is any text). A number never starts with `'`, so `unguard` on
+/// those two columns changes only what the writer guarded.
 const TEXT: [usize; 5] = [0, 1, 6, 13, 14];
 const TYPED_NUMBER: [usize; 2] = [8, 10];
 
+/// Whether the CSV writer puts a guard `'` before a text cell: it starts with `=`, `+`, `-` or `@` (a spreadsheet reads it as a
+/// formula) or with `'` itself (the escape of the escape, so that `unguard` is the exact inverse: a cell that really starts with `'`
+/// is written with a second one and read back with one).
+pub fn guards(cell: &str) -> bool {
+    cell.starts_with(['=', '+', '-', '@', '\''])
+}
+
+/// The inverse of the guard, read by `tp_list` on import: a leading `'` followed by `=`, `+`, `-`, `@` or another `'` is taken off,
+/// once. Any other cell is as written (a file made by hand with a `'a` keeps it).
+pub fn unguard(cell: &str) -> &str {
+    match cell.strip_prefix('\'') {
+        Some(rest) if guards(rest) => rest,
+        _ => cell,
+    }
+}
+
 /// The table as CSV: the header, then a line per row, each ending in LF. The second value is how many text cells got the guard `'`
-/// (`draw2.export.tpGuard`); `tp_list` takes the `'` off again on import.
+/// (`draw2.export.tpGuard`); `tp_list` takes it off again on import with `unguard`.
 pub fn csv_counted(t: &Table) -> (String, usize) {
     let mut out = COLUMNS.join(",");
     out.push('\n');
@@ -511,7 +534,7 @@ pub fn csv_counted(t: &Table) -> (String, usize) {
             .map(|(c, v)| {
                 let text = TEXT.contains(&c)
                     || (TYPED_NUMBER.contains(&c) && !v.parse::<f64>().is_ok_and(f64::is_finite));
-                if text && v.starts_with(['=', '+', '-', '@']) {
+                if text && guards(v) {
                     guarded += 1;
                     field_csv(&format!("'{v}"))
                 } else {

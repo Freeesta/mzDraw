@@ -59,9 +59,11 @@ fn escaping_keeps_every_special_character_out_of_the_query() {
 fn the_form_title_and_labels_follow_the_kind() {
     let bug = build(&params("bug", false, "[]")).unwrap();
     assert_eq!((bug.template, bug.title.as_str()), ("bug.yml", "Bug:"));
-    assert!(bug.url.starts_with(
-        "https://github.com/Freeesta/mzDraw/issues/new?template=bug.yml&title=Bug%3A&page="
-    ));
+    let head = format!(
+        "https://github.com/{}/issues/new?template=bug.yml&title=Bug%3A&page=",
+        mzdraw::brand::REPOSITORY
+    );
+    assert!(bug.url.starts_with(&head), "{}", bug.url);
     let imp = build(&params("improvement", false, "[]")).unwrap();
     assert_eq!(imp.template, "improvement.yml");
     assert_eq!(
