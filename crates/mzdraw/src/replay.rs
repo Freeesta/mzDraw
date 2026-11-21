@@ -10,7 +10,7 @@ struct Request {
     /// A structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES.
     import: Option<String>,
     log: Vec<Op>,
-    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
+    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `pdf` (the PDF file as base64; the CLI `--raw` writes the file), `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
     out: Option<String>,
     /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
     style: Option<String>,
