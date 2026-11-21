@@ -7,12 +7,12 @@ import { contextMenu } from "./context.js";
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
-const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64, MENU = 512;
+const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64, MENU = 512, PROPOSAL = 1024;
 // what each save format is called when downloaded: file name and media type (png is drawn by the page, savePng; pdf is bytes, savePdf)
 const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["drawing.mol", "chemical/x-mdl-molfile"], "molfile-v3000": ["drawing-v3000.mol", "chemical/x-mdl-molfile"],
   sdf: ["drawing.sdf", "chemical/x-mdl-sdfile"], smiles: ["drawing.smi", "chemical/x-daylight-smiles"], ket: ["drawing.ket", "application/json"], cdxml: ["drawing.cdxml", "chemical/x-cdxml"],
   cml: ["drawing.cml", "chemical/x-cml"], rxn: ["drawing.rxn", "chemical/x-mdl-rxnfile"], trasf: ["drawing.trasf.json", "application/json"], svg: ["drawing.svg", "image/svg+xml"], [NAMES.slug]: [NAMES.doc, "application/json"], log: ["drawing.log.json", "application/json"] });
-const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus"];
+const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus", "--d2-accent"];
 
 /** @type {any} */ let ed = null;
 /** the context menu of the canvas (context.js) @type {ReturnType<typeof contextMenu>} */ let menu;
@@ -189,9 +189,52 @@ function refresh() {
   }));
   $("d2-std-note").textContent = st.std.none ? t("draw2.std.none") : "";
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
+  proposalPanel(st.proposal);
   if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
+  else if (st.proposal && ["draw2.say.hunk", "draw2.say.proposed"].includes(st.say.key)) $("d2-live").textContent = t(st.say.key, { what: st.say.what }) + " " + hunkText(st.proposal, st.proposal.hunks.find((/** @type {any} */ h) => h.n === st.proposal.cur));
   else if (st.say.key) $("d2-live").textContent = t(st.say.key, { what: st.say.what });
   document.documentElement.dataset.d2 = JSON.stringify({ focus: st.focus ? st.focus.index : 0, atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, std: std.length, selected: st.selected });
+}
+
+/** what a hunk does, in words: the parts Rust names, in the language of the page @param {any} p @param {any} h */
+function hunkText(p, h) {
+  return h ? t("draw2.proposal.at", { n: h.n, of: p.hunks.length }) + " " + h.say.map((/** @type {[string, string]} */ [key, what]) => t(key, { what })).join(" ") : "";
+}
+
+/** the panel of the open proposal: one line per hunk with what it does, and the buttons; every button is a call to the module @param {any} p */
+function proposalPanel(p) {
+  const box = $("d2-proposal");
+  box.hidden = !p;
+  if (!p) return;
+  $("d2-proposal-at").textContent = hunkText(p, p.hunks.find((/** @type {any} */ h) => h.n === p.cur)) || t("draw2.proposal");
+  $("d2-proposal-list").replaceChildren(...p.hunks.map((/** @type {any} */ h) => {
+    const li = document.createElement("li"), say = document.createElement("span");
+    li.setAttribute("aria-current", String(h.n === p.cur));
+    say.className = "say"; say.textContent = t("draw2.proposal.hunk", { n: h.n, what: h.say.map((/** @type {[string, string]} */ [key, what]) => t(key, { what })).join(" ") });
+    li.append(say);
+    for (const [act, key] of [["select", "select"], ["accept", "accept"], ["reject", "reject"]]) {
+      const b = document.createElement("button");
+      b.type = "button"; b.dataset.act = `${act}:${h.n}`; b.textContent = t(`draw2.proposal.${key}`); b.title = t(`draw2.proposal.${key}.title`);
+      li.append(b);
+    }
+    return li;
+  }));
+}
+
+/** the buttons of the proposal panel and the patch field; what a hunk is and does is decided in the module */
+function proposalEvents() {
+  $("d2-proposal").addEventListener("click", e => {
+    const b = /** @type {HTMLElement} */ (e.target).closest("button");
+    const act = b === $("d2-accept-all") ? "accept-all" : b === $("d2-reject-all") ? "reject-all" : b?.dataset.act;
+    if (!act) return;
+    after(ed.proposal(act) | CHANGED);
+    cv.focus({ preventScroll: true });
+  });
+  $("d2-propose").addEventListener("click", () => {
+    const note = $("d2-patch-note");
+    try { after(ed.propose(/** @type {HTMLTextAreaElement} */ ($("d2-patch")).value) | CHANGED); note.textContent = ""; cv.focus({ preventScroll: true }); }
+    catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
+  });
 }
 
 /** where the keyboard focus is, in words @param {any} f */
@@ -520,7 +563,7 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
-  mapField();
+  mapField(); proposalEvents();
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); layout(); refresh();

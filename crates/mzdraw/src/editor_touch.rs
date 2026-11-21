@@ -70,6 +70,9 @@ impl Editor {
         mods: u32,
         t: f64,
     ) -> u32 {
+        if let Some(f) = self.proposal_pointer(phase, x, y, kind, mods) {
+            return f;
+        }
         match kind {
             TOUCH => self.touch(phase, id, x, y, mods, t),
             PEN => self.pen(phase, x, y, mods, t),

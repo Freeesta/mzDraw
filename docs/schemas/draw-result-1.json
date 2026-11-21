@@ -69,7 +69,7 @@
       "required": ["stage", "key", "id"],
       "additionalProperties": false,
       "properties": {
-        "stage": { "enum": ["log", "select", "plan", "grant", "command"], "description": "`log` and `command` are written today; select, plan and grant are RESERVED, never written yet" },
+        "stage": { "enum": ["log", "select", "plan", "grant", "command", "proposal"], "description": "`log`, `command` and `proposal` (a refused `propose`, or a refused entry of `accept`) are written today; select, plan and grant are RESERVED, never written yet" },
         "op": { "type": "integer", "minimum": 0, "description": "0-based index in log (stage log) or in commands (stage command)" },
         "key": { "type": "string", "description": "the i18n key of the refusal" },
         "id": { "type": "integer", "minimum": 0, "description": "the id it is about, 0 when none" },

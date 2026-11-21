@@ -95,6 +95,20 @@ for (const c of fx.diffs) {
   const v = JSON.parse(c.out);
   check(a.stdout === c.out && Array.isArray(v.ops) && Array.isArray(v.hunks), `${c.name}: the recorded patch and hunks`);
 }
+// plan-16, independent of the proposal code: the hunks come from the `diff` door (a and b made by plain replay, no `propose`), the accepted
+// hunks' operations are replayed as a plain log, and the bytes (document and log) must equal what `propose` + `accept` gave, on both sides
+for (const c of fx.cases.filter(c => c.request.propose && !c.request.commands)) {
+  const R = (req, run = native) => run(JSON.stringify(req)).stdout, { propose, accept = [], ...base } = c.request;
+  const a = JSON.parse(R({ ...base, out: "mzdraw" })), b = JSON.parse(R({ ...base, log: [...base.log, ...propose], out: "mzdraw" }));
+  const d = JSON.parse(R({ diff: { a, b } }));
+  const canon = v => JSON.stringify(v, (_, x) => x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([k], [l]) => k < l ? -1 : 1)) : x);
+  check(canon(d.ops) === canon(propose), `${c.name}: the patch is what diff writes`);
+  const plain = { ...base, log: [...base.log, ...accept.flatMap(n => d.hunks[n - 1].ops)] };
+  for (const out of ["mzdraw", "log"]) {
+    const want = R({ ...plain, out }), got = R({ ...c.request, out }), onPage = R({ ...c.request, out }, site);
+    check(got === want && onPage === want, `${c.name}: propose + accept equals the plain replay of the accepted hunks (${out})`);
+  }
+}
 for (const c of fx.refused) {
   const request = JSON.stringify(c.request), a = site(request), b = native(request);
   check(a.status === 1 && b.status === 1, `${c.error_key}: refused on both sides`);

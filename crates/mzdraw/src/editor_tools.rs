@@ -680,6 +680,11 @@ impl Editor {
             };
             return f | HANDLED;
         }
+        if self.live_proposal().is_some()
+            && let Some(f) = self.proposal_key(&lower, ctrl)
+        {
+            return f | HANDLED;
+        }
         if !ctrl && let Some(f) = self.focus_key(&lower, shift) {
             return f | HANDLED;
         }

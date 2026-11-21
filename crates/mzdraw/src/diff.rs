@@ -411,7 +411,7 @@ fn splittable(op: &Op) -> bool {
 }
 
 /// The ids an operation of `diff` names (for a bond add: its own id and its two atoms).
-fn touched(op: &Op) -> Vec<u32> {
+pub(crate) fn touched(op: &Op) -> Vec<u32> {
     match op {
         Op::AtomAdd { id, .. } | Op::ObjAdd { id, .. } => id.iter().copied().collect(),
         Op::BondAdd { id, a, b, .. } => id.iter().copied().chain([*a, *b]).collect(),

@@ -17,6 +17,10 @@ struct Request {
     /// saved by mzDraw. Read after `import` when both are given.
     import_base64: Option<Vec<u8>>,
     log: Vec<Op>,
+    /// `propose`: a patch held as a proposal (`Editor::propose`) after `commands`; `accept`: the hunks (1-based, as `diff::hunks` numbers
+    /// them) accepted in that order, one undo step each. The log then holds exactly their operations; the hunks left are dropped.
+    propose: Option<Vec<Op>>,
+    accept: Vec<usize>,
     /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `trasf` (the record `trasf/1` and its two records, one per line), `sdf`, `svg`, `pdf` (the PDF file as base64; the CLI `--raw` writes the file), `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
     out: Option<String>,
     /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
@@ -46,7 +50,9 @@ enum Event {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 15] = [
+const FIELDS: [&str; 17] = [
+    "propose",
+    "accept",
     "diff",
     "import",
     "import_base64",
@@ -111,6 +117,27 @@ impl Request {
                 ..Request::default()
             });
         }
+        let propose = match v.get("propose") {
+            None => None,
+            Some(l) => Some(
+                (l.as_array().ok_or(BAD)?.iter())
+                    .map(Op::parse)
+                    .collect::<Result<Vec<Op>, _>>()?,
+            ),
+        };
+        let accept = match v.get("accept") {
+            None => Vec::new(),
+            // the hunks of a proposal: there must be one
+            Some(_) if propose.is_none() => return Err(BAD),
+            Some(l) => (l.as_array().ok_or(BAD)?.iter())
+                .map(|n| {
+                    n.as_u64()
+                        .filter(|&n| (1..=u64::from(u32::MAX)).contains(&n))
+                })
+                .map(|n| n.map(|n| n as usize))
+                .collect::<Option<Vec<usize>>>()
+                .ok_or(BAD)?,
+        };
         let one = |c: &serde_json::Value, args: Option<&serde_json::Value>| {
             let name = c.as_str().ok_or(BAD)?;
             let args = args.cloned().unwrap_or_else(|| serde_json::json!({}));
@@ -174,6 +201,8 @@ impl Request {
         };
         Ok(Request {
             diff: None,
+            propose,
+            accept,
             events,
             commands,
             report: flag("report")?,
@@ -336,6 +365,26 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
                 failed = Some(Failed::command(i, err.key, err.id));
                 break;
             }
+        }
+    }
+    if let (None, Some(ops)) = (&failed, &r.propose) {
+        let mut run = e
+            .propose(ops.clone())
+            .map(|_| ())
+            .map_err(|err| (None, err));
+        if run.is_ok() {
+            for (i, &n) in r.accept.iter().enumerate() {
+                run = e.accept_hunk(n).map_err(|err| (Some(i), err));
+                if run.is_err() {
+                    break;
+                }
+            }
+        }
+        if let Err((i, err)) = run {
+            if !r.envelope() {
+                return Err(err);
+            }
+            failed = Some(Failed::proposal(i, err.key, err.id));
         }
     }
     let flags: Vec<u32> = (r.events.iter())
