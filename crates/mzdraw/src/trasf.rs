@@ -136,7 +136,7 @@ impl Document {
             };
             side.push(ids);
             if side.len() > 1 {
-                return fail(SHAPE, side.pop().unwrap_or_default());
+                return fail(SHAPE, Vec::new());
             }
         }
         match (before.pop(), after.pop()) {
@@ -305,6 +305,11 @@ pub(crate) fn from_trasf(text: &str, info: &mut Imported) -> Result<Document, &'
     let product = find(t.product.as_deref().ok_or(READ)?).ok_or(READ)?;
     t.validate_against(parent, Some(product))
         .map_err(|_| READ)?;
+    // more pairs than a map number can count: refused before anything is built
+    let pairs = t.map.iter().filter(|m| m.1.is_some()).count();
+    if pairs > crate::doc::MAX_MAP as usize {
+        return Err(READ);
+    }
     let name = crate::NAME;
     let text = format!(
         "$RXN\n\n  {name}\n\n  1  1\n$MOL\n{}$MOL\n{}",
@@ -312,14 +317,17 @@ pub(crate) fn from_trasf(text: &str, info: &mut Imported) -> Result<Document, &'
         product.to_molfile(name)
     );
     let mut d = crate::rxn::from_rxn(&text, info)?;
-    let np = parent.atoms.len();
-    if d.atoms.len() != np + product.atoms.len() {
+    let (np, nq) = (parent.atoms.len(), product.atoms.len());
+    if d.atoms.len() != np + nq {
         return Err(READ);
     }
     let mut n = 0u16;
     for &(a, b) in &t.map {
         let Some(b) = b else { continue };
-        n += 1;
+        if a as usize >= np || b as usize >= nq {
+            return Err(READ);
+        }
+        n = n.checked_add(1).ok_or(READ)?;
         for i in [a as usize, np + b as usize] {
             d.atoms.get_mut(i).ok_or(READ)?.map = n;
         }

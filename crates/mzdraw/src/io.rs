@@ -483,7 +483,7 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
         for (k, record) in text.split("$$$$").enumerate() {
             // what is left of the `$$$$` line of the record before (the first record keeps its empty title line)
             let record = match k {
-                0 => record,
+                0 => extra_blank_line(record),
                 _ => (record.strip_prefix("\r\n"))
                     .or(record.strip_prefix('\n'))
                     .unwrap_or(record),
@@ -546,6 +546,19 @@ pub(crate) fn record_of(
     let (mut d, placeholder) = labelled(&m, labels, info);
     d.set_maps(crate::maps::of_molfile(&clean), info);
     Ok((d, placeholder))
+}
+
+/// A molfile pasted with one blank line too many before its title: the counts line stands one line late (line 5 and not line 4),
+/// and the blank line is dropped. A molfile with an empty title line has its counts on line 4 and is left as it is.
+fn extra_blank_line(record: &str) -> &str {
+    let counts = |l: Option<&str>| l.is_some_and(|l| l.contains("V2000") || l.contains("V3000"));
+    let mut lines = record.lines();
+    let blank = lines.next().is_some_and(|l| l.trim().is_empty());
+    if blank && !counts(record.lines().nth(3)) && counts(record.lines().nth(4)) {
+        let at = record.find('\n').map_or(0, |i| i + 1);
+        return &record[at..];
+    }
+    record
 }
 
 /// A file may hold what a document does not (a coordinate far outside the bound): it is refused with `key`, not half kept.
