@@ -854,6 +854,13 @@ try {
     eq(Object.keys(home).length, 16);
     eq([home.tools.dock, home.tools.orient, home.file.dock, home.file.orient, home.structure.dock], ["left", "v", "top", "h", "right"]);
     await tidy(pg, 1280, 720);
+    // the kinds drawn most are in view in the collapsed palettes, and no palette overlaps another or the canvas at 720 px
+    const KEPT = ["bond:1", "bond:2", "bond:up", "bond:down", "ring:6a", "ring:6", "ring:5", "charge:+", "charge:-", "arrow", "plus"];
+    eq(await pg.evaluate(k => k.filter(c => { const b = document.querySelector(`[data-testid="d2-${c}"]`); return !b || !b.offsetParent; }), KEPT), []);
+    // by keyboard: a kept button is a stop of its palette, Enter runs it
+    await pg.focus('[data-testid="d2-ring:5"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "ring:5" });
+    await pg.focus('[data-testid="d2-bond:down"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "bond:down" });
+    await tool(pg, "select");
     // every button of the palettes says what it does; a key in brackets is a key the module binds
     const titles = await pg.evaluate(`[...document.querySelectorAll("#d2-palettes .items button, #d2-palettes .grip, #d2-flys button[data-cmd], #d2-flys button[data-opens], #d2-show-all, .menu ~ .row button")].map(b => [b.dataset.testid || b.id, b.title, b.getAttribute("aria-label") || b.textContent])`);
     eq(titles.filter(([, title, name]) => !title || !name).map(([id]) => id), []);
@@ -954,6 +961,21 @@ try {
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
+  await step("collapsed palettes: the head of a fresh page runs the single bond and benzene, then the kind used last, kept in view or not", async () => {
+    // a fresh page: nothing has been chosen yet, so the head shows what the palette was made to offer first
+    eq((await state(pg)).tool, "bond:1");
+    await tool(pg, "select"); await want(pg, { tool: "select" });
+    await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });          // not the triple bond that heads the flyout
+    await tool(pg, "select"); await pg.click('[data-testid="d2-head-rings"]'); await want(pg, { tool: "ring:6a" });          // benzene, not the ring of three
+    // the head follows the last used kind: one kept in view, then one from the flyout, then back
+    await pg.click('[data-testid="d2-bond:2"]'); await want(pg, { tool: "bond:2" });
+    await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:2" });
+    await tool(pg, "bond:wavy"); await want(pg, { tool: "bond:wavy" });
+    await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:wavy" });
+    await pg.click('[data-testid="d2-bond:1"]'); await want(pg, { tool: "bond:1" });
+    await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });
+    await tool(pg, "bond:1"); await want(pg, { tool: "bond:1" });
+  });
   await step("autosave: the drawing is saved in the browser, offered on the next visit, restored with the same bytes, or discarded; the style is remembered", async () => {
     const ready = () => until(pg, "document.documentElement.dataset.d2Ready === '1'");
     const saves = () => pg.evaluate("Number(document.documentElement.dataset.d2Saved || 0)");
@@ -1169,8 +1191,16 @@ try {
     eq(Object.entries(home).filter(([, r]) => r).map(([id]) => id).sort(), ["atoms", "bonds", "charges", "edit", "file", "history", "objects", "rings", "tools", "view"]);
     eq(await pg.evaluate("[...document.querySelectorAll('.grip')].filter(g => g.offsetParent && Math.min(g.offsetWidth, g.offsetHeight) < 44).map(g => g.dataset.testid)"), []);
     await tidy(pg, 768, 1024);
-    await shot(pg, "palettes-tablet");
+    // the kept kinds are in view here too, 44 px each, and a finger runs them
+    const KEPT = ["bond:1", "bond:2", "bond:up", "bond:down", "ring:6a", "ring:6", "ring:5", "charge:+", "charge:-", "arrow", "plus"];
+    eq(await pg.evaluate(k => k.filter(c => { const b = document.querySelector(`[data-testid="d2-${c}"]`); return !b || !b.offsetParent || Math.min(b.offsetWidth, b.offsetHeight) < 44; }), KEPT), []);
+    for (const [c, tl] of [["ring:6", "ring:6"], ["bond:up", "bond:up"], ["plus", "plus"]]) {
+      const b = await pg.locator(`[data-testid="d2-${c}"]`).boundingBox();
+      await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await want(pg, { tool: tl });
+    }
+    await tool(pg, "select");
     await tool(pg, "ring:6a"); await pg.mouse.click(cx, cy + 100); await want(pg, { atoms: 6 });
+    await shot(pg, "palettes-tablet");
     await pg.emulateMedia({ colorScheme: "dark" }); await frames(pg); await shot(pg, "palettes-tablet-dark"); await pg.emulateMedia({ colorScheme: "light" });
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     // the menu by tapping: a side palette hidden on a tablet is shown, and hidden again

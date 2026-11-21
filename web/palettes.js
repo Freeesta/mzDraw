@@ -155,7 +155,7 @@ function palette(id) {
   head.type = "button"; head.className = "head"; head.dataset.testid = P + "head-" + id; head.setAttribute("aria-expanded", "false"); head.setAttribute("aria-controls", P + "fly-" + id);
   const keep = (spec.keep || []).map((/** @type {string} */ c) => button(c, id)), rest = spec.items.map((/** @type {string} */ c) => button(c, id));
   const fields = (spec.fields || []).flatMap((/** @type {string} */ k) => ctx.field(k));
-  const p = { id, spec, el, items, head, keep, rest, fields, last: spec.tool ? spec.items[0] : "", collapsed: /** @type {boolean | null} */ (null),
+  const p = { id, spec, el, items, head, keep, rest, fields, last: spec.tool ? (spec.keep || [])[0] || spec.items[0] : "", collapsed: /** @type {boolean | null} */ (null),
     owns: (/** @type {string} */ c) => spec.items.includes(c) || (!!spec.owns && c.startsWith(spec.owns) && !(spec.keep || []).includes(c)) };
   pals[id] = p;
   const fly = flyout(id, head, id);
@@ -210,7 +210,8 @@ function fold(p, collapsed) {
 export function show(st) {
   for (const p of Object.values(pals)) {
     if (!p.spec) continue;
-    if (p.spec.tool && p.spec.items.includes(st.tool) && p.last !== st.tool) { p.last = st.tool; if (p.collapsed) p.head.replaceChildren(face(p.last)); }
+    // the head shows, and runs, the kind last used, whether that kind is kept in view or in the flyout
+    if (p.spec.tool && [...(p.spec.keep || []), ...p.spec.items].includes(st.tool) && p.last !== st.tool) { p.last = st.tool; if (p.collapsed) p.head.replaceChildren(face(p.last)); }
     const mine = p.owns(st.tool) && (p.collapsed || !p.spec.items.includes(st.tool));
     p.head.setAttribute("aria-pressed", String(mine));
   }
