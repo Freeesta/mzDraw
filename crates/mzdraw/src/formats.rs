@@ -407,6 +407,10 @@ pub(crate) fn assemble(
                 x2,
                 y2,
                 text: if runs.is_empty() {
+                    // a plain text is one line of at most 200 characters; a longer one is cut, and said
+                    if line.chars().count() > 200 {
+                        info.text_cut += 1;
+                    }
                     line.chars().take(200).collect()
                 } else {
                     crate::runs::plain(&runs)

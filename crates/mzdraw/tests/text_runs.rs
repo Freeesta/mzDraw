@@ -566,3 +566,311 @@ fn a_hostile_ket_text_is_read_in_linear_time() {
     );
     assert!(b / a < 9.0, "ranges: x4 took x{:.1}", b / a);
 }
+
+fn round1(v: f64) -> f64 {
+    (v * 10.0).round() / 10.0
+}
+
+#[test]
+fn the_digest_box_values_are_pinned_from_the_painter_metrics() {
+    let style = mzdraw::Style::default();
+    let m = style.metrics(1.0, false);
+    let word = "x".repeat(40);
+    // a script is at the style's `small` size, the rest at its font
+    let d = doc_with(vec![Run::plain(&word), Run::sub(&word)]);
+    let want = 1.0 + mzdraw::scene::width(&word, m.font) + mzdraw::scene::width(&word, m.small);
+    assert_eq!(text_rect(&d)[2], round1(want));
+    // the widest of two lines; the box grows down by one line step (1.25 of the font) per break
+    let d = doc_with(vec![
+        Run::plain(&word),
+        Run::line(),
+        Run::plain("yy"),
+        Run::line(),
+        Run::plain("z"),
+    ]);
+    let rect = text_rect(&d);
+    assert_eq!(rect[2], round1(1.0 + mzdraw::scene::width(&word, m.font)));
+    assert_eq!(rect[1], round1(2.0 - m.font * 0.5 - 2.0 * 1.25 * m.font));
+}
+
+#[test]
+fn obj_set_refuses_each_kind_of_flaw_with_its_key_and_holds_the_caps() {
+    let mut s = Session::default();
+    s.run(&[plain_text("t")]).unwrap();
+    let id = s.doc.objects[0].id;
+    let key = |s: &mut Session, runs: Vec<Run>| s.run(&[set_runs(id, runs)]).unwrap_err().key;
+    assert_eq!(
+        key(
+            &mut s,
+            vec![Run {
+                color: "blue".into(),
+                ..Run::plain("x")
+            }]
+        ),
+        "error.draw2.runColor"
+    );
+    assert_eq!(
+        key(
+            &mut s,
+            vec![Run {
+                sz: 8.01,
+                ..Run::plain("x")
+            }]
+        ),
+        "error.draw2.runSize"
+    );
+    assert_eq!(
+        key(
+            &mut s,
+            vec![Run {
+                font: "Arial;".into(),
+                ..Run::plain("x")
+            }]
+        ),
+        "error.draw2.runFont"
+    );
+    assert_eq!(
+        key(&mut s, vec![Run::plain(&"a".repeat(1001))]),
+        "error.draw2.runsCount"
+    );
+    assert_eq!(s.doc.objects[0].text, "t", "a refusal changes nothing");
+    // one run may hold the whole text: 1000 characters, bold, in one run
+    s.run(&[set_runs(
+        id,
+        vec![Run {
+            b: true,
+            ..Run::plain(&"a".repeat(1000))
+        }],
+    )])
+    .unwrap();
+    assert_eq!(s.doc.objects[0].text.chars().count(), 1000);
+    // a colour in the short form is accepted and written in the long form
+    s.run(&[set_runs(
+        id,
+        vec![Run {
+            color: "#ABC".into(),
+            ..Run::plain("x")
+        }],
+    )])
+    .unwrap();
+    assert_eq!(s.doc.objects[0].runs[0].color, "#aabbcc");
+}
+
+#[test]
+fn font_names_are_words_and_never_markup() {
+    let mut s = Session::default();
+    for good in [
+        "Times New Roman",
+        "Arial Narrow",
+        "Source Sans 3",
+        "Noto Sans CJK JP",
+        "Courier-New",
+        "My_Font.2",
+    ] {
+        s.run(&[add_text(vec![Run {
+            font: good.into(),
+            ..Run::plain("x")
+        }])])
+        .unwrap_or_else(|e| panic!("{good}: {e:?}"));
+    }
+    for bad in [
+        "Arial, sans-serif",
+        "Font (bold)",
+        "a\"b",
+        "a'b",
+        "a\\b",
+        "a;b",
+        "<b>",
+        "a{b}",
+        "tab\there",
+    ] {
+        let err = s
+            .run(&[add_text(vec![Run {
+                font: bad.into(),
+                ..Run::plain("x")
+            }])])
+            .unwrap_err();
+        assert_eq!(err.key, "error.draw2.runFont", "{bad:?}");
+    }
+}
+
+#[test]
+fn long_texts_from_files_keep_all_their_formatting_and_say_what_they_cut() {
+    let fragment = r#"<fragment id="1"><n id="2" p="0 0"/><n id="3" p="14.4 0"/><b id="4" B="2" E="3"/></fragment>"#;
+    // a bold run of 500 characters is kept whole
+    let long = "w".repeat(500);
+    let file =
+        format!(r#"<CDXML><page>{fragment}<t p="10 10"><s face="1">{long}</s></t></page></CDXML>"#);
+    let (d, info) = import(&file).unwrap();
+    assert_eq!(d.objects[0].text.chars().count(), 500);
+    assert!(d.objects[0].runs[0].b);
+    assert!(info.notes().is_empty());
+    // a plain text of 300 characters is cut to the 200 of a text line, and said
+    let file = format!(
+        r#"<CDXML><page>{fragment}<t p="10 10"><s face="0">{}</s></t></page></CDXML>"#,
+        "w".repeat(300)
+    );
+    let (d, info) = import(&file).unwrap();
+    assert_eq!(d.objects[0].text.chars().count(), 200);
+    assert_eq!(info.notes(), vec![("draw2.import.textCut", 1)]);
+    // the same for a KET text without styles
+    let rich = serde_json::json!({"blocks": [{"text": "w".repeat(1500), "type": "unstyled", "depth": 0, "inlineStyleRanges": [], "entityRanges": [], "data": {}}], "entityMap": {}});
+    let ket = serde_json::json!({"root": {"nodes": [{"type": "text", "data": {"content": rich.to_string(), "position": {"x": 1.0, "y": 1.0, "z": 0}}}]}}).to_string();
+    let (d, info) = import(&ket).unwrap();
+    assert_eq!(d.objects[0].text.chars().count(), 200);
+    assert_eq!(info.notes(), vec![("draw2.import.textCut", 1)]);
+}
+
+/// A small deterministic generator (no dependency).
+struct Lcg(u64);
+
+impl Lcg {
+    fn next(&mut self, n: usize) -> usize {
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        ((self.0 >> 33) as usize) % n
+    }
+}
+
+fn ket_text(blocks: serde_json::Value) -> String {
+    let rich = serde_json::json!({"blocks": blocks, "entityMap": {}});
+    serde_json::json!({"root": {"nodes": [{"type": "text", "data": {"content": rich.to_string(), "position": {"x": 1.0, "y": 1.0, "z": 0}}}]}}).to_string()
+}
+
+/// The styles of each character of a block, by the plainest rule: a range covers the characters whose first UTF-16 unit lies in it.
+fn reference(text: &str, ranges: &[(usize, usize, &str)]) -> Vec<Run> {
+    let mut out = Vec::new();
+    let mut at = 0;
+    for c in text.chars() {
+        let on = |name: &str| {
+            ranges
+                .iter()
+                .any(|(o, l, s)| *s == name && *o <= at && at < o + l)
+        };
+        let mut r = Run::plain(&c.to_string());
+        (r.b, r.i, r.sub, r.sup) = (on("BOLD"), on("ITALIC"), on("SUBSCRIPT"), on("SUPERSCRIPT"));
+        r.sup &= !r.sub;
+        out.push(r);
+        at += c.len_utf16();
+    }
+    runs::canon(out)
+}
+
+#[test]
+fn the_ket_sweep_agrees_with_the_per_character_rule_over_random_texts() {
+    let alphabet = ['a', 'b', '𝄞', '😀', 'é', ' ', '中', '𝒳'];
+    let styles = [
+        "BOLD",
+        "ITALIC",
+        "SUBSCRIPT",
+        "SUPERSCRIPT",
+        "UNDERLINE",
+        "CUSTOM_FONT_SIZE_14",
+        "",
+    ];
+    let mut r = Lcg(7);
+    let (mut with_pairs, mut styled) = (0, 0);
+    for case in 0..1500 {
+        let text: String = (0..1 + r.next(24))
+            .map(|_| alphabet[r.next(alphabet.len())])
+            .collect();
+        if text.trim().is_empty() {
+            continue;
+        }
+        let units = text.encode_utf16().count();
+        let ranges: Vec<(usize, usize, &str)> = (0..r.next(8))
+            .map(|_| {
+                (
+                    r.next(units + 6),
+                    r.next(units + 6),
+                    styles[r.next(styles.len())],
+                )
+            })
+            .collect();
+        let json: Vec<serde_json::Value> = ranges
+            .iter()
+            .map(|(o, l, s)| serde_json::json!({"offset": o, "length": l, "style": s}))
+            .collect();
+        let ket = ket_text(
+            serde_json::json!([{"text": text, "type": "unstyled", "depth": 0, "inlineStyleRanges": json, "entityRanges": [], "data": {}}]),
+        );
+        let want = reference(&text, &ranges);
+        let (d, _) = import(&ket).unwrap();
+        let got = if d.objects[0].runs.is_empty() {
+            vec![Run::plain(&d.objects[0].text)]
+        } else {
+            d.objects[0].runs.clone()
+        };
+        let want = if want.iter().any(Run::styled) {
+            want
+        } else {
+            vec![Run::plain(&text)]
+        };
+        assert_eq!(got, want, "case {case}: {text:?} {ranges:?}");
+        with_pairs += usize::from(text.chars().any(|c| c.len_utf16() == 2));
+        styled += usize::from(want.iter().any(Run::styled));
+    }
+    assert!(with_pairs > 500 && styled > 500, "{with_pairs} {styled}");
+    // the case of the review: an italic range over units 3 to 10: the three characters that start in it, after a surrogate pair
+    let ket = ket_text(
+        serde_json::json!([{"text": "db𝄞a𝄞😀", "type": "unstyled", "depth": 0, "inlineStyleRanges": [{"offset": 3, "length": 7, "style": "ITALIC"}], "entityRanges": [], "data": {}}]),
+    );
+    let (d, _) = import(&ket).unwrap();
+    assert_eq!(
+        d.objects[0].runs,
+        vec![
+            Run::plain("db𝄞"),
+            Run {
+                i: true,
+                ..Run::plain("a𝄞😀")
+            }
+        ]
+    );
+}
+
+#[test]
+fn a_cdxml_with_many_fonts_and_texts_is_read_in_linear_time() {
+    let file = |n: usize| {
+        let mut s = String::from("<CDXML><fonttable>");
+        for k in 0..n {
+            s += &format!(r#"<font id="{k}" name="Font {k}"/>"#);
+        }
+        s += r#"</fonttable><page><fragment id="1"><n id="2" p="0 0"/><n id="3" p="14.4 0"/><b id="4" B="2" E="3"/></fragment>"#;
+        for k in 0..n {
+            s += &format!(r#"<t p="{} 10"><s font="{k}" face="1">w</s></t>"#, k % 500);
+        }
+        s + "</page></CDXML>"
+    };
+    let files = [file(4000), file(16000)];
+    let (a, b) = (
+        best(|| drop(import(&files[0]))),
+        best(|| drop(import(&files[1]))),
+    );
+    assert!(b / a < 9.0, "x4 fonts and texts took x{:.1}", b / a);
+    let (d, _) = import(&files[0]).unwrap();
+    assert_eq!(d.objects[17].runs[0].font, "Font 17");
+}
+
+#[test]
+fn a_hostile_ket_text_with_both_characters_and_ranges_growing_is_read_in_linear_time() {
+    let ket = |chars: usize, ranges: usize| {
+        let styles = ["BOLD", "ITALIC", "SUBSCRIPT", "SUPERSCRIPT"];
+        let r: Vec<serde_json::Value> = (0..ranges).map(|k| serde_json::json!({"offset": k % chars, "length": chars, "style": styles[k % 4]})).collect();
+        ket_text(
+            serde_json::json!([{"text": "w".repeat(chars), "type": "unstyled", "depth": 0, "inlineStyleRanges": r, "entityRanges": [], "data": {}}]),
+        )
+    };
+    // characters stay under the cap of a text, so the sweep itself is what is timed: both grow by 4
+    let files = [ket(250, 5000), ket(1000, 20000)];
+    let (a, b) = (
+        best(|| drop(import(&files[0]))),
+        best(|| drop(import(&files[1]))),
+    );
+    assert!(
+        b / a < 9.0,
+        "x4 characters and x4 ranges took x{:.1}",
+        b / a
+    );
+}

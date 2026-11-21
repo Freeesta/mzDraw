@@ -80,9 +80,7 @@ impl Read {
                 .and_then(|v| v.parse::<f64>().ok())
                 .filter(|v| v.is_finite() && *v > 0.0)
                 .map_or(0.0, |v| v / TEXT_SIZE);
-            let font = s
-                .attr("font")
-                .and_then(|id| self.fonts.iter().find(|f| f.0 == id));
+            let font = s.attr("font").and_then(|id| self.fonts.get(id));
             let color = s
                 .attr("color")
                 .and_then(|c| c.parse::<usize>().ok())
@@ -94,10 +92,7 @@ impl Read {
                 b: face & 1 != 0,
                 i: face & 2 != 0,
                 u: face & 4 != 0,
-                font: font
-                    .filter(|f| f.1 != "Arial")
-                    .map(|f| f.1.clone())
-                    .unwrap_or_default(),
+                font: font.filter(|f| *f != "Arial").cloned().unwrap_or_default(),
                 sz: if (size - 1.0).abs() < 1e-9 { 0.0 } else { size },
                 color: color.cloned().unwrap_or_default(),
                 ..crate::runs::Run::default()

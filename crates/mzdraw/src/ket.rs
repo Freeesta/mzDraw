@@ -230,11 +230,11 @@ fn content(data: &Value) -> (String, Vec<crate::runs::Run>, usize) {
                 (depth[0] > 0, depth[1] > 0, depth[2] > 0, depth[3] > 0);
             run.sup &= !run.sub;
             runs.push(run);
+            // every UTF-16 unit passed brings the ranges that start there (a character above U+FFFF is two units)
             at += c.len_utf16();
-            // a character of two units: the second unit is passed over
-            for k in 0..4 {
-                if c.len_utf16() == 2 {
-                    depth[k] += diff[at][k];
+            if c.len_utf16() == 2 {
+                for k in 0..4 {
+                    depth[k] += diff[at - 1][k];
                 }
             }
         }

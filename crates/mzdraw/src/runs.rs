@@ -19,8 +19,6 @@ use serde_json::Value;
 pub const MAX_RUNS: usize = 400;
 pub const MAX_CHARS: usize = 1000;
 pub const MAX_LINES: usize = 20;
-/// The characters of one run, of a family name.
-const MAX_RUN: usize = 200;
 const MAX_FONT: usize = 64;
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -107,7 +105,7 @@ impl Run {
         let shape = if self.br {
             self.t.is_empty() && !self.styled()
         } else {
-            clean(&self.t, MAX_RUN) && !self.t.is_empty() && !(self.sub && self.sup)
+            clean(&self.t, MAX_CHARS) && !self.t.is_empty() && !(self.sub && self.sup)
         };
         (!shape).then_some("error.draw2.runStyle")
     }
@@ -179,7 +177,6 @@ pub fn repair(runs: Vec<Run>) -> (Vec<Run>, usize) {
             r = Run::line();
         } else {
             r.t.retain(|c| !c.is_control());
-            r.t = r.t.chars().take(MAX_RUN).collect();
             let room = MAX_CHARS - chars;
             r.t = r.t.chars().take(room).collect();
             chars += r.t.chars().count();
