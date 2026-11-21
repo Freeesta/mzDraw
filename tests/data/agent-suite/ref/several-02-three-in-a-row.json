@@ -1,0 +1,1 @@
+{"import":"Cc1ccccc1.c1ccncc1.O=C1CCCCC1","log":[{"op":"move","atoms":[1,2,3,4,5,6,7],"dx":0.0,"dy":-0.0},{"op":"move","atoms":[8,9,10,11,12,13],"dx":-3.732,"dy":-0.0},{"op":"move","atoms":[14,15,16,17,18,19,20],"dx":3.732,"dy":-0.0}],"out":"smiles"}

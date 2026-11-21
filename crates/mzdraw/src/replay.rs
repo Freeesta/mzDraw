@@ -13,12 +13,14 @@ struct Request {
     /// by mzDraw. Read after `import` when both are given.
     import_base64: Option<Vec<u8>>,
     log: Vec<Op>,
-    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
+    /// What `Editor::save` writes: `mzdraw` (default), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `pdf` (the PDF file as base64; the CLI `--raw` writes the file), `log`, `std` (the drawing checks `std/1`), `schema` (the table of the operations, `draw-edit-schema/1`) or `settings` (the settings file with the style, `layout` and `export`: what `set` left).
     out: Option<String>,
     /// The style of the SVG: a preset name or the text of a settings file; default `mzlab`.
     style: Option<String>,
     /// Settings applied after `style`, each `<section>.<key>=<value>` (`Editor::set`): the `--set` of the CLI.
     set: Vec<String>,
+    /// Editor commands run after `log` and before `out`: `(name, args)`. The singular `"command"` + `"args"` is a list of one.
+    commands: Vec<(String, serde_json::Value)>,
     /// `report`: answer with one `draw-result/1` document (see `outcome`).
     report: bool,
     /// `dry_run`: everything runs and is reported, nothing is written (`out` is left out); implies the document.
@@ -30,12 +32,15 @@ struct Request {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 10] = [
+const FIELDS: [&str; 13] = [
     "import",
     "import_base64",
     "style",
     "set",
     "log",
+    "commands",
+    "command",
+    "args",
     "out",
     "report",
     "dry_run",
@@ -71,6 +76,30 @@ impl Request {
         if obj.keys().any(|k| !FIELDS.contains(&k.as_str())) {
             return Err("error.draw2.requestField");
         }
+        let one = |c: &serde_json::Value, args: Option<&serde_json::Value>| {
+            let name = c.as_str().ok_or(BAD)?;
+            let args = args.cloned().unwrap_or_else(|| serde_json::json!({}));
+            crate::commands::check(name, &args)?;
+            Ok((name.to_string(), args))
+        };
+        let commands = match (v.get("command"), v.get("commands")) {
+            (Some(_), Some(_)) => return Err(BAD),
+            (Some(c), None) => vec![one(c, v.get("args"))?],
+            (None, Some(l)) => (l.as_array().ok_or(BAD)?.iter())
+                .map(|c| {
+                    // an item is `{"command", "args"}` and nothing else
+                    let item = c.as_object().ok_or(BAD)?;
+                    if item.keys().any(|k| k != "command" && k != "args") {
+                        return Err("error.draw2.requestField");
+                    }
+                    one(c.get("command").ok_or(BAD)?, c.get("args"))
+                })
+                .collect::<Result<_, _>>()?,
+            (None, None) => Vec::new(),
+        };
+        if v.get("args").is_some() && v.get("command").is_none() {
+            return Err(BAD);
+        }
         let flag = |k: &str| match v.get(k) {
             None => Ok(false),
             Some(x) => x.as_bool().ok_or(BAD),
@@ -85,6 +114,7 @@ impl Request {
             None => None,
         };
         Ok(Request {
+            commands,
             report: flag("report")?,
             dry_run: flag("dry_run")?,
             expect: v.get("expect").map_or(Ok(Vec::new()), read_expect)?,
@@ -197,6 +227,17 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             }
             failed = Some(Failed::log(i, err.key, err.id));
             break;
+        }
+    }
+    if failed.is_none() {
+        for (i, (name, args)) in r.commands.iter().enumerate() {
+            if let Err(err) = crate::commands::run(&mut e, name, args) {
+                if !r.envelope() {
+                    return Err(err);
+                }
+                failed = Some(Failed::command(i, err.key, err.id));
+                break;
+            }
         }
     }
     let kind = r.out.as_deref().unwrap_or("mzdraw");

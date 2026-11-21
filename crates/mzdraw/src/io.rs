@@ -383,13 +383,21 @@ pub fn saved_summary(text: &str) -> Option<(usize, usize, usize)> {
     (!d.is_empty()).then_some((d.atoms.len(), d.bonds.len(), d.objects.len()))
 }
 
-/// `import` for the bytes of a file: a PNG saved by mzDraw gives the document it carries, a binary CDX file (found by its magic,
-/// `VjCD0100`) is read by `cdx`, anything else is read as text.
+/// `import` for the bytes of a file: a PNG or a PDF saved by mzDraw gives the document it carries, a binary CDX file (found by
+/// its magic, `VjCD0100`) is read by `cdx`, anything else is read as text.
 pub fn import_bytes(bytes: &[u8]) -> Result<(Document, Imported), &'static str> {
     if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
         let d = crate::png::carried(bytes).ok_or("error.draw2.pngPlain")??;
         let info = Imported {
             format: "png",
+            ..Imported::default()
+        };
+        return Ok((d, info));
+    }
+    if bytes.starts_with(b"%PDF-") {
+        let d = crate::pdf::carried(bytes).ok_or("error.draw2.pdfPlain")??;
+        let info = Imported {
+            format: "pdf",
             ..Imported::default()
         };
         return Ok((d, info));

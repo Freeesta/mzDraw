@@ -80,12 +80,16 @@ fn full_ops() -> Vec<Op> {
             x2: 3.0,
             y2: 1.0,
             text: "hv".into(),
+            from: 1,
+            to: 2,
         },
         Op::ObjSet {
             id: 7,
             text: Some("Pd/C".into()),
             x2: Some(4.0),
             y2: Some(2.0),
+            from: Some(2),
+            to: Some(0),
         },
         Op::Ring {
             n: 6,

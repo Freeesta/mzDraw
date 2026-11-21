@@ -1,0 +1,1 @@
+{"import":"CC(=O)OC","log":[{"op":"atom.add","el":"C","x":3.5,"y":0.0},{"op":"bond.add","a":5,"b":10}],"out":"smiles"}
