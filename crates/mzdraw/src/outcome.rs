@@ -10,9 +10,9 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 /// The keys of the envelope, in the order they are written. A key that does not apply is left out.
-pub const KEYS: [&str; 11] = [
+pub const KEYS: [&str; 12] = [
     "format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed",
-    "expect",
+    "changed", "expect",
 ];
 
 /// The keys of `failed`, in the order they are written.
@@ -77,6 +77,9 @@ pub enum Check {
     Pieces(u32),
     /// `{"smiles":"..."}`: the SMILES of the whole drawing (`Editor::save("smiles")`) is this text.
     Smiles(String),
+    /// `{"anchored":{"arrow":ID,"from":A,"to":B}}` (tp-02): the arrow `ID` is anchored to the structures of the atoms `A` and `B` (0, or left
+    /// out: that end is free). The ids are the smallest atom ids a command or the arrow tool writes.
+    Anchored { arrow: u32, from: u32, to: u32 },
 }
 
 /// A postcondition with the request object it came from (written back as `check`).
@@ -112,6 +115,25 @@ pub fn read_expect(v: &Value) -> Result<Vec<Expectation>, &'static str> {
                     .ok_or(BAD_EXPECT)?,
             ),
             "smiles" => Check::Smiles(val.as_str().ok_or(BAD_EXPECT)?.to_string()),
+            "anchored" => {
+                let o = val.as_object().ok_or(BAD_EXPECT)?;
+                let id = |k: &str, need: bool| match o.get(k) {
+                    None if !need => Some(0),
+                    v => v
+                        .and_then(Value::as_u64)
+                        .and_then(|n| u32::try_from(n).ok()),
+                };
+                if o.keys()
+                    .any(|k| !["arrow", "from", "to"].contains(&k.as_str()))
+                {
+                    return Err(BAD_EXPECT);
+                }
+                Check::Anchored {
+                    arrow: id("arrow", true).filter(|&n| n > 0).ok_or(BAD_EXPECT)?,
+                    from: id("from", false).ok_or(BAD_EXPECT)?,
+                    to: id("to", false).ok_or(BAD_EXPECT)?,
+                }
+            }
             _ => return Err(BAD_EXPECT),
         };
         out.push(Expectation {
@@ -171,6 +193,19 @@ impl Check {
                     (false, format!("the drawing has {got} pieces"))
                 }
             }
+            Check::Anchored { arrow, from, to } => match doc.object(*arrow) {
+                Some(o) if o.t == crate::doc::ObjKind::Arrow => {
+                    if (o.from, o.to) == (*from, *to) {
+                        (true, String::new())
+                    } else {
+                        (
+                            false,
+                            format!("the arrow is anchored {} to {} (0: free)", o.from, o.to),
+                        )
+                    }
+                }
+                _ => (false, format!("the drawing has no arrow {arrow}")),
+            },
             Check::Smiles(want) => match doc.to_smiles() {
                 Ok(got) if got == *want => (true, String::new()),
                 Ok(got) => (false, format!("the SMILES of the drawing is {got}")),
@@ -278,6 +313,9 @@ pub struct Outcome {
     /// What the output format `out` cannot hold, as (i18n key, count): `draw2.export.mapsLost` for atom maps. Empty: nothing lost.
     pub lost: Vec<(&'static str, usize)>,
     pub failed: Option<Failed>,
+    /// Only when a command of the request was `pathway:anchor` or `pathway:route` (tp-02): whether the commands changed the drawing, so
+    /// that a real route can be told from a no-op.
+    pub changed: Option<bool>,
     /// `(request object, ok, detail)` per expectation, in request order; `None` when the request had no `expect`.
     pub expect: Option<Vec<(Value, bool, String)>>,
 }
@@ -314,6 +352,9 @@ impl Outcome {
         }
         if let Some(f) = &self.failed {
             s.push_str(&format!(",\"failed\":{}", f.json()));
+        }
+        if let Some(c) = self.changed {
+            s.push_str(&format!(",\"changed\":{c}"));
         }
         if let Some(list) = &self.expect {
             let items: Vec<String> = (list.iter())

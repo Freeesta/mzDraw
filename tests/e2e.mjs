@@ -1770,7 +1770,7 @@ try {
     await shot(pg, "tp02-arrow-followed");
     eq(await replayEq(pg), { mzdraw: true, svg: true });
   });
-  await step("pathway:anchor by keyboard: a free arrow is selected, the context menu opens with the Menu key, A then Enter anchors it; Route arrows (Menu key, R, Enter) puts displaced arrows back and the page equals the golden; one undo each", async () => {
+  await step("pathway:anchor by keyboard: a free arrow is selected, the context menu opens with Shift+F10, A then Enter anchors it; Route arrows (Menu key, R, Enter) puts displaced arrows back and the page equals the golden; one undo each", async () => {
     await twoRings(pg, cx, cy, 250);
     await tool(pg, "arrow"); await pg.mouse.move(cx - 180, cy + 10); await pg.mouse.down(); await pg.mouse.move(cx, cy + 10, { steps: 4 }); await pg.mouse.move(cx + 180, cy + 10, { steps: 4 }); await pg.mouse.up();
     await want(pg, { objects: 1 });
@@ -1778,7 +1778,7 @@ try {
     eq([a.from || 0, a.to || 0], [0, 0]);                       // 30 px (3/4 of a bond length) from each ring: out of the box, so free
     await tool(pg, "select"); await pg.mouse.click(cx, cy + 10); await want(pg, { selected: 1 });
     const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
-    await pg.focus("#d2-canvas"); await pg.keyboard.press("ContextMenu"); await shown(pg);
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Shift+F10"); await shown(pg);
     eq((await menuNow(pg)).target, "object");
     await pg.keyboard.press("a"); eq((await menuNow(pg)).active, "pathway.anchor");
     await pg.keyboard.press("Enter"); await shown(pg, false);

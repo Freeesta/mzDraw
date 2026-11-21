@@ -491,15 +491,35 @@ fn both_ends_in_reach_of_the_same_structure_anchor_only_the_nearer_end() {
 }
 
 #[test]
-fn a_dry_run_reports_and_writes_nothing() {
+fn a_dry_run_reports_and_writes_nothing_and_an_expect_arm_proves_the_commands_ran() {
     let text = free_arrow_scheme();
     let cmd = json!([{"command":"pathway:anchor","args":{"arrow":10}},{"command":"pathway:route"}]);
-    let dry = replay(json!({"import": text, "commands": cmd, "dry_run": true}));
-    assert_eq!(dry["ok"], true);
+    // the tail is anchored to the structure of atom 2, the head (far from everything) stays free: the arm says so, so the dry run
+    // proves the commands ran, and a wrong arm is false in the same run
+    let dry = replay(json!({"import": text, "commands": cmd, "dry_run": true,
+        "expect": [{"anchored":{"arrow":10,"from":2}}, {"anchored":{"arrow":10,"from":2,"to":7}}]}));
     assert_eq!(dry["dry_run"], true);
     assert!(dry.get("out").is_none(), "a dry run writes no document");
     assert_eq!(dry["created"], json!({}));
-    // the same request without dry_run does anchor, so the dry run is what told "ok" without writing
+    assert_eq!(dry["changed"], true);
+    assert_eq!(
+        (
+            dry["expect"][0]["ok"].clone(),
+            dry["expect"][1]["ok"].clone()
+        ),
+        (json!(true), json!(false))
+    );
+    assert_eq!(dry["ok"], false, "one false expectation is a verdict");
+    // without the commands the first arm is false: the arm tells the commands from nothing
+    let none = replay(
+        json!({"import": text, "dry_run": true, "expect": [{"anchored":{"arrow":10,"from":2}}]}),
+    );
+    assert_eq!(none["expect"][0]["ok"], false);
+    assert!(
+        none.get("changed").is_none(),
+        "no pathway command: no `changed`"
+    );
+    // the same request without dry_run does anchor
     let real = replay(json!({"import": text, "commands": cmd, "out": "mzdraw"}));
     assert_eq!(real["objects"][0]["from"], 2);
     // a refused command is a verdict in a dry run too
@@ -510,4 +530,94 @@ fn a_dry_run_reports_and_writes_nothing() {
         (bad["ok"].clone(), bad["failed"]["stage"].clone()),
         (json!(false), json!("command"))
     );
+    // an arm with a field outside its table is an invalid request
+    let r = mzdraw::replay::replay(
+        &json!({"import": text, "expect":[{"anchored":{"arrow":10,"x":1}}]}).to_string(),
+    );
+    assert_eq!(r.unwrap_err().key, "error.draw2.expect");
+}
+
+#[test]
+fn changed_tells_a_real_route_from_a_no_op() {
+    // an anchored arrow that is not on its route: the first route changes the drawing, the second does nothing
+    let text = scheme(
+        5.0,
+        json!([{"id":10,"t":"arrow","x":1.2,"y":1.0,"x2":5.0,"y2":1.0,"from":2,"to":7}]),
+    );
+    let once =
+        replay(json!({"import": text, "commands":[{"command":"pathway:route"}], "report": true}));
+    assert_eq!(once["changed"], true);
+    let twice = replay(json!({"import": text, "report": true,
+        "commands":[{"command":"pathway:route"},{"command":"pathway:route"}]}));
+    assert_eq!(
+        twice["changed"], true,
+        "the run as a whole changed the drawing"
+    );
+    let routed =
+        replay(json!({"import": text, "commands":[{"command":"pathway:route"}], "out": "mzdraw"}));
+    let again = replay(
+        json!({"import": routed.to_string(), "commands":[{"command":"pathway:route"}], "report": true}),
+    );
+    assert_eq!(
+        again["changed"], false,
+        "an already routed drawing: a no-op"
+    );
+    let anchor_same = replay(json!({"import": routed.to_string(), "report": true,
+        "commands":[{"command":"pathway:anchor","args":{"arrow":10}}]}));
+    assert_eq!(anchor_same["changed"], false);
+    // `changed` stands where the envelope puts it, before `expect`
+    let raw = mzdraw::replay::replay(
+        &json!({"import": text, "commands":[{"command":"pathway:route"}],
+        "expect":[{"pieces":2}]})
+        .to_string(),
+    )
+    .unwrap();
+    assert!(
+        raw.find("\"changed\"").unwrap() < raw.find("\"expect\"").unwrap(),
+        "{raw}"
+    );
+}
+
+/// A hostile size (2000 structures, 2000 arrows): many structures and as many arrows. Everything that asks for a box used to recompute the pieces of the whole
+/// document each time (quadratic per question); now the pieces are computed once per command, so the route of every arrow, the
+/// anchoring of one arrow and an arrow drawn with the tool stay quick. The bound is generous (a debug build is slower than release)
+/// and the byte-for-byte results are those of the goldens.
+#[test]
+fn two_thousand_structures_and_arrows_stay_quick() {
+    const N: usize = 2000;
+    let mut atoms = Vec::new();
+    let mut objects = Vec::new();
+    // structures on a grid, one atom each (ids 1..=N), arrows chained from one to the next, anchored but displaced
+    for i in 0..N {
+        let (x, y) = ((i % 40) as f64 * 4.0, (i / 40) as f64 * 4.0);
+        atoms.push(json!({"id": i + 1, "el": "C", "x": x, "y": y}));
+    }
+    for i in 0..N - 1 {
+        let (x, y) = ((i % 40) as f64 * 4.0, (i / 40) as f64 * 4.0);
+        objects.push(json!({"id": N + 1 + i, "t":"arrow","x":x+0.3,"y":y+0.4,"x2":x+3.0,"y2":y+0.4,"from":i+1,"to":i+2}));
+    }
+    let text = json!({"format":"mzdraw/1","next":2*N+2,"atoms":atoms,"bonds":[],"objects":objects})
+        .to_string();
+    let t0 = std::time::Instant::now();
+    let r =
+        replay(json!({"import": text, "report": true, "commands":[{"command":"pathway:route"}]}));
+    let route = t0.elapsed();
+    assert_eq!(r["ok"], true);
+    let t1 = std::time::Instant::now();
+    let r = replay(json!({"import": text, "report": true,
+        "commands":[{"command":"pathway:anchor","args":{"arrow": N + 1}}]}));
+    let anchor = t1.elapsed();
+    assert_eq!(r["ok"], true);
+    let mut e = editor(&text);
+    e.set_tool("arrow");
+    let t2 = std::time::Instant::now();
+    let (a, b) = (px(&e, 0.0, 0.0), px(&e, 8.0, 0.0));
+    drag(&mut e, a, b);
+    let tool = t2.elapsed();
+    let bound = std::time::Duration::from_secs(if cfg!(debug_assertions) { 20 } else { 2 });
+    assert!(
+        route < bound && anchor < bound && tool < bound,
+        "route {route:?}, anchor {anchor:?}, tool {tool:?}"
+    );
+    eprintln!("{N} structures and arrows: route {route:?}, anchor {anchor:?}, tool {tool:?}");
 }

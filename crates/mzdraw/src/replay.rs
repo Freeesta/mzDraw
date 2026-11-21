@@ -315,6 +315,7 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             break;
         }
     }
+    let before_commands = e.doc().clone();
     if failed.is_none() {
         for (i, (name, args)) in r.commands.iter().enumerate() {
             if let Err(err) = crate::commands::run(&mut e, name, args) {
@@ -384,6 +385,9 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         removed: before.minus(&after),
         lost: Vec::new(),
         failed,
+        changed: (r.commands.iter())
+            .any(|(name, _)| name == "pathway:anchor" || name == "pathway:route")
+            .then(|| *e.doc() != before_commands),
         expect,
     };
     if outcome.ok() {

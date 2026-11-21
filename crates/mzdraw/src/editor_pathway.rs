@@ -29,7 +29,7 @@ impl Editor {
     /// step. An end with nothing in reach is reported in the live line and left as it was.
     pub(crate) fn pathway_anchor(&mut self, id: u32) -> Result<bool, OpError> {
         self.arrow_check(id)?;
-        let (ops, now) = route::anchor(self.doc(), id, REACH, &self.style).unwrap_or_default();
+        let (ops, now) = route::anchor(self.doc(), id, REACH, &self.style)?;
         let any = now != [0, 0];
         let changed = !ops.is_empty();
         if changed {

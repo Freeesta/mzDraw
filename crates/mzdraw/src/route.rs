@@ -7,7 +7,7 @@
 //! their own step, so that the log carries them and a replay gives the same bytes. A bare operation never follows.
 
 use crate::doc::{round4, Document, ObjKind};
-use crate::ops::Op;
+use crate::ops::{Op, OpError};
 use crate::settings::Style;
 
 /// An axis-aligned box: x0, y0, x1, y1 (bond lengths).
@@ -16,11 +16,69 @@ pub type Rect = [f64; 4];
 /// The box of the structure that holds `atom`: its atoms and the ink of their labels (`scene::label_extent`, the layout the
 /// painter uses). `None` when no atom has that id.
 pub fn structure_box(doc: &Document, atom: u32, style: &Style) -> Option<Rect> {
-    doc.atom(atom)?;
-    let piece = crate::layout::pieces(doc)
-        .into_iter()
-        .find(|p| p.contains(&atom))?;
-    Some(piece_box(doc, &piece, style))
+    Structures::new(doc, style).box_of(atom)
+}
+
+/// The structures of a document and their boxes, computed once: the connected pieces (`layout::pieces`, the costly part) and the box of
+/// each. Every function of this module that needs the box of a structure takes one of these, so that a command pays for the pieces once
+/// per call, not once per arrow or per question. The boxes depend on the atoms and the style only: they stay true across operations
+/// that change anchors (`obj.set`) or arrows.
+pub struct Structures {
+    pieces: Vec<Vec<u32>>,
+    boxes: Vec<Rect>,
+    of_atom: std::collections::HashMap<u32, usize>,
+}
+
+impl Structures {
+    /// The pieces of `doc` and the box of each.
+    pub fn new(doc: &Document, style: &Style) -> Structures {
+        let pieces = crate::layout::pieces(doc);
+        let boxes = pieces.iter().map(|p| piece_box(doc, p, style)).collect();
+        let of_atom = (pieces.iter().enumerate())
+            .flat_map(|(i, p)| p.iter().map(move |&a| (a, i)))
+            .collect();
+        Structures {
+            pieces,
+            boxes,
+            of_atom,
+        }
+    }
+
+    /// The box of the structure that holds `atom`; `None` when no atom has that id.
+    pub fn box_of(&self, atom: u32) -> Option<Rect> {
+        self.of_atom.get(&atom).map(|&i| self.boxes[i])
+    }
+
+    /// Whether the two atoms are in the same structure.
+    pub fn same(&self, a: u32, b: u32) -> bool {
+        matches!((self.of_atom.get(&a), self.of_atom.get(&b)), (Some(x), Some(y)) if x == y)
+    }
+
+    /// The smallest atom id of the structure whose box (`HIT_SLACK` more on every side) holds the point; see `structure_at`.
+    pub fn at(&self, x: f64, y: f64) -> Option<u32> {
+        self.nearest(x, y, HIT_SLACK).map(|(id, _)| id)
+    }
+
+    /// The structure nearest to the point by box distance within `reach`; see `nearest_structure`.
+    pub fn nearest(&self, x: f64, y: f64, reach: f64) -> Option<(u32, f64)> {
+        let mut best: Option<(u32, f64)> = None;
+        for (piece, &b) in self.pieces.iter().zip(&self.boxes) {
+            let id = smallest(piece);
+            let d = box_distance(b, x, y);
+            if d > reach + 1e-9 {
+                continue;
+            }
+            // the distance is compared as the documents store numbers: to four decimals
+            let better = match best {
+                None => true,
+                Some((bid, bd)) => round4(d) < round4(bd) || (round4(d) == round4(bd) && id < bid),
+            };
+            if better {
+                best = Some((id, d));
+            }
+        }
+        best
+    }
 }
 
 /// The box of one structure, given as the ids of its atoms: the atoms and the ink of their labels.
@@ -80,26 +138,31 @@ pub fn clip(a: Rect, b: Rect, margin: f64) -> Option<((f64, f64), (f64, f64))> {
 
 /// The boxes of the two structures an arrow is anchored to; `None` unless both ends are anchored to existing atoms of two
 /// different structures (a dangling or a free end is used as free, and an arrow with a free end is not routed).
-fn boxes(doc: &Document, from: u32, to: u32, style: &Style) -> Option<(Rect, Rect)> {
+fn boxes(st: &Structures, from: u32, to: u32) -> Option<(Rect, Rect)> {
     if from == 0 || to == 0 {
         return None;
     }
-    let a = structure_box(doc, from, style)?;
-    let b = structure_box(doc, to, style)?;
-    let same = crate::layout::pieces(doc)
-        .iter()
-        .any(|p| p.contains(&from) && p.contains(&to));
-    (!same).then_some((a, b))
+    let a = st.box_of(from)?;
+    let b = st.box_of(to)?;
+    (!st.same(from, to)).then_some((a, b))
 }
 
 /// The operations that put the anchored arrow `id` on its routed ends: a `move` of the arrow for the tail, then an `obj.set` of
 /// `x2`, `y2`; none when it is already there, when it is not an arrow or is not anchored at both ends. The gap is `Style::pathway_margin` (bond
 /// lengths), the label ink comes from the style too.
 pub fn route(doc: &Document, id: u32, style: &Style) -> Vec<Op> {
+    if !doc.objects.iter().any(|o| o.id == id && o.from != 0) {
+        return Vec::new();
+    }
+    route_in(doc, id, &Structures::new(doc, style), style)
+}
+
+/// `route` with the structures of the document already computed (`Structures::new`).
+pub fn route_in(doc: &Document, id: u32, st: &Structures, style: &Style) -> Vec<Op> {
     let Some(o) = doc.object(id).filter(|o| o.t == ObjKind::Arrow) else {
         return Vec::new();
     };
-    let Some((a, b)) = boxes(doc, o.from, o.to, style) else {
+    let Some((a, b)) = boxes(st, o.from, o.to) else {
         return Vec::new();
     };
     route_between(o, a, b, style.pathway_margin)
@@ -148,15 +211,15 @@ pub fn follow(doc: &Document, ops: &[Op], style: &Style) -> Vec<Op> {
     if after.apply(ops).is_err() {
         return Vec::new();
     }
-    let box_of =
-        |d: &Document, atom: u32| (atom != 0).then(|| structure_box(d, atom, style)).flatten();
+    let (before_st, after_st) = (Structures::new(doc, style), Structures::new(&after, style));
+    let box_of = |s: &Structures, atom: u32| (atom != 0).then(|| s.box_of(atom)).flatten();
     let mut out = Vec::new();
     for o in doc.objects.iter().filter(|o| o.t == ObjKind::Arrow) {
         let changed = [o.from, o.to]
             .into_iter()
-            .any(|a| box_of(doc, a) != box_of(&after, a));
+            .any(|a| box_of(&before_st, a) != box_of(&after_st, a));
         if changed {
-            out.extend(route(&after, o.id, style));
+            out.extend(route_in(&after, o.id, &after_st, style));
         }
     }
     out
@@ -193,38 +256,38 @@ pub fn nearest_structure(
     reach: f64,
     style: &Style,
 ) -> Option<(u32, f64)> {
-    let mut best: Option<(u32, f64)> = None;
-    for piece in crate::layout::pieces(doc) {
-        let id = smallest(&piece);
-        let Some(b) = structure_box(doc, id, style) else {
-            continue;
-        };
-        let d = box_distance(b, x, y);
-        if d > reach + 1e-9 {
-            continue;
-        }
-        // the distance is compared as the documents store numbers: to four decimals
-        let better = match best {
-            None => true,
-            Some((bid, bd)) => round4(d) < round4(bd) || (round4(d) == round4(bd) && id < bid),
-        };
-        if better {
-            best = Some((id, d));
-        }
-    }
-    best
+    Structures::new(doc, style).nearest(x, y, reach)
 }
 
 /// The operations that anchor the ends of the arrow `id` to the nearest structures, each within `reach` bond lengths, then route
 /// it (`route`). The anchors come back as `[from, to]` after the operations (0 = free). An end with no structure in reach keeps
 /// what it has; when both ends reach the same structure the end farther from it (the head on a tie) is left as it was. Empty when
-/// nothing changes. `None` when `id` is not an arrow.
-pub fn anchor(doc: &Document, id: u32, reach: f64, style: &Style) -> Option<(Vec<Op>, [u32; 2])> {
-    let o = doc.object(id).filter(|o| o.t == ObjKind::Arrow)?;
-    let found = [
-        nearest_structure(doc, o.x, o.y, reach, style),
-        nearest_structure(doc, o.x2, o.y2, reach, style),
-    ];
+/// nothing changes. The error is the keyed refusal when `id` is not an arrow or an operation is refused.
+pub fn anchor(
+    doc: &Document,
+    id: u32,
+    reach: f64,
+    style: &Style,
+) -> Result<(Vec<Op>, [u32; 2]), OpError> {
+    anchor_in(doc, id, reach, &Structures::new(doc, style), style)
+}
+
+/// `anchor` with the structures of the document already computed (`Structures::new`).
+pub fn anchor_in(
+    doc: &Document,
+    id: u32,
+    reach: f64,
+    st: &Structures,
+    style: &Style,
+) -> Result<(Vec<Op>, [u32; 2]), OpError> {
+    let o = doc
+        .object(id)
+        .filter(|o| o.t == ObjKind::Arrow)
+        .ok_or(OpError {
+            key: "error.draw2.object",
+            id,
+        })?;
+    let found = [st.nearest(o.x, o.y, reach), st.nearest(o.x2, o.y2, reach)];
     let mut now = [o.from, o.to];
     match found {
         [Some((a, da)), Some((b, db))] if a == b => {
@@ -252,15 +315,24 @@ pub fn anchor(doc: &Document, id: u32, reach: f64, style: &Style) -> Option<(Vec
         });
     }
     let mut after = doc.clone();
-    after.apply(&ops).ok()?;
-    ops.extend(route(&after, id, style));
-    Some((ops, now))
+    after.apply(&ops)?;
+    // the anchors change no atom: the boxes of the document before are the boxes after
+    ops.extend(route_in(&after, id, st, style));
+    Ok((ops, now))
 }
 
 /// The route operations of every anchored arrow of the document (none when nothing moves).
 pub fn route_all(doc: &Document, style: &Style) -> Vec<Op> {
+    if !doc
+        .objects
+        .iter()
+        .any(|o| o.t == ObjKind::Arrow && o.from != 0)
+    {
+        return Vec::new();
+    }
+    let st = Structures::new(doc, style);
     (doc.objects.iter().filter(|o| o.t == ObjKind::Arrow))
-        .flat_map(|o| route(doc, o.id, style))
+        .flat_map(|o| route_in(doc, o.id, &st, style))
         .collect()
 }
 
