@@ -58,6 +58,10 @@ Latest versions found: ChemDraw desktop **26.1** (2026-09-28*), BIOVIA Draw **20
 | CDD-K | https://www.chemdoodle.com/downloads/KeyboardShortcuts.pdf | shortcut sheet, 2014-08-19, no version | yes |
 | CDD-VH | https://www.ichemlabs.com/support/version-history.php?product=ChemDoodle | 12.12.1 of 2026-09-19, 12.12.0 of 2026-09-15, 12.11.0 of 2026-06-22, 12.10.0 of 2026-02-03 | yes |
 | CDD-HP | https://www.chemdoodle.com/ | 12.12.1 | yes |
+| MS/pop-up | https://docs.chemaxon.com/latest/marvin_pop-up-menus-of-marvinsketch.html | MarvinSketch context menus, page 2026-11-02 | yes |
+| MJ/ctx | https://docs.chemaxon.com/latest/marvin-js_context-menus.html, https://docs.chemaxon.com/latest/marvin-js_selection-context-menu.html | Marvin JS context menus, 2026-11-02 | yes |
+| M-253 | https://www.certara.com/wp-content/uploads/2026/03/marvin_25.3.3.pdf | new web Marvin user documentation 25.3.3, 2025-09-01 | yes |
+| KE-SRC | https://github.com/epam/ketcher (`packages/ketcher-react/src/script/ui/views/components/ContextMenu/`, `documentation/help.md`), releases and issues | 3.23.0-dev.1, commit 7f69095, 2026-11-20 (Apache-2.0; read, nothing copied) | yes |
 | CDW/page | https://web.chemdoodle.com/ (tutorial/2d-structure-canvases/sketcher-canvas, demos/2d-sketcher, installation/changelog, docs/2d-shapes, tutorial/advanced/styles, docs/ichemlabs-cloud-services, tutorial/advanced/sketcher-application-window) | 11.0.0, 2025-05-17 | yes (documentation only; the GPL code was not opened) |
 
 Hosts that refused the fetch (site-side bot walls, not bypassed): revvitysignals.com, www.revvitysignals.com, support.revvitysignals.com, www.revvity.com, pubs.acs.org, the ACS LabNotes PDF on www.acs.org. chemmazing.revvitysignals.com did not connect. Behind a login or licence: the ChemDraw 26 and BIOVIA Draw user guides, the new Marvin full documentation, the ChemDraw tips e-book (lead form).
@@ -299,7 +303,7 @@ The model is the one of `docs/mzdraw-ui.md` §4-§5, built as R1 (PR #35, `crate
 | P14 | interface layout stored inside drawing files | MS/marvin_history-of-changes.html 15.3.2.0 (GUI options in MRV) | OUT: the document holds chemistry and drawing, not the user's interface | - |
 
 ## 5. Counts
-- 156 rows (A-M and P): **MUST 56** (17 of them built, so 39 to build), **SHOULD 59**, LATER 26, OUT 15. A row whose priority has a parenthesis ("SHOULD (MUST for medicinal chemists)") is counted by its first word.
+- 173 rows (A-M, palettes P, context menus X): **MUST 68** (17 built on `main`, 11 more built by the open PRs #35 palettes R1 and #37 context menu, so 40 left), **SHOULD 63**, LATER 27, OUT 15. A row whose priority has a parenthesis ("SHOULD (MUST for medicinal chemists)") is counted by its first word.
 - Every MUST row not built maps to a prompt to run (§6: an arch-cd prompt, or the arch-web / arch-std prompt that covers it), except K06; prompts 23-26 take the SHOULD rows with the best value for cost. The rest of the SHOULD rows are left for a later study round.
 - Where mzDraw is already ahead of all four (from the rows above): one Rust path for page, CLI and desktop with the same bytes (L07, `CLAUDE.md` rule 10); no server for any feature (L07, against MJ and CDW); pictures that reopen as chemistry (J09 is built for SVG and PNG; CDD does it for PDF/EPS/SVG); an import that lists what it could not read; per-structure identification annotations (no competitor has a slot for them); a text description of the figure for screen readers (only CDD 12.11 has one).
 
@@ -337,3 +341,47 @@ One prompt per slice in `docs/prompts/arch-cd-NN-slug.md`. The studies arch-std 
 Other rows of this study that the other studies already carry as prompts: A08 (either double bond) = arch-std-11, B08 (label reversal) = arch-std-08, B16 (hydrogen and carbon label display) = arch-std-10, I11 and I10 (lasso, select a piece) = arch-web-07.
 Not given a prompt although MUST: K06 (the WCAG 2.2 audit with a real screen reader; arch-std-07 is the page audit).
 Every prompt that is run cites `CLAUDE.md` rule 15: the feature is a `draw_edit/1` op or a `--set` setting first, with a CLI route and a native replay test, and the page is one client of it.
+
+## 7. Context menus (by target)
+The model is PR #37 (`crates/mzdraw/src/context.rs`, `Editor::context_menu(x, y)`, replay output `context:<x>,<y>`), with the page in its PR 2. This section is the input for refining it (prompt arch-cd-20).
+### What the products put in each menu
+Order as in the source; `>` = a submenu. ChemDraw's guide never lists a whole menu: its entries are the ones named in the task descriptions of CD-UG17 (17.1), order unknown. No product documents shortcut hints inside its menus; Ketcher's code shows none (KE-SRC).
+| target | ChemDraw (CD-UG17, 17.1) | MarvinSketch (MS/pop-up) | Marvin JS (MJ/ctx) | new Marvin (M-253) | Ketcher (KE-SRC) | ChemDoodle (CDD-G) |
+|---|---|---|---|---|---|---|
+| atom | Show Atom Number, terminal carbon labels, generic labels >, Atom Properties >, query indicator, Display Warnings, Object Settings | Stereo, Charge, Valence, Radical, Isotope (for the element), Map, R-group items, Link Node, Delete, Group / Edit Group / Ungroup / Contract, Add > Data, Format, Edit properties, Label Editor | Duplicate, R-group attachment ±, Attached Data, Atom properties, Absolute stereo, R-logic, Paste | Charge, Radical >, Valence, enhanced stereo label, atom numbers >, Duplicate, front / back | Edit…, Enhanced stereochemistry…, Query properties >, Highlight >, — Delete | carbon label, label orientation >, attribute, Mass Number >, Implicit Hydrogens >, Stereochemistry >, Enhanced Stereochemistry >, Format, warnings on/off, Copy Text |
+| bond | bond types >, Bond Position > (double-bond side), Bond Properties >, query indicator | Type, Bold, Hashed, Topology >, Reacting Center >, Arrange > (front, back), Align >, Group, Add > (H, maps, data, multicentre), Remove >, Transformation >, Format, Add to My Templates, Edit properties | Attached Data, Bond properties, Absolute stereo, Paste | Bond properties, Topology; arrows: change direction, arrow type | Edit…, — bond types, — Query bonds >, Change direction (wedge, hash, dative only), Attach S-Group, Highlight >, — Delete | Arrange > (forward, backward, top, bottom), Flip Bond Orientation, Scale Bond, Torsion Bond, Stereochemistry > |
+| selection | Object Settings, Analysis (values into a caption), Group > (integral, ungroup) | not listed (some atom and bond entries appear only with a selection) | Duplicate, Cut, Copy, Attached Data, R-group attachment ±, Atom / Bond properties, Mirror, Flip, Absolute stereo, R-logic, Merge / Unmerge agents | Attach data, Clean up reaction, Copy as, Duplicate, Align and Distribute, Mirror & rotate >, Merge / Split components, Valence, IUPAC numbers, Check structure, properties | Edit selected bonds / atoms…, Bond type >, Enhanced stereochemistry…, Highlight >, — Delete | (the menu acts on the hovered object; several entries need an empty selection) |
+| abbreviation | (expand / contract are commands, CD-DC26) | in the atom menu (Group, Ungroup, Contract) | Expand, Contract, Ungroup, Expand and Clean, Ungroup and Clean, Duplicate, Atom properties, … | Expand, Contract, Ungroup | Expand, Contract, Remove Abbreviation | Expand Labels (menu bar, CDD-G §14.4) |
+| object | arrows: head shape, half heads, styles, fill; text: font, size, colour, Interpret Chemically; warning box: Explain This Warning; table: Borders, Align > | Bring to Front, Send to Back, Transformation > (flip, mirror, invert), Format, Add to My Templates | Duplicate, Set box colour, Absolute stereo | bracket properties; calculation box: Calculations >, Copy text; image: Crop; front / back | only the multi-tail arrow (remove tail, add tail); texts, arrows and shapes have no menu | Format…, Arrange >, arrow: Edit Reaction…; pusher: Format, Convert to Bézier; table and TLC entries |
+| canvas | Paste, Paste Special > | Cut, Copy, Copy As, Paste, Select All, Group | Absolute stereo, R-logic | visibility settings: CPK colours, valence errors, display style | none (a right-click only clears the selection) | Paste text as an IUPAC name; tab menu (close, duplicate) |
+Opening: Marvin JS opens menus with a long press since 6.2.0 (2013) and with Ctrl+click on macOS (MJ history); the new Marvin opens them with `Shift+Space`, moves with the arrow keys (Left / Right for submenus), Enter or Space chooses, Escape closes, and states screen-reader support (M-253). BIOVIA Draw: right-click reaches atom, bond and fragment properties and query options (BD-DS24); nothing more is public.
+
+### What users ran into
+- An item that does something else than it says: Ketcher #10377 (open, confirmed in 3.17.0-rc.1: "Single" raises the bond order); #4188 (fixed 3.11.0: wedge or hash direction from the menu did nothing).
+- Selection rules: a right-click outside the selection must clear it the same way everywhere (Ketcher #4445, 3.21.0; #4446); items shown with nothing selected (#12151).
+- Widget faults: a click on a separator closed the menu (Ketcher #3269, 3.19.0); missing separators (#7327, #7395); a menu wrong when the editor is embedded (#9671, 3.18.0); the editor still caught right-clicks after it was removed from the page (#5588).
+- Touch: a long press on an iPad opened the wrong menu (Marvin JS 14.11.10); selection entries missing on macOS Ctrl+click (6.3.0) (MJ history).
+- Missing entries asked for: reaction centre on bonds, S-group attach or edit on atoms (Ketcher #2221, #2347, #4677).
+- MarvinSketch fixed a missing entry with several groups contracted at once (19.10) and a graphical-object menu that did not work (17.22) (MS/marvin_history-of-changes.html).
+- Marvin JS repeats the same document-wide entries (Absolute stereo, R-logic) at the end of almost every menu (MJ/ctx), which makes every menu longer.
+
+### What mzDraw's menu should do (on top of PR #37)
+| ID | requirement | taken from | priority | twin |
+|---|---|---|---|---|
+| X01 | the menu is for what is under the pointer; a right-click outside the selection makes that thing the selection, the same rule for every target | KE-SRC (#4445) | MUST · built (PR #37) | `context:<x>,<y>` |
+| X02 | a stale menu (the document, selection, clipboard or view changed) runs nothing | PR #37 | MUST · built | `error.draw2.contextStale` |
+| X03 | every item does exactly what its label says; one test per item that checks the document after it | KE-SRC (#10377, #4188) | MUST | replay `context_run` (X13) |
+| X04 | order: the most frequent actions first, kinds of the target next, clipboard, then Delete last after a separator; no document-wide tail repeated on every menu | KE-SRC (separators, Delete last); MJ/ctx (the repeated tail to avoid) | MUST | menu JSON order |
+| X05 | the key of each item shown as a hint (no product documents this; ours does) | PR #37 `key` | MUST · built | `key` field |
+| X06 | keyboard: `Shift+F10` and the Menu key open the menu of the focused atom or bond; arrows move, Left / Right open and close submenus, Enter / Space choose, Escape closes and gives the focus back | M-253 | MUST | page PR 2 |
+| X07 | touch and pen: a long press opens the menu of what is under the finger (today a long press selects: open the menu on the same press once it has selected, or on a second long press; decide and test); the pen's barrel button acts as a right-click | MJ history (6.2.0, 14.11.10) | MUST | page PR 2 |
+| X08 | an abbreviation is its own target: Expand, Contract, the label field, Delete | MJ/ctx, M-253, KE-SRC | MUST (needs arch-web-18) | `abbr.expand`, `abbr.contract` |
+| X09 | the atom menu gains, as each feature lands: Properties… (the popover, arch-web-11), isotope and radical (arch-cd-08), enhanced stereo group (arch-std-12), show the atom number | MS/pop-up, M-253, CDD-G, CD-UG17 | MUST (each with its feature) | existing ops |
+| X10 | the bond menu gains: double-bond side (arch-cd-04), the bond kinds of arch-web-20, Change direction only for bonds that have one | CD-UG17 (Bond Position), KE-SRC | MUST (with its feature) | `bond.set` |
+| X11 | the selection menu gains: Clean (arch-web-10), Align and distribute (arch-cd-15), Expand / Contract when it holds labels | M-253 | SHOULD | existing commands |
+| X12 | the object menu gains: arrow kind and heads (arch-web-13), text formula mode (arch-web-14), bring to front / send to back (later) | CD-UG17, M-253, MS/pop-up | SHOULD | `obj.set` |
+| X13 | the CLI runs a menu item too: the replay request takes `context: [{x, y, item}]` and runs `context_menu` then `context_run`, so an agent and the parity test reach every item natively | `CLAUDE.md` rule 15 | MUST | replay request field |
+| X14 | the canvas menu gains the display toggles (stereo labels of arch-web-16, warnings, atom numbers) | M-253 (visibility settings) | SHOULD | `--set display.*` |
+| X15 | a warning mark has a menu: Explain (the sentence of the `check/1` warning), Ignore on this atom | CD-UG17 (Explain This Warning) | SHOULD | `check/1` keys |
+| X16 | an embedded editor that is removed stops catching right-clicks | KE-SRC (#5588) | MUST (with arch-web-01/02) | - |
+| X17 | Paste text as a name | CDD-G | LATER (no name engine, F07) | - |
