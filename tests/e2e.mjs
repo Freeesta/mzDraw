@@ -2193,6 +2193,169 @@ try {
     eq(await replayEq(pg), { mzdraw: true, svg: true });
   });
   await ctx.close();
+  // plan-16: an agent's proposal shown as a layer, accepted or rejected hunk by hunk
+  const SMI = "CCO.CC(=O)N.CCCl.c1ccccc1";
+  const EDIT = [{ op: "atom.set", id: 3, el: "S" }, { op: "atom.add", id: 30, el: "C", x: 5.2321, y: 1.866 }, { op: "bond.add", id: 31, a: 7, b: 30, o: 1 },
+    { op: "remove", atoms: [10], bonds: [23] }, { op: "move", atoms: [11, 12, 13, 14, 15, 16], dx: 0.0, dy: -2.0 }];
+  const R = (pg, r) => pg.evaluate(r => window.MZDRAW.replay(JSON.stringify(r)), r);
+  /** the drawing of four structures, and the patch that `diff` writes for the edit above: its four hunks */
+  const proposalSetup = async pg => {
+    await tool(pg, "clear");
+    await pg.setInputFiles("#d2-file", { name: "four.smi", mimeType: "text/plain", buffer: Buffer.from(SMI) }); await want(pg, { atoms: 16 });
+    await tool(pg, "fit");
+    const a = await R(pg, { import: SMI, out: "mzdraw" });
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), a);
+    const b = await R(pg, { import: SMI, log: EDIT, out: "mzdraw" });
+    return { a, patch: JSON.parse(await R(pg, { diff: { a: JSON.parse(a), b: JSON.parse(b) } })) };
+  };
+  const proposing = pg => pg.evaluate("JSON.parse(window.MZDRAW.state()).proposal");
+  /** the pixel of the number of a hunk on the page, read from the display list (a TEXT in the accent colour, 11, with that number) */
+  const numberAt = (pg, n) => pg.evaluate(n => {
+    const d = window.MZDRAW.scene(), s = window.MZDRAW.strings(), r = document.getElementById("d2-canvas").getBoundingClientRect();
+    for (let i = 0; i < d.length;) {
+      const op = d[i];
+      if (op === 2 && d[i + 4] === 11 && s[d[i + 5]] === String(n)) return [r.x + d[i + 1], r.y + d[i + 2]];
+      i += op === 1 || op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : 5;
+    }
+    return null;
+  }, n);
+  /** the patch is given through the field of the structure palette (on a tablet that palette is shown by its menu and tapped) */
+  const propose = async (pg, patch, touch = false) => {
+    if (touch) await tapPalette(pg, "structure", true);
+    if (!await pg.evaluate("document.getElementById('d2-patch-more').open")) await setOpen(pg, "#d2-patch-more", true);
+    await pg.fill("#d2-patch", JSON.stringify(patch.ops));
+    if (touch) await pg.locator("#d2-propose").tap(); else await pg.click("#d2-propose");
+    await until(pg, "!document.getElementById('d2-proposal').hidden");
+    if (touch) await tapPalette(pg, "structure", false);
+  };
+  const accentMarks = pg => pg.evaluate(() => { const d = window.MZDRAW.scene(); let n = 0; for (let i = 0; i < d.length;) { const op = d[i]; const c = op === 1 ? d[i + 6] : op === 2 ? d[i + 4] : op === 3 ? d[i + 5] : op === 6 ? d[i + 7] : d[i + 4]; if (c === 11) n++; i += op === 1 || op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : 5; } return n; });
+  const hunkOps = (patch, ns) => ns.flatMap(n => patch.hunks[n - 1].ops);
+  const logTail = async (pg, k) => JSON.parse(await pg.evaluate("window.MZDRAW.save('log')")).slice(-k);
+
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
+  await step("proposal, mouse and keyboard: a patch is shown over the drawing and changes nothing; keys walk, accept and reject hunks, each accept one undo step; the page equals the replay of its log", async () => {
+    const { a, patch } = await proposalSetup(pg);
+    eq(patch.hunks.length, 4);
+    const steps0 = JSON.parse(await pg.evaluate("window.MZDRAW.save('log')")).length;
+    assert(await accentMarks(pg) === 0, "no mark before the proposal");
+    await propose(pg, patch);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), a);                                  // held apart: the drawing is the same
+    eq((await proposing(pg)).hunks.map(h => h.n), [1, 2, 3, 4]);
+    assert(await accentMarks(pg) >= 4, "the hunks are marked in the accent colour, numbered");
+    eq(await pg.locator("#d2-proposal-list li").count(), 4);
+    assert((await pg.innerText("#d2-live")).includes(await pg.evaluate("I18N.t('draw2.proposal.at', { n: 1, of: 4 })")), "the live line says where the hunk is and what it does");
+    await shot(pg, "plan16-proposal-desktop");
+    // the keyboard: ] walks to hunk 2, Enter accepts it (one undo step), [ wraps, Delete rejects the one the keyboard is on
+    await pg.focus("#d2-canvas");
+    await pg.keyboard.press("]");
+    eq((await proposing(pg)).cur, 2);
+    assert((await pg.innerText("#d2-live")).includes(await pg.evaluate("I18N.t('draw2.hunk.atomsAdded', { what: '30' })")), "hunk 2 says it adds atom 30: " + await pg.innerText("#d2-live"));
+    await pg.keyboard.press("Enter");
+    eq((await proposing(pg)).hunks.map(h => h.n), [1, 3, 4]);
+    eq(await logTail(pg, patch.hunks[1].ops.length), patch.hunks[1].ops);
+    await pg.keyboard.press("[");
+    eq((await proposing(pg)).cur, 1);                                                           // hunk 1 is the one before 3 in the ring
+    await pg.keyboard.press("Delete");                                                          // rejects hunk 1: nothing in the log
+    eq((await proposing(pg)).hunks.map(h => h.n), [3, 4]);
+    // a mouse click on the number of hunk 4 gives it the keyboard; a click on Accept in the panel accepts it
+    const [x, y] = await numberAt(pg, 4);
+    assert(await pg.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id === "d2-canvas", [x, y]), "the number is not covered by the panel");
+    await pg.mouse.click(x, y);
+    eq((await proposing(pg)).cur, 4);
+    await pg.click('#d2-proposal-list button[data-act="accept:4"]');
+    eq((await proposing(pg)).hunks.map(h => h.n), [3]);
+    await pg.keyboard.press("Control+Enter");                                                   // the last one
+    eq(await proposing(pg), null);
+    assert(!await pg.isVisible("#d2-proposal"), "the panel is gone with the proposal");
+    // the page equals the replay of the request: propose, accept 2, 4, 3 (hunk 1 was rejected)
+    const want0 = await R(pg, { import: SMI, propose: patch.ops, accept: [2, 4, 3], out: "mzdraw" });
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), want0);
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.save('log')")).length - steps0, hunkOps(patch, [2, 4, 3]).length);
+    // each accept was one undo step; Ctrl+Z three times brings the drawing back
+    for (let i = 0; i < 3; i++) await pg.keyboard.press("Control+z");
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), a);
+    // reject all leaves the drawing and the log as they were
+    await propose(pg, patch);
+    await pg.click("#d2-reject-all");
+    eq(await proposing(pg), null); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), a);
+    // a text that is not a patch, and a patch that does not apply, are refused in words
+    await pg.fill("#d2-patch", "[1,2]"); await pg.click("#d2-propose");
+    eq(await pg.innerText("#d2-patch-note"), await pg.evaluate("I18N.t('error.draw2.proposalPatch')"));
+    await pg.fill("#d2-patch", '[{"op":"atom.set","id":99,"el":"N"}]'); await pg.click("#d2-propose");
+    assert((await pg.innerText("#d2-patch-note")).length > 0 && await proposing(pg) === null, "refused");
+  });
+  // a fresh page: Clear leaves the id counter where it was, and the patch is written against the ids of a fresh import
+  await ctx.close();
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
+  await step("proposal keys: Enter, Delete and Alt+[ act on the DRAWING until a hunk has the keyboard (and end the proposal, said at once); Ctrl+Delete rejects all; Escape ends the review", async () => {
+    const { a, patch } = await proposalSetup(pg);
+    const stale = await pg.evaluate("I18N.t('draw2.say.proposalStale')"), live = async () => (await pg.innerText("#d2-status")).trim().replace(/^.*?(The proposal)/s, "$1");
+    const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+    // Enter grows a bond from the focused atom: the drawing, not the proposal
+    await propose(pg, patch); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await pg.keyboard.press("Enter");
+    await want(pg, { atoms: 17 });
+    eq(await proposing(pg), null); eq(await live(), stale); assert(!await pg.isVisible("#d2-proposal"), "no panel");
+    // (each edit is one undo step: Ctrl+Z gives the drawing back, with the ids the patch was written against)
+    await pg.keyboard.press("Control+z"); eq(await doc(), a);
+    // Delete removes the focused atom
+    await propose(pg, patch); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await pg.keyboard.press("Delete");
+    await want(pg, { atoms: 15 });
+    eq(await proposing(pg), null); eq(await live(), stale);
+    await pg.keyboard.press("Control+z"); eq(await doc(), a);
+    // Alt+[ still turns the selection while a proposal is open
+    await propose(pg, patch); await pg.focus("#d2-canvas");
+    await pg.keyboard.press("Control+a"); eq((await proposing(pg)).hunks.length, 4);
+    await pg.keyboard.press("Alt+["); await until(pg, `${STATE}.selected > 0`);
+    assert(await doc() !== a, "the selection was turned");
+    eq(await proposing(pg), null); eq(await live(), stale);
+    await pg.keyboard.press("Control+z"); eq(await doc(), a);
+    // Ctrl+Delete rejects all at any time, with no hunk having the keyboard: the drawing is as it was
+    await propose(pg, patch); await pg.focus("#d2-canvas");
+    await pg.keyboard.press("Control+Delete");
+    eq(await proposing(pg), null); eq(await doc(), a);
+    // with a hunk on the keyboard Enter is the proposal's, even with an atom focused; Escape ends that review and gives Enter back
+    await propose(pg, patch); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await pg.keyboard.press("]");
+    eq((await proposing(pg)).cur, 2);
+    await pg.keyboard.press("Escape"); await pg.keyboard.press("Home"); await pg.keyboard.press("Enter");
+    await want(pg, { atoms: 17 });
+    eq(await proposing(pg), null);
+  });
+  await ctx.close();
+
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+  await step("proposal by touch and by pen: a tap on a hunk number gives it the keyboard and says what it does, a tap on Accept or Reject acts, each accept is one undo step", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const { a, patch } = await proposalSetup(pg);
+    await propose(pg, patch, true);
+    const [x, y] = await numberAt(pg, 3);
+    assert(await pg.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id === "d2-canvas", [x, y]), "the number is not covered by the panel " + [x, y] + await pg.evaluate(([x, y]) => document.elementFromPoint(x, y)?.outerHTML.slice(0, 80), [x, y]));
+    await pg.touchscreen.tap(x, y);
+    eq((await proposing(pg)).cur, 3);
+    assert((await pg.innerText("#d2-live")).includes(await pg.evaluate("I18N.t('draw2.hunk.atomsChanged', { what: '3' })")), "the live line says what hunk 3 does: " + await pg.innerText("#d2-live"));
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), a);                                  // a tap on a number draws nothing
+    await shot(pg, "plan16-proposal-tablet");
+    const box = await pg.locator('#d2-proposal-list button[data-act="accept:3"]').boundingBox();
+    assert(box.height >= 32 && box.width >= 32, "a finger can hit it: " + JSON.stringify(box));
+    await pg.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    eq((await proposing(pg)).hunks.map(h => h.n), [1, 2, 4]);
+    eq(await logTail(pg, patch.hunks[2].ops.length), patch.hunks[2].ops);
+    // a pen presses the number of hunk 4, then Reject
+    const [px, py] = await numberAt(pg, 4);
+    await pen("mouseMoved", px, py); await pen("mousePressed", px, py); await pen("mouseReleased", px, py);
+    eq((await proposing(pg)).cur, 4);
+    const rb = await pg.locator('#d2-proposal-list button[data-act="reject:4"]').boundingBox();
+    await pen("mouseMoved", rb.x + rb.width / 2, rb.y + rb.height / 2); await pen("mousePressed", rb.x + rb.width / 2, rb.y + rb.height / 2); await pen("mouseReleased", rb.x + rb.width / 2, rb.y + rb.height / 2);
+    eq((await proposing(pg)).hunks.map(h => h.n), [1, 2]);
+    await pg.touchscreen.tap(...await pg.evaluate(() => { const r = document.getElementById("d2-accept-all").getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }));
+    eq(await proposing(pg), null);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), await R(pg, { import: SMI, propose: patch.ops, accept: [3, 1, 2], out: "mzdraw" }));
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+    await tool(pg, "undo"); await tool(pg, "undo");                                            // the accept-all (hunks 1 and 2) and the accept of hunk 3
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), a);
+  });
+  await ctx.close();
 } finally {
   await browser.close();
   if (server) server.close();

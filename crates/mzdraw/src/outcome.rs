@@ -281,7 +281,7 @@ fn found(
 /// What stopped the run.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Failed {
-    /// `log` (this slice); later stages are `select`, `plan`, `grant` and `command`.
+    /// `log` (this slice); later stages are `select`, `plan`, `grant`, `command` and `proposal`.
     pub stage: &'static str,
     /// The 0-based index in `log` (stage `log`) or in `commands` (stage `command`); `None` for the other stages.
     pub op: Option<usize>,
@@ -313,6 +313,18 @@ impl Failed {
         Failed {
             stage: "command",
             ..Failed::log(op, key, id)
+        }
+    }
+
+    /// A refused `propose` (`op` is `None`) or a refused entry of `accept` (`op` its 0-based index in the list).
+    pub fn proposal(op: Option<usize>, key: &'static str, id: u32) -> Failed {
+        Failed {
+            stage: "proposal",
+            op,
+            key,
+            id,
+            candidates: Vec::new(),
+            rows: Vec::new(),
         }
     }
 

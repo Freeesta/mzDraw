@@ -30,6 +30,30 @@ pub mod colour {
     pub const P: f32 = 9.0;
     /// The ring of the keyboard focus.
     pub const FOCUS: f32 = 10.0;
+    /// What a proposal adds or changes (the accent token); what it removes is struck in `WARN`.
+    pub const ACCENT: f32 = 11.0;
+}
+
+/// One mark of a proposal laid over the drawing (`proposal`), in document units. The surface owns the colours.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Mark {
+    /// A line; heavy for a struck bond.
+    Line {
+        a: (f64, f64),
+        b: (f64, f64),
+        c: f32,
+        heavy: bool,
+    },
+    /// A small filled disc: an atom a proposal adds.
+    Dot { p: (f64, f64), c: f32 },
+    /// A ring of `r` font sizes: a thing a proposal changes or removes.
+    Ring { p: (f64, f64), c: f32, r: f64 },
+    /// The number of a hunk; the current one has a second ring (a shape, not a colour alone).
+    Num {
+        p: (f64, f64),
+        n: u32,
+        current: bool,
+    },
 }
 
 /// Document units to output pixels: `x' = ox + x * scale`, `y' = oy - y * scale`.
@@ -68,6 +92,8 @@ pub struct Overlay {
     pub preview: Option<(f64, f64, f64, f64)>,
     /// A rubber band, in pixels (x, y, w, h).
     pub band: Option<(f64, f64, f64, f64)>,
+    /// The marks of an open proposal, laid over the drawing (filled by `Editor::scene`).
+    pub marks: Vec<Mark>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -551,6 +577,36 @@ impl Painter<'_> {
         }
     }
 
+    /// The marks of an open proposal: added things in the accent colour, removed ones struck in the warning colour, changed ones
+    /// outlined, each hunk numbered.
+    fn marks(&mut self) {
+        let (f, w) = (self.font, self.m.line);
+        for mark in &self.over.marks {
+            match *mark {
+                Mark::Line { a, b, c, heavy } => {
+                    let (a, b) = (self.view.to_px(a.0, a.1), self.view.to_px(b.0, b.1));
+                    self.line(a, b, if heavy { w * 3.0 } else { w * 1.6 }, c);
+                }
+                Mark::Dot { p, c } => {
+                    let (x, y) = self.view.to_px(p.0, p.1);
+                    self.push(&[DISC as f64, x, y, f * 0.3, c as f64]);
+                }
+                Mark::Ring { p, c, r } => {
+                    let (x, y) = self.view.to_px(p.0, p.1);
+                    self.push(&[RING as f64, x, y, f * r, c as f64]);
+                }
+                Mark::Num { p, n, current } => {
+                    let (x, y) = self.view.to_px(p.0, p.1);
+                    self.push(&[RING as f64, x, y, f * 0.75, colour::ACCENT as f64]);
+                    if current {
+                        self.push(&[RING as f64, x, y, f * 1.0, colour::ACCENT as f64]);
+                    }
+                    self.text(x, y, f * 0.9, colour::ACCENT, &n.to_string(), 0.0);
+                }
+            }
+        }
+    }
+
     /// The level of each annotated structure, as `L` and the level (`L2b`) centred under the structure.
     fn levels(&mut self) {
         if self.doc.atoms.iter().all(|a| a.ann().is_empty()) {
@@ -647,6 +703,7 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
     for o in &doc.objects {
         p.object(o);
     }
+    p.marks();
     if let Some((x1, y1, x2, y2)) = over.preview {
         p.line(
             view.to_px(x1, y1),

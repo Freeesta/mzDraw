@@ -179,6 +179,8 @@ pub fn display(text: &str) -> Cow<'_, str> {
 struct Acc {
     counts: Vec<(String, i64)>,
     charge: i64,
+    /// An atom with a free-text label (neither a table abbreviation nor an R group): the record has no atoms for it, only a stand-in.
+    free_text: bool,
 }
 
 fn bump(c: &mut Vec<(String, i64)>, el: &str, n: i64) {
@@ -278,11 +280,13 @@ pub fn plan(doc: &Document, mode: Mode, opts: &Opts) -> Result<Plan, OpError> {
         let Some(a) = acc.get_mut(&r) else {
             continue;
         };
-        let is_r = matches!(
-            doc.atoms.get(i).map(|x| label::kind(&x.lab)),
-            Some(Some(label::Kind::R(_)))
-        );
-        if is_r {
+        let kind = doc
+            .atoms
+            .get(i)
+            .map(|x| (x.lab.is_empty(), label::kind(&x.lab)));
+        if matches!(kind, Some((false, None))) {
+            a.free_text = true;
+        } else if matches!(kind, Some((_, Some(label::Kind::R(_))))) {
             bump(&mut a.counts, "R", 1);
         } else {
             let m = &mol.atoms[i];
@@ -293,6 +297,10 @@ pub fn plan(doc: &Document, mode: Mode, opts: &Opts) -> Result<Plan, OpError> {
     }
     for (id, rf, rt, now) in ends {
         let (a, b) = (&acc[&rf], &acc[&rt]);
+        if a.free_text || b.free_text {
+            out.skipped += 1;
+            continue;
+        }
         let d = delta_text(&a.counts, &b.counts);
         if d.is_empty() && a.charge != b.charge {
             out.skipped += 1;

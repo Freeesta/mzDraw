@@ -231,19 +231,51 @@ fn charged_structures_have_a_delta_and_a_pure_charge_change_is_left_alone() {
     let acetate = [("C", "", 0), ("C", "", 0), ("O", "", -1)];
     assert_eq!(label_of(&acid, &acetate).0, "-H");
     assert_eq!(label_of(&acetate, &acid).0, "+H");
-    // a quaternary N: Me-N -> Me-N+ (same atoms, one more H counted by the record): the counts differ by H or not; equal counts with
-    // another charge are skipped and said
+    // methylamine -> methylammonium: exactly `+H`
     let amine = [("C", "", 0), ("N", "", 0)];
     let ammonium = [("C", "", 0), ("N", "", 1)];
     let (t, e) = label_of(&amine, &ammonium);
-    assert!(t == "+H" || t.is_empty(), "{t}");
+    assert_eq!(t, "+H", "the record gives the N+ one more hydrogen");
     let _ = e;
-    let eq_charge = [("N", "", 0)];
-    let eq_charged = [("N", "", 1)];
-    let (t, e) = label_of(&eq_charge, &eq_charged);
-    // NH3 -> NH3+ has equal counts only if the record gives the charged one no extra H: whichever, no isomer word for a charge change
-    assert_ne!(t, "isomer");
-    let _ = e;
+}
+
+#[test]
+fn the_same_atoms_with_another_charge_are_skipped_not_called_an_isomer() {
+    // two single atoms of nitrogen with the same hydrogens (explicit) and charges 0 and +1: equal counts, another net charge
+    let mut d = Document::from_json(&pair(&[("N", "", 0)], &[("N", "", 0)])).unwrap();
+    for a in &mut d.atoms {
+        a.h = Some(3);
+    }
+    d.atoms[1].chg = 1;
+    let p = mzdraw::steplabel::plan(&d, Mode::Delta, &Opts::default()).unwrap();
+    assert!(
+        p.ops.is_empty() && p.skipped == 1,
+        "{:?} {}",
+        p.ops,
+        p.skipped
+    );
+}
+
+#[test]
+fn a_free_text_label_is_not_an_element_and_its_arrow_is_skipped() {
+    // a document holds only table abbreviations and R groups as labels, but a `Document` built in memory may hold any text: the record gives
+    // such an atom a helium stand-in, which must never be read as an element (`+He`)
+    let plain = [("C", "", 0), ("C", "", 0)];
+    let mut d = Document::from_json(&pair(&plain, &plain)).unwrap();
+    d.atoms[0].lab = "Xyz".into();
+    let p = mzdraw::steplabel::plan(&d, Mode::Delta, &Opts::default()).unwrap();
+    assert!(
+        p.ops.is_empty() && (p.labelled, p.kept, p.skipped) == (0, 0, 1),
+        "{:?}",
+        p.ops
+    );
+    d.atoms[0].lab = "Ph".into();
+    let p = mzdraw::steplabel::plan(&d, Mode::Delta, &Opts::default()).unwrap();
+    assert_eq!(
+        (p.skipped, p.ops.len()),
+        (0, 1),
+        "a table abbreviation is counted"
+    );
 }
 
 #[test]
