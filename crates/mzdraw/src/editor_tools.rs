@@ -566,6 +566,30 @@ impl Editor {
         REPAINT
     }
 
+    /// Selects what the findings of one check (`key`, as the report names it) are about: their atoms, bonds and objects together,
+    /// as the select tool would. The selection is the user's view and no step of the history. A key with no finding changes nothing.
+    pub fn select_check(&mut self, key: &str) -> u32 {
+        let report = crate::conform::report(&self.session.doc);
+        let found = report.checks.iter().filter(|f| f.key == key);
+        let (mut atoms, mut bonds, mut objects) = (Vec::new(), Vec::new(), Vec::new());
+        let mut any = false;
+        for f in found {
+            any = true;
+            atoms.extend(&f.atoms);
+            bonds.extend(&f.bonds);
+            objects.extend(&f.objects);
+        }
+        if !any {
+            return 0;
+        }
+        for ids in [&mut atoms, &mut bonds, &mut objects] {
+            crate::m::sort(ids);
+            ids.dedup();
+        }
+        (self.over.sel_atoms, self.over.sel_bonds, self.over.sel_objs) = (atoms, bonds, objects);
+        REPAINT
+    }
+
     /// A key press (`key` as the browser names it). Returns `HANDLED` when the page must not let the browser act on it.
     pub fn key(&mut self, key: &str, mods: u32) -> u32 {
         let ctrl = mods & CTRL != 0;

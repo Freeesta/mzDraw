@@ -358,7 +358,7 @@ impl Editor {
     }
 
     /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `sdf` (one record per structure, with its data),
-    /// `svg` (in the style of the editor) or `log` (the command log). The error is an i18n key.
+    /// `svg` (in the style of the editor), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
             "mzdraw" => self.doc().to_json(),
@@ -372,6 +372,7 @@ impl Editor {
             "sdf" => self.doc().to_sdf(),
             "svg" => self.svg(),
             "log" => self.session.log_json(),
+            "std" => crate::conform::report(self.doc()).to_json(),
             _ => return Err("error.draw2.request"),
         })
     }

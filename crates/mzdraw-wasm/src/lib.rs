@@ -17,6 +17,8 @@ struct Page {
     scene: Scene,
     /// `check/1` of the drawing as last computed, or empty.
     check: String,
+    /// The drawing checks as the panel lists them (`Report::counts_json`), recomputed after every change.
+    std: String,
 }
 
 thread_local! {
@@ -42,8 +44,14 @@ fn act(f: impl FnOnce(&mut Editor) -> u32) -> u32 {
     })
 }
 
-#[cfg(feature = "mzlab")]
+/// After a change: the drawing checks `std/1` and, with the `mzlab` feature, the structure check.
 fn recheck(p: &mut Page) {
+    p.std = mzdraw::conform::report(p.editor.doc()).counts_json();
+    live_check(p);
+}
+
+#[cfg(feature = "mzlab")]
+fn live_check(p: &mut Page) {
     let doc = p.editor.doc();
     p.check.clear();
     let mut flagged = Vec::new();
@@ -77,7 +85,7 @@ fn recheck(p: &mut Page) {
 }
 
 #[cfg(not(feature = "mzlab"))]
-fn recheck(_p: &mut Page) {}
+fn live_check(_p: &mut Page) {}
 
 #[wasm_bindgen]
 pub fn version() -> String {
@@ -179,6 +187,12 @@ pub fn add_bytes(bytes: &[u8]) -> Result<String, JsValue> {
     })
 }
 
+/// Selects what the findings of one drawing check are about (`key` of an entry of `state().std`); returns flags.
+#[wasm_bindgen]
+pub fn select_check(key: &str) -> u32 {
+    act(|e| e.select_check(key))
+}
+
 /// What an autosaved document holds, as `{"atoms", "bonds", "objects"}`, or the empty text when it is not worth offering (not a
 /// readable document, or an empty one). The page asks this before it offers to restore the drawing of the last visit.
 #[wasm_bindgen]
@@ -201,7 +215,7 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg` or `log` (the command log).
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log` (the command log) or `std` (the drawing checks).
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| p.editor.save(kind).map_err(js_err))
@@ -334,8 +348,8 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check}` (`check` is
-/// the `check/1` document or null).
+/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check, std}` (`check` is
+/// the `check/1` document or null; `std` lists the drawing checks that have findings, `[{key, grade, n}]`, as `Editor::save("std")` reports them).
 #[wasm_bindgen]
 pub fn state() -> String {
     with(|p| {
@@ -383,7 +397,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{},"std":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -397,6 +411,7 @@ pub fn state() -> String {
             q(&e.said.1),
             q(e.error),
             if p.check.is_empty() { "null" } else { &p.check },
+            if p.std.is_empty() { "[]" } else { &p.std },
         )
     })
 }
