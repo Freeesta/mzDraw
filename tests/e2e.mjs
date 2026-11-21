@@ -92,6 +92,19 @@ const tapPalette = async (pg, id, show) => {
   assert(!!(await rects(pg))[id] === show, `the ${id} palette is ${show ? "shown" : "hidden"}`);
 };
 const frames = pg => pg.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
+/** opens or closes a palette `<details>` by its summary and waits for the page to say so (the palettes lay themselves out again after
+ *  a toggle: a click made before that lands on what moved). On failure the message carries the state of every such element. */
+async function setOpen(pg, sel, open) {
+  const now = () => pg.evaluate(`document.querySelector(${JSON.stringify(sel)}).open`);
+  try {
+    if ((await now()) !== open) { await frames(pg); await pg.locator(sel + " summary").click({ timeout: 5000 }); }
+    await until(pg, `document.querySelector(${JSON.stringify(sel)}).open === ${open}`, 5000);
+    await frames(pg);
+  } catch (e) {
+    const state = await pg.evaluate(() => [...document.querySelectorAll("details")].map(d => [d.id, d.open, JSON.stringify(d.querySelector("summary").getBoundingClientRect())]));
+    throw new Error(`${sel} did not become ${open ? "open" : "closed"}: ${String(e && e.message || e).split("\n")[0]} | details: ${JSON.stringify(state)}`);
+  }
+}
 const center = async (pg, sel) => { const b = await pg.locator(sel).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
 /** the shown palettes lie inside the viewport, no two docked ones overlap, and the canvas is in the area they leave free */
 async function tidy(pg, w, h) {
@@ -292,7 +305,7 @@ try {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", `${ethanol}\n>  <name>\nethanol (synthetic)\n\n>  <note>\nline one\nline two\n\n$$$$\n${ethanol}\n$$$$\n`); await pg.click("#d2-add");
     await want(pg, { atoms: 6, bonds: 4 });
-    await pg.click("#d2-data-more summary");
+    await setOpen(pg, "#d2-data-more", true);
     const rows = () => pg.evaluate("[...document.querySelectorAll('#d2-data fieldset')].map(f => [...f.querySelectorAll('.d2-datum')].map(r => [r.children[0].value, r.children[1].value]))");
     eq(await rows(), [[["name", "ethanol (synthetic)"], ["note", "line one\nline two"]], []]);
     const first = "#d2-data fieldset:nth-of-type(1)", second = "#d2-data fieldset:nth-of-type(2)";
@@ -325,9 +338,9 @@ try {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.setInputFiles("#d2-file", { name: "drawing.sdf", mimeType: "chemical/x-mdl-sdfile", buffer: Buffer.from(sdfOut) }); await want(pg, { atoms: 6, bonds: 4 });
     eq((await rows())[0], [["name", "ethanol, absolute"], ["note", "line one\nline two"], ["purity", "99.8 %"]]);
-    await pg.click("#d2-data-more summary");
+    await setOpen(pg, "#d2-data-more", false);
     // the annotation of a structure: a confidence level of the scale, an identifier, evidence; drawn, saved, read back, undone
-    await pg.click("#d2-ann-more summary");
+    await setOpen(pg, "#d2-ann-more", true);
     const af = "#d2-ann fieldset:nth-of-type(1)", lv = `${af} .d2-annf:nth-of-type(2) select`, sc = `${af} .d2-annf:nth-of-type(1) select`;
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) .d2-annf:nth-of-type(2) select option')].map(o => o.value)"), ["", "1", "2a", "2b", "3", "4", "5"]);
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) .d2-annf:nth-of-type(1) select option')].map(o => o.value)"), ["schymanski-2014", "charbonnet-2022"]);
@@ -377,7 +390,7 @@ try {
     await pg.selectOption(lv, ""); await pg.click(`${af} button`);
     await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.gone', { level: '' })");
     eq(await levels(), [null, null]);
-    await pg.click("#d2-ann-more summary");
+    await setOpen(pg, "#d2-ann-more", false);
     // labels that do not crowd: the bond of an O(-) stops after the minus sign, and starts earlier without the charge
     const bondStart = async (/** @type {string} */ first) => {
       await tool(pg, "clear"); await want(pg, { atoms: 0 });
