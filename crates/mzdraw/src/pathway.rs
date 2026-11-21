@@ -915,8 +915,12 @@ pub fn report_with(doc: &Document, style: &Style) -> Report {
     let mut r = crate::conform::report(doc);
     if let Ok(lay) = layout(doc, style) {
         r.checks.extend(findings(&lay));
-        crate::conform::sort_findings(&mut r.checks);
     }
+    // the pairs the diff lens cannot compare (an atom without a map); a drawing too large for the lens has no such finding
+    if let Ok(l) = crate::tp::lenses(doc) {
+        r.checks.extend(l.findings());
+    }
+    crate::conform::sort_findings(&mut r.checks);
     r
 }
 

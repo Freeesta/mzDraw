@@ -945,7 +945,7 @@ try {
     await pg.click("#d2-style-more summary");
     const fields = await pg.evaluate("[...document.querySelectorAll('#d2-style-fields input, #d2-style-fields select')].map(i => i.id.replace('d2-style-', ''))");
     const schema = JSON.parse(await pg.evaluate("window.MZDRAW.settings_schema()"));
-    eq(fields, schema.fields.map(f => f.key).concat(schema.choices.map(c => c.key), ["colour"]));          // the numbers, then the words of the pathway, then the colours
+    eq(fields, schema.fields.map(f => f.key).concat(schema.choices.map(c => c.key), ["display.lens"], ["colour"]));          // the numbers, then the words of the pathway, then the diff lens, then the colours
     eq(await pg.inputValue("#d2-style-line_width"), "1.35");
     await pg.fill("#d2-style-line_width", "3"); await pg.press("#d2-style-line_width", "Enter");
     await until(pg, "JSON.parse(window.MZDRAW.style()).style.line_width === 3");
@@ -1018,7 +1018,7 @@ try {
     await key("Shift+Tab");
     assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-canvas')"), "and Shift+Tab comes back");
     // the help is on the page, closed until asked for
-    assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 6, "the keyboard help");
+    assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 7, "the keyboard help");
   });
 
   await step("PDF out by keyboard: a vector file with the text as text and the document inside, opened again with Open a file", async () => {
@@ -2199,6 +2199,88 @@ try {
     await pen("mouseMoved", px, py); await pen("mousePressed", px, py); await pen("mouseReleased", px, py);
     await tpShown(false); await frames(pg); await tpSame("pen");
     await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  await ctx.close();
+
+  // tp-04: the diff lens (display.lens: off, tint, tint+ghost) on the products of anchored arrows, from the keyboard (Shift+L), the
+  // Style panel, the canvas menu by touch and by pen; the page equals the goldens of tests/data/log/tp-lens.json after each way
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  const lensGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/tp-lens.json"), "utf8")).cases.slice(0, 3);
+  const lensSvg = () => pg.evaluate("window.MZDRAW.save('svg')"), lensDoc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+  const lensState = () => pg.evaluate("JSON.parse(window.MZDRAW.state())");
+  const lensOpen = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), lensGold[0].out.mzdraw); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: JSON.parse(lensGold[0].out.mzdraw).atoms.length, objects: 3 }); return lensDoc(); };
+  /** the colours the display list paints: lines of the accent token (11) and of the muted ink (12) */
+  const lensInk = () => pg.evaluate(() => { const d = window.MZDRAW.scene(); let accent = 0, muted = 0; for (let i = 0; i < d.length;) { const op = d[i]; if (op === 1) { if (d[i + 6] === 11) accent++; if (d[i + 6] === 12) muted++; } i += op === 1 || op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : 5; } return { accent, muted }; });
+  const lensAt = async (mode, what) => {
+    const i = ["off", "tint", "tint+ghost"].indexOf(mode);
+    eq(await lensSvg(), lensGold[i].out.svg, what + ": picture " + mode);
+    eq((await lensState()).lens, mode, what + ": state");
+    const ink = await lensInk();
+    eq([ink.accent > 0, ink.muted > 0], [mode !== "off", mode === "tint+ghost"], what + ": colours of the display list " + JSON.stringify(ink));
+  };
+  await step("diff lens from the keyboard: Shift+L goes off, tint, tint+ghost, off; the page equals the golden of each mode, the document and the undo history are never touched", async () => {
+    const before = await lensOpen(); await lensAt("off", "start"); await shot(pg, "tp04-off");
+    eq((await lensState()).undo, false);
+    await pg.focus("#d2-canvas");
+    await pg.keyboard.press("Shift+L"); await frames(pg); await lensAt("tint", "key"); await shot(pg, "tp04-tint");
+    await pg.keyboard.press("Shift+L"); await frames(pg); await lensAt("tint+ghost", "key"); await shot(pg, "tp04-ghost");
+    assert((await pg.innerText("#d2-live")).includes(await pg.evaluate("I18N.t('draw2.say.lens', { what: 'tint+ghost' })")), "the live line says the mode");
+    eq(await lensDoc(), before, "the document is the same");
+    eq((await lensState()).undo, false, "no undo step");
+    await pg.keyboard.press("Shift+L"); await frames(pg); await lensAt("off", "key again");
+    // the plain key still asks for a label
+    await pg.keyboard.press("l"); await frames(pg); await pg.keyboard.press("Escape");
+    eq((await lensState()).lens, "off");
+  });
+  await step("diff lens in words: each product has a line in the outline, from its parent's formula to the delta; the Style panel sets the mode and follows the key", async () => {
+    await lensOpen();
+    const st = await lensState();
+    eq(st.outline.map(o => o.lens === null), [true, false, false, false, false, false].slice(0, st.outline.length).map((x, i) => i === 0 ? true : x));
+    const lines = await pg.locator("#d2-outline li").allInnerTexts();
+    for (const [i, o] of st.outline.entries()) if (o.lens) {
+      const text = await pg.evaluate(([k, v]) => I18N.t(k, v), [o.lens.delta ? "draw2.outline.lens" : "draw2.outline.lens.same", o.lens]);
+      assert(lines[i].includes(text), `outline line ${i}: ${lines[i]} should hold ${text}`);
+    }
+    assert(lines.some(l => l.includes("+O")) && lines.some(l => l.includes("-CH2")) && lines.some(l => l.includes("1 bond cleaved")), lines.join(" | "));
+    // the Style panel: a choice among the words of the module; the key moves it too
+    const sel = pg.locator('[id="d2-style-display.lens"]');
+    await setOpen(pg, "#d2-style-more", true);
+    eq(await sel.inputValue(), "off");
+    await sel.selectOption("tint+ghost"); await frames(pg); await lensAt("tint+ghost", "panel");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Shift+L"); await frames(pg); await lensAt("off", "key after the panel");
+    eq(await sel.inputValue(), "off", "the panel follows the key");
+  });
+  await step("diff lens by touch (long press on the canvas, tap on the item) and by pen (barrel button, then the item): the page equals the golden of each mode", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    await lensOpen(); await pg.evaluate("window.MZDRAW.set('display.lens=off')");
+    // a point of the canvas with nothing of the drawing and none of the palettes near it
+    const spot = await pg.evaluate(() => {
+      const d = window.MZDRAW.scene(), c = document.getElementById("d2-canvas"), r = c.getBoundingClientRect(), pts = [];
+      for (let i = 0; i < d.length;) { const op = d[i]; if (op === 1) pts.push([d[i + 1], d[i + 2]], [d[i + 3], d[i + 4]]); else if (op === 2 || op === 4 || op === 5) pts.push([d[i + 1], d[i + 2]]); i += op === 1 || op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : 5; }
+      for (let y = r.height - 30; y > 30; y -= 20) for (let x = r.width / 2; x > 30 && x < r.width - 30; x += 20 * (x > r.width / 2 ? 1 : -1) * 1) {
+        const e = document.elementFromPoint(r.x + x, r.y + y);
+        if (e === c && pts.every(([px, py]) => Math.hypot(px - x, py - y) > 60)) return [r.x + x, r.y + y];
+      }
+      return null;
+    });
+    assert(spot, "an empty spot of the canvas");
+    const menu = () => pg.evaluate(`(() => { const m = document.getElementById("d2-menu"); return m.hidden ? null : { target: m.dataset.target, kind: m.dataset.kind, ids: [...m.querySelectorAll("button[data-id]")].map(b => b.dataset.id) }; })()`);
+    const shown = (on = true) => until(pg, `document.getElementById("d2-menu").hidden === ${!on}`);
+    for (const mode of ["tint", "tint+ghost", "off"]) {
+      await touch("touchStart", [spot]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+      await shown(); eq((await menu()).kind, "touch"); eq((await menu()).target, "canvas");
+      assert((await menu()).ids.includes("canvas.lens"), "the lens item is in the menu of a canvas that has an anchored arrow");
+      const [bx, by] = await center(pg, '[data-testid="d2-ctx-canvas.lens"]');
+      await pg.touchscreen.tap(bx, by); await shown(false); await frames(pg); await lensAt(mode, "touch");
+    }
+    const barrel = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "right", buttons: type === "mousePressed" ? 2 : 0, clickCount: 1 });
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    await barrel("mouseMoved", ...spot); await barrel("mousePressed", ...spot); await shown(); eq((await menu()).kind, "pen"); await barrel("mouseReleased", ...spot);
+    const [px, py] = await center(pg, '[data-testid="d2-ctx-canvas.lens"]');
+    await pen("mouseMoved", px, py); await pen("mousePressed", px, py); await pen("mouseReleased", px, py);
+    await shown(false); await frames(pg); await lensAt("tint", "pen");
+    eq(await lensDoc(), lensGold[0].out.mzdraw, "the document is as it was");
   });
   await ctx.close();
 

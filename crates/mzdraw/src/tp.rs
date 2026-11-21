@@ -430,3 +430,361 @@ fn overvalent(
         }
     })
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// The diff lens (tp-04): what changed from the parent, computed from the atom maps of the pathway.
+
+/// The most atoms a structure may have to be compared by the lens, and the most atoms (both ends, summed over the arrows) one
+/// request compares: a hostile size is refused with `error.draw2.lensSize`, never slow.
+pub const MAX_LENS_ATOMS: usize = 5_000;
+pub const MAX_LENS_WORK: usize = 2_000_000;
+
+const LENS_SIZE: &str = "error.draw2.lensSize";
+
+/// The lens of one anchored arrow, from structure P (where it leaves) to structure T (where it arrives), compared by map number.
+/// Every list is ascending. `added` and `changed` hold atom ids of T, `added_bonds` and `changed_bonds` bond ids of T, `cleaved`
+/// holds the two T atom ids (smaller first) of each bond of P that T no longer has, `lost` the maps of P that T lacks.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Lens {
+    pub arrow: u32,
+    /// The atoms of T whose map P does not have.
+    pub added: Vec<u32>,
+    /// The bonds of T with an added end, and the bonds between two atoms both structures have that P did not bond.
+    pub added_bonds: Vec<u32>,
+    /// The atoms in both whose element, label, charge, isotope, radical or hydrogen count differ.
+    pub changed: Vec<u32>,
+    /// The bonds in both (the same two maps) whose order differs.
+    pub changed_bonds: Vec<u32>,
+    /// The bonds of P between two maps that T has but does not bond, as T atom ids.
+    pub cleaved: Vec<(u32, u32)>,
+    /// The maps of P that T lacks.
+    pub lost: Vec<u16>,
+    /// The Hill formula of P (with its net charge, as the outline writes it) and the signed element counts from P to T (`delta`).
+    pub from: String,
+    pub delta: String,
+    /// The first atom (pool order) of T: the `anchor` the outline names that structure by.
+    pub anchor: u32,
+}
+
+/// A pair the lens refuses: the atoms of P and T that have no map, or share one with another atom of the same structure, in a pair
+/// where some atom does have a map (a pair with no map at all is not an inconsistency: it has no lens and no finding).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Unmapped {
+    pub arrow: u32,
+    pub atoms: Vec<u32>,
+}
+
+/// The lens of every anchored arrow of a drawing: the lenses by arrow id, and the pairs that cannot be compared (never a partial
+/// lens: such an arrow has no entry in `lenses`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Lenses {
+    pub lenses: Vec<Lens>,
+    pub unmapped: Vec<Unmapped>,
+}
+
+/// Why the lens of one arrow is not there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NoLens {
+    /// Not an arrow, or an end is free, or both ends are in one structure.
+    NotAnchored,
+    /// Neither structure has a map at all: nothing to compare, and nothing wrong with the drawing (no finding).
+    NoMaps,
+    /// A pair that is partly mapped: atoms without a map or with a map another atom of their structure has (`std.tp.unmapped`).
+    Unmapped(Vec<u32>),
+    /// A structure above `MAX_LENS_ATOMS`.
+    Size,
+}
+
+struct Ctx<'a> {
+    doc: &'a Document,
+    pieces: Vec<Vec<u32>>,
+    piece_of: HashMap<u32, usize>,
+    pos: HashMap<u32, usize>,
+    hydrogens: Vec<u32>,
+    bonds_of: Vec<Vec<usize>>,
+    /// Per piece: the element counts of the record (abbreviations expanded, as the outline counts) and its net charge.
+    counts: Vec<(std::collections::BTreeMap<String, i64>, i32)>,
+}
+
+impl<'a> Ctx<'a> {
+    fn new(doc: &'a Document) -> Ctx<'a> {
+        let pieces = crate::layout::pieces(doc);
+        let mut piece_of = HashMap::with_capacity(doc.atoms.len());
+        for (k, p) in pieces.iter().enumerate() {
+            for &a in p {
+                piece_of.insert(a, k);
+            }
+        }
+        let pos: HashMap<u32, usize> = (doc.atoms.iter().enumerate())
+            .map(|(i, a)| (a.id, i))
+            .collect();
+        let mut bonds_of = vec![Vec::new(); pieces.len()];
+        for (i, b) in doc.bonds.iter().enumerate() {
+            if let (Some(&k), Some(_)) = (piece_of.get(&b.a), piece_of.get(&b.b)) {
+                bonds_of[k].push(i);
+            }
+        }
+        // the element counts of each piece, on the record like the outline (union of the record atoms along the record's bonds)
+        let m = doc.to_mol();
+        let mut root: Vec<usize> = (0..m.atoms.len()).collect();
+        fn find(p: &mut [usize], mut i: usize) -> usize {
+            while p[i] != i {
+                p[i] = p[p[i]];
+                i = p[i];
+            }
+            i
+        }
+        for b in &m.bonds {
+            let (a, z) = (find(&mut root, b.a as usize), find(&mut root, b.b as usize));
+            root[a.max(z)] = a.min(z);
+        }
+        let mut by_root: HashMap<usize, (std::collections::BTreeMap<String, i64>, i32)> =
+            HashMap::new();
+        for i in 0..m.atoms.len() {
+            let r = find(&mut root, i);
+            let e = by_root.entry(r).or_default();
+            let is_r = matches!(
+                doc.atoms.get(i).map(|a| crate::label::kind(&a.lab)),
+                Some(Some(crate::label::Kind::R(_)))
+            );
+            if is_r {
+                *e.0.entry("R".to_string()).or_insert(0) += 1;
+            } else {
+                *e.0.entry(m.atoms[i].el.clone()).or_insert(0) += 1;
+                if m.atoms[i].h > 0 {
+                    *e.0.entry("H".to_string()).or_insert(0) += m.atoms[i].h as i64;
+                }
+                e.1 += m.atoms[i].chg as i32;
+            }
+        }
+        let counts = pieces
+            .iter()
+            .map(|p| {
+                let first = pos.get(&p[0]).copied().unwrap_or(0);
+                if first < m.atoms.len() {
+                    let r = find(&mut root, first);
+                    by_root.get(&r).cloned().unwrap_or_default()
+                } else {
+                    Default::default()
+                }
+            })
+            .collect();
+        Ctx {
+            doc,
+            pieces,
+            piece_of,
+            pos,
+            hydrogens: doc.all_hydrogens(),
+            bonds_of,
+            counts,
+        }
+    }
+
+    fn atom(&self, id: u32) -> &Atom {
+        &self.doc.atoms[self.pos[&id]]
+    }
+
+    /// The map table of a structure, or the atoms that stop it from being one: without a map, or sharing one.
+    fn maps(&self, piece: usize) -> Result<HashMap<u16, u32>, Vec<u32>> {
+        let mut table: HashMap<u16, u32> = HashMap::new();
+        let mut bad: Vec<u32> = Vec::new();
+        for &id in &self.pieces[piece] {
+            let a = self.atom(id);
+            if a.map == 0 {
+                bad.push(id);
+            } else if let Some(&first) = table.get(&a.map) {
+                bad.push(id);
+                bad.push(first);
+            } else {
+                table.insert(a.map, id);
+            }
+        }
+        if bad.is_empty() {
+            Ok(table)
+        } else {
+            Err(bad)
+        }
+    }
+
+    fn lens(&self, arrow: &crate::doc::Obj) -> Result<Lens, NoLens> {
+        if arrow.t != ObjKind::Arrow || arrow.from == 0 || arrow.to == 0 {
+            return Err(NoLens::NotAnchored);
+        }
+        let (Some(&p), Some(&t)) = (self.piece_of.get(&arrow.from), self.piece_of.get(&arrow.to))
+        else {
+            return Err(NoLens::NotAnchored);
+        };
+        if p == t {
+            return Err(NoLens::NotAnchored);
+        }
+        if self.pieces[p].len() > MAX_LENS_ATOMS || self.pieces[t].len() > MAX_LENS_ATOMS {
+            return Err(NoLens::Size);
+        }
+        if (self.pieces[p].iter().chain(&self.pieces[t])).all(|&a| self.atom(a).map == 0) {
+            return Err(NoLens::NoMaps);
+        }
+        let (pm, tm) = (self.maps(p), self.maps(t));
+        let (pm, tm) = match (pm, tm) {
+            (Ok(a), Ok(b)) => (a, b),
+            (a, b) => {
+                let mut bad: Vec<u32> = a.err().into_iter().chain(b.err()).flatten().collect();
+                bad.sort_unstable();
+                bad.dedup();
+                return Err(NoLens::Unmapped(bad));
+            }
+        };
+        let mut l = Lens {
+            arrow: arrow.id,
+            ..Lens::default()
+        };
+        for &id in &self.pieces[t] {
+            let a = self.atom(id);
+            match pm.get(&a.map) {
+                None => l.added.push(id),
+                Some(&q) => {
+                    let o = self.atom(q);
+                    let h = |x: u32| self.hydrogens[self.pos[&x]];
+                    if (o.el.as_str(), o.lab.as_str(), o.chg, o.iso, o.rad, h(q))
+                        != (a.el.as_str(), a.lab.as_str(), a.chg, a.iso, a.rad, h(id))
+                    {
+                        l.changed.push(id);
+                    }
+                }
+            }
+        }
+        let key = |x: u16, y: u16| (x.min(y), x.max(y));
+        let map_of = |id: u32| self.atom(id).map;
+        let mut p_bonds: HashMap<(u16, u16), u8> = HashMap::new();
+        for &i in &self.bonds_of[p] {
+            let b = &self.doc.bonds[i];
+            p_bonds.insert(key(map_of(b.a), map_of(b.b)), b.o);
+        }
+        let mut t_bonds: std::collections::HashSet<(u16, u16)> = Default::default();
+        for &i in &self.bonds_of[t] {
+            let b = &self.doc.bonds[i];
+            let k = key(map_of(b.a), map_of(b.b));
+            t_bonds.insert(k);
+            match p_bonds.get(&k) {
+                None => l.added_bonds.push(b.id),
+                Some(&o) if o != b.o => l.changed_bonds.push(b.id),
+                Some(_) => {}
+            }
+        }
+        for &(x, y) in p_bonds.keys() {
+            if t_bonds.contains(&(x, y)) {
+                continue;
+            }
+            if let (Some(&a), Some(&b)) = (tm.get(&x), tm.get(&y)) {
+                l.cleaved.push((a.min(b), a.max(b)));
+            }
+        }
+        l.lost = pm.keys().copied().filter(|m| !tm.contains_key(m)).collect();
+        for v in [
+            &mut l.added,
+            &mut l.added_bonds,
+            &mut l.changed,
+            &mut l.changed_bonds,
+        ] {
+            v.sort_unstable();
+        }
+        l.cleaved.sort_unstable();
+        l.cleaved.dedup();
+        l.lost.sort_unstable();
+        // the formula of P and the change of the counts from P to T
+        let (pc, tc) = (&self.counts[p], &self.counts[t]);
+        let mut delta: mzlab_mol::delta::Counts = Vec::new();
+        for el in pc.0.keys().chain(tc.0.keys()) {
+            let n = tc.0.get(el).copied().unwrap_or(0) - pc.0.get(el).copied().unwrap_or(0);
+            if n != 0 && !delta.iter().any(|d| &d.0 == el) {
+                delta.push((el.clone(), n));
+            }
+        }
+        delta.sort();
+        l.delta = mzlab_mol::delta::print(&delta);
+        l.anchor = self.pieces[t][0];
+        let mut f: Vec<(String, u32)> = pc.0.iter().map(|(k, &v)| (k.clone(), v as u32)).collect();
+        l.from = crate::outline::hill(&mut f, pc.1);
+        Ok(l)
+    }
+}
+
+/// The lens of the arrow `arrow` (an object id). Builds the tables of the whole drawing: for every arrow use `lenses`.
+pub fn lens(doc: &Document, arrow: u32) -> Result<Lens, NoLens> {
+    let Some(o) = doc.objects.iter().find(|o| o.id == arrow) else {
+        return Err(NoLens::NotAnchored);
+    };
+    Ctx::new(doc).lens(o)
+}
+
+/// The lens of every anchored arrow, arrows by id; a pair that cannot be compared is listed in `unmapped`, not drawn. A structure
+/// above `MAX_LENS_ATOMS`, or more than `MAX_LENS_WORK` atoms compared in all, is `error.draw2.lensSize`. A drawing without an
+/// anchored arrow costs one pass over its arrows.
+pub fn lenses(doc: &Document) -> Result<Lenses, &'static str> {
+    let mut arrows: Vec<&crate::doc::Obj> = (doc.objects.iter())
+        .filter(|o| o.t == ObjKind::Arrow && o.from != 0 && o.to != 0)
+        .collect();
+    let mut out = Lenses::default();
+    if arrows.is_empty() {
+        return Ok(out);
+    }
+    arrows.sort_by_key(|o| o.id);
+    let cx = Ctx::new(doc);
+    let mut work = 0usize;
+    for o in arrows {
+        if let (Some(&p), Some(&t)) = (cx.piece_of.get(&o.from), cx.piece_of.get(&o.to)) {
+            work += cx.pieces[p].len() + cx.pieces[t].len();
+            if work > MAX_LENS_WORK {
+                return Err(LENS_SIZE);
+            }
+        }
+        match cx.lens(o) {
+            Ok(l) => out.lenses.push(l),
+            Err(NoLens::NotAnchored | NoLens::NoMaps) => {}
+            Err(NoLens::Unmapped(atoms)) => out.unmapped.push(Unmapped { arrow: o.id, atoms }),
+            Err(NoLens::Size) => return Err(LENS_SIZE),
+        }
+    }
+    Ok(out)
+}
+
+impl Lenses {
+    /// `lens/1`: the machine form, keys in a fixed order, ids ascending, arrows by id.
+    pub fn to_json(&self) -> String {
+        let list = |v: &[u32]| {
+            let s: Vec<String> = v.iter().map(|x| x.to_string()).collect();
+            format!("[{}]", s.join(","))
+        };
+        let arrows: Vec<String> = (self.lenses.iter())
+            .map(|l| {
+                let cleaved: Vec<String> = (l.cleaved.iter())
+                    .map(|(a, b)| format!("[{a},{b}]"))
+                    .collect();
+                let lost: Vec<String> = l.lost.iter().map(|m| m.to_string()).collect();
+                format!(
+                    r#"{{"arrow":{},"added":{},"added_bonds":{},"changed":{},"changed_bonds":{},"cleaved":[{}],"lost":[{}],"delta":{}}}"#,
+                    l.arrow,
+                    list(&l.added),
+                    list(&l.added_bonds),
+                    list(&l.changed),
+                    list(&l.changed_bonds),
+                    cleaved.join(","),
+                    lost.join(","),
+                    serde_json::Value::from(l.delta.as_str())
+                )
+            })
+            .collect();
+        format!(r#"{{"format":"lens/1","arrows":[{}]}}"#, arrows.join(","))
+    }
+
+    /// The `std/1` findings of the pairs the lens refuses: `std.tp.unmapped`, one per arrow (the arrow, and the atoms of its two
+    /// structures without a map or sharing one).
+    pub fn findings(&self) -> Vec<crate::conform::Finding> {
+        (self.unmapped.iter())
+            .map(|u| {
+                let mut f = crate::conform::Finding::new("std.tp.unmapped", &u.atoms, &[]);
+                f.objects = vec![u.arrow];
+                f
+            })
+            .collect()
+    }
+}

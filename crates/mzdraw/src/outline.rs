@@ -34,7 +34,7 @@ pub struct Focus {
     pub charge: i8,
 }
 
-fn hill(counts: &mut [(String, u32)], charge: i32) -> String {
+pub(crate) fn hill(counts: &mut [(String, u32)], charge: i32) -> String {
     let rank = |el: &str| match el {
         "C" => 0,
         "H" => 1,

@@ -169,4 +169,18 @@ impl Editor {
         self.error = "";
         self.set_tool("select") | REPAINT | CHANGED | crate::editor::TOOL
     }
+
+    /// Shift+L: the diff lens goes to the next mode (`off`, `tint`, `tint+ghost`, `off`...). A display setting like `display.lens`:
+    /// not a step of the log, not in the document; said in the live line.
+    pub fn cycle_lens(&mut self) -> u32 {
+        use crate::settings::LensMode::{Off, Tint, TintGhost};
+        self.style.lens = match self.style.lens {
+            Off => Tint,
+            Tint => TintGhost,
+            TintGhost => Off,
+        };
+        self.said = ("draw2.say.lens", self.style.lens.name().to_string());
+        self.error = "";
+        REPAINT
+    }
 }

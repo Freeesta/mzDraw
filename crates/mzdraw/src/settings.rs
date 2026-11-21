@@ -45,6 +45,8 @@ pub struct Style {
     pub mono: bool,
     /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
     pub maps: bool,
+    /// What the diff lens shows on a transformation product (`display.lens`, `off` by default).
+    pub lens: LensMode,
     /// What the settings file held that this version does not know, kept to be written back: the unknown keys of the file and of
     /// its `style` object. A file edited by a newer mzDraw survives a round through this one.
     pub unknown: Unknown,
@@ -201,7 +203,7 @@ pub const FIELDS: [Field; 13] = [
 fn known(key: &str) -> bool {
     matches!(
         key,
-        "preset" | "colour" | "maps" | "pathway.dir" | "pathway.order" | "pathway.derive"
+        "preset" | "colour" | "maps" | "lens" | "pathway.dir" | "pathway.order" | "pathway.derive"
     ) || FIELDS.iter().any(|f| f.key == key)
 }
 
@@ -229,7 +231,7 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"]}},"choices":[{CHOICES}],"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],"fields":[{}]}}"#,
         PRESETS.join("\",\""),
         fields.join(",")
     )
@@ -262,6 +264,7 @@ impl Default for Style {
             pathway_derive: false,
             mono: false,
             maps: true,
+            lens: LensMode::Off,
             unknown: Unknown::default(),
         }
     }
@@ -283,6 +286,35 @@ pub struct Metrics {
     pub mono: bool,
     /// Whether the map numbers of the atoms are drawn.
     pub maps: bool,
+    /// The diff lens mode (`display.lens`).
+    pub lens: LensMode,
+}
+
+/// What the diff lens draws on the product of an anchored arrow (`display.lens`): `off`, `tint` (what was added or changed, in the
+/// accent token) or `tint+ghost` (also each cleaved bond, dashed and muted, behind the bonds).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum LensMode {
+    #[default]
+    Off,
+    Tint,
+    TintGhost,
+}
+
+impl LensMode {
+    /// The word of the setting.
+    pub fn name(self) -> &'static str {
+        match self {
+            LensMode::Off => "off",
+            LensMode::Tint => "tint",
+            LensMode::TintGhost => "tint+ghost",
+        }
+    }
+
+    pub fn parse(v: &str) -> Option<LensMode> {
+        [LensMode::Off, LensMode::Tint, LensMode::TintGhost]
+            .into_iter()
+            .find(|m| m.name() == v)
+    }
 }
 
 impl Style {
@@ -308,6 +340,7 @@ impl Style {
             pathway_derive: false,
             mono: true,
             maps: true,
+            lens: LensMode::Off,
             unknown: Unknown::default(),
         };
         match name {
@@ -364,12 +397,13 @@ impl Style {
         Ok(())
     }
 
-    /// Sets a display option from its text: `maps` is `on` or `off` (`display.maps`).
+    /// Sets a display option from its text: `maps` is `on` or `off` (`display.maps`), `lens` is `off`, `tint` or `tint+ghost` (`display.lens`).
     pub fn set_display(&mut self, key: &str, value: &str) -> Result<(), &'static str> {
         match (key, value.trim()) {
             ("maps", "on") => self.maps = true,
             ("maps", "off") => self.maps = false,
             ("maps", _) => return Err("error.draw2.styleValue"),
+            ("lens", v) => self.lens = LensMode::parse(v).ok_or("error.draw2.styleValue")?,
             _ => return Err("error.draw2.styleKey"),
         }
         Ok(())
@@ -405,6 +439,7 @@ impl Style {
         match key {
             "pathway.dir" => Some(if self.pathway_down { "down" } else { "right" }),
             "pathway.order" => Some(self.pathway_order.name()),
+            "display.lens" => Some(self.lens.name()),
             _ => None,
         }
     }
@@ -461,6 +496,10 @@ impl Style {
             Some("off") => false,
             Some(_) => return None,
         };
+        let lens = match g.s("lens").ok()?.as_deref() {
+            None => base.lens,
+            Some(v) => LensMode::parse(v)?,
+        };
         let down = match g.s("pathway.dir").ok()?.as_deref() {
             None | Some("right") => false,
             Some("down") => true,
@@ -479,6 +518,7 @@ impl Style {
         let mut s = Style {
             mono: colour,
             maps,
+            lens,
             pathway_down: down,
             pathway_order: order,
             pathway_derive: derive,
@@ -508,6 +548,9 @@ impl Style {
         // written only when off, so that a file that never mentions it keeps its bytes
         if !self.maps {
             style.push(("maps".to_string(), text("off")));
+        }
+        if self.lens != LensMode::Off {
+            style.push(("lens".to_string(), text(self.lens.name())));
         }
         if self.pathway_down {
             style.push(("pathway.dir".to_string(), text("down")));
@@ -549,6 +592,7 @@ impl Style {
             small: font * self.subscript_scale,
             mono: self.mono,
             maps: self.maps,
+            lens: self.lens,
         }
     }
 }
