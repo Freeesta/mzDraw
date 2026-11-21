@@ -111,7 +111,7 @@ Generated from `schema::json()` (`"out":"schema"`); the test `crates/mzdraw/test
 | `ring` | mzdraw/1 | true | false | DropAtom and DropBond per new item, Next | `n` uint* (0..=255 (the editor takes 3..=8))<br>`arom` bool (default false)<br>`atom` uint (a corner of the ring)<br>`bond` uint (the bond the ring is fused on)<br>`x` number (bond length; the centre, default 0)<br>`y` number (bond length; the centre, default 0) |
 | `merge` |  | false | true |  | `from` uint*<br>`into` uint* |
 
-The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `expect` arms are these rows (`request` section of the table); a field or an arm outside it is an invalid request (`error.draw2.requestField`, `error.draw2.expect`). With `report`, `dry_run` or a non-empty `expect` the answer is the document `draw-result/1` (section "Replay result").
+The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `expect` arms are these rows (`request` section of the table); a field or an arm outside it is an invalid request (`error.draw2.requestField`, `error.draw2.expect`). With `report`, `dry_run` or a non-empty `expect` the answer is the document `draw-result/1` (section "Replay result"); the request `diff` answers its own document (sections `diff` and `hunk`, plan-15).
 
 | section | key | type | meaning |
 |---|---|---|---|
@@ -132,6 +132,11 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 | request | `dry_run` | bool | run and report everything, write nothing: the document has no `out`; implies `report` |
 | request | `expect` | object[] | postconditions on the final drawing, one arm each; a non-empty list implies `report` |
 | request | `id` | string\|uint | echoed as the `id` of the document (default: the index of the request in its batch) |
+| request | `diff` | object | two documents `{"a":DOC,"b":DOC}` (each a document object or its JSON text): answers the patch from `a` to `b` and its hunks (section `diff`), not a `draw-result/1`; the request stands alone: any other field, `report`, `dry_run`, `expect` and `id` included, is `error.draw2.diffAlone`; an unreadable document is `error.draw2.document` |
+| diff | `ops` | json[] | answer: the patch, operations of `draw_edit/1` (`diff::diff(a, b)`): removes, adds, sets, moves, in that order; empty when the drawings are the same |
+| diff | `hunks` | object[] | answer: the patch grouped into hunks (`diff::hunks(a, ops)`), in the order of their first operation; any subset of them applies in order to a valid document |
+| hunk | `ids` | uint[] | the ids (atoms, bonds, objects) the hunk touches, ascending |
+| hunk | `ops` | json[] | the operations of the hunk, in the order of the patch: a self-contained patch of `a` |
 | out | `boxes` | string | `boxes/1`: the label-inclusive box of every structure (by its smallest atom id) and every arrow with the structures it joins, in bond lengths at 4 decimals, ordered by id: the boxes the pathway layout uses |
 | std | `std.scheme.gapRaised` | info | a gap between two columns of a pathway was widened (`pathway:tree`); `atoms`: the first root of the component, `objects`: the primary arrows between the two layers |
 | std | `std.scheme.free` | info | arrows without two structures, plus signs and texts, which `pathway:tree` does not move (`objects`) |
@@ -143,7 +148,7 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 
 ## Replay result (`draw-result/1`)
 
-A replay request with `"report":true`, `"dry_run":true` or a non-empty `"expect"` is answered by ONE JSON document `draw-result/1` (nothing else on stdout); without them the answer is the bare output as before. Code: `crates/mzdraw/src/outcome.rs` and `replay.rs` (`replay_at` also gives `ok` and takes the index `n` of the request in its batch); schema: `docs/schemas/draw-result-1.json`. Keys, always in this order; a key that does not apply is left out:
+The request `diff` (two documents, answer `{ops, hunks}`, plan-15) is not answered by this document and stands alone: with `report`, `dry_run`, `expect`, `id` or any other field it is `error.draw2.diffAlone`. A replay request with `"report":true`, `"dry_run":true` or a non-empty `"expect"` is answered by ONE JSON document `draw-result/1` (nothing else on stdout); without them the answer is the bare output as before. Code: `crates/mzdraw/src/outcome.rs` and `replay.rs` (`replay_at` also gives `ok` and takes the index `n` of the request in its batch); schema: `docs/schemas/draw-result-1.json`. Keys, always in this order; a key that does not apply is left out:
 
 | key | type | when | meaning |
 |---|---|---|---|

@@ -11,6 +11,7 @@ pub mod cml;
 mod commands;
 pub mod conform;
 pub mod context;
+pub mod diff;
 pub mod doc;
 pub mod editor;
 mod editor_edit;

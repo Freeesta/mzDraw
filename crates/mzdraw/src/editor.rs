@@ -216,6 +216,11 @@ impl Editor {
         crate::commands::run(self, name, args)
     }
 
+    /// The patch (`draw_edit/1`) that turns the drawing in the editor into `other`; see `diff::diff`.
+    pub fn diff_with(&self, other: &Document) -> Vec<crate::ops::Op> {
+        crate::diff::diff(self.doc(), other)
+    }
+
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
     pub(crate) fn run(&mut self, ops: &[Op], say: &'static str, what: &str) -> u32 {
         let ops = self.following(ops);
