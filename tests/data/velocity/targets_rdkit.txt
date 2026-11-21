@@ -1,0 +1,14 @@
+# Output of tools/velocity/check_targets.py: RDKit 2026.09.2, run by the owner on macOS arm64, Python 3.14, exit 0.
+# It parses the 12 targets and gives RDKit's canonical SMILES (and CIP for the stereo task). It is a check of the targets, not a speed measurement.
+benzene	c1ccccc1
+ethanol	CCO
+isobutanol	CC(C)CO
+ibuprofen	CC(C)Cc1ccc(C(C)C(=O)O)cc1
+caffeine	Cn1c(=O)c2c(ncn2C)n(C)c1=O
+anthracene	c1ccc2cc3ccccc3cc2c1
+gonane	C1CCC2C(C1)CCC1C3CCCC3CCC21
+butanediol-rr	C[C@@H](O)[C@@H](C)O	CIP 1R,2R
+glycine-zwitterion	[NH3+]CC(=O)[O-]
+boc-amine	CCNC(=O)OC(C)(C)C
+esterification	CC(=O)O.CCO.CCOC(C)=O
+three-in-a-row	CC(=O)O.CCO.c1ccccc1

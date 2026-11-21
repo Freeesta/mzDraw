@@ -2,7 +2,7 @@
 
 Agreed with the coordinator (COO-MZDRAW) and COO 16 on 2026-11-21; the decisions are in section 8.
 
-This file has five inputs:
+This file has five inputs (a sixth, the second Gemini output, is section 9):
 - the external research output `docs/input/gemini-feature-discovery.md` (Gemini Deep Research, PR #39);
 - the three studies and their prompts:
   - arch-std 01–14 on `main`;
@@ -342,3 +342,119 @@ Answers of the coordinator (COO-MZDRAW) and of COO 16 to the questions of the dr
 | D10 | launch limits | At most 10 open chats; launch 2–3 at a time; no new chat while 6 green PRs wait; Sonnet medium; handoff at about 150k tokens. | owner, via COO-MZDRAW |
 | D11 | withdrawals | arch-web-12 is withdrawn; arch-cd-15 drops its Alt keys; 15 arch-cd prompts are reduced to "additions" notes; the defer and drop lists of section 4 are agreed. | COO-MZDRAW |
 | D12 | desktop app | One component, two distributions (standalone macOS + Windows app; bundled by default in mzLab site and app via Tauri). The shell is separate for now, uses the shared `release.yml` pattern, and signing is a later step of the owner's. | owner, COO 16 |
+
+## 9. Second Gemini input (ARCH PLAN-2, 2026-11-21)
+Input: `docs/input/gemini-strategy-2.md` (Gemini Deep Research, PR #49). It proposes five ideas, three features not to build and an external validation protocol. Every claim was re-checked at its source on 2026-11-21. Pages read on github.com, iupac.qmul.ac.uk, arxiv.org, typst.app, patents.google.com, molsoft.com and en.wikipedia.org. Pages that refused access (HTTP 403) or are bot-walled are "not read".
+
+### 9.1 Claims checked
+| claim in the input | verdict | source read | note |
+|---|---|---|---|
+| Ketcher #5873: KET export increments internal ids on every call | verified | https://github.com/epam/ketcher/issues/5873 | Opened 2024, fixed by Ketcher PR #5916. |
+| Ketcher #8898: the API drops selections in KET fragments | partly | https://github.com/epam/ketcher/issues/8898 | Selection is ignored by `setMolecule` / `addFragment`; "silently" is the input's word. Closed Jan 2026. |
+| Ketcher #64: V2000 drops OR / AND enhanced stereo | partly | https://github.com/epam/ketcher/issues/64 | A 2021 comment says AND/OR centres are "not supported in V2000"; nothing about silent loss. |
+| Ketcher #5152, #5156: an ACS-style setting with bond length | verified (partly on "1996") | https://github.com/epam/ketcher/issues/5152 ; https://github.com/epam/ketcher/issues/5156 | "ACS style"; the year 1996 is not in the text read. |
+| Ketcher #6377, #7649: undo bugs in macromolecule mode | verified (undo), not "regression" | https://github.com/epam/ketcher/issues/6377 ; https://github.com/epam/ketcher/issues/7649 | Both closed (2026-04, 2025-10). |
+| RDKit #4041: random R/S because wedges need coordinates and tags depend on bond order | partly | https://github.com/rdkit/rdkit/issues/4041 | A question closed in 2021; the comments explain the dependence; no bug confirmed. |
+| RDKit #5067: one wedge only on quaternary centres | verified | https://github.com/rdkit/rdkit/issues/5067 | An opt-in option was added (RDKit PR #6108), not the default. |
+| RDKit #1286: depiction matching moves core coordinates in clean-up | verified | https://github.com/rdkit/rdkit/issues/1286 | Confirmed by the maintainer; closed by the stale bot (2025), not fixed. |
+| RDKit #8124: depiction matching flips the orientation | verified | https://github.com/rdkit/rdkit/issues/8124 | Closed by the stale bot (2026), not fixed. |
+| RDKit #6626: overlapping atoms in bridged bicyclics | partly | https://github.com/rdkit/rdkit/issues/6626 | A hard-to-read depiction; overlap is not stated. |
+| RDKit #4504: overlapping coordinates | partly | https://github.com/rdkit/rdkit/issues/4504 | Atoms of 1,1-disubstituted cyclobutanes; labels not mentioned. Fixed. |
+| RDKit #4508: S-group labels overlap atoms | verified | https://github.com/rdkit/rdkit/issues/4508 | Closed 2021. |
+| RDKit #9354: CDXML overlap | **wrong** | https://github.com/rdkit/rdkit/issues/9354 | It is about NeedsClean atoms in CDXML reading. |
+| Indigo #2739: stereo data leaks across CDXML products | verified | https://github.com/epam/Indigo/issues/2739 | Fixed by Indigo PR #2740. |
+| Indigo #2810: overlaps after CDXML import | partly | https://github.com/epam/Indigo/issues/2810 | Rearrangement causing overlap, from hidden superatom atoms. |
+| CDK #1292: depiction overlap | **wrong** | https://github.com/cdk/cdk/issues/1292 | SMARTS ring-size matching. |
+| CDK #1282, #951 | not read | https://github.com/cdk/cdk/issues | The input links the issue list, not the issues. |
+| Open Babel #2015: 2D overlap | **wrong** | https://github.com/openbabel/openbabel/issues/2015 | A request to adopt coordgen. |
+| IUPAC 2006 rules ST-1.1.1, ST-1.1.2 | verified | https://iupac.qmul.ac.uk/drawing/stereo.html | Numbering ST-1.1.1 to ST-1.1.20. |
+| IUPAC 2006 ST-1.1.9 / ST-1.1.10 call some wedge sets ambiguous | not read | same page | The page was read only in part; seen only in a summary. |
+| IUPAC 2008 GR-0.3 forbids shrinking to illegible size | **wrong rule** | https://iupac.qmul.ac.uk/drawing/drawing.html | GR-0.3 is "Text" (under 5 pt not acceptable). The no-shrink rule is **GR-0.6**, which points to abbreviations (GR-2.2, GR-2.3) as the alternative. |
+| ACS Document 1996 bond length 0.508 cm (14.4 pt) | verified | https://en.wikipedia.org/wiki/Wikipedia:Manual_of_Style/Chemistry/Structure_drawing | An essay page, not a guideline. |
+| ACS single column 82.5 mm | not read | https://pubs.acs.org/page/4authors/submission/graphics_prep.html | HTTP 403. arch-std-16 has the ACS widths it read. |
+| ChemDraw 23.0 release notes (canvas atom ids, monomers, retrosynthesis removed) | not read | the input's PDF link | HTTP 403. |
+| ChemDraw 25.5 alignment regressions | not read | Reddit | Bot wall. |
+| LiveFigure (arXiv 2605.23527): VLM agents for figures | partly | https://arxiv.org/abs/2605.23527 | Real (Shao et al., 22 May 2026). Screenshot loops and token cost are not in the abstract. |
+| IChO 2025 multi-agent (arXiv 2511.16205) | verified | https://arxiv.org/abs/2511.16205 | "ChemLabs on ChemO", Nov 2025. |
+| arXiv 2508.17692 reviews ChemCrow | partly | https://arxiv.org/abs/2508.17692 | An agent survey; ChemCrow is not in the abstract. |
+| typed-smiles: abbreviations leave index gaps | verified | https://typst.app/universe/package/typed-smiles/ | Its own "Index gaps" note (v0.14.0). |
+| ICM: stereo-specific SMARTS | verified | https://molsoft.com/~eugene/icm/release-notes.html | "S[123]" attribute, version 3.9-2d. |
+| US12159693B2 | verified, not relevant | https://patents.google.com/patent/US12159693B2 | Genesis Therapeutics, generative ML of molecules. |
+| Wilson 95% CI [99.82, 99.95] at N = 10,000 and 99.9%; ±6.3 pp at N = 240 | verified (computed) | — | Recomputed; ±6.3 pp is the worst case (p = 0.5). |
+| KLM 40.2 s vs 3.5 s for a series revision | arithmetic correct | — | An estimate from assumed steps, not a measurement. |
+| Novelty ("genuinely new") and patent clearance | not used | — | Keyword searches are not a prior-art or FTO search. |
+| The batching penalty (77 s / 0.8 s for 901 calls) | ours, ratio corrected | — | Measured in mzLab. 77 / 0.8 is about 96×, not the 95× of the prompt. |
+
+### 9.2 Findings of this pass
+1. **Ids are already stable** in mzDraw (`atom.add` takes an `id`; ids never shift), so the input's main failure (indices that move after an edit) does not apply to us as stated. Two gaps remain:
+   - the result of a replay does not report the ids it created and removed or which op failed, although every arch-std prompt states that rule;
+   - an agent that imports a SMILES must read the whole document to learn the ids.
+   plan-20 and plan-23 close these gaps.
+2. **Exit codes** are mzLab's one table (`docs/agenti/cli-agenti.md` of mzLab, read at the pin `ccd4680`). The input's "exit code 12" is not used.
+3. **Substructure** search in `mzlab-mol` (`substruct.rs`, `query.rs`) takes SMILES and molfile queries, not SMARTS. Selectors use SMILES only (rule 13).
+4. **Flip** mirrors the configuration today. "Flip that keeps the configuration" is already listed as still to build (`docs/mzdraw.md`). plan-26 builds it with existing ops.
+
+### 9.3 Verdicts
+| idea | verdict | where | reason |
+|---|---|---|---|
+| 1 ChemSel selectors | **KEEP, reduced** → plan-24 | read-only `select/1` | Resolved to ids before the log, so inverses and parity are untouched. SMILES substructure, not SMARTS. Selectors inside ops are DEFER: they would put a field on every op. It starts only if plan-19 shows addressing errors. |
+| 2 stereo-invariant geometry kernel | **REFRAME** → plan-21 (guard), plan-26 (`flip:keep`) | two slices | Report-only in the page, enforced only with `{"stereo":"kept"}`. Automatic wedge re-solving is DEFER. |
+| 3 core-linked analog families | **DEFER**; part → E18 (plan-14) | — | A live master/instance link is a new document concept. Orienting a series on one core needs no new concept. Revisit after plan-14 numbers. |
+| 4 Knuth-Plass abbreviation folding to fit a box | **DEFER**, no prompt | — | It depends on arch-std-16 (profiles), arch-web-18 (`abbr.contract`) and arch-std-15. The real basis is IUPAC GR-0.6. **Kill test** when revisited: on 30 synthetic large structures that do not fit an arch-std-16 width class at the minimum text size, contracting abbreviations (greedy) must make at least 50% fit; otherwise drop. |
+| 5 transactional canvas | **KEEP, split** → plan-20 (envelope, dry run, postconditions), plan-22 (loss manifest), plan-23 (digest), plan-25 (fix-its) | replay request | The stdio server is DEFER: it would be a second server next to `mzlab-cli`. Batch and stdin streaming are already mzLab's contract. |
+| Do-not 1 macromolecules / HELM | DROP (agree; already dropped) | — | Rule 13. |
+| Do-not 2 3D, force field, NMR | DROP (agree; already dropped) | — | mzLab has 3D. |
+| Do-not 3 cloud sync, CRDT multiplayer | **DROP** (agree, new) | — | No server; files and logs are deterministic, so git review covers async work. |
+| Validation: public corpus round trip | **REFRAME** → E19 (plan-03) | — | Run-time fetch only (D5). |
+| Validation: time-and-motion with chemists | **DEFER** (owner) | plan-02 person protocol | It needs at least 6 people with ChemDraw licences. |
+| Validation: blind multi-model agent suite | **KEEP** → plan-19 | `tools/agent-suite` | It is the kill test of plan-20, plan-23 and plan-24. |
+
+Counts, each idea once: ideas 1 and 5 kept (1 reduced to plan-24; 5 split into plan-20, -22, -23, -25), idea 2 reframed (plan-21, plan-26), ideas 3 and 4 deferred. Do-not list: 1 new drop, 2 drops already made. Validation: 1 kept (plan-19), 1 reframed (E19), 1 deferred.
+
+### 9.4 Rows
+Same columns as §4. "request row" in the COO 16 column means the item adds request fields or outputs of the `mol draw` contract: one row each in the `request` section of plan-01's table, which COO 16 reviews (D13); no PR-by-PR agreement is needed as long as no `draw_edit/1` op is added.
+
+| # | id | item | status | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|---|
+| 68 | plan-19 | agent task suite | N | M | plan-01 | `tools/agent-suite`, `tests/data/agent-suite`, new example | no | RDKit InChIKey of targets |
+| 69 | plan-20 | replay result: ids, failing op, dry run, `expect` | N | M | plan-01 | `replay.rs` + new `outcome.rs` | request row | property on id sets |
+| 70 | plan-21 | stereo guard (signature, live line, `expect` arm `stereo`) | N | M | plan-20 | new `stereo_guard.rs` | request row (`expect` arm `stereo`) | InChI stereo layer by RDKit |
+| 71 | plan-22 | loss manifest `loss/1` | N | M | plan-20, plan-15 | new `loss.rs` | request row | plan-03 differences explained |
+| 72 | plan-23 | digest `digest/1` | N | S–M | plan-20 | new `digest.rs` | request row | RDKit formula |
+| 73 | plan-24 | selectors `select/1` | N | M | plan-20, plan-23, first plan-19 run | new `select.rs` | request row | RDKit match counts |
+| 74 | plan-25 | exact fix-its on `std/1` | N | S | std-02, std-15, plan-20 | conform | request row (`std/1` field `fix`; `std/1` goldens move) | isomeric SMILES unchanged (RDKit) |
+| 75 | plan-26 | `flip:keep`, with the rule for a selection that cuts a stereocentre | N | S | plan-21 | input (one command) + `context.rs` arm | no | InChI stereo layer by RDKit |
+
+Deferred, no prompt, added to §4's list:
+- live analog families (master/instance);
+- abbreviation folding to fit a box (its kill test is in §9.3);
+- automatic wedge re-solving;
+- selectors inside ops;
+- the stdio server;
+- the time-and-motion study with chemists.
+
+Dropped, added: cloud sync and CRDT multiplayer.
+
+Totals after this section: 75 rows to run, 23 new prompts in all (8 here).
+
+### 9.5 Edits to existing prompts
+18. **E18 plan-14:** besides "each structure after an arrow on the one before it", add `scheme:orient-series`: every structure of a selection is oriented on ONE chosen core (the first selected), with the same rules (rigid fit, flip only without wedges, no clean-up, refuse on overlap). It is one undo step and has the CLI twin `{"command":"scheme:orient-series"}`. This is Gemini idea 3 without live links. Before applying it, the plan-14 chat asks the coordinator whether ARCH TP-DRAW (transformation products, arrow auto-layout, tables; prompts `tp-NN`) already covers series orientation; if it does, E18 is dropped in favour of that prompt. Check it against RDKit `GenerateDepictionMatching2DStructure` on the same synthetic series: core atoms must keep their exact coordinates (RDKit #1286 and #8124 are the cases to beat).
+19. **E19 plan-03:** an optional `--corpus` run of `tools/fidelity/run.py` fetches a fixed public subset at run time (PubChem or ChEMBL ids listed in the script, never the structures). It commits only the success rates with a Wilson 95% interval, the source, the version and the date (D5). The synthetic set stays the test.
+
+### 9.6 Waves
+- **Wave 1 tail** (after plan-01): plan-19, plan-20 (coordinator, 2026-11-21).
+- **Wave 2:** plan-23.
+- **Wave 3:** plan-21, plan-22 (after plan-15), then plan-26 (after plan-21).
+- **Wave 4:** plan-24 (only if its start condition holds), plan-25 (after std-02, std-15).
+
+None of these touch the page except plan-21's live-line key and plan-26's one command (the `input` zone). They do not collide with the running zones; serialize plan-20 with any other prompt that edits `replay.rs`.
+
+### 9.7 Decisions (21 Nov 2026)
+| # | question | decision | by |
+|---|---|---|---|
+| D13 | replay fields and outputs as `mol draw` contract items; exit code of a failed postcondition; does AD0a–AD6 define an envelope | Yes: each replay field or output is ONE row in the `request` section of plan-01's table; COO 16 reviews the table, not each PR, while no `draw_edit/1` op is added. A false postcondition is exit 1 (verdict) with the `draw-result/1` document on stdout; exit codes stay 0..8. mzLab has no envelope yet: `draw-result/1` of plan-20 is the source of truth and `mzlab-cli` follows it. The caps of D9 still apply: no mzLab module cap or catalog guard (33,000 B / 25,600 B) rises without telling COO 16 first. | COO 16, via COO-MZDRAW |
+| D14 | external models on the agent suite | The owner may run them outside CI; keys stay outside the repo; only rates are committed. | COO-MZDRAW |
+| D15 | selector syntax | A JSON object, no mini-language. | COO-MZDRAW |
+| D16 | stereo guard | Report-only in the page; enforced only when a request lists `{"stereo":"kept"}`. | COO-MZDRAW |
+| D17 | abbreviation folding | A deferred row with its kill test, no prompt. | COO-MZDRAW |
+| D18 | waves | plan-19 and plan-20 go in the wave 1 tail, after plan-01. | COO-MZDRAW |

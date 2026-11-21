@@ -74,6 +74,17 @@ fn every_case_replays_to_the_recorded_bytes() {
         assert_eq!(case["out"], json!(got), "{}", case["name"]);
         assert_eq!(got, mzdraw::schema::json());
     }
+    // the settings file (`out: settings`) after settings set through `Editor::set` (the `--set` of the CLI): the layout and the
+    // export defaults are covered by the same parity as the drawing
+    for case in fx["settings"].as_array_mut().unwrap() {
+        let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+        if bless {
+            case["out"] = json!(got);
+        }
+        assert_eq!(case["out"], json!(got), "{}", case["name"]);
+        let file: Value = serde_json::from_str(&got).unwrap();
+        assert!(file["layout"].is_object() && file["export"].is_object());
+    }
     if bless {
         std::fs::write(fixture(), serde_json::to_string_pretty(&fx).unwrap() + "\n").unwrap();
     }

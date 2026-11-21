@@ -1697,6 +1697,22 @@
       }
     },
     {
+      "error_key": "error.draw2.export",
+      "request": {
+        "set": [
+          "export.default=gif"
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.layout",
+      "request": {
+        "set": [
+          "layout.snap=99"
+        ]
+      }
+    },
+    {
       "error_key": "error.draw2.opField",
       "request": {
         "log": [
@@ -1715,6 +1731,34 @@
       "out": "{\"format\":\"draw-edit-schema/1\",\"ops\":[{\"op\":\"atom.add\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":true,\"inverse\":\"DropAtom, Next\",\"fields\":[{\"key\":\"id\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"from the document counter when absent\"},{\"key\":\"el\",\"type\":\"string\",\"required\":true,\"unit\":null,\"bounds\":\"an element symbol\"},{\"key\":\"x\",\"type\":\"number\",\"required\":true,\"unit\":\"bond length\",\"bounds\":null},{\"key\":\"y\",\"type\":\"number\",\"required\":true,\"unit\":\"bond length\",\"bounds\":null}]},{\"op\":\"bond.add\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":true,\"inverse\":\"DropBond, Next\",\"fields\":[{\"key\":\"id\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"from the document counter when absent\"},{\"key\":\"a\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":null},{\"key\":\"b\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":null},{\"key\":\"o\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"0..=255, default 1\"},{\"key\":\"s\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"0..=255, default 0\"}]},{\"op\":\"atom.set\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":true,\"inverse\":\"SetAtom\",\"fields\":[{\"key\":\"id\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":null},{\"key\":\"el\",\"type\":\"string\",\"required\":false,\"unit\":null,\"bounds\":\"an element symbol\"},{\"key\":\"chg\",\"type\":\"int\",\"required\":false,\"unit\":null,\"bounds\":\"-128..=127\"},{\"key\":\"iso\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"0..=65535\"},{\"key\":\"rad\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"0..=255\"},{\"key\":\"h\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"0..=255\"},{\"key\":\"lab\",\"type\":\"string\",\"required\":false,\"unit\":null,\"bounds\":\"the empty text takes the label away\"}]},{\"op\":\"atom.data\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":false,\"inverse\":\"SetAtom\",\"fields\":[{\"key\":\"id\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":null},{\"key\":\"data\",\"type\":\"string[][2]\",\"required\":true,\"unit\":null,\"bounds\":\"the empty list takes the data away\"}]},{\"op\":\"atom.ann\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":false,\"inverse\":\"SetAtom\",\"fields\":[{\"key\":\"id\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":null},{\"key\":\"ann\",\"type\":\"json[]\",\"required\":true,\"unit\":null,\"bounds\":\"the empty list takes the annotation away\"}]},{\"op\":\"bond.set\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":true,\"inverse\":\"SetBond\",\"fields\":[{\"key\":\"id\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":null},{\"key\":\"o\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"0..=255\"},{\"key\":\"s\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"0..=255\"},{\"key\":\"rev\",\"type\":\"bool\",\"required\":false,\"unit\":null,\"bounds\":\"default false\"}]},{\"op\":\"rotate\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":false,\"inverse\":\"SetAtom per atom\",\"fields\":[{\"key\":\"atoms\",\"type\":\"uint[]\",\"required\":false,\"unit\":null,\"bounds\":\"default empty\"},{\"key\":\"deg\",\"type\":\"number\",\"required\":true,\"unit\":\"degree\",\"bounds\":\"counter-clockwise\"},{\"key\":\"x\",\"type\":\"number\",\"required\":true,\"unit\":\"bond length\",\"bounds\":null},{\"key\":\"y\",\"type\":\"number\",\"required\":true,\"unit\":\"bond length\",\"bounds\":null}]},{\"op\":\"flip\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":false,\"inverse\":\"SetAtom per atom\",\"fields\":[{\"key\":\"atoms\",\"type\":\"uint[]\",\"required\":false,\"unit\":null,\"bounds\":\"default empty\"},{\"key\":\"axis\",\"type\":\"enum\",\"required\":true,\"unit\":null,\"bounds\":\"h, v\"},{\"key\":\"at\",\"type\":\"number\",\"required\":true,\"unit\":\"bond length\",\"bounds\":null}]},{\"op\":\"move\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":true,\"inverse\":\"SetAtom per atom, SetObj per object\",\"fields\":[{\"key\":\"atoms\",\"type\":\"uint[]\",\"required\":false,\"unit\":null,\"bounds\":\"default empty\"},{\"key\":\"objects\",\"type\":\"uint[]\",\"required\":false,\"unit\":null,\"bounds\":\"default empty\"},{\"key\":\"dx\",\"type\":\"number\",\"required\":true,\"unit\":\"bond length\",\"bounds\":null},{\"key\":\"dy\",\"type\":\"number\",\"required\":true,\"unit\":\"bond length\",\"bounds\":null}]},{\"op\":\"remove\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":true,\"inverse\":\"PutAtom, PutBond, PutObj, each back in place\",\"fields\":[{\"key\":\"atoms\",\"type\":\"uint[]\",\"required\":false,\"unit\":null,\"bounds\":\"default empty\"},{\"key\":\"bonds\",\"type\":\"uint[]\",\"required\":false,\"unit\":null,\"bounds\":\"default empty\"},{\"key\":\"objects\",\"type\":\"uint[]\",\"required\":false,\"unit\":null,\"bounds\":\"default empty\"}]},{\"op\":\"obj.add\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":false,\"inverse\":\"DropObj, Next\",\"fields\":[{\"key\":\"id\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"from the document counter when absent\"},{\"key\":\"t\",\"type\":\"enum\",\"required\":true,\"unit\":null,\"bounds\":\"arrow, plus, text\"},{\"key\":\"x\",\"type\":\"number\",\"required\":true,\"unit\":\"bond length\",\"bounds\":null},{\"key\":\"y\",\"type\":\"number\",\"required\":true,\"unit\":\"bond length\",\"bounds\":null},{\"key\":\"x2\",\"type\":\"number\",\"required\":false,\"unit\":\"bond length\",\"bounds\":\"default 0\"},{\"key\":\"y2\",\"type\":\"number\",\"required\":false,\"unit\":\"bond length\",\"bounds\":\"default 0\"},{\"key\":\"text\",\"type\":\"string\",\"required\":false,\"unit\":null,\"bounds\":\"default empty\"}]},{\"op\":\"obj.set\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":false,\"inverse\":\"SetObj\",\"fields\":[{\"key\":\"id\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":null},{\"key\":\"text\",\"type\":\"string\",\"required\":false,\"unit\":null,\"bounds\":null},{\"key\":\"x2\",\"type\":\"number\",\"required\":false,\"unit\":\"bond length\",\"bounds\":null},{\"key\":\"y2\",\"type\":\"number\",\"required\":false,\"unit\":\"bond length\",\"bounds\":null}]},{\"op\":\"ring\",\"since\":\"mzdraw/1\",\"mzdraw\":true,\"mzlab\":false,\"inverse\":\"DropAtom and DropBond per new item, Next\",\"fields\":[{\"key\":\"n\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":\"0..=255 (the editor takes 3..=8)\"},{\"key\":\"arom\",\"type\":\"bool\",\"required\":false,\"unit\":null,\"bounds\":\"default false\"},{\"key\":\"atom\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"a corner of the ring\"},{\"key\":\"bond\",\"type\":\"uint\",\"required\":false,\"unit\":null,\"bounds\":\"the bond the ring is fused on\"},{\"key\":\"x\",\"type\":\"number\",\"required\":false,\"unit\":\"bond length\",\"bounds\":\"the centre, default 0\"},{\"key\":\"y\",\"type\":\"number\",\"required\":false,\"unit\":\"bond length\",\"bounds\":\"the centre, default 0\"}]},{\"op\":\"merge\",\"since\":\"\",\"mzdraw\":false,\"mzlab\":true,\"inverse\":\"\",\"fields\":[{\"key\":\"from\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":null},{\"key\":\"into\",\"type\":\"uint\",\"required\":true,\"unit\":null,\"bounds\":null}]}]}",
       "request": {
         "out": "schema"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "name": "layout and export defaults set one by one, as the CLI --set does",
+      "out": "{\"export\":{\"background\":\"none\",\"default\":\"png\"},\"format\":\"mzdraw-settings/1\",\"layout\":{\"preset\":\"tablet\",\"snap\":16.0},\"style\":{\"bold_width\":6.0,\"bond_length\":30.0,\"bond_spacing\":0.13,\"colour\":\"element\",\"font_size\":12.0,\"hash_spacing\":3.6,\"line_width\":1.35,\"margin\":2.04,\"preset\":\"mzlab\",\"subscript_scale\":0.7}}",
+      "request": {
+        "out": "settings",
+        "set": [
+          "layout.preset=tablet",
+          "layout.snap=16",
+          "export.default=png",
+          "export.background=none"
+        ],
+        "style": "mzlab"
+      }
+    },
+    {
+      "name": "a whole layout object set, then the export defaults",
+      "out": "{\"export\":{\"background\":\"none\",\"default\":\"molfile\"},\"format\":\"mzdraw-settings/1\",\"layout\":{\"preset\":\"phone\",\"palettes\":[{\"id\":\"edit\",\"dock\":\"float\",\"x\":300.0,\"y\":200.0,\"orient\":\"v\"},{\"id\":\"view\",\"hidden\":true}]},\"style\":{\"bold_width\":6.0,\"bond_length\":30.0,\"bond_spacing\":0.13,\"colour\":\"element\",\"font_size\":12.0,\"hash_spacing\":3.6,\"line_width\":1.35,\"margin\":2.04,\"preset\":\"mzlab\",\"subscript_scale\":0.7}}",
+      "request": {
+        "out": "settings",
+        "set": [
+          "layout={\"preset\":\"phone\",\"palettes\":[{\"id\":\"edit\",\"dock\":\"float\",\"x\":300,\"y\":200,\"orient\":\"v\"},{\"id\":\"view\",\"hidden\":true}]}",
+          "export.default=molfile",
+          "export.background=none"
+        ]
       }
     }
   ]

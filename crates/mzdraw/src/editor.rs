@@ -19,6 +19,8 @@ pub const ASK_LABEL: u32 = 16;
 pub const ASK_TEXT: u32 = 32;
 /// The keyboard focus moved or what it is on changed: the page should say where it is.
 pub const FOCUS: u32 = 64;
+/// The layout of the palettes changed (`Layout`): the page should lay them out again.
+pub const PALETTES: u32 = 128;
 
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
@@ -148,6 +150,9 @@ pub struct Editor {
     pub(crate) focus_from: Option<u32>,
     /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
     pub style: Style,
+    /// Where the palettes of the page are, and what Save writes: the `layout` and `export` objects of the settings file.
+    pub layout: crate::palettes::Layout,
+    pub export: crate::palettes::Export,
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
     pub(crate) clip: String,
     pub(crate) pasted: u32,
@@ -176,6 +181,8 @@ impl Default for Editor {
             gesture: Default::default(),
             focus_from: None,
             style: Style::default(),
+            layout: Default::default(),
+            export: Default::default(),
             clip: String::new(),
             pasted: 0,
             nudge: None,
@@ -387,6 +394,8 @@ impl Editor {
             "sdf" => self.doc().to_sdf(),
             "svg" => self.svg(),
             "log" => self.session.log_json(),
+            // the settings file: the style, the layout of the palettes and the export defaults
+            "settings" => self.settings_json(),
             "std" => crate::conform::report(self.doc()).to_json(),
             "schema" => crate::schema::json(),
             _ => return Err("error.draw2.request"),
@@ -537,11 +546,49 @@ impl Editor {
         )
     }
 
-    /// Sets the drawing style from a preset name or the text of a settings file; a refusal is an i18n key and changes nothing.
+    /// Sets the drawing style from a preset name, or the whole settings from the text of a settings file (its `layout` and
+    /// `export` too: a file without them gives their defaults); a refusal is an i18n key and changes nothing.
     pub fn set_style(&mut self, text: &str) -> Result<u32, &'static str> {
-        self.style = Style::from_text(text)?;
+        let mut style = Style::from_text(text)?;
+        let mut flags = REPAINT;
+        if text.trim_start().starts_with('{') {
+            let mut take = |key: &str| {
+                let file = &mut style.unknown.file;
+                let i = file.iter().position(|(k, _)| k == key)?;
+                Some(file.remove(i).1)
+            };
+            let value = |t: String, e| serde_json::from_str::<serde_json::Value>(&t).map_err(|_| e);
+            let layout = match take("layout") {
+                Some(t) => crate::palettes::Layout::read(&value(t, "error.draw2.layout")?)?,
+                None => Default::default(),
+            };
+            let export = match take("export") {
+                Some(t) => crate::palettes::Export::read(&value(t, "error.draw2.export")?)?,
+                None => Default::default(),
+            };
+            self.layout.replace(layout);
+            self.export = export;
+            flags |= PALETTES;
+        }
+        self.style = style;
         self.said = ("draw2.say.style", self.style.name.clone());
-        Ok(REPAINT)
+        Ok(flags)
+    }
+
+    /// The settings file of the editor: the style, the layout of the palettes and the export defaults (the last two only
+    /// when they differ from their defaults).
+    pub fn settings_json(&self) -> String {
+        let mut s = self.style.clone();
+        for (key, v) in [
+            ("layout", self.layout.to_text()),
+            ("export", self.export.to_text()),
+        ] {
+            if let Some(v) = v {
+                s.unknown.file.retain(|(k, _)| k != key);
+                s.unknown.file.push((key.to_string(), v));
+            }
+        }
+        s.to_json()
     }
 
     /// Sets the data of the structure the atom `anchor` belongs to (the data fields of its SDF record), as one undo step: the
@@ -617,17 +664,28 @@ impl Editor {
         self.run(&ops, "draw2.say.ann", level)
     }
 
-    /// Sets one setting from its text, `<section>.<key>=<value>` as the `--set` of the CLI writes it. The one section of this
-    /// version is `style` (`Style::set`). The error is an i18n key and changes nothing.
+    /// Sets one setting from its text, `<section>.<key>=<value>` as the `--set` of the CLI writes it. The sections are `style`
+    /// (`Style::set`), `export` (`Export::set`) and `layout` (`Layout::set`; `layout=<object>` sets the whole object). The
+    /// error is an i18n key and changes nothing.
     pub fn set(&mut self, setting: &str) -> Result<u32, &'static str> {
         let (name, value) = setting.split_once('=').ok_or("error.draw2.set")?;
-        let key = name
-            .trim()
-            .strip_prefix("style.")
-            .ok_or("error.draw2.set")?;
-        self.style.set(key, value)?;
-        self.said = ("draw2.say.style", self.style.name.clone());
-        Ok(REPAINT)
+        let name = name.trim();
+        if name == "layout" {
+            let v = serde_json::from_str(value).map_err(|_| "error.draw2.layout")?;
+            self.layout.replace(crate::palettes::Layout::read(&v)?);
+            return Ok(PALETTES);
+        }
+        let (section, key) = name.split_once('.').ok_or("error.draw2.set")?;
+        match section {
+            "style" => {
+                self.style.set(key, value)?;
+                self.said = ("draw2.say.style", self.style.name.clone());
+                Ok(REPAINT)
+            }
+            "export" => self.export.set(key, value).map(|_| 0),
+            "layout" => self.layout.set(key, value).map(|_| PALETTES),
+            _ => Err("error.draw2.set"),
+        }
     }
 
     /// The drawing as an SVG in the editor's style, carrying its document (`svg::carrying`).

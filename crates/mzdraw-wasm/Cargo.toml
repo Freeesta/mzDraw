@@ -9,12 +9,19 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["mzlab"]
+default = ["mzlab", "hilite", "sel"]
 # The mzLab glue: live `check/1` warnings on the drawing. Without it the bridge needs only `mzdraw`.
 mzlab = ["dep:mzlab-feat"]
+# The engines `hilite` (needs mzlab-feat `sub`) and `sel` (mzlab-feat `sel`) of `glue::run`; without them they answer `error.draw2.engineMissing`.
+hilite = ["mzlab", "mzlab-feat/sub"]
+sel = ["mzlab", "mzlab-feat/sel"]
 
 [dependencies]
 mzdraw = { path = "../mzdraw" }
 mzlab-feat = { workspace = true, features = ["check"], optional = true }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 wasm-bindgen = "=0.2.129"
+
+[[example]]
+name = "replay_glue"
+required-features = ["mzlab"]
