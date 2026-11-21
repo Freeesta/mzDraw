@@ -383,7 +383,7 @@ Input: `docs/input/gemini-strategy-2.md` (Gemini Deep Research, PR #49). It prop
 | Wilson 95% CI [99.82, 99.95] at N = 10,000 and 99.9%; ±6.3 pp at N = 240 | verified (computed) | — | Recomputed; ±6.3 pp is the worst case (p = 0.5). |
 | KLM 40.2 s vs 3.5 s for a series revision | arithmetic correct | — | An estimate from assumed steps, not a measurement. |
 | Novelty ("genuinely new") and patent clearance | not used | — | Keyword searches are not a prior-art or FTO search. |
-| The 95× batching penalty (77 s / 0.8 s) | ours | — | A fact of the prompt, measured in mzLab. |
+| The batching penalty (77 s / 0.8 s for 901 calls) | ours, ratio corrected | — | Measured in mzLab. 77 / 0.8 is about 96×, not the 95× of the prompt. |
 
 ### 9.2 Findings of this pass
 1. **Ids are already stable** in mzDraw (`atom.add` takes an `id`; ids never shift), so the input's main failure (indices that move after an edit) does not apply to us as stated. Two gaps remain:
@@ -392,13 +392,13 @@ Input: `docs/input/gemini-strategy-2.md` (Gemini Deep Research, PR #49). It prop
    plan-20 and plan-23 close these gaps.
 2. **Exit codes** are mzLab's one table (`docs/agenti/cli-agenti.md` of mzLab, read at the pin `ccd4680`). The input's "exit code 12" is not used.
 3. **Substructure** search in `mzlab-mol` (`substruct.rs`, `query.rs`) takes SMILES and molfile queries, not SMARTS. Selectors use SMILES only (rule 13).
-4. **Flip** mirrors the configuration today. "Flip that keeps the configuration" is already listed as still to build (`docs/mzdraw.md`). plan-21 builds it with existing ops.
+4. **Flip** mirrors the configuration today. "Flip that keeps the configuration" is already listed as still to build (`docs/mzdraw.md`). plan-26 builds it with existing ops.
 
 ### 9.3 Verdicts
 | idea | verdict | where | reason |
 |---|---|---|---|
 | 1 ChemSel selectors | **KEEP, reduced** → plan-24 | read-only `select/1` | Resolved to ids before the log, so inverses and parity are untouched. SMILES substructure, not SMARTS. Selectors inside ops are DEFER: they would put a field on every op. It starts only if plan-19 shows addressing errors. |
-| 2 stereo-invariant geometry kernel | **REFRAME** → plan-21 | guard + `flip:keep` | Report-only in the page, enforced only with `{"stereo":"kept"}`. Automatic wedge re-solving is DEFER. |
+| 2 stereo-invariant geometry kernel | **REFRAME** → plan-21 (guard), plan-26 (`flip:keep`) | two slices | Report-only in the page, enforced only with `{"stereo":"kept"}`. Automatic wedge re-solving is DEFER. |
 | 3 core-linked analog families | **DEFER**; part → E18 (plan-14) | — | A live master/instance link is a new document concept. Orienting a series on one core needs no new concept. Revisit after plan-14 numbers. |
 | 4 Knuth-Plass abbreviation folding to fit a box | **DEFER**, no prompt | — | It depends on arch-std-16 (profiles), arch-web-18 (`abbr.contract`) and arch-std-15. The real basis is IUPAC GR-0.6. **Kill test** when revisited: on 30 synthetic large structures that do not fit an arch-std-16 width class at the minimum text size, contracting abbreviations (greedy) must make at least 50% fit; otherwise drop. |
 | 5 transactional canvas | **KEEP, split** → plan-20 (envelope, dry run, postconditions), plan-22 (loss manifest), plan-23 (digest), plan-25 (fix-its) | replay request | The stdio server is DEFER: it would be a second server next to `mzlab-cli`. Batch and stdin streaming are already mzLab's contract. |
@@ -409,7 +409,7 @@ Input: `docs/input/gemini-strategy-2.md` (Gemini Deep Research, PR #49). It prop
 | Validation: time-and-motion with chemists | **DEFER** (owner) | plan-02 person protocol | It needs at least 6 people with ChemDraw licences. |
 | Validation: blind multi-model agent suite | **KEEP** → plan-19 | `tools/agent-suite` | It is the kill test of plan-20, plan-23 and plan-24. |
 
-Counts: 2 kept (one reduced), 2 reframed or split into 5 prompts, 2 deferred, 1 new drop, 2 drops already made. The validation part gives 1 kept, 1 reframed and 1 deferred.
+Counts, each idea once: ideas 1 and 5 kept (1 reduced to plan-24; 5 split into plan-20, -22, -23, -25), idea 2 reframed (plan-21, plan-26), ideas 3 and 4 deferred. Do-not list: 1 new drop, 2 drops already made. Validation: 1 kept (plan-19), 1 reframed (E19), 1 deferred.
 
 ### 9.4 Rows
 Same columns as §4. "request row" in the COO 16 column means the item adds request fields or outputs of the `mol draw` contract: one row each in the `request` section of plan-01's table, which COO 16 reviews (D13); no PR-by-PR agreement is needed as long as no `draw_edit/1` op is added.
@@ -418,11 +418,12 @@ Same columns as §4. "request row" in the COO 16 column means the item adds requ
 |---|---|---|---|---|---|---|---|---|
 | 68 | plan-19 | agent task suite | N | M | plan-01 | `tools/agent-suite`, `tests/data/agent-suite`, new example | no | RDKit InChIKey of targets |
 | 69 | plan-20 | replay result: ids, failing op, dry run, `expect` | N | M | plan-01 | `replay.rs` + new `outcome.rs` | request row | property on id sets |
-| 70 | plan-21 | stereo guard, `flip:keep` | N | M | plan-20 | new `stereo_guard.rs` + input (one command) | no (expect arm: plan-20's row) | InChI stereo layer by RDKit |
+| 70 | plan-21 | stereo guard (signature, live line, `expect` arm `stereo`) | N | M | plan-20 | new `stereo_guard.rs` | request row (`expect` arm `stereo`) | InChI stereo layer by RDKit |
 | 71 | plan-22 | loss manifest `loss/1` | N | M | plan-20, plan-15 | new `loss.rs` | request row | plan-03 differences explained |
 | 72 | plan-23 | digest `digest/1` | N | S–M | plan-20 | new `digest.rs` | request row | RDKit formula |
 | 73 | plan-24 | selectors `select/1` | N | M | plan-20, plan-23, first plan-19 run | new `select.rs` | request row | RDKit match counts |
-| 74 | plan-25 | exact fix-its on `std/1` | N | S | std-02, std-15, plan-20 | conform | no | isomeric SMILES unchanged (RDKit) |
+| 74 | plan-25 | exact fix-its on `std/1` | N | S | std-02, std-15, plan-20 | conform | request row (`std/1` field `fix`; `std/1` goldens move) | isomeric SMILES unchanged (RDKit) |
+| 75 | plan-26 | `flip:keep`, with the rule for a selection that cuts a stereocentre | N | S | plan-21 | input (one command) + `context.rs` arm | no | InChI stereo layer by RDKit |
 
 Deferred, no prompt, added to §4's list:
 - live analog families (master/instance);
@@ -434,7 +435,7 @@ Deferred, no prompt, added to §4's list:
 
 Dropped, added: cloud sync and CRDT multiplayer.
 
-Totals after this section: 74 rows to run, 22 new prompts in all (7 here).
+Totals after this section: 75 rows to run, 23 new prompts in all (8 here).
 
 ### 9.5 Edits to existing prompts
 18. **E18 plan-14:** besides "each structure after an arrow on the one before it", add `scheme:orient-series`: every structure of a selection is oriented on ONE chosen core (the first selected), with the same rules (rigid fit, flip only without wedges, no clean-up, refuse on overlap). It is one undo step and has the CLI twin `{"command":"scheme:orient-series"}`. This is Gemini idea 3 without live links. Before applying it, the plan-14 chat asks the coordinator whether ARCH TP-DRAW (transformation products, arrow auto-layout, tables; prompts `tp-NN`) already covers series orientation; if it does, E18 is dropped in favour of that prompt. Check it against RDKit `GenerateDepictionMatching2DStructure` on the same synthetic series: core atoms must keep their exact coordinates (RDKit #1286 and #8124 are the cases to beat).
@@ -443,10 +444,10 @@ Totals after this section: 74 rows to run, 22 new prompts in all (7 here).
 ### 9.6 Waves
 - **Wave 1 tail** (after plan-01): plan-19, plan-20 (coordinator, 2026-11-21).
 - **Wave 2:** plan-23.
-- **Wave 3:** plan-21, plan-22 (after plan-15).
+- **Wave 3:** plan-21, plan-22 (after plan-15), then plan-26 (after plan-21).
 - **Wave 4:** plan-24 (only if its start condition holds), plan-25 (after std-02, std-15).
 
-None of these touch the page except plan-21's one command (the `input` zone). They do not collide with the running zones; serialize plan-20 with any other prompt that edits `replay.rs`.
+None of these touch the page except plan-21's live-line key and plan-26's one command (the `input` zone). They do not collide with the running zones; serialize plan-20 with any other prompt that edits `replay.rs`.
 
 ### 9.7 Decisions (21 Nov 2026)
 | # | question | decision | by |

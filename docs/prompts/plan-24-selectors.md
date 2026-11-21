@@ -19,8 +19,8 @@ In:
   - `smiles`: a substructure, matched with `mzlab-mol`'s `SubQuery` / `matches` (SMILES only; SMARTS and query features are out, rule 13);
   - `el`: an element; `piece`: the 1-based piece in left-to-right order; `side`: `reactant` or `product` (pieces left or right of the first reaction arrow);
   - `order`: `leftmost`, `rightmost`, `topmost`, `bottommost` (by match centroid; ties by smallest id) to pick one match;
-  - `expect`: the number of matches wanted; a different count is an error.
-- Errors with their own i18n keys: `error.draw2.selectNone`, `error.draw2.selectCount`; the ids of the candidates are in the error detail.
+  - `count`: the number of matches wanted (named `count`, not `expect`, which is plan-20's request-level field).
+- No match, or not `count` matches, is a verdict (plan-20's rule): exit 1 with `draw-result/1`, `failed.stage` `select`, key `error.draw2.selectNone` or `error.draw2.selectCount`, and the matches in `failed.candidates`. A malformed selector (unknown key, bad SMILES) is an invalid request: exit 2 with `error/1`.
 - Add arm `select` to plan-19's runner.
 
 Out (do not do here):
@@ -29,7 +29,7 @@ Out (do not do here):
 - SMARTS, recursive or spatial combinators.
 
 ## CLI twin (rule 15)
-- `{"import":...,"select":{"smiles":"c1ccccc1Cl","side":"product","expect":1},"out":"select"}`; stdout `select/1`, exit 0; no match or a count mismatch is exit 1 with `error/1` (key `error.draw2.selectNone` / `error.draw2.selectCount`).
+- `{"import":...,"select":{"smiles":"c1ccccc1Cl","side":"product","count":1},"out":"select"}`; stdout `select/1`, exit 0; no match or a count mismatch is exit 1 with `draw-result/1` (plan-20's rule).
 - Native replay test; no page change.
 
 ## Context (read first)
@@ -57,7 +57,7 @@ No `draw_edit/1` op. One row each for the request field `select` and the output 
 3. Errors, runner arm, doc section.
 
 ## Tests to add
-- Para-chloro on the product of a two-piece reaction gives exactly the expected ids; `expect:1` on a symmetric match fails with both candidates listed.
+- Para-chloro on the product of a two-piece reaction gives exactly the expected ids; `count:1` on a symmetric match is exit 1 with both candidates in `failed.candidates`.
 - Matches are invariant under renumbering: the same drawing built in another op order gives the same atoms (by element and position).
 - Property: every returned id exists and its element matches the query atom.
 - **Fails without the change**: the request field is refused before the slice.

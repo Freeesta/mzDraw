@@ -15,8 +15,9 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 ## Scope
 In:
 - A new module `crates/mzdraw/src/outcome.rs` and three request fields in `replay.rs`:
-  - `"report":true`: the answer is one `draw-result/1` JSON document instead of the bare output: `{"format":"draw-result/1","ok","out","created":{"atoms","bonds","objects"},"removed":{...},"failed":{"op","key","id"},"expect":[{"check","ok","detail"}]}` (keys in this order, empty lists left out, written by hand). `created` / `removed` are the id sets after minus before, per kind, ascending. `failed.op` is the 0-based index of the op that failed.
-  - `"dry_run":true`: everything runs and is reported; `out` is left out.
+  - `"report":true`, `"dry_run":true` or a non-empty `"expect"` each make the answer one `draw-result/1` JSON document instead of the bare output: `{"format":"draw-result/1","ok","out","created":{"atoms","bonds","objects"},"removed":{...},"failed":{"op","key","id"},"expect":[{"check","ok","detail"}]}` (keys in this order, empty lists left out, written by hand). `created` / `removed` are the id sets after minus before, per kind, ascending. `failed.op` is the 0-based index of the op that failed.
+  - `"dry_run":true`: everything runs and is reported; `out` is left out, nothing else is printed.
+  - With any of the three, stdout is exactly one `draw-result/1` document (no bare output before or after it); without them, stdout is the bare output as today.
   - `"expect":[{...}]`: postconditions checked on the final document, each a JSON object with one key: `{"std":"none"}` (no `std/1` finding), `{"std_absent":[keys]}`, `{"pieces":N}`, `{"smiles":"..."}` (canonical SMILES of the whole drawing equals). Later prompts add one arm each: `{"stereo":"kept"}` (plan-21), `{"lossless":"FORMAT"}` (plan-22). An unknown check is refused.
 - `draw-result/1` is defined completely here; `mzlab-cli` follows it (COO 16, D13). Keys, in this order, every one stable:
   | key | type | when | meaning |
@@ -27,8 +28,13 @@ In:
   | `out` | string | `ok` and not a dry run | what `Editor::save(out)` wrote (the request's `out`, default `mzdraw`) |
   | `created` | object | always | `{"atoms":[ids],"bonds":[ids],"objects":[ids]}`, ascending; empty lists left out, `{}` if none |
   | `removed` | object | always | same shape |
-  | `failed` | object | an op failed | `{"op":index,"key":i18n key,"id":id}` (0-based index in `log`; `id` 0 when none) |
+  | `failed` | object | the log or a selector failed | `{"stage","op","key","id","candidates"}`: `stage` is `log` or `select` (plan-24); `op` the 0-based index in `log` (stage `log` only); `key` the i18n key; `id` the id it is about (0 when none); `candidates` the matched atom ids per match (stage `select` only) |
   | `expect` | array | the request had `expect` | one `{"check":the request object,"ok":bool,"detail":string}` per expectation, in request order; `detail` empty when `ok` |
+  Exit codes (mzLab's table, D13), one rule for every replay output:
+  - exit 0: `ok` is true;
+  - exit 1 (verdict, `draw-result/1` on stdout): an op of the table could not be applied (unknown id, invalid value for that document), a selector matched none or not `count` (plan-24), or an expectation is false;
+  - exit 2 (one `error/1` on stdout, from `mzlab-cli`): the request is invalid: not JSON, an unknown field, an op outside the table, an unknown `expect` arm, a malformed selector;
+  - an unreadable `import` keeps the code `mol draw` gives an unreadable input today.
   `created` and `removed` are reported even when `ok` is false (they describe the attempted run; nothing is written). A JSON Schema of it goes in `docs/schemas/draw-result-1.json`, and a test validates every golden envelope against the key table (order included).
 - Atomic: if an op fails or one expectation is false, the answer has `ok:false` and no `out`; nothing is written (today's replay already writes nothing on an op error; keep that and test it).
 - `Editor::save` is unchanged; the envelope is only the replay door, so the page does not change.
@@ -38,7 +44,7 @@ Out (do not do here):
 - Fix-it patches (plan-25), the digest (plan-23), selectors (plan-24).
 
 ## CLI twin (rule 15)
-- The fields above in the replay request (the route of `mzlab-cli mol draw`). Exit 0 when `ok`; exit 1 (verdict) with the `draw-result/1` document on stdout when an op fails or an expectation is false; an invalid request stays exit 2 with one `error/1`. `mzlab-cli mol draw` passes the document through unchanged (D13).
+- The fields above in the replay request (the route of `mzlab-cli mol draw`). Exit codes as in the rule above (0 ok; 1 verdict with `draw-result/1`; 2 invalid request with `error/1`). `mzlab-cli mol draw` passes the document through unchanged (D13).
 - Add arm `report` to plan-19's runner (`--arm report`), telling the model about the three fields.
 
 ## Context (read first)
@@ -67,7 +73,8 @@ No `draw_edit/1` op. One row per request field (`report`, `dry_run`, `expect` an
 
 ## Tests to add
 - A log that adds 3 atoms and removes 1 reports exactly those ids; a log failing at op 4 reports `failed.op` = 4 and no `out`.
-- `dry_run` gives the same envelope as the real run minus `out`.
+- `dry_run` gives the same envelope as the real run minus `out`, and `dry_run` or `expect` alone (no `report`) already gives the envelope.
+- Each exit rule: an op on an unknown id is exit 1 with `failed.stage` `log`; an op outside the table is exit 2.
 - Each `expect` arm true and false; an unknown arm is refused.
 - Parity: two cases in `tests/data/mzdraw_log.json` with `report:true`; native replay test in `crates/mzdraw/tests/replay.rs`.
 - **Fails without the change**: before the slice the request with `report` returns the bare document, so the envelope test fails.

@@ -21,13 +21,14 @@ Out (do not do here):
 
 ## CLI twin (rule 15)
 - `{"out":"std"}` unchanged, with `fix` where given; replaying the `fix` ops then `"out":"std"` shows the finding gone (native replay test).
+- **The `std/1` golden bytes move** for every golden with a fixable finding: rewrite them with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and list in the PR which goldens moved and that only `fix` was added.
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Drawing checks"), `docs/plan/backlog.md` §9.
 - `conform.rs`, `docs/study/arch-std.md` §4 (the checks and their sources).
 
 ## Agreement needed before the PR
-None for `draw_edit/1`: this slice adds no operation or field and changes nothing in `mzlab-mol` / `mzlab-feat`. If you find you need one, stop and ask the coordinator (it asks COO 16).
+No `draw_edit/1` op. The `fix` field changes the `std/1` output that `"out":"std"` gives through `mol draw`: add one row for it in the `request` section of plan-01's table (D13; an output field is part of the contract like an output name).
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.

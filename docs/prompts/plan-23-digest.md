@@ -20,7 +20,7 @@ In:
   - `clearance`: the smallest distance between two pieces, in bond lengths;
   - `std`: counts of `std/1` findings by key.
 - A byte budget, tested: at most 1,200 bytes for a 30-atom structure with one arrow and one text.
-- Add arm `digest` to plan-19's runner: the model may ask for the digest of its current state (counted as one call).
+- Add arm `digest` to plan-19's runner: the model may ask for the digest of its current state at any time; each digest is one replay request and counts as one call, like any other (no free reads); repeated digests are allowed and all counted, and the bytes of every digest answer count in the task's bytes.
 
 Out (do not do here):
 - Anything chemical beyond the formula (CIP labels come with arch-web-16 through the glue: add `cip` to the digest then, one line).
