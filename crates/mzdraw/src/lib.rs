@@ -40,6 +40,7 @@ pub mod schema;
 pub mod scheme;
 pub mod settings;
 pub mod svg;
+pub mod trasf;
 pub mod xml;
 
 pub use doc::{Atom, Bond, Document, Obj, ObjKind, FORMAT};
