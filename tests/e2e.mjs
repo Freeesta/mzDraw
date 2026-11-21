@@ -946,7 +946,7 @@ try {
     eq(await pg.evaluate("window.MZDRAW.save('svg')"), gold.out.svg);
     await shot(pg, "plan-13-scheme-row-touch");
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
-    // a pen: the pointer of the pen presses the same button (the selection stays after the undo)
+    // a pen: the pointer of the pen presses the same button
     const cdp = await pg.context().newCDPSession(pg);
     await reveal(pg, '[data-testid="d2-scheme-row"]');
     const b = await pg.locator('[data-testid="d2-scheme-row"]').boundingBox(), px = b.x + b.width / 2, py = b.y + b.height / 2;

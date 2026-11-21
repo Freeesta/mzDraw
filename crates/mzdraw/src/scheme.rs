@@ -27,7 +27,7 @@ const NOTE_CLEAR: f64 = 0.3;
 const NOTE_GAP: f64 = 0.2;
 /// How far from the arrow line (bond lengths) a text still belongs to it as a note (a structure alongside the one arrow of a one-line
 /// row is an agent by the rule of `rxn::to_rxn`, at any distance).
-const NOTE_REACH: f64 = 3.0;
+pub const NOTE_REACH: f64 = 3.0;
 
 type Rect = [f64; 4];
 
@@ -175,12 +175,13 @@ fn gather(doc: &Document, style: &Style, o: &Opts) -> Vec<Unit> {
     let arrows: Vec<_> = (doc.objects.iter())
         .filter(|a| a.t == ObjKind::Arrow && (all || o.objects.contains(&a.id)))
         .collect();
-    // the distance of a point from the shaft of an arrow, across it; an arrow without length has no side
+    // the distance of a point from the shaft of an arrow, across it; an arrow without length is a point (`rxn::along` puts every
+    // structure at its tail, an agent, as `to_rxn` does) and the distance is from it
     let across = |a: &crate::doc::Obj, x: f64, y: f64| {
         let (dx, dy) = (a.x2 - a.x, a.y2 - a.y);
         let l = crate::m::hypot(dx, dy);
         if l < 1e-9 {
-            f64::MAX
+            crate::m::hypot(x - a.x, y - a.y)
         } else {
             ((x - a.x) * dy - (y - a.y) * dx).abs() / l
         }

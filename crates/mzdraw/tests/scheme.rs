@@ -322,6 +322,27 @@ fn check_row(after: &Document, row: &[Elem], gap: f64, wrap: f64, s: f64, style:
         row.iter().map(|e| e.id).collect::<Vec<_>>(),
         "order kept"
     );
+    // the lines the row must have, counted here from the widths and the rule (a break after the first arrow that ends past `wrap`)
+    let mut expected = 1;
+    let mut run = 0.0;
+    let mut fresh = true;
+    for e in &order {
+        let r = rect_of(after, e, style);
+        run += if fresh { 0.0 } else { gap } + (r[2] - r[0]);
+        fresh = false;
+        if wrap > 0.0 && run > wrap && e.kind == K::Arrow {
+            if e.id != order.last().unwrap().id {
+                expected += 1;
+            }
+            run = 0.0;
+            fresh = true;
+        }
+    }
+    assert_eq!(
+        ys.len(),
+        expected,
+        "the lines the rule asks for (wrap {wrap})"
+    );
     if wrap == 0.0 {
         assert_eq!(ys.len(), 1, "one line");
     }
@@ -358,6 +379,31 @@ fn check_row(after: &Document, row: &[Elem], gap: f64, wrap: f64, s: f64, style:
                 "a line breaks past `wrap`"
             );
         }
+    }
+    // measured: each line is under the one before, the baselines at least the reach of a note apart, nothing of one line in the other
+    for k in 1..ys.len() {
+        assert!(
+            ys[k - 1] - ys[k] >= mzdraw::scheme::NOTE_REACH + 0.1 - BOUND,
+            "line {k} under line {}: {} {}",
+            k - 1,
+            ys[k - 1],
+            ys[k]
+        );
+        let spans = |line: usize| {
+            let mut lo_hi = (f64::MAX, f64::MIN);
+            for e in row.iter().filter(|e| line_of(e) == line) {
+                for r in std::iter::once(rect_of(after, e, style))
+                    .chain(e.notes.iter().map(|n| rect_of(after, n, style)))
+                {
+                    lo_hi = (lo_hi.0.min(r[1]), lo_hi.1.max(r[3]));
+                }
+            }
+            lo_hi
+        };
+        assert!(
+            spans(k).1 < spans(k - 1).0,
+            "the second line is clear of the first"
+        );
     }
     for w in starts.windows(2) {
         assert!(
@@ -495,7 +541,6 @@ fn a_selection_is_laid_out_alone_and_the_rest_does_not_move() {
             objects: objects.clone(),
             ..Opts::default()
         };
-        let ops = row(&before, &style, &sel).unwrap();
         let after = run(&before, &sel);
         // the things outside the selection stand where they stood
         for a in before.atoms.iter().filter(|a| !atoms.contains(&a.id)) {
@@ -504,7 +549,6 @@ fn a_selection_is_laid_out_alone_and_the_rest_does_not_move() {
         for o in before.objects.iter().filter(|o| !objects.contains(&o.id)) {
             assert_eq!(after.object(o.id), Some(o), "object {} outside", o.id);
         }
-        let _ = ops;
         check_row(&after, chosen, 1.0, 0.0, 1.0, &style);
         // the same as laying out a drawing that holds nothing else
         let mut only = g.v.clone();
@@ -671,8 +715,16 @@ fn an_arrow_without_length_makes_no_nan() {
     let ops = row(&d, &style, &Opts::default()).unwrap();
     let json = serde_json::to_string(&ops.iter().map(|o| o.to_json()).collect::<Vec<_>>()).unwrap();
     assert!(!json.contains("NaN") && !json.contains("null"), "{json}");
+    // the roles of the reaction file do not change either: with no length every structure stands at the tail, an agent, as before
+    // (all of them tie at t, so the order inside the agents is not a fact: compared as sets)
+    let sorted = |mut r: Vec<Vec<String>>| {
+        r.sort();
+        r
+    };
+    let before_roles = sorted(roles(&d.to_rxn().unwrap()));
     let mut s = Session::new(d);
     s.run(&ops).unwrap();
+    assert_eq!(before_roles, sorted(roles(&s.doc.to_rxn().unwrap())));
     let a = s
         .doc
         .objects
