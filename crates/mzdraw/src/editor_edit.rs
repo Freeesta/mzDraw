@@ -136,7 +136,7 @@ impl Editor {
     pub fn clipboard(&self, kind: &str) -> String {
         match (kind, Document::from_json(&self.clip)) {
             ("molfile", Ok(d)) => d.to_molfile(),
-            ("mzdraw", Ok(_)) => self.clip.clone(),
+            (k, Ok(_)) if crate::brand::is_doc_kind(k) => self.clip.clone(),
             _ => String::new(),
         }
     }

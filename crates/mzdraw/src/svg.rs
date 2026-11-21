@@ -77,29 +77,31 @@ fn alternative(doc: &Document) -> (String, String) {
     )
 }
 
-/// Where an SVG written by mzDraw carries its document.
-const CARRIED: (&str, &str) = ("<metadata id=\"mzdraw\">", "</metadata>");
+/// Where an SVG written by this program carries its document: the `metadata` element whose id is the slug (a name in use or an
+/// earlier one, for a reader).
+fn carrier(slug: &str) -> (String, &'static str) {
+    (format!("<metadata id=\"{slug}\">"), "</metadata>")
+}
 
-/// The SVG with its document inside (`mzdraw/1` as the text of a `metadata` element, after the opening tag): the picture can be
+/// The SVG with its document inside (the document as the text of a `metadata` element, after the opening tag): the picture can be
 /// opened again and edited. A viewer does not show the element.
 pub fn carrying(svg: String, doc: &Document) -> String {
     let Some(at) = svg.find('\n').filter(|_| !doc.is_empty()) else {
         return svg;
     };
     let (head, body) = svg.split_at(at + 1);
-    format!(
-        "{head}{}{}{}\n{body}",
-        CARRIED.0,
-        escape(&doc.to_json()),
-        CARRIED.1
-    )
+    let (open, close) = carrier(crate::brand::SLUG);
+    format!("{head}{open}{}{close}\n{body}", escape(&doc.to_json()))
 }
 
 /// The document an SVG carries: `None` when it carries none (an SVG of another program), else the document or the key of what is
 /// wrong with it.
 pub fn carried(svg: &str) -> Option<Result<Document, &'static str>> {
-    let from = svg.find(CARRIED.0)? + CARRIED.0.len();
-    let to = from + svg[from..].find(CARRIED.1)?;
+    let (from, close) = crate::brand::slugs().find_map(|s| {
+        let (open, close) = carrier(s);
+        Some((svg.find(&open)? + open.len(), close))
+    })?;
+    let to = from + svg[from..].find(close)?;
     let json = (svg[from..to].replace("&lt;", "<"))
         .replace("&gt;", ">")
         .replace("&amp;", "&");

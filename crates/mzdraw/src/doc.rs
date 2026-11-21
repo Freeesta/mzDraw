@@ -5,7 +5,7 @@ use crate::ops::Fields;
 use serde_json::Value;
 
 /// The value of the `format` field.
-pub const FORMAT: &str = "mzdraw/1";
+pub const FORMAT: &str = crate::brand::DOCUMENT_ID;
 
 /// Ids stay below this, so that id arithmetic (the next id, the ids of a pasted copy) can never overflow.
 pub const MAX_ID: u32 = 1 << 31;
@@ -402,16 +402,18 @@ impl Document {
         match v
             .get("format")
             .and_then(Value::as_str)
-            .map(|f| crate::settings::version(f, "mzdraw"))
+            .map(crate::brand::document_version)
         {
             Some(Ok(1)) => {}
             Some(Ok(_)) => return Err("error.draw2.documentNewer"),
             _ => return Err("error.draw2.document"),
         }
-        let d = Self::read(&v).map_err(|()| "error.draw2.document")?;
-        if d.format != FORMAT || !d.consistent() {
+        let mut d = Self::read(&v).map_err(|()| "error.draw2.document")?;
+        if !d.consistent() {
             return Err("error.draw2.document");
         }
+        // a document written under an earlier name (`brand::LEGACY_IDS`) is read and written again under the current id
+        d.format = FORMAT.into();
         Ok(d)
     }
 

@@ -937,7 +937,7 @@ pub const FORMATS: [&str; 13] = [
     "svg",
     "png",
     "pdf",
-    "mzdraw",
+    crate::brand::SLUG,
     "molfile",
     "molfile-v3000",
     "sdf",

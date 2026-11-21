@@ -403,7 +403,7 @@ impl Editor {
     /// `svg` (in the style of the editor), `pdf` (base64 of the PDF file), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
-            "mzdraw" => self.doc().to_json(),
+            k if crate::brand::is_doc_kind(k) => self.doc().to_json(),
             "molfile" => self.doc().to_molfile(),
             "molfile-v3000" => self.doc().to_molfile_v3000(),
             "smiles" => self.doc().to_smiles()?,

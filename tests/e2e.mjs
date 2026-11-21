@@ -335,7 +335,7 @@ try {
   await step("molfile (V2000 and V3000), SMILES, SVG, PNG and the mzdraw/1 document are saved as the module writes them; the pictures open again", async () => {
     const got = {};
     for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"], ["ket", "ket", "drawing.ket"], ["cdxml", "cdxml", "drawing.cdxml"], ["cml", "cml", "drawing.cml"],
-      ["svg", "svg", "drawing.svg"], ["mzdraw", "mzdraw", "drawing.mzdraw.json"]]) {
+      ["svg", "svg", "drawing.svg"], ["doc", "mzdraw", "drawing.mzdraw.json"]]) {
       const [d] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, `#d2-ex-${button}`)]);
       eq(d.suggestedFilename(), name);
       got[kind] = readFileSync(await d.path(), "utf8");

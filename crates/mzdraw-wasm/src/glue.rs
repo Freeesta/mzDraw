@@ -103,7 +103,7 @@ pub fn replay(request: &str) -> Result<String, GlueError> {
     let wanted = obj
         .remove("engines")
         .unwrap_or_else(|| serde_json::json!([]));
-    obj.insert("out".to_string(), "mzdraw".into());
+    obj.insert("out".to_string(), mzdraw::brand::SLUG.into());
     let doc_json = mzdraw::replay::replay(&v.to_string()).map_err(|e| GlueError {
         key: e.key.to_string(),
         params: vec![("id".to_string(), e.id.to_string())],

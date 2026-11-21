@@ -6,7 +6,7 @@ use crate::ops::Fields;
 use serde_json::{json, Value};
 
 /// The value of the `format` field of a settings file.
-pub const FORMAT: &str = "mzdraw-settings/1";
+pub const FORMAT: &str = crate::brand::SETTINGS_ID;
 
 /// The drawing style, in points (1/72 inch). `bond_spacing` is a fraction of the bond length.
 #[derive(Clone, Debug, PartialEq)]
@@ -183,16 +183,6 @@ pub fn schema_json() -> String {
     )
 }
 
-/// The version of a format name `<name>/<n>`: `Ok(n)` when the name is `name`, `Err(())` otherwise.
-pub(crate) fn version(format: &str, name: &str) -> Result<u32, ()> {
-    let n = format
-        .strip_prefix(name)
-        .and_then(|r| r.strip_prefix('/'))
-        .ok_or(())?;
-    let digits = !n.is_empty() && !n.starts_with('0') && n.bytes().all(|b| b.is_ascii_digit());
-    n.parse().ok().filter(|_| digits).ok_or(())
-}
-
 /// The names of the built-in presets: `mzlab` (the default look), `acs-1996` (ACS "Document 1996": bond 14.4 pt, line 0.6 pt,
 /// bond spacing 18 %, font 10 pt; bold 2 pt, hash 2.5 pt and margin 1.6 pt as in the format study, not confirmed on a primary
 /// source), `slides` (1.5 times `acs-1996` with heavier lines, ours).
@@ -332,7 +322,7 @@ impl Style {
         match v
             .get("format")
             .and_then(Value::as_str)
-            .map(|f| version(f, "mzdraw-settings"))
+            .map(crate::brand::settings_version)
         {
             Some(Ok(1)) => Self::read(&v).ok_or("error.draw2.style"),
             Some(Ok(_)) => Err("error.draw2.styleNewer"),
