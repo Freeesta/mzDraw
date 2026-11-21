@@ -1,5 +1,5 @@
 // Golden parity: the editor module (.wasm, target/pkg-node) replays every command log of tests/data/mzdraw_log.json to the same bytes as
-// the native crate (its example `replay`) and as the recorded outputs (held natively by crates/mzdraw/tests/replay.rs too), and the context menu of a right-click on each kind of target (`contexts`); a refused
+// the native crate (its example `replay`) and as the recorded outputs (held natively by crates/mzdraw/tests/replay.rs too), the context menu of a right-click on each kind of target (`contexts`) and the settings file after `set` of the layout and export defaults (`settings`); a refused
 // request is the same keyed JSON error on both sides.
 // Run after tools/build_site.sh and `cargo build -p mzdraw --example replay`:  node tests/parity.mjs
 import { createRequire } from "node:module";
@@ -36,6 +36,14 @@ for (const c of fx.contexts) {
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
   check(a.stdout === c.out && JSON.parse(c.out).items.length > 0, `${c.name}: the recorded menu`);
 }
+// the settings file after layout and export defaults were set through the route of Editor::set (`set`, the --set of the CLI)
+for (const c of fx.settings) {
+  const request = JSON.stringify(c.request), a = site(request), b = native(request);
+  check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
+  check(a.stdout === b.stdout, `${c.name}: wasm == native`);
+  const file = JSON.parse(c.out);
+  check(a.stdout === c.out && file.layout && file.export, `${c.name}: the recorded settings`);
+}
 for (const c of fx.refused) {
   const request = JSON.stringify(c.request), a = site(request), b = native(request);
   check(a.status === 1 && b.status === 1, `${c.error_key}: refused on both sides`);
@@ -58,6 +66,6 @@ for (const [engine, args, schema] of engines) {
   const missing = JSON.stringify({ log: drawn, engines: [{ engine: "nope" }] }), c = siteGlue(missing), d = nativeGlue(missing);
   check(c.status === 2 && d.status === 2 && c.stderr === d.stderr && JSON.parse(d.stderr).error_key === "error.draw2.engineMissing", "engine missing: same keyed refusal, exit 2");
 }
-check(fx.cases.length >= 3 && fx.refused.length >= 1 && fx.contexts.length >= 7, "the fixture has cases");
+check(fx.cases.length >= 3 && fx.refused.length >= 1 && fx.contexts.length >= 7 && fx.settings.length >= 2, "the fixture has cases");
 console.log(`parity: ${n - bad}/${n} checks ok`);
 process.exit(bad ? 1 : 0);

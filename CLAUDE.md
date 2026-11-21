@@ -32,5 +32,6 @@ cargo test --locked
 tools/build_site.sh                                  # site/ + target/pkg-node, with the size cap
 cargo build --locked -p mzdraw --example replay && node tests/parity.mjs
 node tests/e2e.mjs                                   # serves site/ itself; `node tests/e2e.mjs <URL>` tests a published site
+node tests/velocity.mjs --check                          # drawing-speed regression guard (needs the replay and canon examples built); `--guard-test` tests the guard
 MZDRAW_BLESS=1 cargo test -p mzdraw --test replay    # rewrites the golden outputs after a WANTED change
 ```
