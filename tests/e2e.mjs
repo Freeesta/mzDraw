@@ -940,6 +940,10 @@ try {
     await pg.locator("#d2-canvas").focus(); await pg.keyboard.press("Home"); await until(pg, "!!" + STATE + ".focus");
     await tapPalette(pg, "data", true);
     if (!(await pg.evaluate("document.querySelector('#d2-data-more').open"))) await pg.locator("#d2-data-more summary").evaluate(el => el.click());
+    // a fraction is refused by the module in words (the page sends the raw text), nothing changes
+    await pg.fill("#d2-map", "1.5"); await pg.locator("#d2-map").focus(); await pg.keyboard.press("Enter");
+    await until(pg, "document.querySelector('#d2-map-note').textContent === I18N.t('error.draw2.map')");
+    assert(!(await pg.evaluate("window.MZDRAW.save('mzdraw')")).includes('"map"'), "1.5 is no map");
     await pg.fill("#d2-map", ""); await pg.locator("#d2-map").focus(); await pg.keyboard.type("12"); await pg.keyboard.press("Enter");
     await until(pg, "document.querySelector('#d2-map-note').textContent === I18N.t('draw2.map.done', { n: 12 })");
     assert((await pg.evaluate("window.MZDRAW.save('molfile')")).includes("  0 12  0  0"), "the molfile atom line carries the number");
@@ -949,6 +953,10 @@ try {
     assert((await pg.evaluate("window.MZDRAW.save('molfile')")).includes("  0 12  0  0"), "off: still written");
     // a format with no place for maps says so (the module counts, the page shows)
     eq(await pg.evaluate("window.MZDRAW.maps_lost('cdxml')"), 1); eq(await pg.evaluate("window.MZDRAW.maps_lost('molfile')"), 0);
+    // saving as CDXML says what it cannot hold, under Save, by the keyboard path of the page (the file is still written)
+    const [dl] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, "#d2-ex-cdxml")]);
+    eq(dl.suggestedFilename(), "drawing.cdxml");
+    await until(pg, "document.querySelector('#d2-ex-note').textContent === I18N.t('draw2.export.mapsLost', { n: 1 })");
     await tapPalette(pg, "data", false);
   });
 

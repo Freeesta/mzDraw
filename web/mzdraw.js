@@ -88,8 +88,8 @@ function dataFields(outline) {
 function mapField() {
   const input = /** @type {HTMLInputElement} */ ($("d2-map")), note = $("d2-map-note");
   const apply = () => {
-    const f = after(ed.set_map(Number(input.value) || 0)), st = JSON.parse(ed.state());
-    note.textContent = f & CHANGED ? t("draw2.map.done", { n: Number(input.value) || 0 }) : t(st.error || "error.draw2.map");
+    const f = after(ed.set_map(input.value)), st = JSON.parse(ed.state());
+    note.textContent = f & CHANGED ? t("draw2.map.done", { n: input.value.trim() }) : t(st.error || "error.draw2.map");
   };
   $("d2-map-set").addEventListener("click", apply);
   input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(); } });

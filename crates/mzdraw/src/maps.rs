@@ -100,6 +100,18 @@ pub(crate) fn of_smiles(smiles: &str) -> (Vec<(usize, u16)>, usize) {
 /// The outputs of `Editor::save` that have no place for a map number.
 pub const MAPS_LOST_IN: [&str; 2] = ["cdxml", "cml"];
 
+/// A V3000 atom line (`M  V30 index symbol x y z aamap ...`) with the map number in the `aamap` field; a line that stops before that
+/// field is completed with zeros first, so the number is never left out.
+pub(crate) fn v3000_line_with_map(line: &str, map: u16) -> String {
+    let mut f: Vec<&str> = line.split(' ').collect();
+    while f.len() <= 8 {
+        f.push("0");
+    }
+    let map = map.to_string();
+    f[8] = &map;
+    f.join(" ")
+}
+
 impl Document {
     /// Gives the atoms the maps read from a file, (atom index, map), and counts in `info` what was refused: `bad` fields that
     /// are no map number (`maps_left`) and the structures that carry one number twice (`maps_duplicate`).
@@ -166,5 +178,28 @@ impl Document {
             }
         }
         lines.join("\n")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::v3000_line_with_map;
+
+    #[test]
+    fn the_number_goes_into_the_aamap_field_of_a_full_or_a_short_line() {
+        assert_eq!(
+            v3000_line_with_map("M  V30 1 C 0 0 0 0", 5),
+            "M  V30 1 C 0 0 0 5"
+        );
+        assert_eq!(
+            v3000_line_with_map("M  V30 1 C 0 0 0 0 CHG=1", 12),
+            "M  V30 1 C 0 0 0 12 CHG=1"
+        );
+        // short lines: completed, never left without the number
+        assert_eq!(
+            v3000_line_with_map("M  V30 1 C 0 0 0", 5),
+            "M  V30 1 C 0 0 0 5"
+        );
+        assert_eq!(v3000_line_with_map("M  V30 1 C", 7), "M  V30 1 C 0 0 0 7");
     }
 }

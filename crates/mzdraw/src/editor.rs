@@ -620,6 +620,19 @@ impl Editor {
         s.to_json()
     }
 
+    /// `set_map` from the text of a field: it must be a whole number (digits only); anything else (empty, a fraction, a sign, a word) is
+    /// refused with `error.draw2.map` and changes nothing.
+    pub fn set_map_text(&mut self, text: &str) -> u32 {
+        let t = text.trim();
+        match t.parse::<u16>() {
+            Ok(n) if t.bytes().all(|b| b.is_ascii_digit()) => self.set_map(n),
+            _ => {
+                self.error = "error.draw2.map";
+                REPAINT
+            }
+        }
+    }
+
     /// Sets the atom-to-atom map of the atom that has the focus, or else of the only selected atom, as one undo step; 0 takes it
     /// away. A number above `doc::MAX_MAP`, or no atom to act on, changes nothing (`error.draw2.map` in `error`).
     pub fn set_map(&mut self, map: u16) -> u32 {

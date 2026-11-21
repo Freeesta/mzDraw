@@ -100,13 +100,10 @@ impl Document {
                     }
                     // the fifth field after the symbol is the atom-to-atom map
                     if map != 0 {
-                        let line = marked.as_deref().unwrap_or(line);
-                        let mut f: Vec<&str> = line.split(' ').collect();
-                        let map = map.to_string();
-                        if f.len() > 8 {
-                            f[8] = &map;
-                            marked = Some(f.join(" "));
-                        }
+                        marked = Some(crate::maps::v3000_line_with_map(
+                            marked.as_deref().unwrap_or(line),
+                            map,
+                        ));
                     }
                     k += 1;
                 }

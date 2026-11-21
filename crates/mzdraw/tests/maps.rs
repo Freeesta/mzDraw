@@ -252,13 +252,12 @@ fn a_field_that_is_no_map_is_counted_not_dropped_in_silence() {
         ("-3", 0, 1),
         ("x", 0, 1),
     ] {
-        if let Ok((d, info)) = import(&v3(aamap)) {
-            assert_eq!(
-                (d.mapped(), info.maps_left),
-                (mapped, left),
-                "AAMAP {aamap}"
-            );
-        }
+        let (d, info) = import(&v3(aamap)).unwrap_or_else(|e| panic!("AAMAP {aamap}: {e}"));
+        assert_eq!(
+            (d.mapped(), info.maps_left),
+            (mapped, left),
+            "AAMAP {aamap}"
+        );
     }
     // SMILES: a class that is no map is counted
     for (smiles, mapped, left) in [
@@ -269,6 +268,17 @@ fn a_field_that_is_no_map_is_counted_not_dropped_in_silence() {
         let (d, info) = import(smiles).unwrap();
         assert_eq!((d.mapped(), info.maps_left), (mapped, left), "{smiles}");
     }
+    // a class the SMILES reader of mzlab-mol refuses (negative, not a number, a fraction) is its keyed error, never a map
+    for smiles in ["[CH3:-1]C", "[CH3:x]C", "[CH3:1.5]C"] {
+        assert_eq!(
+            import(smiles).unwrap_err(),
+            "error.draw2.smiles",
+            "{smiles}"
+        );
+    }
+    // an empty class is none
+    let (d, info) = import("[CH3:]C").unwrap();
+    assert_eq!((d.mapped(), info.maps_left), (0, 0));
     // KET: mapping 0 is none; negative, above the limit, a string and a fraction are counted
     let ket = |mapping: &str| {
         format!(
@@ -446,4 +456,48 @@ fn rdkit_reads_the_maps_we_write_as_the_reference_says() {
         mine.sort_unstable();
         assert_eq!(theirs, mine, "{reaction}");
     }
+}
+
+#[test]
+fn duplicates_are_reported_in_molfile_rxn_and_ket_too() {
+    // molfile: one number on both atoms of a structure
+    let (d, info) = import(&two_atoms("  3", "  3")).unwrap();
+    assert_eq!((d.duplicate_maps(), info.maps_duplicate), (1, 1));
+    // two different numbers: none
+    let (_, info) = import(&two_atoms("  3", "  4")).unwrap();
+    assert_eq!(info.maps_duplicate, 0);
+    // RXN: the reactant carries 1 twice, the product 1 once: one structure is reported
+    let twice = mol(&[("C", 1), ("O", 1)], &[(1, 2, 1)]);
+    let once = mol(&[("C", 1), ("O", 2)], &[(1, 2, 1)]);
+    let (d, info) = import(&format!("$RXN\n\n  synthetic\n\n  1  1\n{twice}{once}")).unwrap();
+    assert_eq!((d.duplicate_maps(), info.maps_duplicate), (1, 1));
+    // KET: two bonded atoms with the same mapping
+    let ket = r#"{"root":{"nodes":[{"$ref":"mol0"}]},"mol0":{"type":"molecule","atoms":[{"label":"C","location":[0,0,0],"mapping":4},{"label":"O","location":[1,0,0],"mapping":4}],"bonds":[{"type":1,"atoms":[0,1]}]}}"#;
+    let (d, info) = import(ket).unwrap();
+    assert_eq!((d.duplicate_maps(), info.maps_duplicate), (1, 1));
+}
+
+#[test]
+fn map_zero_means_none_on_read_and_is_not_counted() {
+    for text in [two_atoms("  0", "  0"), "[CH3:0]C".to_string()] {
+        let (d, info) = import(&text).unwrap();
+        assert_eq!((d.mapped(), info.maps_left, info.maps_duplicate), (0, 0, 0));
+    }
+}
+
+#[test]
+fn the_field_text_must_be_a_whole_number() {
+    let mut e = Editor::default();
+    e.import("CO").unwrap();
+    e.key("home", 0);
+    for bad in ["", " ", "1.5", "-1", "+3", "x", "1000", "99999999999"] {
+        e.set_map_text(bad);
+        assert_eq!(e.error, "error.draw2.map", "{bad:?}");
+        assert_eq!(e.doc().mapped(), 0, "{bad:?}");
+        e.error = "";
+    }
+    e.set_map_text(" 12 ");
+    assert_eq!(e.doc().mapped(), 1);
+    e.set_map_text("0");
+    assert_eq!(e.doc().mapped(), 0);
 }
