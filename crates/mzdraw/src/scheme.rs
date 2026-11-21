@@ -25,7 +25,8 @@ pub const NOTE_MARGIN: f64 = 0.5;
 /// Between the arrow line and the first note, and between two notes, bond lengths.
 const NOTE_CLEAR: f64 = 0.3;
 const NOTE_GAP: f64 = 0.2;
-/// How far from the arrow line (bond lengths) a text or a structure still belongs to it as a note.
+/// How far from the arrow line (bond lengths) a text still belongs to it as a note (a structure alongside the one arrow of a one-line
+/// row is an agent by the rule of `rxn::to_rxn`, at any distance).
 const NOTE_REACH: f64 = 3.0;
 
 type Rect = [f64; 4];
@@ -174,25 +175,34 @@ fn gather(doc: &Document, style: &Style, o: &Opts) -> Vec<Unit> {
     let arrows: Vec<_> = (doc.objects.iter())
         .filter(|a| a.t == ObjKind::Arrow && (all || o.objects.contains(&a.id)))
         .collect();
-    // the distance of a point from an arrow along it (0 at the tail, 1 at the head) and across it
-    let along = |a: &crate::doc::Obj, x: f64, y: f64| {
+    // the distance of a point from the shaft of an arrow, across it; an arrow without length has no side
+    let across = |a: &crate::doc::Obj, x: f64, y: f64| {
         let (dx, dy) = (a.x2 - a.x, a.y2 - a.y);
-        let l2 = dx * dx + dy * dy;
-        (
-            ((x - a.x) * dx + (y - a.y) * dy) / l2,
-            ((x - a.x) * dy - (y - a.y) * dx).abs() / crate::m::hypot(dx, dy),
-        )
+        let l = crate::m::hypot(dx, dy);
+        if l < 1e-9 {
+            f64::MAX
+        } else {
+            ((x - a.x) * dy - (y - a.y) * dx).abs() / l
+        }
     };
-    // the nearest arrow a point is beside
-    let beside = |x: f64, y: f64, lo: f64, hi: f64| {
+    // the nearest arrow a point is beside: along the shaft where `ok` says and, not further off than that
+    let beside = |x: f64, y: f64, ok: &dyn Fn(f64) -> bool, reach: f64| {
         let mut best: Option<(usize, f64)> = None;
         for (k, a) in arrows.iter().enumerate() {
-            let (t, d) = along(a, x, y);
-            if t >= lo && t <= hi && d <= NOTE_REACH && best.is_none_or(|b| d < b.1) {
+            let (t, d) = (crate::rxn::along(a, x, y), across(a, x, y));
+            if d < f64::MAX && ok(t) && d <= reach && best.is_none_or(|b| d < b.1) {
                 best = Some((k, d));
             }
         }
         best.map(|b| b.0)
+    };
+    // a structure alongside the only arrow of a one-line row is an agent at any distance (the rule of `rxn::to_rxn`, the one file
+    // the roles are written to); where there are several arrows or a wrap, a structure under or over an arrow is not an agent
+    // of it unless it is as near as a text would be
+    let structure_reach = if arrows.len() == 1 && o.wrap == 0.0 {
+        f64::MAX
+    } else {
+        NOTE_REACH
     };
     let mut units: Vec<Unit> = Vec::new();
     let mut notes: Vec<Vec<Note>> = arrows.iter().map(|_| Vec::new()).collect();
@@ -210,8 +220,8 @@ fn gather(doc: &Document, style: &Style, o: &Opts) -> Vec<Unit> {
         }
         let (cx, cy) = centre(r);
         let (w, h) = (r[2] - r[0], r[3] - r[1]);
-        // the roles of `rxn::to_rxn`: an agent stands between the tail and the head
-        match beside(mx, my, 0.0, 1.0) {
+        // the role of `rxn::to_rxn` (`rxn::role`, no cutoff): an agent stands between the tail and the head, however far off
+        match beside(mx, my, &|t| crate::rxn::role(t) == 2, structure_reach) {
             Some(k) => notes[k].push(Note {
                 atoms: ids,
                 text: 0,
@@ -252,7 +262,7 @@ fn gather(doc: &Document, style: &Style, o: &Opts) -> Vec<Unit> {
                 let r = text_box(doc, t.id, style).unwrap_or_default();
                 let (cx, cy) = centre(r);
                 // slightly past each end still counts as beside the arrow
-                match beside(cx, cy, -0.1, 1.1) {
+                match beside(cx, cy, &|t| (-0.1..=1.1).contains(&t), NOTE_REACH) {
                     Some(k) => notes[k].push(Note {
                         atoms: Vec::new(),
                         text: t.id,
@@ -287,7 +297,9 @@ fn gather(doc: &Document, style: &Style, o: &Opts) -> Vec<Unit> {
         } else {
             MIN_ARROW
         };
+        // the arrow has the thickness of a plus sign at least: its line counts as part of the row it stands in
         let (_, up, down) = stack(&notes, own);
+        let (up, down) = (up.max(PLUS_WIDTH / 2.0), down.max(PLUS_WIDTH / 2.0));
         units.push(Unit {
             cx: (a.x + a.x2) / 2.0,
             cy: (a.y + a.y2) / 2.0,
@@ -304,9 +316,24 @@ fn gather(doc: &Document, style: &Style, o: &Opts) -> Vec<Unit> {
     units
 }
 
-/// A `move` of `dx`, `dy` (nothing when it is zero).
+/// `round4` with a tie always going up: the heights and widths of the things are sums of four-decimal numbers, so halves of them
+/// often end in an exact 5 at the fifth decimal, and float noise would send the same tie either way in two runs of the layout.
+fn snap(v: f64) -> f64 {
+    ((v * 1e4 + 0.5 + 1e-6).floor()) / 1e4
+}
+
+/// A `move` of `dx`, `dy`, each rounded to the four decimals the document keeps; nothing when both are within what a stored
+/// coordinate can show (5e-5: half the last decimal, so a thing already as near as it can be is not moved again and a second row
+/// gives no operation).
 fn shift(ops: &mut Vec<Op>, atoms: Vec<u32>, objects: Vec<u32>, dx: f64, dy: f64) {
-    let (dx, dy) = (round4(dx), round4(dy));
+    let still = |v: f64| {
+        if v.abs() <= 5e-5 + 1e-9 {
+            0.0
+        } else {
+            round4(v)
+        }
+    };
+    let (dx, dy) = (still(dx), still(dy));
     if dx != 0.0 || dy != 0.0 {
         ops.push(Op::Move {
             atoms,
@@ -318,10 +345,18 @@ fn shift(ops: &mut Vec<Op>, atoms: Vec<u32>, objects: Vec<u32>, dx: f64, dy: f64
 }
 
 /// The operations that put the structures, arrows, plus signs and texts on one row. Empty when there is nothing to lay out or
-/// everything stands where the row puts it. The error is an i18n key (a bad `gap` or `wrap`).
+/// everything stands where the row puts it. The error is an i18n key (a bad `gap` or `wrap`, or a selection that names a thing
+/// the drawing does not have).
 pub fn row(doc: &Document, style: &Style, o: &Opts) -> Result<Vec<Op>, &'static str> {
     if !(o.gap.is_finite() && o.gap > 0.0 && o.wrap.is_finite() && o.wrap >= 0.0) {
         return Err("error.draw2.request");
+    }
+    // a selection names things the drawing has
+    if o.atoms.iter().any(|&a| doc.atom(a).is_none()) {
+        return Err("error.draw2.noAtom");
+    }
+    if o.objects.iter().any(|&i| doc.object(i).is_none()) {
+        return Err("error.draw2.noObject");
     }
     let mut units = gather(doc, style, o);
     if units.is_empty() {
@@ -337,10 +372,31 @@ pub fn row(doc: &Document, style: &Style, o: &Opts) -> Result<Vec<Op>, &'static 
         })
         .is_none_or(|a| a.x2 >= a.x);
     let s = if right { 1.0 } else { -1.0 };
-    let mut order: Vec<usize> = (0..units.len()).collect();
-    crate::m::sort_by(&mut order, |&a, &b| {
+    // the order of reading: the lines of the drawing from the top (units whose vertical reaches overlap are one line, so a row that
+    // was wrapped before is read line after line, and a second row finds the same order), each along the direction
+    let mut top: Vec<usize> = (0..units.len()).collect();
+    crate::m::sort_by(&mut top, |&a, &b| {
+        (-(units[a].cy + units[a].up), a) < (-(units[b].cy + units[b].up), b)
+    });
+    let mut order: Vec<usize> = Vec::new();
+    let mut line: Vec<usize> = Vec::new();
+    let mut floor = f64::MAX;
+    for i in top {
+        let (hi, lo) = (units[i].cy + units[i].up, units[i].cy - units[i].down);
+        if !line.is_empty() && hi < floor {
+            crate::m::sort_by(&mut line, |&a, &b| {
+                (s * units[a].cx, a) < (s * units[b].cx, b)
+            });
+            order.append(&mut line);
+            floor = f64::MAX;
+        }
+        floor = floor.min(lo);
+        line.push(i);
+    }
+    crate::m::sort_by(&mut line, |&a, &b| {
         (s * units[a].cx, a) < (s * units[b].cx, b)
     });
+    order.append(&mut line);
     // the baseline: the first arrow's line, or the mean of the lines
     let base = match order
         .iter()
@@ -349,7 +405,7 @@ pub fn row(doc: &Document, style: &Style, o: &Opts) -> Result<Vec<Op>, &'static 
         Some(&i) => units[i].cy,
         None => units.iter().map(|u| u.cy).sum::<f64>() / units.len() as f64,
     };
-    let base = round4(base);
+    let base = snap(base);
     // the start: the extreme end of the row as it stands
     let start = if right {
         units
@@ -381,7 +437,9 @@ pub fn row(doc: &Document, style: &Style, o: &Opts) -> Result<Vec<Op>, &'static 
     for (k, line) in lines.iter().enumerate() {
         let above = line.iter().map(|&i| units[i].up).fold(0.0, f64::max);
         if k > 0 {
-            y = round4(y - below_prev - o.gap - above);
+            // lines are further apart than the reach of a note, so that what stands by an arrow of one line is never read as a note
+            // of another when the row is laid out again
+            y = snap(y - (below_prev + o.gap + above).max(below_prev + NOTE_REACH + 0.1 + above));
         }
         below_prev = line.iter().map(|&i| units[i].down).fold(0.0, f64::max);
         let mut u = 0.0;
@@ -401,7 +459,7 @@ pub fn row(doc: &Document, style: &Style, o: &Opts) -> Result<Vec<Op>, &'static 
                     if !anchored {
                         let (tx, hx) = (cx - s * w / 2.0, cx + s * w / 2.0);
                         shift(&mut ops, vec![], vec![*id], tx - a.x, y - a.y);
-                        let (hx, hy) = (round4(hx), round4(y));
+                        let (hx, hy) = (snap(hx), round4(y));
                         let (x2, y2) = (
                             round4(a.x2 + round4(tx - a.x)),
                             round4(a.y2 + round4(y - a.y)),

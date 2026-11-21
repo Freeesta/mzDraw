@@ -259,6 +259,7 @@ I18N.add("en", {
   "draw2.say.rotated": "Turned by {what} degrees.",
   "draw2.say.flipped": "Mirrored.",
   "draw2.say.schemeRow": "Scheme laid out on one line.",
+  "draw2.say.schemeRowDone": "The scheme is already laid out.",
   "draw2.announce.moved": "Moved {what} bond length.",
   "draw2.announce.noturn": "Nothing to turn: only atoms turn, and none is selected.",
   "draw2.announce.rotated": "Rotated {what} degrees.",
