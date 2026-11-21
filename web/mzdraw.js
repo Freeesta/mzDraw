@@ -311,6 +311,7 @@ function run(c) {
   if (c === "zoom-in") after(ed.zoom(w / 2, h / 2, 1.25));
   else if (c === "zoom-out") after(ed.zoom(w / 2, h / 2, 0.8));
   else if (c === "fit") after(ed.fit(w, h));
+  else if (c === "pathway-label") after(ed.command("pathway-label:" + t("draw2.label.isomer")) | CHANGED);
   else after(ed.command(c) | CHANGED);
   if (c === "copy" || c === "cut") navigator.clipboard?.writeText(ed.clipboard("molfile")).catch(() => { });       // best effort: the editor keeps its own copy
 }

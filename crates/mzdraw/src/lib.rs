@@ -44,6 +44,7 @@ pub mod scene;
 pub mod schema;
 pub mod scheme;
 pub mod settings;
+pub mod steplabel;
 pub mod stereo_guard;
 pub mod svg;
 pub mod tp;
