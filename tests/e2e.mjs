@@ -62,6 +62,8 @@ async function context(browser, opts) {
 const state = pg => pg.evaluate(STATE);
 const tool = (pg, name) => pg.click(`[data-testid="d2-${name}"]`);
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
+/** a screenshot of one element at deviceScaleFactor 2 (the drawing checks panel, light, dark and tablet: docs/shots/) */
+const shotEl = async (pg, sel, name) => { if (shots) await pg.locator(sel).screenshot({ path: path.join(shots, name + ".png") }); };
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
 /** the drawing loop every pointer kind must manage: template, undo/redo, atom, sprouted bonds, the valence mistake, erase */
@@ -85,7 +87,7 @@ try {
   let { ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
 
   await step("the page loads the module and starts empty on the single-bond tool", async () => {
-    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
+    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, std: 0, selected: 0 });
     eq(await pg.evaluate("window.MZDRAW.version()"), "mzdraw/1");
     eq(await pg.innerText("#d2-summary"), await pg.evaluate("I18N.t('draw.check.empty')"));
     assert(await pg.locator("#d2-tools button").count() >= 26, "the toolbar");
@@ -609,7 +611,7 @@ try {
     await until(pg, "Number(document.documentElement.dataset.d2Saved || 0) >= 1");       // one second after the last change
     const doc = await pg.evaluate("window.MZDRAW.save('mzdraw')");
     await pg.reload(); await ready();
-    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
+    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, std: 0, selected: 0 });
     assert(await pg.isVisible("#d2-restore"), "the saved drawing is offered");
     eq(await pg.innerText("#d2-restore-text"), await pg.evaluate("I18N.t('draw2.restore.found.objects', { atoms: 6, bonds: 5, objects: 1 })"));
     // while the offer waits nothing is written: a stray drawing does not replace the saved one
@@ -659,6 +661,30 @@ try {
     eq((await state(pg)).style, "slides");
     await pg.selectOption("#d2-style", "mzlab"); await until(pg, "Number(document.documentElement.dataset.d2Style || 0) >= 1");
   });
+  await step("drawing checks: a wedge drawn onto a CH2 gives one line; Enter on it selects its atom and bond; the drawing is not changed", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, std: 0 });
+    await pg.click("#d2-std summary");                                   // the panel is closed until it is opened
+    eq(await pg.innerText("#d2-std-note"), "");                           // nothing drawn, nothing said
+    await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1, std: 0 });
+    eq(await pg.innerText("#d2-std-note"), await pg.evaluate("I18N.t('draw2.std.none')"));
+    await tool(pg, "bond:up"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 3, bonds: 2, std: 1 });      // a wedge starts on the first atom, which is now a CH2
+    eq(await pg.locator("#d2-std-list li").count(), 1);
+    eq(await pg.locator("#d2-std-list button").getAttribute("data-key"), "std.stereo.notCentre");
+    eq(await pg.innerText("#d2-std-list button"), (await pg.evaluate("I18N.t('draw2.std.grade.warn')")) + " " + (await pg.evaluate("I18N.t('draw2.std.stereo.notCentre', { n: 1 })")));
+    const report = JSON.parse(await pg.evaluate("window.MZDRAW.save('std')"));
+    eq(report.checks.map(c => [c.key, c.grade, c.atoms.length, c.bonds.length]), [["std.stereo.notCentre", "warn", 1, 1]]);
+    await pg.locator("#d2-std-list").scrollIntoViewIfNeeded();
+    await shot(pg, "checks");
+    await shotEl(pg, "#d2-std-panel", "std-light");
+    await pg.emulateMedia({ colorScheme: "dark" }); await shotEl(pg, "#d2-std-panel", "std-dark");
+    await pg.emulateMedia({ colorScheme: "light" });
+    const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await pg.focus("#d2-std-list button"); await pg.keyboard.press("Enter");
+    await want(pg, { selected: 2 });                                      // the atom and the bond the finding is about
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), before);       // a selection is no change and no history step
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await want(pg, { selected: 0 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 2, bonds: 1, std: 0 });      // the line goes with the wedge
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
@@ -673,6 +699,18 @@ try {
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
+  });
+
+  await step("drawing checks by touch: a tap on the line selects the atom and bond it is about", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, std: 0 });
+    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "bond:up"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 3, bonds: 2, std: 1 });
+    if (!(await pg.evaluate("document.querySelector('#d2-std').open"))) await pg.locator("#d2-std summary").tap();
+    await pg.locator("#d2-std-list button").tap();
+    await want(pg, { selected: 2 });
+    await shotEl(pg, "#d2-std-panel", "std-tablet");
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.std.selected', { n: 2 })"));
+    assert(await pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), "the panel does not scroll the page sideways");
   });
 
   await step("tablet with touch: a group label on the left of its bond is written reversed", async () => {
