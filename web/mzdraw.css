@@ -171,3 +171,17 @@ p { margin: 4px 0; }
 #d2-step li .delta { font-variant-numeric: tabular-nums; opacity: 0.85; }
 #d2-step p { margin: 2px 0; font-size: 13px; }
 @media (pointer: coarse) { #d2-step input, #d2-step button { min-height: 44px; } #d2-step li { min-height: 44px; align-items: center; } }
+/* the Preferences flyout (prefs.js): groups as fieldsets, one row per option, usable by keyboard, touch and pen */
+#d2-fly-prefs { width: min(26rem, calc(100vw - 16px)); gap: 6px; }
+#d2-fly-prefs[hidden] { display: none; }
+#d2-fly-prefs fieldset { margin: 0; padding: 6px 8px; border: 1px solid var(--mzd-border); border-radius: 6px; }
+#d2-fly-prefs legend { font-weight: 600; padding: 0 4px; }
+#d2-fly-prefs .field { display: flex; align-items: center; gap: 8px; margin: 2px 0; min-height: 36px; }
+#d2-fly-prefs .field > span { flex: 1 1 10rem; }
+#d2-fly-prefs select, #d2-fly-prefs input[type="number"] { min-height: 36px; box-sizing: border-box; max-width: 11rem; }
+#d2-fly-prefs input[type="number"] { width: 6rem; }
+#d2-fly-prefs fieldset fieldset { border: 0; padding: 0; }
+#d2-fly-prefs fieldset fieldset label { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; min-height: 36px; }
+#d2-fly-prefs button { min-height: 36px; }
+#d2-fly-prefs .row { display: flex; gap: 6px; align-items: flex-start; justify-content: space-between; }
+#d2-fly-prefs p { margin: 2px 0; font-size: 13px; }

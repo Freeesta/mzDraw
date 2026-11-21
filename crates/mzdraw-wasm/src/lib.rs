@@ -530,6 +530,22 @@ pub fn settings_schema() -> String {
     mzdraw::settings::schema_json()
 }
 
+/// The value of a setting as text (`<section>.<key>`), empty for one that is none: what the Preferences panel shows.
+#[wasm_bindgen]
+pub fn get(setting: &str) -> String {
+    with(|p| p.editor.get(setting).unwrap_or_default())
+}
+
+/// Puts a group of the preferences back to its defaults; the flags like `set`.
+#[wasm_bindgen]
+pub fn reset_group(group: &str) -> Result<u32, JsValue> {
+    with(|p| {
+        let flags = p.editor.reset_group(group).map_err(js_err)?;
+        p.editor.refresh_values();
+        Ok(flags)
+    })
+}
+
 /// The current settings file: the style, the layout of the palettes and the export defaults.
 #[wasm_bindgen]
 pub fn style() -> String {
