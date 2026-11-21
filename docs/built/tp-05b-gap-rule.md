@@ -1,0 +1,11 @@
+# Pathway layout: the gap rule `crossing` (tp-05b), built
+
+(`crates/mzdraw/src/pathway.rs` step 5; tests `crates/mzdraw/tests/pathway_gap.rs` and `tests/pathway.rs`; golden cases `tests/data/log/pathway-gap.json`; independent check `tools/fidelity/pathway_props.py`.)
+
+**The rule.** After the rules `slope`, `length` and `label` of tp-05 have set the gap `g_k` between the layers `k` and `k + 1` of a component, the layout checks the primary arrows between those two layers on the boxes of the two columns. If one of them meets the route box (box plus `pathway.margin`) of another structure of the two layers, `g_k` grows in steps of `pathway::CROSSING_STEP` (0.05 bond lengths) until none does, at most `pathway::CROSSING_STEPS` (400) steps. The gap is then reported as `std.scheme.gapRaised` as before (rule `crossing` in `Layout::gaps`). Nothing else changes: no new operation, setting, command or request row; the page paints the same moves, so the page, `pathway:tree` and the native replay give the same bytes (`tests/data/log/pathway-gap.json`, parity).
+
+**What it fixes.** `star5` (2 crossings) and `big200` (3) at `max_angle` 40 are clean now (P12 holds for every tree of the synthetic set). The fans of 3 to 12 leaves are clean at `max_angle` 40, 60, 75 and `dir=down` (tested).
+
+**Properties tested** (`tests/pathway_gap.rs`): a layout is deterministic (centres, gaps and operations equal on two runs, 40 random trees under four settings); no two clearance boxes overlap on those trees; no primary arrow meets a route box; a gap is not widened when nothing grazes. Scaling: the caps are checked before any work (1000 structures or arrows, a cycle), the rule costs at most 400 checks per gap; the widest allowed fan (999 leaves) lays out in tens of milliseconds in release (printed).
+
+**Not built.** Secondary arrows and arrows that skip a layer are not widened for: a wider gap does not remove them (the DAG's one crossing stays reported as `std.scheme.crossing`). A crossing inside a column is not addressed. If 400 steps do not clear a gap, it keeps its earlier value and the crossing is reported (nothing is dropped in silence). The default step 0.05 is a decision of this slice, not of the specification.

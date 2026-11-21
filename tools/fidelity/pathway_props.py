@@ -77,6 +77,50 @@ def seg(e):
     return (e["x"], e["y"]), (e["x2"], e["y2"])
 
 
+def meets_neighbour(g, cur, nxt, k, gap):
+    """tp-05b: with the gap between layers k and k+1 narrowed to `gap`, does some primary arrow between them meet (interior) the
+    route box (box + MARGIN) of another structure of those two layers? Re-derived from boxes: layer k+1 is shifted along x."""
+    dx = gap - (g.c(nxt[0])[0] - g.c(cur[0])[0] - (max(g.size(v)[0] for v in cur) + max(g.size(v)[0] for v in nxt)) / 2)
+    ctr = {v: (g.c(v)[0] + (dx if v in nxt else 0.0), g.c(v)[1]) for v in cur + nxt}
+
+    def half(v):
+        return g.size(v)[0] / 2 + MARGIN, g.size(v)[1] / 2 + MARGIN
+
+    def exit_t(v, ux, uy):
+        hx, hy = half(v)
+        hx -= MARGIN
+        hy -= MARGIN
+        return min((hx + MARGIN) / abs(ux) if abs(ux) > 1e-12 else 1e18, (hy + MARGIN) / abs(uy) if abs(uy) > 1e-12 else 1e18)
+
+    for v in nxt:
+        u = g.primary.get(v)
+        if u is None or g.L[u] != k:
+            continue
+        (ax, ay), (bx, by) = ctr[u], ctr[v]
+        ln = math.hypot(bx - ax, by - ay)
+        ux, uy = (bx - ax) / ln, (by - ay) / ln
+        ta, tb = exit_t(u, ux, uy), exit_t(v, ux, uy)
+        if ta + tb + 1e-3 >= ln:
+            continue
+        p, q = (ax + ux * ta, ay + uy * ta), (bx - ux * tb, by - uy * tb)
+        for w in cur + nxt:
+            if w in (u, v):
+                continue
+            hx, hy = half(w)
+            lo, hi = (ctr[w][0] - hx + 1e-9, ctr[w][1] - hy + 1e-9), (ctr[w][0] + hx - 1e-9, ctr[w][1] + hy - 1e-9)
+            t0, t1, ok = 0.0, 1.0, True
+            for i in (0, 1):
+                d, s0 = q[i] - p[i], p[i]
+                if abs(d) < 1e-15:
+                    ok &= lo[i] < s0 < hi[i]
+                else:
+                    a, c = (lo[i] - s0) / d, (hi[i] - s0) / d
+                    t0, t1 = max(t0, min(a, c)), min(t1, max(a, c))
+            if ok and t0 < t1:
+                return True
+    return False
+
+
 def check(name):
     g, bad = G(boxes(name)), []
     # P5 columns
@@ -101,7 +145,10 @@ def check(name):
                         ang = math.degrees(math.atan2(abs(y2 - y), x2 - x))
                         tight |= abs(ang - MAX_ANGLE) < 0.05 or abs(math.hypot(x2 - x, y2 - y) - MIN_ARROW) < 1e-3
                 if not tight:
-                    bad.append(f"P5 gap {k} of {cp} raised for no reason")
+                    # rule `crossing` (tp-05b): raised in steps of 0.05 so that no primary arrow meets a neighbour's route box;
+                    # a gap one step narrower must then have such a meeting
+                    if not meets_neighbour(g, vs, nxt, k, gap - 0.05):
+                        bad.append(f"P5 gap {k} of {cp} raised for no reason")
     for u in g.ids:
         ks = g.kids[u]
         if not ks:

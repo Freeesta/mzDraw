@@ -81,6 +81,9 @@ pub enum Refusal {
 pub const MAX_ARROWS: usize = 1000;
 /// The most structures a pathway may have.
 pub const MAX_NODES: usize = 1000;
+/// The step (bond lengths) and the most steps of the rule `crossing` of the gap between two columns.
+pub const CROSSING_STEP: f64 = 0.05;
+pub const CROSSING_STEPS: usize = 400;
 
 impl Refusal {
     pub fn key(&self) -> &'static str {
@@ -129,7 +132,7 @@ pub struct Edge {
     pub label: f64,
 }
 
-/// A raised gap between two columns of a component: `gap` replaced `pathway.col_gap` by the `rule` (`slope`, `length` or `label`).
+/// A raised gap between two columns of a component: `gap` replaced `pathway.col_gap` by the `rule` (`slope`, `length`, `label` or `crossing`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct GapNote {
     pub comp: usize,
@@ -522,6 +525,42 @@ pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
                 }
                 gap = hi;
                 rule = name;
+            }
+            // the rule `crossing`: widen further, in steps of `CROSSING_STEP`, until no primary arrow between the two layers meets the
+            // route box of another structure of those two layers (the steepest arrows of a fan graze their neighbour's box at the
+            // head); when `CROSSING_STEPS` steps do not clear it, the gap stays and the crossing is reported as before
+            let clean = |gap: f64| {
+                let x1 = xs[k] + wk[k] / 2.0 + gap + wk[k + 1] / 2.0;
+                let rect = |v: usize, x: f64| {
+                    let y = ys[local[&v]];
+                    [
+                        x - fw[v] / 2.0,
+                        y - fh[v] / 2.0,
+                        x + fw[v] / 2.0,
+                        y + fh[v] / 2.0,
+                    ]
+                };
+                let pair: Vec<(usize, Rect)> = g
+                    .iter()
+                    .filter(|&&v| nodes[v].layer == k || nodes[v].layer == k + 1)
+                    .map(|&v| (v, rect(v, if nodes[v].layer == k { xs[k] } else { x1 })))
+                    .collect();
+                let at = |v: usize| pair.iter().find(|p| p.0 == v).map(|p| p.1).unwrap();
+                between.iter().all(|e| {
+                    let Some((p, q)) = clip(at(e.from), at(e.to), o.margin) else {
+                        return true;
+                    };
+                    pair.iter()
+                        .filter(|w| w.0 != e.from && w.0 != e.to)
+                        .all(|w| !meets(p, q, w.1, o.margin))
+                })
+            };
+            if !clean(gap) {
+                let found = (1..=CROSSING_STEPS).find(|&n| clean(gap + n as f64 * CROSSING_STEP));
+                if let Some(n) = found {
+                    gap += n as f64 * CROSSING_STEP;
+                    rule = "crossing";
+                }
             }
             if !rule.is_empty() {
                 gaps.push(GapNote {
