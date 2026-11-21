@@ -9,13 +9,19 @@
 //! any other text is the person's and is kept, unless `force` is set. An unsigned formula such as `H2O` or `NaBH4` is never a token.
 //!
 //! The data holds the ASCII `-`; the drawing paints a true minus sign (U+2212) in the tokens that are signed deltas (`display`).
-//! Not built here: the mass modes (no mass table in `mzlab-mol`: they need the glue of arch-web-17, so they are refused with
-//! `error.draw2.labelMass`). The step names (tp-10) are written by the mode `name+delta`: the name of the one step of `tp::STEPS`
+//! **Mass modes (tp-07b).** `mass` writes the mass shift of the two structures (`+15.9949`), `delta+mass` the delta and the shift
+//! (`+O +15.9949`), and the argument `adduct` (one of `values::ADDUCTS`) adds the product's m/z for it (`[M+H]+ 151.1117`). Every number
+//! comes from the engine through the `values::Measurer` the caller hands to `plan` (the bridge's `glue::measure`; this crate has no
+//! mass table and adds no masses): the shift is the difference of the two UNROUNDED masses, and the text is `tptable::shift4` /
+//! `tptable::plain4`, the formatter of the TP table, so a label and a cell are the same digits. Without a measurer the mass modes are
+//! `error.draw2.labelMass`; a structure the engine refuses (an R group, `Na+`, over 200 atoms) leaves its arrow unlabelled and is a
+//! keyed note (`Plan::notes`), never a missing number. The step names (tp-10) are written by the mode `name+delta`: the name of the one step of `tp::STEPS`
 //! whose delta is the label, then the delta (`dehydrogenation -H2`); a delta that two steps share (`+O`) or none has is the delta alone.
 
 use crate::doc::{Document, ObjKind};
 use crate::label;
 use crate::ops::{Op, OpError};
+use crate::values::Measurer;
 use mzlab_mol::delta;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -52,13 +58,9 @@ impl Mode {
         }
     }
 
-    /// The refusal of a mode this build cannot write, `None` for `delta` and `name+delta`.
-    fn refusal(self) -> Option<&'static str> {
-        match self {
-            Mode::Delta => None,
-            Mode::Mass | Mode::DeltaMass => Some("error.draw2.labelMass"),
-            Mode::NameDelta => None,
-        }
+    /// Whether the mode writes numbers of the engine.
+    pub(crate) fn wants_mass(self) -> bool {
+        matches!(self, Mode::Mass | Mode::DeltaMass)
     }
 }
 
@@ -69,6 +71,8 @@ pub struct Opts {
     pub force: bool,
     /// The word for an isomer (the page's language); empty is `ISOMER`.
     pub isomer: String,
+    /// The adduct whose m/z of the product is written after the label (a name of `values::ADDUCTS`); only for `mass` and `delta+mass`.
+    pub adduct: Option<String>,
 }
 
 impl Default for Opts {
@@ -76,12 +80,13 @@ impl Default for Opts {
         Opts {
             force: false,
             isomer: ISOMER.into(),
+            adduct: None,
         }
     }
 }
 
 impl Opts {
-    /// Reads `{"force": bool, "isomer": text}`, both optional; anything else is an invalid request.
+    /// Reads `{"force": bool, "isomer": text, "adduct": name}`, all optional; anything else is an invalid request.
     pub fn parse(args: &serde_json::Value) -> Result<Opts, &'static str> {
         let bad = "error.draw2.request";
         let o = args.as_object().ok_or(bad)?;
@@ -100,6 +105,13 @@ impl Opts {
                     }
                     r.isomer = w.into();
                 }
+                "adduct" => {
+                    let a = v.as_str().ok_or(bad)?;
+                    if !crate::values::ADDUCTS.contains(&a) {
+                        return Err(bad);
+                    }
+                    r.adduct = Some(a.into());
+                }
                 _ => return Err(bad),
             }
         }
@@ -117,6 +129,16 @@ pub struct Plan {
     pub kept: usize,
     /// Arrows left alone because the two structures have the same atoms and a different net charge (a delta has no charges).
     pub skipped: usize,
+    /// What was left out for a reason, as (i18n key, arrows): the refusal key of the engine for a structure it cannot measure (the arrow is
+    /// then in `skipped`), `draw2.label.mzCharged` for a product with a charge (it has no adduct: the shift is written, the m/z is not).
+    pub notes: Vec<(&'static str, usize)>,
+}
+
+fn note(notes: &mut Vec<(&'static str, usize)>, key: &'static str) {
+    match notes.iter_mut().find(|n| n.0 == key) {
+        Some(n) => n.1 += 1,
+        None => notes.push((key, 1)),
+    }
 }
 
 /// A text that is a signed number with exactly four decimals (`+15.9949`, `-14.0157`; U+2212 or `-`).
@@ -127,6 +149,19 @@ fn is_mass(t: &str) -> bool {
     }
     let rest = c.as_str();
     match rest.split_once('.') {
+        Some((i, d)) => {
+            !i.is_empty()
+                && i.bytes().all(|b| b.is_ascii_digit())
+                && d.len() == 4
+                && d.bytes().all(|b| b.is_ascii_digit())
+        }
+        None => false,
+    }
+}
+
+/// A text that is an unsigned number with exactly four decimals (the m/z after an adduct).
+fn is_plain4(t: &str) -> bool {
+    match t.split_once('.') {
         Some((i, d)) => {
             !i.is_empty()
                 && i.bytes().all(|b| b.is_ascii_digit())
@@ -149,8 +184,19 @@ fn is_delta(t: &str) -> bool {
 
 /// Whether `text` may be rewritten without `force`: empty, or only tokens this command writes.
 pub fn owned(text: &str, isomer: &str) -> bool {
+    // an m/z number is ours only right after the adduct token that introduces it: a bare `151.1117` is the person's
+    let mut after_adduct = false;
     text.split_whitespace().all(|t| {
-        t == isomer || t == ISOMER || is_delta(t) || is_mass(t) || crate::tp::step(t).is_some()
+        let adduct = crate::values::ADDUCTS.contains(&t);
+        let ours = t == isomer
+            || t == ISOMER
+            || is_delta(t)
+            || is_mass(t)
+            || adduct
+            || (after_adduct && is_plain4(t))
+            || crate::tp::step(t).is_some();
+        after_adduct = adduct;
+        ours
     })
 }
 
@@ -166,7 +212,7 @@ pub fn display(text: &str) -> Cow<'_, str> {
             out.push(' ');
         }
         first = false;
-        if is_delta(t) {
+        if is_delta(t) || is_mass(t) {
             out.push_str(&t.replace('-', "\u{2212}"));
         } else {
             out.push_str(t);
@@ -300,10 +346,31 @@ pub(crate) fn pair_delta(from: &Acc, to: &Acc) -> Option<String> {
 /// bonds (union-find), and the counts of a structure are summed once however many arrows end in it. The charge is not part of a delta
 /// (`delta::parse` reads elements only): the delta of `CC(=O)O` to `CC(=O)[O-]` is `-H`; two structures with the same counts and a
 /// different net charge are left alone and counted as skipped.
-pub fn plan(doc: &Document, mode: Mode, opts: &Opts) -> Result<Plan, OpError> {
-    if let Some(key) = mode.refusal() {
-        return Err(OpError { key, id: 0 });
+///
+/// The modes `mass` and `delta+mass` need `engine` (`error.draw2.labelMass` without one); `opts.adduct` is for them only.
+pub fn plan(
+    doc: &Document,
+    mode: Mode,
+    opts: &Opts,
+    engine: Option<Measurer>,
+) -> Result<Plan, OpError> {
+    let request = OpError {
+        key: "error.draw2.request",
+        id: 0,
+    };
+    if opts.adduct.is_some() && !mode.wants_mass() {
+        return Err(request);
     }
+    let engine = match (mode.wants_mass(), engine) {
+        (true, None) => {
+            return Err(OpError {
+                key: "error.draw2.labelMass",
+                id: 0,
+            })
+        }
+        (true, Some(e)) => Some(e),
+        (false, _) => None,
+    };
     let size = OpError {
         key: "error.draw2.schemeSize",
         id: 0,
@@ -326,28 +393,84 @@ pub fn plan(doc: &Document, mode: Mode, opts: &Opts) -> Result<Plan, OpError> {
     }
     let ends_of: Vec<u32> = arrows.iter().flat_map(|a| [a.1, a.2]).collect();
     let fm = Formulas::new(doc, &ends_of);
-    let mut ends: Vec<(u32, usize, usize, &str)> = Vec::new();
+    /// An arrow joining two structures: its id, the roots of the two structures, its text, the atoms it is anchored to.
+    type End<'a> = (u32, usize, usize, &'a str, (u32, u32));
+    let mut ends: Vec<End> = Vec::new();
     for &(id, from, to, text) in &arrows {
         if let (Some(rf), Some(rt)) = (fm.root_of(from), fm.root_of(to))
             && rf != rt
         {
-            ends.push((id, rf, rt, text));
+            ends.push((id, rf, rt, text, (from, to)));
         }
     }
     let acc = &fm.acc;
-    for (id, rf, rt, now) in ends {
+    // the numbers of the engine, one run per structure (the same scan and caps as the TP table), asked for before any text is made
+    let adducts: Vec<String> = opts.adduct.iter().cloned().collect();
+    let measured = match engine {
+        Some(e) => {
+            let scan = crate::values::scan(doc);
+            let owner: HashMap<u32, usize> = (scan.structures.iter().enumerate())
+                .flat_map(|(k, s)| s.ids.iter().map(move |&a| (a, k)))
+                .collect();
+            let m = scan
+                .measure_within(
+                    &adducts,
+                    e,
+                    &[],
+                    (crate::tptable::MAX_ATOMS, crate::tptable::MAX_STRUCTURES),
+                )
+                .map_err(|key| OpError { key, id: 0 })?;
+            Some((owner, m))
+        }
+        None => None,
+    };
+    for (id, rf, rt, now, (af, at)) in ends {
         let Some(d) = pair_delta(&acc[&rf], &acc[&rt]) else {
             out.skipped += 1;
             continue;
         };
-        let text = match (d.is_empty(), mode) {
+        let mut text = match (d.is_empty(), mode) {
             (true, _) => opts.isomer.clone(),
             (false, Mode::NameDelta) => match crate::tp::name_of(&d) {
                 Some(name) => format!("{name} {d}"),
-                None => d,
+                None => d.clone(),
             },
-            (false, _) => d,
+            (false, Mode::Mass) => String::new(),
+            (false, _) => d.clone(),
         };
+        if let Some((owner, m)) = &measured {
+            // the two structures the arrow joins, by the atoms it is anchored to
+            let (Some(from), Some(to)) = (owner.get(&af), owner.get(&at)) else {
+                out.skipped += 1;
+                continue;
+            };
+            let (a, b) = match (&m[*from].result, &m[*to].result) {
+                (Ok(a), Ok(b)) => (a, b),
+                (Err(key), _) | (_, Err(key)) => {
+                    out.skipped += 1;
+                    note(&mut out.notes, key);
+                    continue;
+                }
+            };
+            let mut parts: Vec<String> = Vec::new();
+            if !text.is_empty() {
+                parts.push(text);
+            }
+            if !d.is_empty() {
+                // the difference of the unrounded masses, rounded once, as the `mass_diff` of the TP table
+                parts.push(crate::tptable::shift4(b.mass - a.mass));
+            }
+            if let Some(adduct) = &opts.adduct {
+                match b.mz.first().copied().flatten() {
+                    Some(v) => {
+                        parts.push(adduct.clone());
+                        parts.push(crate::tptable::plain4(v));
+                    }
+                    None => note(&mut out.notes, "draw2.label.mzCharged"),
+                }
+            }
+            text = parts.join(" ");
+        }
         if now == text {
             out.labelled += 1;
         } else if opts.force || owned(now, &opts.isomer) {

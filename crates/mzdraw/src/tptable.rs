@@ -137,7 +137,7 @@ impl Table {
 }
 
 /// The 4-decimal text of a number and its value in ten-thousandths (the rounding of `{:.4}`: ties to even on the exact value).
-fn units(x: f64) -> i64 {
+pub(crate) fn units(x: f64) -> i64 {
     let t = format!("{:.4}", x.abs());
     let n: i64 = t.replace('.', "").parse().unwrap_or(0);
     if x < 0.0 {
@@ -148,7 +148,7 @@ fn units(x: f64) -> i64 {
 }
 
 /// `n` ten-thousandths as a decimal, `sign` writing `+` before a positive one.
-fn show(n: i64, sign: bool) -> String {
+pub(crate) fn show(n: i64, sign: bool) -> String {
     let (a, i) = (n.unsigned_abs(), n.unsigned_abs() / 10_000);
     let s = format!("{i}.{:04}", a % 10_000);
     match n {
@@ -157,6 +157,17 @@ fn show(n: i64, sign: bool) -> String {
         _ if sign => format!("+{s}"),
         _ => s,
     }
+}
+
+/// A mass or an m/z as the table writes it: 4 decimals, ties to even on the exact binary value (`{:.4}`). The labels of the arrows
+/// (`steplabel`, the modes `mass` and `delta+mass`) call this, so a label and a cell of the table are the same text.
+pub fn plain4(x: f64) -> String {
+    show(units(x), false)
+}
+
+/// A mass shift as the table (`mass_diff`) and the labels write it: `plain4` with a `+` before a positive value; `0.0000` has no sign.
+pub fn shift4(x: f64) -> String {
+    show(units(x), true)
 }
 
 /// The ppm error of an observed m/z against the calculated one (in ten-thousandths), 1 decimal; `None` for a calculated m/z of 0.
@@ -423,7 +434,7 @@ pub fn build_with(
                 None => note(&mut table, "draw2.export.tpDelta", k, ""),
             }
             if let Some((a, b)) = mass[p].zip(mass[k]) {
-                row[12] = show(units(b - a), true);
+                row[12] = shift4(b - a);
             }
             table.rows.push(row);
         }
