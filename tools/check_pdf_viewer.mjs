@@ -11,7 +11,8 @@ import path from "node:path";
 
 const { chromium } = createRequire(import.meta.url)("playwright");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const cases = JSON.parse(readFileSync(path.join(root, "tests/data/log/pdf.json"), "utf8")).pdf;
+const cases = JSON.parse(readFileSync(path.join(root, "tests/data/log/pdf.json"), "utf8")).pdf ?? [];
+if (!cases.length) { console.log("FAIL no cases: the `pdf` section of tests/data/log/pdf.json is empty or missing"); process.exit(1); }
 const files = cases.map(c => Buffer.from(c.out, "base64"));
 const server = http.createServer((q, s) => { const i = Number(q.url.match(/(\d+)\.pdf/)?.[1] ?? 0); s.writeHead(200, { "content-type": "application/pdf" }); s.end(q.url.includes("bad") ? Buffer.concat([Buffer.from("%PDF-1.7\n"), files[i].subarray(40, 400)]) : files[i]); });
 await new Promise(r => server.listen(0, "127.0.0.1", () => r(null)));

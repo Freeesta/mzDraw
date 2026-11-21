@@ -495,3 +495,80 @@ fn docking_on_a_full_column_keeps_its_columns_apart_and_numbers_hidden_palettes_
         }
     }
 }
+
+#[test]
+fn a_click_with_a_little_jitter_moves_nothing_and_a_drag_past_the_threshold_does() {
+    let mut l = Layout::default();
+    l.arrange(1280.0, 720.0, &sizes());
+    let before = l.palettes();
+    // the pointer lands, jitters by a pixel or two, lets go: a click, the layout is as it was and nothing says it changed
+    assert!(l.press("edit", 400.0, 10.0));
+    assert!(!l.drag(401.0, 11.0));
+    assert_eq!(l.palettes(), before);
+    assert!(!l.release(402.0, 10.0));
+    assert_eq!(l.palettes(), before);
+    // a cancel after a click is no change either
+    assert!(l.press("edit", 400.0, 10.0));
+    assert!(!l.cancel());
+    assert_eq!(l.palettes(), before);
+    // past the threshold the palette follows the pointer, and the release keeps it where it is let go
+    assert!(l.press("edit", 400.0, 10.0));
+    assert!(l.drag(400.0 + mzdraw::palettes::DRAG_START + 1.0, 200.0));
+    assert!(l.release(500.0, 300.0));
+    let edit = l.palettes().into_iter().find(|p| p.id == "edit").unwrap();
+    assert_eq!(edit.dock, Dock::Float);
+    // once the drag has begun, coming back near the start still moves it (the threshold is for the start only)
+    assert!(l.press("edit", 500.0, 300.0));
+    assert!(l.drag(510.0, 300.0));
+    assert!(l.drag(500.0, 300.0));
+    assert!(l.release(500.0, 300.0));
+}
+
+#[test]
+fn the_module_says_the_held_palette_the_edge_it_docks_on_and_which_palettes_turn() {
+    let mut l = Layout::default();
+    let json = |l: &mut Layout| -> serde_json::Value {
+        serde_json::from_str(&l.arranged_json(1280.0, 720.0, &sizes())).unwrap()
+    };
+    let first = json(&mut l);
+    assert_eq!(
+        (first["held"].as_str(), first["hint_edge"].as_str()),
+        (Some(""), Some(""))
+    );
+    // only a floating palette turns
+    let can = |v: &serde_json::Value, id: &str| {
+        v["palettes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["id"] == id)
+            .unwrap()["can_turn"]
+            .as_bool()
+            .unwrap()
+    };
+    assert!(!can(&first, "tools"));
+    // held in the middle: held says which, no edge; flush with the bottom edge: the edge it docks on when let go
+    let (r, _) = l.arrange(1280.0, 720.0, &sizes());
+    let edit = rect(&r, "edit");
+    assert!(l.press("edit", edit.x + 10.0, edit.y + 10.0));
+    assert!(l.drag(640.0, 360.0));
+    let mid = json(&mut l);
+    assert_eq!(
+        (mid["held"].as_str(), mid["hint_edge"].as_str()),
+        (Some("edit"), Some(""))
+    );
+    assert!(can(&mid, "edit"));
+    assert!(l.drag(640.0, 719.0));
+    let low = json(&mut l);
+    assert_eq!(low["hint_edge"].as_str(), Some("bottom"));
+    assert!(l.release(640.0, 719.0));
+    let after = json(&mut l);
+    assert_eq!(
+        (after["held"].as_str(), after["hint_edge"].as_str()),
+        (Some(""), Some(""))
+    );
+    assert_eq!(
+        rect(&l.arrange(1280.0, 720.0, &sizes()).0, "edit").dock,
+        Dock::Bottom
+    );
+}

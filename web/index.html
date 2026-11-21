@@ -9,23 +9,26 @@
 <link rel="stylesheet" href="mzdraw.css">
 </head>
 <body>
-<header><h1 data-i18n="draw2.name">mzDraw</h1><span id="d2-status" role="status"></span></header>
-<div id="d2-tools" role="toolbar" aria-orientation="horizontal" aria-label="Drawing tools" data-i18n-aria-label="draw2.tools"></div>
-<div id="d2-restore" role="region" aria-label="Saved drawing" data-i18n-aria-label="draw2.restore.region" hidden>
-  <span id="d2-restore-text"></span>
-  <button id="d2-restore-yes" type="button" data-i18n="draw2.restore.yes" title="Open the saved drawing on the canvas" data-i18n-title="draw2.restore.yes.title">Restore</button>
-  <button id="d2-restore-no" type="button" data-i18n="draw2.restore.no" title="Delete the saved drawing" data-i18n-title="draw2.restore.no.title">Discard</button>
-</div>
-<main>
+<h1 class="sr" data-i18n="draw2.name">mzDraw</h1>
+<main id="d2-stage">
   <canvas id="d2-canvas" tabindex="0" role="application" aria-label="Structure canvas" data-i18n-aria-label="draw2.canvas" aria-describedby="d2-outline d2-focus"></canvas>
-  <aside>
-    <section><h2 data-i18n="draw2.import">Add a structure</h2>
-      <textarea id="d2-text" rows="3" spellcheck="false" autocomplete="off" aria-label="SMILES, molfile, SDF, KET, CDXML or CML" data-i18n-aria-label="draw2.import.field" placeholder="SMILES, molfile, SDF, KET, CDXML or CML" data-i18n-placeholder="draw2.import.field"></textarea>
+  <span id="d2-status" role="status"></span>
+  <div id="d2-restore" role="region" aria-label="Saved drawing" data-i18n-aria-label="draw2.restore.region" hidden>
+    <span id="d2-restore-text"></span>
+    <button id="d2-restore-yes" type="button" data-i18n="draw2.restore.yes" title="Open the saved drawing on the canvas" data-i18n-title="draw2.restore.yes.title">Restore</button>
+    <button id="d2-restore-no" type="button" data-i18n="draw2.restore.no" title="Delete the saved drawing" data-i18n-title="draw2.restore.no.title">Discard</button>
+  </div>
+</main>
+<input id="d2-file" type="file" hidden accept=".mol,.sdf,.sd,.rxn,.rdf,.rd,.smi,.smiles,.txt,.json,.ket,.cdxml,.cml,.mrv,.svg,.png,.pdf">
+<!-- the palettes: the tools and commands are built by palettes.js; the six side palettes are here. Where each one is, is decided by the module. -->
+<div id="d2-palettes">
+  <div class="pal side" data-pal="structure"><details open><summary data-i18n="draw2.import">Add a structure</summary>
+    <textarea id="d2-text" rows="2" spellcheck="false" autocomplete="off" aria-label="SMILES, molfile, SDF, KET, CDXML or CML" data-i18n-aria-label="draw2.import.field" placeholder="SMILES, molfile, SDF, KET, CDXML or CML" data-i18n-placeholder="draw2.import.field"></textarea>
       <div class="row"><button id="d2-add" type="button" data-i18n="draw2.import.add" title="Add this structure to the drawing" data-i18n-title="draw2.import.add.title">Add</button>
         <button id="d2-open" type="button" data-i18n="draw2.import.open" title="Add the structure of a file to the drawing" data-i18n-title="draw2.import.open.title">Open a file</button>
-        <input id="d2-file" type="file" hidden accept=".mol,.sdf,.sd,.rxn,.rdf,.rd,.smi,.smiles,.txt,.json,.ket,.cdxml,.cml,.mrv,.svg,.png,.pdf"></div>
-      <p id="d2-note" role="status"></p></section>
-    <section><h2 data-i18n="draw2.style">Style</h2>
+</div>
+      <p id="d2-note" role="status"></p></details></div>
+  <div class="pal side" data-pal="style"><details open><summary data-i18n="draw2.style">Style</summary>
       <label class="field"><span data-i18n="draw2.style.label">Drawing style</span>
         <select id="d2-style" title="How the drawing looks on the screen and in the saved SVG" data-i18n-title="draw2.style.title"></select></label>
       <p id="d2-style-note" role="status"></p>
@@ -33,9 +36,36 @@
         <div id="d2-style-fields"></div>
         <div class="row"><button id="d2-style-save" type="button" data-i18n="draw2.style.save" title="Save the style as a settings file" data-i18n-title="draw2.style.save.title">Save settings</button>
           <button id="d2-style-open" type="button" data-i18n="draw2.style.open" title="Open a settings file" data-i18n-title="draw2.style.open.title">Open settings</button>
-          <input id="d2-style-file" type="file" hidden accept=".json"></div></details></section>
-    <section><h2 data-i18n="draw2.export">Save</h2>
-      <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
+          <input id="d2-style-file" type="file" hidden accept=".json"></div></details></details></div>
+  <div class="pal side" data-pal="data"><details id="d2-data-more"><summary data-i18n="draw2.data">Data of the structures</summary>
+        <div id="d2-data"></div>
+        <p id="d2-data-note" role="status"></p></details></div>
+  <div class="pal side" data-pal="annotation"><details id="d2-ann-more"><summary data-i18n="draw2.ann">Annotation of the structures</summary>
+        <p class="hint" data-i18n="draw2.ann.hint">How sure the identification is, on the scale of Schymanski et al. 2014 (1 confirmed structure, 2a library match, 2b diagnostic evidence, 3 tentative candidates, 4 formula, 5 exact mass), and on what evidence: one per line, as kind: reference.</p>
+        <p class="hint" id="d2-ann-kinds"></p>
+        <div id="d2-ann"></div>
+        <p id="d2-ann-note" role="status"></p></details></div>
+  <div class="pal side" data-pal="check"><details open><summary data-i18n="draw2.check">Check</summary>
+      <h2 id="d2-outline-h" data-i18n="draw2.outline">What is drawn</h2>
+      <ul id="d2-outline" aria-labelledby="d2-outline-h"></ul>
+      <p id="d2-focus"></p>
+      <p id="d2-summary"></p>
+      <ul id="d2-warnings"></ul>
+      <div id="d2-std-panel"><details id="d2-std"><summary data-i18n="draw2.std">Drawing checks</summary>
+        <p class="hint" data-i18n="draw2.std.hint">Select a line to select what it is about. Checks never block drawing and change nothing.</p>
+        <ul id="d2-std-list" aria-label="Drawing checks" data-i18n-aria-label="draw2.std"></ul>
+        <p id="d2-std-note" role="status"></p></details></div></details></div>
+  <div class="pal side" data-pal="keys"><details id="d2-keys"><summary data-i18n="draw2.keys">Drawing with the keyboard</summary>
+      <ul><li data-i18n="draw2.keys.walk">Arrow keys: move the focus along the bonds; Home: first atom; Page Down / Page Up: next or previous structure.</li>
+        <li data-i18n="draw2.keys.grow">Enter: grow a single bond from the focused atom; Shift+Enter: a double bond. On an empty canvas Enter places a carbon.</li>
+        <li data-i18n="draw2.keys.set">A letter sets the element (C N O S P F H B I, Shift+C chlorine, Shift+B bromine); 1 2 3 set the order of the bond just walked; + and − change the charge.</li>
+        <li data-i18n="draw2.keys.move">With a selection: Alt+Arrow moves it by 0.1 bond length, Alt+Shift+Arrow by 1; Alt+[ and Alt+] turn it by 15° (repeated presses are one undo step). Shift+Arrow adds the atom the focus walks to. M: click an empty spot to bring the selection there.</li>
+        <li data-i18n="draw2.keys.more">Space: select the focused atom; Delete: remove it; Escape: leave the focus. Tab leaves the canvas.</li></ul></details></div>
+</div>
+<!-- the flyouts of the palettes, over everything; the save formats are written here, the rest is built -->
+<div id="d2-flys">
+  <div id="d2-fly-saveas">
+    <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
         <button id="d2-ex-v3000" type="button" data-i18n="draw2.export.v3000" title="Save the drawing as a V3000 molfile" data-i18n-title="draw2.export.v3000.title">Molfile V3000</button>
         <button id="d2-ex-sdf" type="button" data-i18n="draw2.export.sdf" title="Save the structures as an SDF, one record each, with their data" data-i18n-title="draw2.export.sdf.title">SDF</button>
         <button id="d2-ex-smiles" type="button" data-i18n="draw2.export.smiles" title="Save the drawing as SMILES" data-i18n-title="draw2.export.smiles.title">SMILES</button>
@@ -47,33 +77,13 @@
         <button id="d2-ex-png" type="button" data-i18n="draw2.export.png" title="Save the drawing as a PNG image at 300 dpi that mzDraw can open again" data-i18n-title="draw2.export.png.title">PNG</button>
         <button id="d2-ex-pdf" type="button" data-i18n="draw2.export.pdf" title="Save the drawing as a vector PDF that mzDraw can open again" data-i18n-title="draw2.export.pdf.title">PDF</button>
         <button id="d2-ex-mzdraw" type="button" data-i18n="draw2.export.doc" title="Save the drawing as an editable document" data-i18n-title="draw2.export.doc.title">Document</button></div>
-      <p id="d2-ex-note" role="status"></p></section>
-    <section><h2 id="d2-outline-h" data-i18n="draw2.outline">What is drawn</h2>
-      <ul id="d2-outline" aria-labelledby="d2-outline-h"></ul>
-      <details id="d2-data-more"><summary data-i18n="draw2.data">Data of the structures</summary>
-        <div id="d2-data"></div>
-        <p id="d2-data-note" role="status"></p></details>
-      <details id="d2-ann-more"><summary data-i18n="draw2.ann">Annotation of the structures</summary>
-        <p class="hint" data-i18n="draw2.ann.hint">How sure the identification is, on the scale of Schymanski et al. 2014 (1 confirmed structure, 2a library match, 2b diagnostic evidence, 3 tentative candidates, 4 formula, 5 exact mass), and on what evidence: one per line, as kind: reference.</p>
-        <p class="hint" id="d2-ann-kinds"></p>
-        <div id="d2-ann"></div>
-        <p id="d2-ann-note" role="status"></p></details>
-      <p id="d2-focus"></p></section>
-    <section><details id="d2-keys"><summary data-i18n="draw2.keys">Drawing with the keyboard</summary>
-      <ul><li data-i18n="draw2.keys.walk">Arrow keys: move the focus along the bonds; Home: first atom; Page Down / Page Up: next or previous structure.</li>
-        <li data-i18n="draw2.keys.grow">Enter: grow a single bond from the focused atom; Shift+Enter: a double bond. On an empty canvas Enter places a carbon.</li>
-        <li data-i18n="draw2.keys.set">A letter sets the element (C N O S P F H B I, Shift+C chlorine, Shift+B bromine); 1 2 3 set the order of the bond just walked; + and − change the charge.</li>
-        <li data-i18n="draw2.keys.move">With a selection: Alt+Arrow moves it by 0.1 bond length, Alt+Shift+Arrow by 1; Alt+[ and Alt+] turn it by 15° (repeated presses are one undo step). Shift+Arrow adds the atom the focus walks to. M: click an empty spot to bring the selection there.</li>
-        <li data-i18n="draw2.keys.more">Space: select the focused atom; Delete: remove it; Escape: leave the focus. Tab leaves the canvas.</li></ul></details></section>
-    <section><h2 data-i18n="draw2.check">Check</h2>
-      <p id="d2-summary"></p>
-      <ul id="d2-warnings"></ul></section>
-    <section id="d2-std-panel"><details id="d2-std"><summary data-i18n="draw2.std">Drawing checks</summary>
-      <p class="hint" data-i18n="draw2.std.hint">Select a line to select what it is about. Checks never block drawing and change nothing.</p>
-      <ul id="d2-std-list" aria-label="Drawing checks" data-i18n-aria-label="draw2.std"></ul>
-      <p id="d2-std-note" role="status"></p></details></section>
-  </aside>
-</main>
+    <p id="d2-ex-note" role="status"></p>
+  </div>
+</div>
+<div id="d2-dock-hint" hidden></div>
+<button id="d2-show-all" type="button" hidden data-i18n="draw2.showAll" title="Show the palettes again (\)" data-i18n-title="draw2.showAll.title">Palettes</button>
+<!-- one container for the context menu of the canvas (built by its own slice) -->
+<div id="d2-menu" hidden></div>
 <p id="d2-live" class="sr" aria-live="polite"></p>
 <script src="i18n.js"></script>
 <script src="lang/check.js"></script>

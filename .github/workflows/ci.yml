@@ -1,4 +1,4 @@
-# Fast CI of every PR and of main: format, lints, Rust tests, the site build (wasm + size cap), golden parity wasm == native, e2e in Chromium.
+# Fast CI of every PR and of main: format, lints, Rust tests, the site build (wasm + size cap), golden parity wasm == native, the PDFs checked by qpdf and poppler, e2e in Chromium, the PDFs in Chromium's viewer.
 name: ci
 on:
   pull_request:

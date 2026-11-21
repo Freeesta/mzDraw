@@ -12,7 +12,9 @@ trap 'rm -rf "$dir"' EXIT
 node -e '
 const fs = require("fs"), d = process.argv[1];
 const f = JSON.parse(fs.readFileSync("tests/data/log/pdf.json", "utf8"));
-f.pdf.forEach((c, i) => fs.writeFileSync(`${d}/case${i}.pdf`, Buffer.from(c.out, "base64")));
+const cases = f.pdf || [];
+if (!cases.length) { console.error("FAIL no cases: the `pdf` section of tests/data/log/pdf.json is empty or missing"); process.exit(1); }
+cases.forEach((c, i) => fs.writeFileSync(`${d}/case${i}.pdf`, Buffer.from(c.out, "base64")));
 ' "$dir"
 fail=0
 for tool in qpdf pdfinfo pdfdetach pdftotext; do
