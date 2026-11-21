@@ -70,11 +70,15 @@ impl Editor {
         mods: u32,
         t: f64,
     ) -> u32 {
-        match kind {
+        if let Some(f) = self.proposal_pointer(phase, id, x, y, kind, mods) {
+            return f;
+        }
+        let f = match kind {
             TOUCH => self.touch(phase, id, x, y, mods, t),
             PEN => self.pen(phase, x, y, mods, t),
             _ => self.single(phase, x, y, kind, mods),
-        }
+        };
+        f | self.settle_proposal()
     }
 
     /// One pointer on its own, as the tools take it.
