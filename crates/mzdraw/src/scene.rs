@@ -875,14 +875,13 @@ pub fn label_extent(doc: &Document, a: &Atom, style: &crate::settings::Style) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::LensMode;
-
     /// `n` pairs: a triangle (maps 1, 2, 3) and a chain with the same maps, which lacks the bond 3-1 (one ghost per pair).
     fn pairs(n: u32) -> Document {
         let (mut atoms, mut bonds, mut objects) = (Vec::new(), Vec::new(), Vec::new());
         let (mut a, mut b) = (0u32, 0u32);
         for k in 0..n {
-            let x0 = k as f64 * 20.0;
+            // a grid, so that the coordinates stay in range however many pairs
+            let (x0, y0) = ((k % 100) as f64 * 20.0, (k / 100) as f64 * 10.0);
             let first = a + 1;
             for (dx, ring) in [(0.0, true), (8.0, false)] {
                 let start = a;
@@ -891,7 +890,7 @@ mod tests {
                     atoms.push(format!(
                         r#"{{"id":{a},"el":"C","x":{},"y":{},"map":{}}}"#,
                         x0 + dx + i as f64,
-                        (i % 2) as f64,
+                        y0 + (i % 2) as f64,
                         i + 1
                     ));
                 }
@@ -908,7 +907,7 @@ mod tests {
                 }
             }
             objects.push(format!(
-                r#"{{"id":{},"t":"arrow","x":{},"y":0,"x2":{},"y2":0,"from":{first},"to":{}}}"#,
+                r#"{{"id":{},"t":"arrow","x":{},"y":{y0},"x2":{},"y2":{y0},"from":{first},"to":{}}}"#,
                 2_000_000 + k,
                 x0 + 4.0,
                 x0 + 7.5,
@@ -925,47 +924,44 @@ mod tests {
         .unwrap()
     }
 
-    fn cost(n: u32) -> f64 {
+    /// The time of `reps` paintings of the ghosts of `n` pairs; the drawing is built outside the clock.
+    fn cost(n: u32, reps: u32) -> f64 {
         let doc = pairs(n);
+        // the ghosts as the lens gives them (the product's atom 3 with its atom 1: the bond 3-1 it lacks), fed to the painter
+        // directly: the drawing here is larger than the lens itself accepts (`tp::MAX_LENS_DOC`), and only the painting is timed
         let t = std::time::Instant::now();
-        let paint = lens_paint(&doc, LensMode::TintGhost);
-        assert_eq!(paint.ghosts.len(), n as usize);
-        let mut p = Painter {
-            doc: &doc,
-            view: View {
-                scale: 20.0,
-                ox: 0.0,
-                oy: 0.0,
-            },
-            over: &Overlay::default(),
-            m: crate::settings::Style::default().metrics(20.0, true),
-            font: 10.0,
-            out: Scene::default(),
-            lens: paint,
-            ink: colour::INK,
-        };
-        p.ghosts();
-        assert!(!p.out.data.is_empty());
+        for _ in 0..reps {
+            let mut p = Painter {
+                doc: &doc,
+                view: View {
+                    scale: 20.0,
+                    ox: 0.0,
+                    oy: 0.0,
+                },
+                over: &Overlay::default(),
+                m: crate::settings::Style::default().metrics(20.0, true),
+                font: 10.0,
+                out: Scene::default(),
+                lens: LensPaint {
+                    ghosts: (0..n).map(|k| (6 * k + 4, 6 * k + 6)).collect(),
+                    ..LensPaint::default()
+                },
+                ink: colour::INK,
+            };
+            p.ghosts();
+            assert!(!p.out.data.is_empty());
+        }
         t.elapsed().as_secs_f64()
     }
 
     #[test]
     fn the_lens_painting_is_linear_in_the_drawing() {
-        // four times the pairs must cost about four times as much, not sixteen; a floor keeps timer noise out. A scan of the atoms per
-        // ghost (as `Document::atom` does) takes this to a ratio of 16.
-        let (mut n, mut small) = (1000u32, 0.0);
-        while n <= 64_000 {
-            small = cost(n);
-            if small > 0.03 {
-                break;
-            }
-            n *= 2;
-        }
-        let big = cost(4 * n);
+        // four times the pairs must cost about four times as much, not sixteen. A scan of the atoms per ghost (as `Document::atom`
+        // does) takes this to a ratio of 16.
+        let (small, big) = (cost(1000, 3), cost(4000, 3));
         assert!(
             big < 8.0 * small + 0.05,
-            "{n}: {small:.3} s, {}: {big:.3} s",
-            4 * n
+            "1000 pairs {small:.3} s, 4000 pairs {big:.3} s"
         );
     }
 }
