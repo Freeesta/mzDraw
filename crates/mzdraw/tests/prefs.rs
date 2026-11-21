@@ -166,7 +166,8 @@ fn a_reset_puts_a_group_back_and_leaves_the_others() {
             "display.maps=on",
             "display.values=off",
             "display.adducts=[M+H]+,[M-H]-",
-            "display.lens=off"
+            "display.lens=off",
+            "pathway.label=delta"
         ]
     );
     ed.reset_group("display").unwrap();
