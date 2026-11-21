@@ -15,7 +15,7 @@ You are DEV-CLEAN-UP, a development chat. You build one small slice, open one PR
 - Anything else you notice: one line to COO-MZDRAW, not in this PR.
 
 ## Context (read first)
-- `CLAUDE.md` (rules 1-15), `docs/mzdraw.md` (the section "Built state" is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 10, and §5 for the API).
+- `CLAUDE.md` (rules 1-15), `docs/built/` (the Built state is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 10, and §5 for the API).
 - `crates/mzdraw/src/layout.rs`: `layout::computed` already places structures that arrive without coordinates; `layout::clean_up` still returns the drawing unchanged (`docs/mzdraw.md` "Positions of a structure without coordinates").
 - Ketcher binds layout to `Mod+L` and clean up to `Mod+Shift+L` (help 3.21.0); Marvin JS needs a server for it.
 - If `layout_2d_fixed` (keeping chosen atoms fixed) is not in the pinned `mzlab-mol`, clean the selection by laying out its pieces and placing them back on their old centre, and tell COO-MZDRAW.
@@ -26,10 +26,10 @@ You are DEV-CLEAN-UP, a development chat. You build one small slice, open one PR
 - No bundler, no framework, no new crate or npm package unless the PR states the reason.
 - Synthetic data only in tests and examples (molecules you write yourself as SMILES or by hand).
 - Every new edit operation has an exact inverse and is added to the random sequence of the property test (`random_step` in `crates/mzdraw/tests/ops.rs`: apply then undo gives the identical document bytes, redo the identical result), and to the log reader and writer tests of the same file.
-- CLI first (CLAUDE.md rule 15): a feature without a CLI route and a test that replays it natively is incomplete. Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to `tests/data/mzdraw_log.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
+- CLI first (CLAUDE.md rule 15): a feature without a CLI route and a test that replays it natively is incomplete. Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to your own file `tests/data/log/<area>.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
 - Never skip, disable or loosen a test. Never push to `main`, never rebase, never force-push; merge `main` into the branch only on a real conflict. The PR is opened ready for review and is never merged by you.
-- Keep the size cap of `tools/wasm-cap.toml` as it is on `main` when you start; update `measured` with the size you measure and report the change in bytes in the PR.
-- Keep the section "Built state" of `docs/mzdraw.md` true (one bullet for this slice, what is built and what is not), and mark the rows of `docs/study/arch-web.md` §4 that you build as `B`.
+- Keep the size cap of `tools/wasm-cap.toml` as it is on `main` when you start; do not edit `measured` (it is gone: the build prints the size) and report the change in bytes in the PR.
+- Keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice, what is built and what is not), and mark the rows of `docs/study/arch-web.md` §4 that you build as `B`.
 
 ## Work
 1. Rust: `Op::Place {atoms, xy}`; `clean_up` returns it; the command runs it as one undo step; the announcement says how many atoms moved.

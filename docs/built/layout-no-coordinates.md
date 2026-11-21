@@ -1,0 +1,3 @@
+# Positions of a structure without coordinates, built
+
+a structure that arrives without coordinates (a SMILES, a molfile without them) is placed by the 2D layout of `mzlab-mol` (`Mol::layout_2d`, D1, pinned at `ccd4680`; `layout::computed` turns its 1.5 Å bonds into the bond length of the drawing): rings as regular polygons fused along their shared bonds, chains as a 120° zigzag, every bond one bond length, pieces side by side (largest first). The import says that the positions were computed. A text with coordinates keeps them. The placeholder polygons of the earlier slices are gone. Not wired: "Clean up" of an existing drawing (`layout::clean_up` still returns the drawing unchanged).

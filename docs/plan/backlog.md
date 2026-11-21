@@ -251,17 +251,22 @@ Two chats never write the same zone at the same time.
 | **conform** | `conform.rs` |
 | **label** | `label.rs` |
 | **layout** | `layout.rs` (`scheme.rs` is its own zone) |
+| **tp** | `crates/mzdraw/src/tp.rs` (tp-03, tp-04, tp-10, in that order; §11) |
+| **pathway** | `crates/mzdraw/src/pathway.rs` (tp-05, then tp-07 for the label room; §11) |
+| **tp-list** | `crates/mzdraw/src/tp_list.rs`: `tp:import`, `tp:number` (tp-08; §11) |
+| **tp-table** | `crates/mzdraw/src/tptable.rs` (tp-09; §11) |
 | **tools** | `tools/<own dir>`, a new `tests/*.mjs` |
 | **new module** | one new file in `crates/mzdraw/src` |
+| **new modules of §9–§10** | each its own zone: `outcome.rs` (plan-20), `stereo_guard.rs` (plan-21), `loss.rs` (plan-22), `digest.rs` (plan-23), `select.rs` (plan-24), `plan.rs` (plan-27), `grant.rs` (plan-28), `chain.rs` (plan-30); `tools/agent-suite` (plan-19) |
 
 Append-only lines any chat may add next to another chat (merge = keep both, then rerun):
-- the Built state bullets of `docs/mzdraw.md`;
-- `measured` in `tools/wasm-cap.toml`;
+- your own file `docs/built/<slice>.md` (the Built state is one file per slice; there is no `measured` figure to edit: the build prints the size);
 - keys in `web/lang/mzdraw.js`;
-- cases in `tests/data/mzdraw_log.json`;
+- cases in the file of their area under `tests/data/log/` (one file per area, `MZDRAW_BLESS=1` rewrites them);
 - `mod` lines;
 - one match arm in `Op::from_value` / `Op::write` / `Editor::save` / `glue::run`;
 - one row in the plan-01 table.
+- one `touches` arm in `ops.rs` (from plan-28, E25).
 
 The e2e step count is counted from the file and is never edited by hand.
 
@@ -279,14 +284,16 @@ Wave 0 (running now): UI-2 (R1, PR 2, PR 3), CTX-MENU page, arch-std-01, -05, -0
 
 | wave | starts when | items, in launch order |
 |---|---|---|
-| **1** | now | plan-01, plan-04, plan-02, plan-03, arch-std-22, arch-std-18, plan-15, arch-std-09 |
-| **2** | std-01, std-05, UI-2 PR 2 merged | arch-std-02, arch-std-15, plan-05, arch-std-12, arch-std-06, arch-web-01, plan-13, arch-std-03 (after UI-2 PR 3) |
-| **3** | the wave's dependencies merged; first `velocity/1` report in | plan-06, arch-std-11, arch-web-02, arch-std-17, arch-cd-03, plan-14, arch-std-13, plan-10 |
-| **4** | as above | plan-11, plan-07, arch-web-07, arch-web-13, arch-std-16, arch-std-10, arch-web-03, arch-std-07 |
-| **5** | as above | arch-web-16, arch-web-17, arch-web-08, arch-std-19, plan-12, arch-cd-25, arch-web-05 |
+| **1** | now | plan-01, plan-04, plan-02, plan-03, arch-std-22, arch-std-18, plan-15, arch-std-09, plan-19, plan-20 |
+| **2** | std-01, std-05, UI-2 PR 2 merged | arch-std-02, arch-std-15, plan-05, arch-std-12, arch-std-06, arch-web-01, plan-13, arch-std-03 (after UI-2 PR 3), plan-23 |
+| **3** | the wave's dependencies merged; first `velocity/1` report in | plan-06, arch-std-11, arch-web-02, arch-std-17, arch-cd-03, plan-14, arch-std-13, plan-10, plan-21, plan-22, plan-30, plan-26 |
+| **4** | as above | plan-11, plan-07, arch-web-07, arch-web-13, arch-std-16, arch-std-10, arch-web-03, arch-std-07, plan-24, plan-25, plan-27, plan-28, plan-31 |
+| **5** | as above | arch-web-16, arch-web-17, arch-web-08, arch-std-19, plan-12, arch-cd-25, arch-web-05, plan-29 |
 | **6** | as above | plan-16, arch-std-21, arch-web-15, arch-web-18, arch-web-19, arch-web-09, arch-web-11, plan-08 |
 | **7** | as above | arch-web-20, arch-std-20, arch-web-21, arch-cd-15, arch-cd-08, arch-cd-18, arch-cd-19, arch-cd-20 |
 | **8** | as above | arch-cd-26, arch-cd-04, arch-cd-16, arch-web-04, arch-cd-22 |
+
+Waves 1, 3 and 4 hold more than 8 items since §9 and §10: they are ordered lists, launched 2–3 at a time under the launch rules, not batches.
 
 Same zone, serialize: inside a wave, launch one prompt per zone at a time.
 - Wave 4: arch-std-16 and arch-std-10 both touch `svg.rs` / scene.
@@ -311,7 +318,7 @@ These are listed here, not rewritten. Each chat applies its edit when it starts.
 10. **E10 arch-cd:** done. `arch-cd-20-context-menu-refine.md` exists on `claude/arch-cd` (added at `0733735`; PR #41 head `87520eb`), and arch-cd applied E2, E4 and E9 to its own prompts.
 11. **E11 every prompt that adds a `draw_edit/1` op or field:** add its row to the plan-01 table and get COO 16's agreement before the PR (the ones in section 8 are already agreed).
 12. **E12 every prompt whose feature calls an engine:** go through `glue.rs` (plan-04), never call `mzlab_feat` from `lib.rs` directly.
-13. **E13 every prompt:** hot files (`docs/mzdraw.md` Built state, `measured` in `tools/wasm-cap.toml`) conflict in every PR. Merge `origin/main` only on a real conflict, rerun, push. Do not edit the e2e step count, which is counted from the file now. Hand off at about 150k tokens with a pushed WIP branch and a one-line state note (replaces "200k").
+13. **E13 every prompt:** the hot files are gone (Built state is one file per slice in `docs/built/`, `measured` is removed from `tools/wasm-cap.toml`, the golden cases are one file per area in `tests/data/log/`). Merge `origin/main` only on a real conflict, rerun, push. Do not edit the e2e step count, which is counted from the file now. Hand off at about 150k tokens with a pushed WIP branch and a one-line state note (replaces "200k").
 14. **E14 arch-std-15, -16, -17, -18: name the CLI route** (coordinator's review of PR #45). Each must state its replay request and its `mzlab-cli mol draw` route, and add a native replay test in `crates/mzdraw/tests/replay.rs` that gives the page's bytes:
     - std-15: `{"command":"clean"}`, with `"select":[ids]` for a part;
     - std-16: `"set":["export.profile=elsevier","export.width=single"]` with `"out":"std"` and `"out":"svg"`;
@@ -458,3 +465,159 @@ None of these touch the page except plan-21's live-line key and plan-26's one co
 | D16 | stereo guard | Report-only in the page; enforced only when a request lists `{"stereo":"kept"}`. | COO-MZDRAW |
 | D17 | abbreviation folding | A deferred row with its kill test, no prompt. | COO-MZDRAW |
 | D18 | waves | plan-19 and plan-20 go in the wave 1 tail, after plan-01. | COO-MZDRAW |
+
+## 10. Third and fourth external reports (ARCH PLAN-2, second pass, 2026-11-21)
+Input: two more external research outputs. They are **not in the repository**: this section works from the coordinator's summaries (COO-MZDRAW, 2026-11-21) and does not quote them. Their novelty and patent claims are not evidence. Their figures (among them an "Open Babel 37%") are not verified and are used nowhere.
+
+### 10.1 Sources checked for this pass
+| claim or fact used | verdict | source read | note |
+|---|---|---|---|
+| V2000 chiral flag: on = a single isomer of known absolute configuration at every wedged centre; off = the drawn isomer and its enantiomer | verified | BIOVIA, CTfile Formats, Chemistry 2026, https://www.3ds.com/assets/invest/2026-01/biovia_chemistry_2026_ctfile_formats.pdf | Read on 2026-11-21 as text extracted locally (`pdftotext`); the fetch tool could not render the PDF. Counts line: "0=not chiral, 1=chiral". This public copy needs no request form: arch-std-19's note "behind a request form, not read" is corrected in that prompt. |
+| V3000 collections `MDLV30/STEABS` (absolute), `STERACn` (relative configuration known, mixture of both enantiomers), `STERELn` (relative known, one enantiomer, unknown which) | verified | same | Collections take precedence over the chiral flag; wedged centres in no collection take the flag "globally". |
+| IUPAC 2006 ST-6: no marks = unknown; mixtures said in words; the chiral-flag behaviour is not followed | verified (earlier) | `docs/study/arch-std.md` §2.2 (second pass) | Read for arch-std-12. |
+| FIPS 180-4 Secure Hash Standard | partly | https://csrc.nist.gov/pubs/fips/180-4/upd1/final | Published August 2015. The landing page does not name SHA-256 (the standard does). The example vectors were not read: plan-30's DEV reads them. |
+| `mzlab-mol` links `sha2` 0.11 and exposes only `Mol::core_hash` (core JSON, without coordinates or ids) | verified | `crates/mzlab-mol/Cargo.toml`, `src/codec.rs` at the pin `ccd4680` | So SHA-256 is already in the module. There is no public hash of bytes. |
+| mzLab records runs with SHA-256 fields (`prov/1`) | verified | mzLab `docs/schemi/prov-1.json` at the pin | — |
+| InChI `/s1`, `/s2`, `/s3` and the "absolute" flag | **not verified** | https://www.inchi-trust.org/technical-faq-2/ (301, then 404) | `docs/study/arch-std.md` has `/s1` and `/s2` only. `/s3` and "absolute" are not in `docs/study`; plan-29's proof says so. |
+| mzDraw has FNV-1a only (SVG element names) | verified | `crates/mzdraw/src/svg.rs` | Not a hash for provenance. |
+
+### 10.2 Verdicts
+| idea | report | verdict | where | reason |
+|---|---|---|---|---|
+| `plan`: one goal in, a canonical reversible patch out, under a step budget | third | **KEEP** → plan-27 | `goal`, `budget` | Fewer calls for agents. It uses table ops only, so inverses and parity hold. Goal kinds are gated on their engines (templates, scheme, selectors); an unsupported kind is an explicit error. |
+| `grant`: scope envelope checked per op, one transaction | third | **KEEP** → plan-28 | `grant` | Not covered: plan-20 checks the end of a log, not what each op touches. The page side waits for plan-16 (wave 6). |
+| per-op drawing contracts | fourth | **MERGE** into plan-28 (`grant.each`) | — | These are plan-20's `expect` arms run after each op. No new op. |
+| stereo tier per centre, never defaulted silently | fourth | **KEEP** → plan-29 | derived from `stg` | arch-std-12 stores groups. The gaps are a wedged centre with no group and a reader that would assume a tier from the chiral flag. The rule is "noted, never assumed" (D19). No new field, no new loss kind. |
+| provenance ledger | fourth | **KEEP, two slices** → plan-30 (chain, `expect` arm), plan-31 (head in pictures) | `chain/1` | Cheap given byte parity. SHA-256 is already linked through `mzlab-mol`. |
+| stable handles / selectors | third, fourth | = plan-24 | — | Already planned. |
+| loss ledger | third | = plan-22 | — | Already planned. |
+| public conformance suite, expert-verified corpus | third, fourth | = plan-03 (+ E19) and plan-19 | — | Only gold files and invariants, fetched at run time (D5). |
+
+### 10.3 Rows
+Same columns as §4 and §9.4.
+
+| # | id | item | status | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|---|
+| 76 | plan-27 | goal → canonical patch (`goal`, `budget`) | N | M | plan-01, plan-20 (E21); kinds gated (plan-13, web-19/18, plan-24) | new `plan.rs` | request row (`goal`, `budget`; key `patch` and stage `plan` via E21) | RDKit canonical SMILES |
+| 77 | plan-28 | scope grant + per-op contracts | N | M | plan-20; plan-24 optional | new `grant.rs` + `touches` arms in `ops.rs` + `class` column in `schema.rs` | request row (`grant`, class column, stage `grant`) | property: bytes outside the scope unchanged; `touches` checked against real differences |
+| 78 | plan-29 | stereo tier: noted never assumed, `tierUndefined`, digest `centres` | N | S–M | std-12, std-19 (E20), plan-22, plan-23 | readers (`io.rs`), conform, `digest.rs` | request row (`expect` arm, digest key `centres`) | InChI stereo flags by RDKit (meaning not verified) |
+| 79 | plan-30 | hash chain of the log, `expect` arm `chain` | N | S | plan-20 | new `chain.rs` + one replay arm | request row (`out:chain`, arm `chain`); `sha2` direct dependency decided YES (D25; reason and wasm cost in the PR, guard in `docs/mzdraw.md` updated) | FIPS 180-4 examples; Python `hashlib` |
+| 80 | plan-31 | chain head in saved SVG and PNG, `export.chain` | N | S | plan-30, std-16, std-17 | `svg.rs`, `png.rs`, settings table | request row (setting and output element) | head recomputed from the goldens |
+
+The page part of plan-28 (a proposal held under a grant) is not built in row 77. It becomes a follow-up row once plan-16 (wave 6) merges.
+
+Totals after this section: 80 rows to run, 28 new prompts in all (13 from PLAN-2).
+
+### 10.4 Waves
+- **Wave 3:** plan-30. It only touches a new module and one replay arm, so it does not collide with its wave-3 neighbours arch-std-17 (`svg.rs`) and arch-std-13 (scene).
+- **Wave 4:** plan-27, plan-28 (both after plan-20; plan-28 after plan-24 if its selector scope is wanted), plan-31. plan-31 touches `svg.rs`: it runs after arch-std-17 (wave 3), and arch-std-16 and arch-std-10 (also `svg.rs`, wave 4) are serialized with it.
+- **Wave 5:** plan-29 (after arch-std-19 and plan-22). It touches `io.rs`, so serialize it with arch-std-19 and plan-12.
+
+### 10.5 Edits to existing prompts
+These are listed here, not rewritten. Each chat applies its edit when it starts (as §7).
+
+20. **E20 arch-std-19:**
+    - The readers never set `stg` from a default. A V2000 chiral flag (0 or 1) and a V3000 wedged centre outside every collection leave the centre without a group; the import notes list the centres, the flag and its CTfile meaning (D19).
+    - The V2000 write rule of arch-std-19 is unchanged, and plan-29 adds none.
+    - The CTfile 2026 edition is readable at the public URL of §10.1; the prompt's source line now says so (corrected in the prompt file in this PR).
+21. **E21 plan-20:** `draw-result/1` gains:
+    - the key `patch` (plan-27), placed before `out`;
+    - the `failed.stage` values `plan` (plan-27) and `grant` (plan-28);
+    - `goal` joins `report`, `dry_run` and `expect` in making the answer an envelope;
+    - the exit-2 list (invalid request) gains "an unsupported goal kind", "a malformed grant" and "`style`/`set` under a grant without `settings`".
+
+    It also gains the request `id` as its second key: see E26 (D27).
+
+    There is no stage `verify`: the chain is checked with the `expect` arm `chain` (plan-30). If plan-20 has merged before these prompts run, each of plan-27 and plan-28 makes its own part of E21 in its PR.
+22. **E22 plan-19:** the `--arm` feature list gains `plan` (plan-27) and `grant` (plan-28). The adversarial set `tests/data/agent-suite/adversarial.json` comes with plan-28.
+23. **E23 plan-01:** the op table gains a `class` column (`geometry`, `atoms`, `bonds`, `objects`, `structure`). plan-28 adds it if plan-01 has merged; otherwise plan-01 includes it.
+24. **E24 plan-23:** the digest gains the per-centre key `centres` (`[[atom id, tier]]`) with plan-29. The per-bond `stereo` entries are unchanged.
+25. **E25 every prompt that adds a `draw_edit/1` op after plan-28:** add its `touches` arm in `ops.rs` and its `class` in the table, next to its inverse and its property-test case.
+26. **E26 plan-20 (request id, D27):** the key table of `draw-result/1` gains `id`.
+    - Position: second, right after `format`.
+    - When present: always.
+    - Value: the request's own `id` echoed as given (a string or an integer; any other type is an invalid request, exit 2). When the request has none, it is `n`, the 0-based index of the request in its batch. The caller passes `n` (`mzlab-cli` counts the lines of a JSONL stream); a single request is `n` = 0.
+    - Effect: a batch of requests maps answer to request, line to line.
+    - The JSON Schema file `docs/schemas/draw-result-1.json` lists it, and the golden key-order test covers it (`format`, `id`, `ok`, ...).
+    - The request field `id` is one row in the `request` section of plan-01's table.
+    - If plan-20 has merged before this edit is applied, the next prompt to touch `outcome.rs` (plan-27 or plan-28) makes it in its PR.
+
+### 10.6 Decisions (21 Nov 2026)
+| # | question | decision | by |
+|---|---|---|---|
+| D19 | stereo tier on import | Noted, never assumed: no reader sets a group from the chiral flag or for an uncollected centre; the import notes say what the file said. | COO-MZDRAW (review of #55) |
+| D20 | new request fields and stages for plan-27, -28, -30 | `patch`, stages `plan` and `grant` go into plan-20's key table (E21). The chain is an `expect` arm, not a field or a stage. | COO-MZDRAW (review of #55) |
+| D21 | agent-suite features | `plan` and `grant` join the `--arm` list (E22). | COO-MZDRAW |
+| D22 | op classes | A `class` column in plan-01's table (E23); `geometry` = `move`, `rotate`, `flip` today. Each later op names its class when it is added: `atoms.xy` (arch-std-15) `geometry`, `merge` (arch-web-09) `structure` (E25). | COO-MZDRAW |
+| D23 | `touches` | One arm per op, append-only; every later op-adding prompt adds it (E25). | COO-MZDRAW |
+| D24 | digest key for tiers | A new per-centre key `centres` (E24), not a change to the per-bond `stereo` entries. | COO-MZDRAW |
+| D25 | SHA-256 | `sha2` becomes a direct dependency of `mzdraw` (the version `mzlab-mol` already links, already in `Cargo.lock`), added to the dependency guard. plan-30 states the reason and measures the module. Never a second implementation; no request to COO 16. | COO-MZDRAW |
+| D26 | rows of other ARCH chats | ARCH TP-DRAW (PR #54) adds its rows (tp-01..07) after #55 merges; PLAN-2 owns rows 76–80. | COO-MZDRAW |
+| D27 | request id in `draw-result/1` | `draw-result/1` carries the request's `id`, or its index `n` in the batch when it has none, so a batch or JSONL of requests maps line to line (E26). | COO 16 (decision 4), via COO-MZDRAW |
+| D28 | who owns the writers | mzDraw owns every writer (KET, CDXML, SVG, PNG, PDF); mzLab deletes its copies in the integration PR (refines D9). | COO 16, via COO-MZDRAW |
+| D29 | how mzLab links mzDraw | `mzlab-cli` depends on `mzdraw` as a git dependency with a pinned `rev`, and a `[patch]` section keeps one copy of `mzlab-mol` in its build. | COO 16, via COO-MZDRAW |
+| D30 | mzLab site | The site runs `mzdraw::replay` in mzDraw's own wasm module, under its guard of 4,000,000 B (`tools/wasm-cap.toml`). | COO 16, via COO-MZDRAW |
+
+## 11. Transformation products (ARCH TP-DRAW, 2026-11-21)
+Input: six ideas of an external LLM (Gemini) on drawing transformation products (TPs), given by the coordinator and treated as unverified. The owner's priorities are: (1) draw the TPs of a parent fast; (2) arrows that organise themselves, symmetric and well routed; (3) product tables. The sources, the overlap with this backlog and the verdicts are in `docs/study/tp-draw.md`. There are 11 prompts, `docs/prompts/tp-01..11-*.md`.
+
+### 11.1 Rows
+Same columns as §4, §9.4 and §10.3. "request row" has the meaning of §9.4 (D13).
+
+| # | id | item | status | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|---|
+| 81 | tp-01 | arrow anchors `from`/`to`; follow on commands; `commands` in the request | N | M | plan-01, plan-20 (E29) | document objects + `replay.rs` (`commands`) | **yes** (fields `from`, `to` on `obj.add`/`obj.set`, `mzlab:false`); request rows (incl. `std.scheme.anchor`) | brute-force clip sampler; parity |
+| 82 | tp-02 | anchoring by hand: arrow tool, `pathway:anchor`, `pathway:route` | N | S | tp-01; CTX-MENU page | input + `context.rs` arms | request row | velocity/1 (two new arrow tasks, four in all) |
+| 83 | tp-03 | `tp:derive`: copy the parent, keep its scaffold, maps and patch | N | M | tp-01, tp-02, tp-05 (settings), plan-11, plan-20; CTX-MENU page | new `tp.rs` | request row | RDKit mapped RXN, formula delta |
+| 84 | tp-04 | diff lens, `lens/1`, `display.lens` | N | S | tp-03 | `tp.rs` + scene | request row (`lens`, `display.lens`, `std.tp.unmapped`) | RDKit mapped sets |
+| 85 | tp-05 | pathway layout core `pathway:tree`, properties P1–P14 | N | M | tp-01, plan-20 | new `pathway.rs` | request row (`pathway:tree`, `boxes`, `pathway.*`, `std.scheme.*`) | independent Python re-check of the properties |
+| 86 | tp-06 | pathway layout on the page; Graphviz proof | N | S | tp-05, tp-02; CTX-MENU page | page + `palettes.rs`/`context.rs` arms + `tools/fidelity` | no | Graphviz `dot` ranks and crossings (optional) |
+| 87 | tp-07 | arrow labels computed: Δ formula, Δ mass | N | S | tp-01, tp-05, arch-web-17; arch-web-13 optional; tp-10 for names | `pathway.rs` | request row | RDKit formula and `ExactMolWt` |
+| 88 | tp-08 | `tp:import` of a TP list, `tp:number` | N | M | tp-01, tp-05, plan-20 (E29); tp-07 and plan-14 optional | new `tp_list.rs` | request row (`failed.rows`, reserved data names) | Python `csv` + RDKit canonical SMILES |
+| 89 | tp-09 | TP table out (`tptable/1`, CSV), SDF round trip | N | S | tp-08, tp-07, arch-web-17 | new `tptable.rs` | request row | RDKit masses; S66 column names (run-time) |
+| 90 | tp-10 | named steps, `sites/1`, derive by step | N | M | tp-03 | `tp.rs` + `label.rs` row | request row (`step`, `site`, `sites`, `steps`) | RDKit reaction SMARTS in the tool only |
+| 91 | tp-11 | step field on the page (`Shift+T`, `[` `]` while open) | N | S | tp-10 (its kill test passed); CTX-MENU page | input + page + overlay | no | velocity/1 |
+
+Deferred, no prompt: V3, the uncertain L3 TP drawn as a site mark mapped onto `trasf/1`'s uncertain form (after plan-12); the "metro" mode of tp-05 (polyline routing, lane pins, y by Δm/z or RT, after tp-06); a TP table drawn on the canvas (after tp-09).
+Dropped: arrow width or dash from peak areas (V4); the rigidity slider (V1); the journal preset compiler (V6, covered by arch-std-16).
+
+Totals after this section: 91 rows to run, 39 new prompts in all (11 from TP-DRAW).
+
+### 11.2 Waves
+- **Wave 2 tail** (after plan-01 and plan-20): tp-01.
+- **Wave 3:** tp-02, then tp-05 (both after tp-01), then tp-06. tp-02 and tp-06 touch the page and `context.rs`: serialize them with each other and with the CTX-MENU page PR.
+- **Wave 4:** tp-03 (after plan-11), then tp-04; tp-07 (after arch-web-17 and tp-05).
+- **Wave 5:** tp-08, then tp-09.
+- **Wave 6:** tp-10, then tp-11 (only if tp-10's kill test passes). tp-11 touches the page: serialize it with plan-16, arch-web-11 and plan-08.
+
+tp-01 is the only TP prompt that needs COO 16's agreement before its PR (two op fields). The others add request rows only (D13).
+
+### 11.3 Edits to existing prompts
+These are listed here, not rewritten. Each chat applies its edit when it starts (as §7).
+
+27. **E27 plan-13:** the request has two shapes for commands, with one meaning: the top-level singular `"command"` + `"args"` (plan-13's shape) is a `"commands"` list of length one (tp-01), and a request with both is invalid (exit 2). Rules for `scheme:row`:
+    - it sets no end of an arrow that has `from`/`to` (tp-01), and calls tp-01's `route` for it; free arrows keep plan-13's own rule;
+    - plan-13's argument `gap` (1.0) is not tp-05's setting `pathway.col_gap` (2.5), and the names stay apart;
+    - if plan-13 merges before tp-01, tp-01 makes the `route` change and adds `commands` next to plan-13's rows.
+28. **E28 plan-14 (amends E18; E18 stays, D32):** series orientation is not covered by the TP prompts.
+    - tp-03 inherits the parent's coordinates, so a TP made by `tp:derive` needs no orientation.
+    - tp-05 only moves whole structures.
+    - E18 (`scheme:orient-series`) stays for structures drawn or imported separately; tp-08 imports SMILES, whose computed coordinates are not oriented, and runs `scheme:orient` on each parent → TP pair once plan-14 exists.
+    - plan-14 rotates and flips; it never places structures (that is tp-05's).
+29. **E29 plan-20:** `draw-result/1` gains the following, with the key-table rows and the JSON Schema `docs/schemas/draw-result-1.json` updated with them:
+    - **stage `command`**: `failed.stage` takes `command` next to `log`, `select` (plan-24), `plan` and `grant` (E21). With stage `command`:
+      - `failed.op` is the 0-based index in the request's `commands` (or 0 for the singular `command`), not an index in `log`;
+      - `failed.key` is the command's refusal key;
+      - `failed.id` is the id it is about (0 when none).
+    - **exit 1** (a verdict, with `draw-result/1` on stdout) for a command that is refused for this document: a cycle, a site that does not fit, a bad row. An unknown command or an unknown argument is an invalid request (exit 2).
+    - **key `failed.rows`** (tp-08): an array `[{"line","key"}]` in line order, listing every failing row of a `tp:import`. It is placed last among the keys of `failed`, after `candidates`. It is present only for stage `command` when the command reads rows.
+    - **atomic** (D31): a refused command writes nothing and gives no `out`, as plan-20 states for the log.
+    - **`id`**: it stays the second key of the envelope (E26). These keys change nothing in its position.
+
+    If plan-20 has merged before tp-01 runs, tp-01 makes E29 in its PR; else plan-20 includes it.
+
+### 11.4 Decisions (21 Nov 2026)
+| # | question | decision | by |
+|---|---|---|---|
+| D31 | TP import with failing rows | Atomic: nothing is applied and there is no `out`; `failed.rows` lists every failing row. There is no partial import. | COO-MZDRAW (review of #54) |
+| D32 | does TP-DRAW cover plan-14's series orientation (E18) | No. TP-DRAW covers TPs made by derive. E18 stays for imported structures and series, and tp-08 calls `scheme:orient` once plan-14 exists (E28). | COO-MZDRAW (review of #54) |

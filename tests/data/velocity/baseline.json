@@ -1,0 +1,107 @@
+{
+ "format": "velocity/1",
+ "tool": "mzdraw",
+ "note": "Actions only (times vary by machine). The regression guard `node tests/velocity.mjs --check` fails when a path needs more actions than this file or no longer reaches its target.",
+ "rows": [
+  {
+   "task": "benzene",
+   "pointer": "mouse",
+   "actions": 2,
+   "ok": true
+  },
+  {
+   "task": "benzene",
+   "variant": "touch",
+   "pointer": "touch",
+   "actions": 2,
+   "ok": true
+  },
+  {
+   "task": "ethanol",
+   "pointer": "mouse",
+   "actions": 3,
+   "ok": true
+  },
+  {
+   "task": "ethanol",
+   "variant": "touch",
+   "pointer": "touch",
+   "actions": 3,
+   "ok": true
+  },
+  {
+   "task": "ethanol",
+   "variant": "keyboard",
+   "pointer": "keyboard",
+   "actions": 5,
+   "ok": true
+  },
+  {
+   "task": "isobutanol",
+   "pointer": "mouse",
+   "actions": 5,
+   "ok": true
+  },
+  {
+   "task": "ibuprofen",
+   "pointer": "mouse",
+   "actions": 13,
+   "ok": true
+  },
+  {
+   "task": "caffeine",
+   "pointer": "mouse",
+   "actions": 21,
+   "ok": true
+  },
+  {
+   "task": "anthracene",
+   "pointer": "mouse",
+   "actions": 4,
+   "ok": true
+  },
+  {
+   "task": "anthracene",
+   "variant": "touch",
+   "pointer": "touch",
+   "actions": 4,
+   "ok": true
+  },
+  {
+   "task": "gonane",
+   "pointer": "mouse",
+   "actions": 6,
+   "ok": true
+  },
+  {
+   "task": "butanediol-rr",
+   "pointer": "mouse",
+   "actions": 10,
+   "ok": true
+  },
+  {
+   "task": "glycine-zwitterion",
+   "pointer": "mouse",
+   "actions": 13,
+   "ok": true
+  },
+  {
+   "task": "boc-amine",
+   "pointer": "mouse",
+   "actions": 9,
+   "ok": true
+  },
+  {
+   "task": "esterification",
+   "pointer": "mouse",
+   "actions": 18,
+   "ok": true
+  },
+  {
+   "task": "three-in-a-row",
+   "pointer": "mouse",
+   "actions": 13,
+   "ok": true
+  }
+ ]
+}

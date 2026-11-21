@@ -15,7 +15,7 @@ You are DEV-DROP-COPY-AS, a development chat. You build one small slice, open on
 - Anything else you notice: one line to COO-MZDRAW, not in this PR.
 
 ## Context (read first)
-- `CLAUDE.md` (rules 1-15), `docs/mzdraw.md` (the section "Built state" is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 21, and §5 for the API).
+- `CLAUDE.md` (rules 1-15), `docs/built/` (the Built state is what exists; do not rebuild it), `docs/study/arch-web.md` (the rows of §4 named in §7 for slice 21, and §5 for the API).
 - Ketcher: `Mod+Shift+M/K/F` copy as MOL / KET / image (help 3.21.0). Clipboard API WD 2026-06-24: `text/plain`, `text/html`, `image/png` mandatory; custom `web` formats in Chromium 104 and Firefox 161, not Safari; one item per write in Chrome and Firefox; a user gesture is needed in Firefox and Safari (BCD 8.1.10).
 - Today copy writes the molfile as plain text and the document under `application/x-mzdraw+json` (`docs/mzdraw.md` Slice 2a); the PNG is made by the page from the module's SVG (`png_plan`, `png_finish`).
 
@@ -25,10 +25,10 @@ You are DEV-DROP-COPY-AS, a development chat. You build one small slice, open on
 - No bundler, no framework, no new crate or npm package unless the PR states the reason.
 - Synthetic data only in tests and examples (molecules you write yourself as SMILES or by hand).
 - Every new edit operation has an exact inverse and is added to the random sequence of the property test (`random_step` in `crates/mzdraw/tests/ops.rs`: apply then undo gives the identical document bytes, redo the identical result), and to the log reader and writer tests of the same file.
-- CLI first (CLAUDE.md rule 15): a feature without a CLI route and a test that replays it natively is incomplete. Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to `tests/data/mzdraw_log.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
+- CLI first (CLAUDE.md rule 15): a feature without a CLI route and a test that replays it natively is incomplete. Every page function has its scriptable twin: a `draw_edit/1` op, a `section.key=value` setting, or a field of the replay request; the native replay (`cargo run -p mzdraw --example replay`) gives the same bytes as the page (`tests/parity.mjs`); add a case to your own file `tests/data/log/<area>.json` and bless it only after a wanted change (`MZDRAW_BLESS=1 cargo test -p mzdraw --test replay`).
 - Never skip, disable or loosen a test. Never push to `main`, never rebase, never force-push; merge `main` into the branch only on a real conflict. The PR is opened ready for review and is never merged by you.
-- Keep the size cap of `tools/wasm-cap.toml` as it is on `main` when you start; update `measured` with the size you measure and report the change in bytes in the PR.
-- Keep the section "Built state" of `docs/mzdraw.md` true (one bullet for this slice, what is built and what is not), and mark the rows of `docs/study/arch-web.md` §4 that you build as `B`.
+- Keep the size cap of `tools/wasm-cap.toml` as it is on `main` when you start; do not edit `measured` (it is gone: the build prints the size) and report the change in bytes in the PR.
+- Keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice, what is built and what is not), and mark the rows of `docs/study/arch-web.md` §4 that you build as `B`.
 
 ## Work
 1. Rust: the keys returning page flags (as `ASK_LABEL` does) that ask the page to copy a given format; the format bytes from `save`.

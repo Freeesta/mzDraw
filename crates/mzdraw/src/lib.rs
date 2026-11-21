@@ -28,6 +28,7 @@ pub mod png;
 pub mod replay;
 pub mod rxn;
 pub mod scene;
+pub mod schema;
 pub mod settings;
 pub mod svg;
 pub mod xml;

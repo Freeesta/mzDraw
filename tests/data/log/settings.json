@@ -1,0 +1,48 @@
+{
+  "refused": [
+    {
+      "error_key": "error.draw2.export",
+      "request": {
+        "set": [
+          "export.default=gif"
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.layout",
+      "request": {
+        "set": [
+          "layout.snap=99"
+        ]
+      }
+    }
+  ],
+  "settings": [
+    {
+      "name": "layout and export defaults set one by one, as the CLI --set does",
+      "out": "{\"export\":{\"background\":\"none\",\"default\":\"png\"},\"format\":\"mzdraw-settings/1\",\"layout\":{\"preset\":\"tablet\",\"snap\":16.0},\"style\":{\"bold_width\":6.0,\"bond_length\":30.0,\"bond_spacing\":0.13,\"colour\":\"element\",\"font_size\":12.0,\"hash_spacing\":3.6,\"line_width\":1.35,\"margin\":2.04,\"preset\":\"mzlab\",\"subscript_scale\":0.7}}",
+      "request": {
+        "out": "settings",
+        "set": [
+          "layout.preset=tablet",
+          "layout.snap=16",
+          "export.default=png",
+          "export.background=none"
+        ],
+        "style": "mzlab"
+      }
+    },
+    {
+      "name": "a whole layout object set, then the export defaults",
+      "out": "{\"export\":{\"background\":\"none\",\"default\":\"molfile\"},\"format\":\"mzdraw-settings/1\",\"layout\":{\"preset\":\"phone\",\"palettes\":[{\"id\":\"edit\",\"dock\":\"float\",\"x\":300.0,\"y\":200.0,\"orient\":\"v\"},{\"id\":\"view\",\"hidden\":true}]},\"style\":{\"bold_width\":6.0,\"bond_length\":30.0,\"bond_spacing\":0.13,\"colour\":\"element\",\"font_size\":12.0,\"hash_spacing\":3.6,\"line_width\":1.35,\"margin\":2.04,\"preset\":\"mzlab\",\"subscript_scale\":0.7}}",
+      "request": {
+        "out": "settings",
+        "set": [
+          "layout={\"preset\":\"phone\",\"palettes\":[{\"id\":\"edit\",\"dock\":\"float\",\"x\":300,\"y\":200,\"orient\":\"v\"},{\"id\":\"view\",\"hidden\":true}]}",
+          "export.default=molfile",
+          "export.background=none"
+        ]
+      }
+    }
+  ]
+}
