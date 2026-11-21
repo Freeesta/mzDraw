@@ -228,3 +228,93 @@ fn the_golden_requests_give_the_recorded_bytes() {
         std::fs::write(&path, serde_json::to_string_pretty(&file).unwrap() + "\n").unwrap();
     }
 }
+
+#[test]
+fn a_structure_of_more_than_200_atoms_is_a_key_and_no_number_and_200_has_its_mass() {
+    let chain = |n: usize| "C".repeat(n);
+    for (n, ok) in [(200, true), (201, false), (250, false)] {
+        let v = values(json!({"import": chain(n), "values": true}));
+        let s = &v["structures"][0];
+        assert_eq!(s["formula"], format!("C{n}H{}", 2 * n + 2), "{n}");
+        if ok {
+            // 2400 + 402 * 1.00782503207 (405.145663) = 2805.145663 (a chain of 200 carbons, C200H402)
+            assert_eq!(s["mass"], "2805.1457", "{n}");
+            assert_eq!(s["error"], Value::Null);
+        } else {
+            assert_eq!(s["error"], "error.grafo.tooBig", "{n}");
+            assert_eq!(
+                (s["mass"].clone(), s["average"].clone(), s["mz"].clone()),
+                (Value::Null, Value::Null, json!({})),
+                "{n}"
+            );
+        }
+    }
+}
+
+#[test]
+fn every_key_the_engine_can_refuse_with_has_a_text_in_the_catalog() {
+    // an explicit hydrogen atom (deuterium) and a metal ion: the engine's keys reach the panel, which shows the catalog text of the key
+    let v = values(json!({"import": "[2H]C([2H])([2H])O.CC(=O)[O-].[Na+]", "values": true}));
+    let keys: Vec<&str> = v["structures"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|s| s["error"].as_str())
+        .collect();
+    assert_eq!(keys, ["error.grafo.element", "error.grafo.element"]);
+    let lang = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/lang/mzdraw.js"),
+    )
+    .unwrap();
+    for key in [
+        "error.grafo.element",
+        "error.grafo.tooBig",
+        "error.grafo.molfile",
+        "error.grafo.delta",
+        "error.grafo.delta.neg",
+        "error.sel.request",
+        "error.label.request",
+        "error.draw2.valuesOpen",
+        "error.draw2.valuesSize",
+        "error.draw2.valuesAlone",
+        "error.draw2.valuesEngine",
+        "error.draw2.valuesAdduct",
+    ] {
+        let line = lang
+            .lines()
+            .find(|l| l.trim_start().starts_with(&format!("\"{key}\":")))
+            .unwrap_or_else(|| panic!("no text for {key}"));
+        assert!(
+            line.len() > key.len() + 20 && !line.contains(": \"error."),
+            "{key}: {line}"
+        );
+    }
+}
+
+/// The best of three runs of `f`, in microseconds.
+fn best(f: impl Fn()) -> u128 {
+    (0..3)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            f();
+            t.elapsed().as_micros()
+        })
+        .min()
+        .unwrap()
+}
+
+#[test]
+fn the_glue_path_with_the_real_engine_scales_linearly_in_the_structures() {
+    // 25 structures against 100 (four times): the request is import, scan, one `sel` call per structure and the answer
+    let ask = |n: usize| json!({"import": vec!["CCO"; n].join("."), "values": true}).to_string();
+    let (small, large) = (ask(25), ask(100));
+    let run = |r: &str| {
+        let v: Value = serde_json::from_str(&glue::replay(r).unwrap()).unwrap();
+        assert_eq!(v["error"], Value::Null);
+    };
+    let (a, b) = (best(|| run(&small)), best(|| run(&large)));
+    assert!(
+        b <= 8 * a.max(1),
+        "25 structures {a} us, 100 structures {b} us"
+    );
+}

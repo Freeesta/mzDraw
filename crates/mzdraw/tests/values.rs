@@ -388,9 +388,9 @@ fn a_result_a_later_edit_left_behind_is_never_drawn() {
     assert_eq!(calls(), before, "nothing changed: no call");
 }
 
-/// The best of three runs of `f`, in microseconds.
+/// The best of five runs of `f`, in microseconds.
 fn best(f: impl Fn()) -> u128 {
-    (0..3)
+    (0..5)
         .map(|_| {
             let t = std::time::Instant::now();
             f();
@@ -400,20 +400,27 @@ fn best(f: impl Fn()) -> u128 {
         .unwrap()
 }
 
+/// Four times the size may cost about four times; a scan of all atoms or all bonds for each structure costs sixteen times. There is
+/// no floor: the sizes are chosen so that the small run takes milliseconds in a release build too, and the bound 8 leaves a factor two
+/// over the linear ratio for noise.
+fn assert_linear(what: &str, small: u128, large: u128) {
+    assert!(
+        large <= 8 * small.max(1),
+        "{what}: {small} us, four times the size {large} us"
+    );
+}
+
 #[test]
 fn the_scan_the_captions_and_a_selection_scale_linearly() {
-    // structures: 4 times as many may cost about 4 times; a scan of all atoms per structure costs 16 times
-    let (small, large) = (grid(500, 3), grid(2000, 3));
-    let (a, b) = (
+    let (small, large) = (grid(4000, 3), grid(16000, 3));
+    assert_linear(
+        "scan of 4000 structures",
         best(|| drop(values::scan(&small))),
         best(|| drop(values::scan(&large))),
     );
-    assert!(
-        b <= 9 * a.max(3000),
-        "scan: 500 structures {a} us, 2000 structures {b} us"
-    );
     let adducts: Vec<String> = Vec::new();
-    let (a, b) = (
+    assert_linear(
+        "captions of 4000 structures",
         best(|| {
             drop(values::captions(
                 &small,
@@ -431,31 +438,45 @@ fn the_scan_the_captions_and_a_selection_scale_linearly() {
             ))
         }),
     );
-    assert!(
-        b <= 9 * a.max(3000),
-        "captions: 500 structures {a} us, 2000 structures {b} us"
+    // a selection of one long chain: all its atoms, cut bonds counted once per bond
+    let (small, large) = (grid(1, 4000), grid(1, 16000));
+    let sel = |d: &Document, n: u32| {
+        let s = values::scan(d);
+        drop(s.selection(d, &(1..=n).collect::<Vec<u32>>()).unwrap());
+    };
+    assert_linear(
+        "selection of 4000 atoms",
+        best(|| sel(&small, 4000)),
+        best(|| sel(&large, 16000)),
     );
-    // the sub-records of all the structures, through the engine stand-in (the cap is 200 structures: use the largest allowed)
-    let (small, large) = (grid(50, 20), grid(values::MAX_STRUCTURES, 20));
+    // the sub-records of the structures, up to the cap of 5000 atoms (the stand-in engine: the glue path with the real engine is
+    // timed in crates/mzdraw-wasm/tests/values.rs)
+    let (small, large) = (grid(25, 50), grid(100, 50));
     let measure = |d: &Document| values::scan(d).measure(&adducts, stand_in).unwrap();
-    let (a, b) = (
+    assert_linear(
+        "sub-records of 25 structures of 50 atoms",
         best(|| drop(measure(&small))),
         best(|| drop(measure(&large))),
     );
-    assert!(
-        b <= 9 * a.max(3000),
-        "measure: 50 structures {a} us, 200 structures {b} us"
-    );
-    // a selection of one long chain: all its atoms, cut bonds counted once per bond
-    let (small, large) = (grid(1, 1000), grid(1, 4000));
-    let ids = |n: u32| (1..=n).collect::<Vec<u32>>();
-    let sel = |d: &Document, n: u32| {
-        let s = values::scan(d);
-        drop(s.selection(d, &ids(n)).unwrap());
-    };
-    let (a, b) = (best(|| sel(&small, 1000)), best(|| sel(&large, 4000)));
-    assert!(
-        b <= 9 * a.max(3000),
-        "selection: 1000 atoms {a} us, 4000 atoms {b} us"
-    );
+}
+
+#[test]
+fn an_edit_of_one_structure_asks_the_engine_again_for_that_one_only() {
+    let mut e = Editor::default();
+    e.measurer = Some(stand_in);
+    e.import("CCO.CC.C").unwrap();
+    let before = calls();
+    e.refresh_values();
+    assert_eq!(calls() - before, 3);
+    // ids 1-3, 4-5, 6: the lone carbon becomes nitrogen
+    let set = mzdraw::ops::Op::parse(&json!({"op": "atom.set", "id": 6, "el": "N"})).unwrap();
+    e.session.run(&[set]).unwrap();
+    let before = calls();
+    e.refresh_values();
+    assert_eq!(calls() - before, 1, "only the changed structure is asked");
+    // a change of the adducts asks for all of them
+    e.set("display.adducts=[M+K]+").unwrap();
+    let before = calls();
+    e.refresh_values();
+    assert_eq!(calls() - before, 3);
 }

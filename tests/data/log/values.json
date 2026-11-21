@@ -96,6 +96,22 @@
           "display.values=mass"
         ]
       }
+    },
+    {
+      "name": "values: 201 atoms in one structure is a key and no number",
+      "out": "{\"format\":\"values/1\",\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":201,\"formula\":\"C201H404\",\"charge\":0,\"composition\":{\"C\":201,\"H\":404},\"mass\":null,\"average\":null,\"ionMz\":null,\"mz\":{},\"error\":\"error.grafo.tooBig\"}],\"selection\":null}",
+      "request": {
+        "import": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        "values": true
+      }
+    },
+    {
+      "name": "values: an explicit hydrogen atom and a metal ion are keys and no number",
+      "out": "{\"format\":\"values/1\",\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":5,\"formula\":\"CH4O\",\"charge\":0,\"composition\":{\"C\":1,\"H\":4,\"O\":1},\"mass\":null,\"average\":null,\"ionMz\":null,\"mz\":{},\"error\":\"error.grafo.element\"},{\"anchor\":6,\"atoms\":1,\"formula\":\"Na+\",\"charge\":1,\"composition\":{\"Na\":1},\"mass\":null,\"average\":null,\"ionMz\":null,\"mz\":{},\"error\":\"error.grafo.element\"}],\"selection\":null}",
+      "request": {
+        "import": "[2H]C([2H])([2H])O.[Na+]",
+        "values": true
+      }
     }
   ]
 }

@@ -2490,6 +2490,16 @@ try {
     await shot(pg, "values-selection");
     await pg.keyboard.press("Escape"); await want(pg, { selected: 0 });
     await until(pg, "document.querySelector('#d2-values-sel').textContent === ''");
+    // what the engine cannot read shows its words, never the key: a metal ion, an explicit hydrogen atom, a structure of 201 atoms
+    for (const [smiles, key] of [["CC(=O)[O-].[Na+]", "error.grafo.element"], ["[2H]C([2H])([2H])O", "error.grafo.element"], ["C".repeat(201), "error.grafo.tooBig"]]) {
+      await tool(pg, "clear"); await want(pg, { atoms: 0 });
+      await addSmiles(pg, smiles); await until(pg, "document.querySelectorAll('#d2-values li').length > 0");
+      const rows = await valueRows(pg), text = await VT(key, {});
+      assert(text !== key && !text.startsWith("error."), "the catalog has a text for " + key);
+      assert(rows.some(r => r.includes(text)) && rows.every(r => !r.includes("error.")), `${smiles.slice(0, 20)}: the panel says it in words: ${JSON.stringify(rows)}`);
+    }
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await addSmiles(pg, "Cn1cnc2c1c(=O)n(C)c(=O)n2C.CCO"); await want(pg, { atoms: 17 });
     // the document is untouched by all of it, and the same numbers come from the command line door (replay_glue, the example of the parity)
     const doc = await pg.evaluate("window.MZDRAW.save('mzdraw')");
     const v = JSON.parse(await pg.evaluate(d => window.MZDRAW.replay_glue(JSON.stringify({ import: d, values: true })), doc));

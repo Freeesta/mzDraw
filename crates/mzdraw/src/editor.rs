@@ -963,20 +963,20 @@ impl Editor {
             return;
         }
         let scan = crate::values::scan(self.doc());
-        // a move or a bond edit that leaves every structure as it was (formula, isotopes, anchor) and the adducts as they were keeps
-        // what the engine gave: a mass does not depend on where an atom is drawn
-        let same = self.measured_error.is_empty()
-            && self.measured_adducts == self.style.adducts
-            && self.measured.len() == scan.structures.len()
-            && (self.measured.iter().zip(&scan.structures)).all(|(e, s)| e.matches(s));
-        if !same {
-            self.measured.clear();
-            self.measured_error = "";
-            self.measured_adducts = self.style.adducts.clone();
-            match scan.measure(&self.style.adducts, engine) {
-                Ok(entries) => self.measured = entries,
-                Err(key) => self.measured_error = key,
-            }
+        // a structure that is as it was (anchor, formula, isotopes) and the same adducts keep what the engine gave: a mass does not
+        // depend on where an atom is drawn, and an edit of one structure does not ask again for the others
+        let prev = if self.measured_adducts == self.style.adducts && self.measured_error.is_empty()
+        {
+            std::mem::take(&mut self.measured)
+        } else {
+            Vec::new()
+        };
+        self.measured.clear();
+        self.measured_error = "";
+        self.measured_adducts = self.style.adducts.clone();
+        match scan.measure_cached(&self.style.adducts, engine, &prev) {
+            Ok(entries) => self.measured = entries,
+            Err(key) => self.measured_error = key,
         }
         let ids = self.over.sel_atoms.clone();
         if let Some(sel) = scan.selection(self.doc(), &ids) {

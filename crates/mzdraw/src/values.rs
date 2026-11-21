@@ -315,25 +315,43 @@ impl Scan {
         adducts: &[String],
         engine: Measurer,
     ) -> Result<Vec<Entry>, &'static str> {
+        self.measure_cached(adducts, engine, &[])
+    }
+
+    /// Like `measure`, asking the engine only for the structures `prev` (results for the same adducts) does not hold as they are now:
+    /// a result is reused when its anchor, formula and isotopes are the structure's. The engine is asked once for each other one.
+    pub fn measure_cached(
+        &self,
+        adducts: &[String],
+        engine: Measurer,
+        prev: &[Entry],
+    ) -> Result<Vec<Entry>, &'static str> {
         if self.record.atoms.len() > MAX_ATOMS || self.structures.len() > MAX_STRUCTURES {
             return Err("error.draw2.valuesSize");
         }
+        let held: std::collections::HashMap<u32, &Entry> =
+            prev.iter().map(|e| (e.anchor, e)).collect();
         Ok(self
             .structures
             .iter()
             .enumerate()
-            .map(|(k, s)| Entry {
-                anchor: s.anchor,
-                formula: s.formula.clone(),
-                iso: s.iso.clone(),
-                result: if s.open {
-                    Err("error.draw2.valuesOpen")
-                } else {
-                    engine(
-                        &molfile(&self.record, &s.members, &self.bonds_of[k], &[]),
-                        adducts,
-                    )
-                },
+            .map(|(k, s)| {
+                if let Some(e) = held.get(&s.anchor).filter(|e| e.matches(s)) {
+                    return (*e).clone();
+                }
+                Entry {
+                    anchor: s.anchor,
+                    formula: s.formula.clone(),
+                    iso: s.iso.clone(),
+                    result: if s.open {
+                        Err("error.draw2.valuesOpen")
+                    } else {
+                        engine(
+                            &molfile(&self.record, &s.members, &self.bonds_of[k], &[]),
+                            adducts,
+                        )
+                    },
+                }
             })
             .collect())
     }
