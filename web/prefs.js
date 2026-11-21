@@ -8,8 +8,11 @@
 let ours = false;
 export function applyTheme(ed) {
   const attr = ed.theme_attr(), root = document.documentElement;
+  // a `data-theme` that a host set stays alone; one the page set (here, or `theme.js` before the first paint, which marks it) is taken off for `auto`
   if (attr) { root.dataset.theme = attr; ours = true; }
-  else if (ours) { delete root.dataset.theme; ours = false; }
+  else if (ours || root.dataset.d2Own === "1") { delete root.dataset.theme; ours = false; }
+  delete root.dataset.d2Own;
+  if (attr) root.dataset.d2Own = "1";
   try { if (attr) localStorage.setItem("d2-theme", attr); else localStorage.removeItem("d2-theme"); } catch { /* no storage */ }
 }
 

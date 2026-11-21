@@ -2468,7 +2468,7 @@ try {
       new MutationObserver((_, o) => { if (document.body) { /** @type {any} */ (window).__atBody = [document.documentElement.dataset.theme || "", document.documentElement.dataset.d2Ready || ""]; o.disconnect(); } }).observe(document, { childList: true, subtree: true });
     });
     eq(await c.pg.evaluate("window.__atBody"), ["dark", ""], "the first paint has the stored theme, the module is not ready yet");
-    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), "dark");
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined, "the module's settings say auto: the stored word is taken off once it is ready");
     await c.ctx.close();
     // a corrupt stored theme: the file's style and layout are kept, the note says what was dropped
     c = await context(browser, { viewport: { width: 1280, height: 800 } });
@@ -2478,6 +2478,10 @@ try {
     eq(await c.pg.evaluate("window.MZDRAW.get('ui.theme')"), "auto");
     eq(await c.pg.innerText("#d2-style-note"), await c.pg.evaluate("I18N.t('error.draw2.ui')"));
     eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined);
+    await c.pg.evaluate(() => localStorage.setItem("d2-theme", "dark")); await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
+    await c.pg.evaluate(async name => { const w = await (await (await navigator.storage.getDirectory()).getFileHandle(name, { create: true })).createWritable(); await w.write(JSON.stringify({ format: "mzdraw-settings/1", style: {} })); await w.close(); }, "mzdraw-settings.json");
+    await c.pg.evaluate(() => localStorage.setItem("d2-theme", "dark")); await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined, "a stored dark theme the module's settings do not have is taken off");
     await c.ctx.close();
     // storage that throws: the page starts, in the theme of the system
     c = await context(browser, { viewport: { width: 1280, height: 800 } }, () => {
