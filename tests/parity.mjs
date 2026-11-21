@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const wasm = createRequire(import.meta.url)(path.join(root, "target/pkg-node/mzdraw_wasm.js"));
 // the golden files: every *.json of tests/data/log/, sorted by name, each with some of the sections below (as crates/mzdraw/tests/common reads them)
 const logDir = path.join(root, "tests/data/log");
-const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [], trasf: [], diffs: [], losses: [], values: [] };
+const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [], trasf: [], diffs: [], losses: [], values: [], feedbacks: [] };
 for (const f of readdirSync(logDir).filter(f => f.endsWith(".json")).sort()) {
   const part = JSON.parse(readFileSync(path.join(logDir, f), "utf8"));
   for (const k of Object.keys(part)) {
@@ -105,6 +105,16 @@ for (const c of fx.values) {
   check(onPage.stdout === c.out, `${c.name}: the recorded bytes`);
   // the engine was there: `values/1` says so, a table has masses with four decimals, a drawing has the mass text
   if (!c.plain) check(c.request.values ? /"engine":true/.test(c.out) : String(c.request.out).startsWith("tptable") ? /\d+\.\d{4}/.test(c.out) : /<text/.test(c.out), `${c.name}: the engine was there`);
+}
+// the report of a bug or an improvement (`feedback/1`): the same bytes from the page and from the replay, and the recorded ones; the URL
+// stays under 6000 bytes and the log is in it only when the request ticked it and it fits
+for (const c of fx.feedbacks) {
+  const request = JSON.stringify(c.request), a = site(request), b = native(request);
+  check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
+  check(a.stdout === b.stdout, `${c.name}: wasm == native`);
+  const v = JSON.parse(c.out);
+  check(a.stdout === c.out && v.format === "feedback/1" && v.url.length <= 6000, `${c.name}: the recorded bytes`);
+  check(v.url.includes("&log=") === (v.truncated === false && !!c.request.feedback.log), `${c.name}: the log is in the URL only when asked for and it fits`);
 }
 // the semantic diff of two documents: the same patch and hunks on both sides, the recorded ones
 for (const c of fx.diffs) {

@@ -96,6 +96,13 @@ canvas:focus-visible { outline-offset: -3px; }
 /* flyouts: beside the button that opens them, on the side away from the palette's edge */
 #d2-flys .fly { position: fixed; z-index: 40; display: flex; flex-direction: column; gap: 2px; min-width: 200px; max-height: 80vh; overflow: auto; padding: 6px; background: var(--bg); border: 1px solid var(--mzd-border); border-radius: 8px; box-shadow: 0 6px 20px var(--mzd-shadow); }
 #d2-flys .fly[hidden], #d2-fly-saveas[hidden] { display: none; }
+#d2-colour-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+#d2-colour-list button { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 8px; text-align: left; }
+#d2-colour-list .chip { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--fg); box-sizing: border-box; }
+#d2-colour-list .chip.auto { background: conic-gradient(var(--fg) 0 25%, transparent 0 50%, var(--fg) 0 75%, transparent 0); }
+.d2-colour-custom { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.d2-colour-custom input { min-height: 36px; width: 7.5em; }
+#d2-colour-note { margin: 4px 0 0; min-height: 1.2em; }
 .fly button[data-cmd], .fly button[data-opens] { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; min-height: 40px; border-color: transparent; background: transparent; }
 .fly.grid { display: grid; grid-template-columns: repeat(5, 44px); min-width: 0; }
 .fly.grid button[data-cmd] { width: 44px; height: 44px; justify-content: center; padding: 0; }
@@ -171,3 +178,33 @@ p { margin: 4px 0; }
 #d2-step li .delta { font-variant-numeric: tabular-nums; opacity: 0.85; }
 #d2-step p { margin: 2px 0; font-size: 13px; }
 @media (pointer: coarse) { #d2-step input, #d2-step button { min-height: 44px; } #d2-step li { min-height: 44px; align-items: center; } }
+
+/* the About box and the report box (feedback-about): two small popovers over the canvas, no modal dialog */
+#d2-meta { position: absolute; left: 50%; transform: translateX(-50%); bottom: 6px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; z-index: 4; }
+#d2-meta button { min-height: 28px; font-size: 12px; }
+#d2-report[hidden], #d2-about[hidden], #d2-report-copy[hidden] { display: none; }
+#d2-report, #d2-about { position: absolute; left: 50%; transform: translateX(-50%); bottom: 40px; width: min(24rem, calc(100% - 16px)); box-sizing: border-box; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 6px; z-index: 8; }
+#d2-report fieldset { border: 0; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+#d2-report legend { padding: 0; font-weight: 600; margin-bottom: 2px; }
+#d2-report label { display: flex; gap: 6px; align-items: center; min-height: 28px; }
+#d2-report label.log { align-items: flex-start; }
+#d2-report p, #d2-about p { margin: 4px 0; font-size: 13px; }
+#d2-report .row, #d2-about .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+#d2-report input:focus-visible, #d2-about a:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 2px; }
+#d2-about a { color: var(--accent); }
+@media (pointer: coarse) { #d2-meta button, #d2-report button, #d2-about button { min-height: 44px; } #d2-report label { min-height: 44px; } }
+
+/* the Preferences flyout (prefs.js): groups as fieldsets, one row per option, usable by keyboard, touch and pen */
+#d2-fly-prefs { width: min(26rem, calc(100vw - 16px)); gap: 6px; }
+#d2-fly-prefs[hidden] { display: none; }
+#d2-fly-prefs fieldset { margin: 0; padding: 6px 8px; border: 1px solid var(--mzd-border); border-radius: 6px; }
+#d2-fly-prefs legend { font-weight: 600; padding: 0 4px; }
+#d2-fly-prefs .field { display: flex; align-items: center; gap: 8px; margin: 2px 0; min-height: 36px; }
+#d2-fly-prefs .field > span { flex: 1 1 10rem; }
+#d2-fly-prefs select, #d2-fly-prefs input[type="number"] { min-height: 36px; box-sizing: border-box; max-width: 11rem; }
+#d2-fly-prefs input[type="number"] { width: 6rem; }
+#d2-fly-prefs fieldset fieldset { border: 0; padding: 0; }
+#d2-fly-prefs fieldset fieldset label { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; min-height: 36px; }
+#d2-fly-prefs button { min-height: 36px; }
+#d2-fly-prefs .row { display: flex; gap: 6px; align-items: flex-start; justify-content: space-between; }
+#d2-fly-prefs p { margin: 2px 0; font-size: 13px; }

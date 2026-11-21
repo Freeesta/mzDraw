@@ -92,6 +92,17 @@ fn every_case_replays_to_the_recorded_bytes() {
             let doc: Value = serde_json::from_str(&got.text).unwrap();
             assert_eq!(doc["ok"], json!(got.ok), "{}", case["name"]);
         }
+        // the report of a bug or an improvement (`feedback/1`): the same bytes on both sides, the issue form named by the request
+        for case in section_mut(fx, "feedbacks") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            let v: Value = serde_json::from_str(&got).unwrap();
+            assert_eq!(v["format"], "feedback/1");
+            assert!(v["url"].as_str().unwrap().len() <= mzdraw::feedback::LIMIT);
+        }
         // the table of the operations (`draw-edit-schema/1`): the CLI twin of the language reader
         for case in section_mut(fx, "schemas") {
             let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();

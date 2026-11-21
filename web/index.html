@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <script src="appname.js"></script>
+<script src="theme.js"></script>
 <title data-i18n="draw2.name"></title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="mzdraw.css">
@@ -20,6 +21,28 @@
       <button id="d2-step-close" type="button" data-i18n="draw2.step.close" title="Close the field" data-i18n-title="draw2.step.close.title">Close</button></div>
     <ul id="d2-step-list" role="listbox" aria-label="Steps" data-i18n-aria-label="draw2.step.list"></ul>
     <p id="d2-step-line" role="status" aria-live="polite"></p>
+  </div>
+  <div id="d2-meta"><button id="d2-about-open" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="d2-about" data-i18n="draw2.about" title="What this page is, its version and its licence" data-i18n-title="draw2.about.title">About</button>
+    <button id="d2-report-open" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="d2-report" data-i18n="draw2.report" title="Opens a new GitHub issue in a new tab, prefilled. Nothing is sent until you submit it on GitHub." data-i18n-title="draw2.report.title">Report a bug / suggest an improvement</button></div>
+  <div id="d2-report" role="group" aria-label="Report a bug or suggest an improvement" data-i18n-aria-label="draw2.report.region" hidden>
+    <fieldset><legend data-i18n="draw2.report.kind">What is it?</legend>
+      <label><input type="radio" name="d2-report-kind" value="bug" checked> <span data-i18n="draw2.report.bug">Bug</span></label>
+      <label><input type="radio" name="d2-report-kind" value="improvement"> <span data-i18n="draw2.report.improvement">Improvement</span></label></fieldset>
+    <label class="log"><input id="d2-report-log" type="checkbox"> <span data-i18n="draw2.report.log">Include the command log of my drawing. It will be visible publicly on GitHub.</span></label>
+    <p class="hint" data-i18n="draw2.report.privacy">Nothing leaves your browser until you submit the issue on GitHub.</p>
+    <p id="d2-report-note" role="status" aria-live="polite"></p>
+    <div class="row"><button id="d2-report-go" type="button" data-i18n="draw2.report.open" title="Open a new GitHub issue, prefilled, in a new tab" data-i18n-title="draw2.report.open.title">Open on GitHub</button>
+      <button id="d2-report-copy" type="button" hidden data-i18n="draw2.report.copy" title="Copy the command log, to paste it in the issue" data-i18n-title="draw2.report.copy.title">Copy the log</button>
+      <button id="d2-report-close" type="button" data-i18n="draw2.report.close" title="Close this box" data-i18n-title="draw2.report.close.title">Close</button></div>
+  </div>
+  <div id="d2-about" role="group" aria-labelledby="d2-about-name" hidden>
+    <h2 id="d2-about-name"></h2>
+    <p data-i18n="draw2.about.what">{app} is a 2D molecule editor that runs in your browser. Draw structures and reactions with the mouse, the keyboard, touch or a pen, and save them in the usual formats.</p>
+    <p id="d2-about-version"></p>
+    <p><a id="d2-about-repo" target="_blank" rel="noopener noreferrer" data-i18n="draw2.about.repo">Source code</a> · <a id="d2-about-licence" target="_blank" rel="noopener noreferrer" data-i18n="draw2.about.licence">Licence</a></p>
+    <p data-i18n="draw2.about.privacy">Once the page is loaded it works offline and sends nothing. A report is only a prefilled GitHub issue that opens in a new tab; nothing leaves your browser until you submit it there.</p>
+    <div class="row"><button id="d2-about-report" type="button" data-i18n="draw2.report" title="Opens a new GitHub issue in a new tab, prefilled. Nothing is sent until you submit it on GitHub." data-i18n-title="draw2.report.title">Report a bug / suggest an improvement</button>
+      <button id="d2-about-close" type="button" data-i18n="draw2.about.close" title="Close this box" data-i18n-title="draw2.report.close.title">Close</button></div>
   </div>
   <div id="d2-proposal" role="region" aria-label="Proposal" data-i18n-aria-label="draw2.proposal" hidden>
     <p id="d2-proposal-at"></p>
@@ -93,6 +116,14 @@
 </div>
 <!-- the flyouts of the palettes, over everything; the save formats are written here, the rest is built -->
 <div id="d2-flys">
+  <div id="d2-fly-colour">
+    <div id="d2-colour-list" role="group" data-i18n-aria-label="draw2.colour.list" aria-label="Colours"></div>
+    <div class="row d2-colour-custom"><label for="d2-colour-hex" data-i18n="draw2.colour.custom">Custom colour</label>
+      <input id="d2-colour-hex" type="text" maxlength="7" size="9" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="#rrggbb" title="A colour as #rgb or #rrggbb" data-i18n-title="draw2.colour.hex.title">
+      <button id="d2-colour-set" type="button" data-i18n="draw2.colour.set" title="Colour the selection with this colour" data-i18n-title="draw2.colour.set.title">Apply</button></div>
+    <p id="d2-colour-note" role="status"></p>
+  </div>
+  <div id="d2-fly-prefs" role="group" data-i18n-aria-label="draw2.fly.prefs" aria-label="Preferences"></div>
   <div id="d2-fly-saveas">
     <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
         <button id="d2-ex-v3000" type="button" data-i18n="draw2.export.v3000" title="Save the drawing as a V3000 molfile" data-i18n-title="draw2.export.v3000.title">Molfile V3000</button>

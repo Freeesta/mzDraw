@@ -220,9 +220,9 @@ impl Painter<'_> {
     }
 
     /// One run of a formatted text: a plain `TEXT` when it has no style, else a `TEXTX`.
-    fn piece(&mut self, x: f64, y: f64, p: &crate::runs::Piece) {
+    fn piece(&mut self, x: f64, y: f64, p: &crate::runs::Piece, ink: f32) {
         if p.face == 0 && p.font.is_empty() && p.rgb < 0 {
-            self.text(x, y, p.size, colour::INK, &p.text, 1.0);
+            self.text(x, y, p.size, ink, &p.text, 1.0);
             return;
         }
         let i = self.out.strings.len();
@@ -233,7 +233,7 @@ impl Painter<'_> {
             x,
             y,
             p.size,
-            colour::INK as f64,
+            f64::from(ink),
             i as f64,
             1.0,
             f64::from(p.face),
@@ -258,10 +258,11 @@ impl Painter<'_> {
         let (Some(p), Some(q)) = (self.doc.atom(b.a), self.doc.atom(b.b)) else {
             return;
         };
+        // the lens (a display of a diff) wins; else an explicit colour; else the ink
         self.ink = if self.lens.bonds.contains(&b.id) {
             colour::ACCENT
         } else {
-            colour::INK
+            crate::ink::index(&b.col()).unwrap_or(colour::INK)
         };
         let (mut s, mut e) = (self.pos(p), self.pos(q));
         let (dx, dy) = (e.0 - s.0, e.1 - s.1);
@@ -449,7 +450,7 @@ impl Painter<'_> {
             let ink = if self.lens.atoms.contains(&a.id) {
                 colour::ACCENT
             } else {
-                colour::INK
+                crate::ink::index(&a.col()).unwrap_or(colour::INK)
             };
             self.text(tx, y + dy, size(digit), ink, &s, 1.0);
             tx += width(&s, size(digit));
@@ -463,8 +464,11 @@ impl Painter<'_> {
         }
         let (x, y) = self.pos(a);
         let f = self.font;
+        // an explicit colour overrides the element colour and the mono ink alike
         let c = if self.lens.atoms.contains(&a.id) {
             colour::ACCENT
+        } else if let Some(c) = crate::ink::index(&a.col()) {
+            c
         } else if self.m.mono {
             colour::INK
         } else {
@@ -592,6 +596,7 @@ impl Painter<'_> {
             None
         };
         let w = self.m.line;
+        let ink = crate::ink::index(&o.col()).unwrap_or(colour::INK);
         match o.t {
             ObjKind::Arrow => {
                 let e = self.view.to_px(o.x2 + dx, o.y2 + dy);
@@ -603,7 +608,7 @@ impl Painter<'_> {
                 let head = (self.view.scale * 0.3).min(len * 0.5);
                 let neck = (e.0 - ux * head, e.1 - uy * head);
                 let (nx, ny) = (-uy * head * 0.4, ux * head * 0.4);
-                self.line((x, y), neck, w * 1.3, colour::INK);
+                self.line((x, y), neck, w * 1.3, ink);
                 self.push(&[
                     TRI as f64,
                     e.0,
@@ -612,7 +617,7 @@ impl Painter<'_> {
                     neck.1 + ny,
                     neck.0 - nx,
                     neck.1 - ny,
-                    colour::INK as f64,
+                    ink as f64,
                 ]);
                 if !o.runs.is_empty() {
                     let up = if ux >= 0.0 { 1.0 } else { -1.0 };
@@ -624,7 +629,12 @@ impl Painter<'_> {
                     let laid = crate::runs::layout(&o.runs, base, self.script());
                     let lift = (laid.widths.len() - 1) as f64 * base * 1.25;
                     for p in &laid.pieces {
-                        self.piece(mx - laid.widths[p.line] / 2.0 + p.x, my + p.dy - lift, p);
+                        self.piece(
+                            mx - laid.widths[p.line] / 2.0 + p.x,
+                            my + p.dy - lift,
+                            p,
+                            ink,
+                        );
                     }
                 } else if !o.text.is_empty() {
                     // above the middle of the shaft, on the side that is up on the screen
@@ -635,7 +645,7 @@ impl Painter<'_> {
                         mx + uy * off,
                         my - ux * off,
                         f * 0.85,
-                        colour::INK,
+                        ink,
                         &crate::steplabel::display(&o.text),
                         0.0,
                     );
@@ -645,7 +655,7 @@ impl Painter<'_> {
                 if let Some(c) = mark {
                     self.push(&[DISC as f64, x, y, f * 0.8, c as f64]);
                 }
-                self.text(x, y, f * 1.3, colour::INK, "+", 0.0);
+                self.text(x, y, f * 1.3, ink, "+", 0.0);
             }
             ObjKind::Text => {
                 if o.runs.is_empty() {
@@ -653,7 +663,7 @@ impl Painter<'_> {
                         let tw = width(&o.text, f);
                         self.line((x, y + f * 0.75), (x + tw, y + f * 0.75), w * 3.0, c);
                     }
-                    self.text(x, y, f, colour::INK, &o.text, 1.0);
+                    self.text(x, y, f, ink, &o.text, 1.0);
                 } else {
                     let laid = crate::runs::layout(&o.runs, f, self.script());
                     if let Some(c) = mark {
@@ -661,7 +671,7 @@ impl Painter<'_> {
                         self.line((x, bottom), (x + laid.width(), bottom), w * 3.0, c);
                     }
                     for p in &laid.pieces {
-                        self.piece(x + p.x, y + p.dy, p);
+                        self.piece(x + p.x, y + p.dy, p, ink);
                     }
                 }
             }

@@ -399,6 +399,17 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 to: (r.next(3) == 1).then(|| if r.next(2) == 1 { atom(r) } else { 0 }),
             }]
         }
+        8 => {
+            // colour of atoms and bonds: set (short and long hex, any case), changed, cleared (automatic), and refused ones
+            // (not a colour, an id the document lacks) that must leave the document as it was
+            let cols = ["#d00000", "#0F8", "#1F3FD0", "", "red", "#12345", "#7b2fbe"];
+            vec![Op::Colour {
+                atoms: (0..r.next(4)).map(|_| atom(r)).collect(),
+                bonds: (0..r.next(3)).map(|_| bond_id(r)).collect(),
+                objects: (0..r.next(2)).map(|_| obj_id(r)).collect(),
+                col: cols[r.next(cols.len())].into(),
+            }]
+        }
         9 => vec![Op::BondSet {
             id: bond_id(r),
             o: (r.next(2) == 1).then(|| 1 + r.next(3) as u8),
@@ -1040,7 +1051,10 @@ fn the_patch_is_in_the_fixed_order() {
         Op::BondAdd { .. } => 4,
         Op::ObjAdd { .. } => 5,
         Op::AtomSet { .. } | Op::AtomData { .. } | Op::AtomAnn { .. } => 6,
-        Op::BondSet { .. } => 7,
+        // the colour of an atom is said with the atom, the colour of a bond with the bond
+        Op::Colour { atoms, .. } if !atoms.is_empty() => 6,
+        Op::Colour { objects, .. } if !objects.is_empty() => 8,
+        Op::BondSet { .. } | Op::Colour { .. } => 7,
         Op::ObjSet { .. } => 8,
         Op::Move { .. } => 9,
         other => panic!("not an operation of a diff: {other:?}"),

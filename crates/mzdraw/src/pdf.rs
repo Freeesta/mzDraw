@@ -10,7 +10,7 @@ use crate::brand::{attachment, attachments};
 use crate::doc::Document;
 use crate::scene;
 use crate::settings::Style;
-use crate::svg::{num, PALETTE};
+use crate::svg::{num, paint};
 use mzlab_mol::fixed;
 
 /// Where the baseline of a text is below its vertical centre, in units of the font size (the SVG centres the text).
@@ -18,7 +18,8 @@ const BASELINE: f32 = 0.35;
 
 /// A colour of the palette as the three operands of `rg` / `RG` (0..1, three decimals).
 fn rgb(index: f32) -> String {
-    let hex = PALETTE[index as usize % PALETTE.len()].trim_start_matches('#');
+    let colour = paint(index);
+    let hex = colour.trim_start_matches('#');
     let part = |i: usize| {
         let v = u8::from_str_radix(&hex[2 * i..2 * i + 2], 16).unwrap_or(0);
         let s = fixed(f64::from(v) / 255.0, 3);

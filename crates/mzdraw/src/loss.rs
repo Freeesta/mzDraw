@@ -98,6 +98,8 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("atom.isotope", [Y, Y, Y, Y, Y, Y, Y, Y, Y, Y]),
     ("atom.map", [Y, Y, Y, Y, Y, N, N, Y, Y, Y]),
     ("atom.radical", [Y, Y, P, Y, Y, Y, Y, Y, Y, Y]),
+    ("colour", [N, N, N, N, N, Y, N, N, Y, Y]),
+    ("colour.object", [N, N, N, N, N, N, N, N, Y, Y]),
     ("data", [N, N, N, Y, N, N, N, N, Y, Y]),
     ("geometry", [Y, Y, P, P, Y, Y, Y, P, Y, Y]),
     ("object.arrow", [N, N, N, N, Y, Y, N, Y, Y, Y]),
@@ -173,13 +175,19 @@ pub fn instances(d: &Document) -> Vec<Instance> {
                 }
             }
         }
+        if !a.col().is_empty() {
+            push("colour", a.col(), a.id, 0, 0);
+        }
         for (name, value) in a.data() {
             push("data", format!("{name}={value}"), a.id, 0, 0);
         }
         if !a.ann().is_empty() {
             push("annotation", a.ann(), a.id, 0, 0);
         }
-        for (key, _) in a.more.iter().filter(|m| m.0 != "data" && m.0 != "ann") {
+        // `col` is not unknown when it is a colour (it has its own row); a value that is not one (a newer file) is
+        for (key, _) in (a.more.iter()).filter(|m| {
+            !["data", "ann"].contains(&m.0.as_str()) && (m.0 != "col" || a.col().is_empty())
+        }) {
             push("unknown", format!("atom.{key}"), a.id, 0, 0);
         }
     }
@@ -193,7 +201,10 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if let Some(what) = what {
             push(what, String::new(), 0, b.id, 0);
         }
-        for (key, _) in &b.more {
+        if !b.col().is_empty() {
+            push("colour", b.col(), 0, b.id, 0);
+        }
+        for (key, _) in (b.more.iter()).filter(|m| m.0 != "col" || b.col().is_empty()) {
             push("unknown", format!("bond.{key}"), 0, b.id, 0);
         }
     }
@@ -261,7 +272,10 @@ pub fn instances(d: &Document) -> Vec<Instance> {
                 }
             }
         }
-        for (key, _) in &o.more {
+        if !o.col().is_empty() {
+            push("colour.object", o.col(), 0, 0, o.id);
+        }
+        for (key, _) in (o.more.iter()).filter(|m| m.0 != "col" || o.col().is_empty()) {
             push("unknown", format!("object.{key}"), 0, 0, o.id);
         }
     }

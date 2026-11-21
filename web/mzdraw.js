@@ -4,6 +4,8 @@
 import { build, layout, show, open, PALETTES } from "./palettes.js";
 import { NAMES } from "./names.js";
 import { contextMenu } from "./context.js";
+import { feedbackBoxes } from "./feedback.js";
+import { buildPrefs, applyTheme } from "./prefs.js";
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
@@ -98,6 +100,42 @@ function mapField() {
   input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(); } });
 }
 
+/** the colour flyout: Automatic, the palette the module lists (each with its name as text, not by colour alone), and a field for a
+ * colour typed as hex. A choice goes to the module, which judges it and colours the selected atoms and bonds (or the focused atom) in
+ * one undo step; the page decides nothing about colours. */
+function colourField() {
+  const list = $("d2-colour-list"), input = /** @type {HTMLInputElement} */ ($("d2-colour-hex")), note = $("d2-colour-note");
+  const rows = [{ key: "auto", hex: "" }, ...JSON.parse(ed.colour_palette())];
+  const choose = (/** @type {string} */ hex, /** @type {string} */ name) => {
+    const f = after(ed.set_colour(hex)), st = JSON.parse(ed.state());
+    note.textContent = f & CHANGED ? t("draw2.colour.done", { name }) : st.error ? t(st.error) : t("draw2.colour.same", { name });
+    $("d2-live").textContent = note.textContent;
+    if (st.error === "error.draw2.colour") input.setAttribute("aria-invalid", "true"); else input.removeAttribute("aria-invalid");
+    return f;
+  };
+  list.replaceChildren(...rows.map(r => {
+    const b = document.createElement("button"), chip = document.createElement("span"), name = document.createElement("span");
+    b.type = "button"; b.dataset.testid = "d2-colour-" + r.key; b.dataset.hex = r.hex;
+    chip.className = "chip" + (r.key === "auto" ? " auto" : ""); chip.setAttribute("aria-hidden", "true");
+    if (r.hex) chip.style.background = r.hex;
+    name.className = "txt"; name.textContent = t("draw2.colour." + r.key);
+    b.title = r.key === "auto" ? t("draw2.colour.auto.title") : t("draw2.colour.title", { name: name.textContent });
+    b.append(chip, name);
+    b.addEventListener("click", e => { choose(r.hex, name.textContent || ""); if (e.detail) cv.focus({ preventScroll: true }); });
+    return b;
+  }));
+  const apply = () => { const f = choose(input.value.trim(), input.value.trim()); if (f & CHANGED) input.value = ""; };
+  $("d2-colour-set").addEventListener("click", apply);
+  input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(); } });
+}
+
+/** the colour in use on the selection is the pressed one; a mixed selection presses none @param {any} st */
+function colourState(st) {
+  const now = st.colour;
+  for (const b of /** @type {NodeListOf<HTMLElement>} */ ($("d2-colour-list").querySelectorAll("button"))) b.setAttribute("aria-pressed", String(now !== null && b.dataset.hex === now));
+}
+
 /** the annotation of each structure: level, identifier, evidence, note; what is typed is given to the module, which decides @param {any[]} outline */
 function annFields(outline) {
   const box = $("d2-ann"), active = document.activeElement;
@@ -158,6 +196,7 @@ function valuesText(v, adducts) {
 function refresh() {
   const st = JSON.parse(ed.state());
   show(st);
+  colourState(st);
   for (const b of document.querySelectorAll("button[data-cmd]")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
     if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
@@ -499,6 +538,8 @@ function save(what, name, type) {
     const lost = ed.maps_lost(what);   // the module says what the format cannot hold; nothing is dropped in silence
     // the TP table says what it left empty (cells with no engine, no adduct, no name...), each with its text
     const left = what.startsWith("tptable") ? JSON.parse(ed.save_notes()).map((/** @type {[string, number]} */ [key, n]) => t(key, { n })) : [];
+    const dim = ed.colours_lost(what);
+    if (dim) left.unshift(t("draw2.export.coloursLost", { n: dim }));
     if (lost) left.unshift(t("draw2.export.mapsLost", { n: lost }));
     if (left.length) { note.textContent = left.join(" "); $("d2-live").textContent = note.textContent; } else open("saveas", false);
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
@@ -563,6 +604,10 @@ function keep() {
 
 /** shows the adducts the module holds in the checkboxes of the style panel (set by `styles`) @type {() => void} */
 let box_sync = () => {};
+/** shows what the module holds in the Preferences panel (set by `preferences`) @type {() => void} */
+let prefsSync = () => {};
+/** shows what the module holds in the style panel (set by `styles`) @type {() => void} */
+let restyle = () => {};
 
 async function styles() {
   const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), note = $("d2-style-note"), NAME = NAMES.settings;
@@ -575,7 +620,7 @@ async function styles() {
     const style = JSON.parse(ed.style()).style;
     sel.value = style.preset; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
     for (const [key, input] of Object.entries(inputs)) { input.value = key in words ? ed.choice(key) : String(style[key]); input.removeAttribute("aria-invalid"); }
-    box_sync();
+    box_sync(); prefsSync(); applyTheme(ed);
   };
   /** one change asked of the module; a refusal is said in words, the field is marked and nothing changes */
   const ask = (/** @type {() => number} */ change, /** @type {string} */ said, /** @type {Element | null} */ field) => {
@@ -633,11 +678,27 @@ async function styles() {
     if (f) { const text = await f.text(); ask(() => ed.set_style(text), t("draw2.style.opened.note"), null); }
     /** @type {HTMLInputElement} */ (e.target).value = "";
   });
+  let stored = "";       // what the module dropped of the stored settings, in words
   for (const name of [NAME, ...NAMES.settingsOld]) {       // the file of the name in use, else one an earlier name wrote
-    try { ed.set_style(await (await (await (await navigator.storage.getDirectory()).getFileHandle(name)).getFile()).text()); break; } catch { /* nothing kept, or a file the module refuses */ }
+    let text = "";
+    try { text = await (await (await navigator.storage.getDirectory()).getFileHandle(name)).getFile().then(f => f.text()); } catch { continue; }       // nothing kept, or no storage
+    try { const r = JSON.parse(ed.set_style_stored(text)); if (r.note) stored = t(r.note); break; } catch { /* a file the module refuses */ }
   }
+  restyle = show;
   show();
-  note.textContent = t(`draw2.style.${sel.value}.note`);
+  note.textContent = stored || t(`draw2.style.${sel.value}.note`);
+}
+
+/** the Preferences panel (prefs.js), a flyout of the File palette: its rows come from the module's schema; a change is one `set` (or a reset of a group)
+ * asked of the module, then the screen, the style panel and the stored settings follow */
+function preferences() {
+  const note = () => $("d2-prefs-note");
+  prefsSync = buildPrefs($("d2-fly-prefs"), { ed, t, close: () => { open("prefs", false); /** @type {HTMLElement} */ (document.querySelector('[data-testid="d2-prefs"]')).focus(); },
+    change: (/** @type {() => number} */ fn, /** @type {string} */ said, /** @type {Element | null} */ field) => {
+      try { after(fn() | CHANGED); prefsSync(); applyTheme(ed); restyle(); keep(); note().textContent = said; $("d2-live").textContent = said; }
+      catch (e) { note().textContent = I.err(JSON.parse(String(e))).message; field?.setAttribute("aria-invalid", "true"); }
+    } });
+  prefsSync(); applyTheme(ed);
 }
 
 function panels() {
@@ -662,10 +723,10 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
-  mapField(); proposalEvents(); stepEvents();
+  mapField(); colourField(); proposalEvents(); stepEvents(); feedbackBoxes({ ed, t, focusCanvas: () => cv.focus({ preventScroll: true }) });
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
-  events(); clipboardEvents(); panels(); await styles(); layout(); refresh();
+  events(); clipboardEvents(); panels(); await styles(); preferences(); layout(); refresh();
   document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });
   await autosave.offer();
   document.documentElement.dataset.d2Ready = "1";

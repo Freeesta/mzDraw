@@ -111,6 +111,31 @@ pub fn version() -> String {
     BRIDGE.to_string()
 }
 
+/// The report of a bug or the suggestion of an improvement (`feedback/1`, made in Rust): `kind` is `bug` or `improvement`, `with_log`
+/// puts the command log of the drawing in the issue, `agent` and `lang` are the browser's. The page only opens the `url` in a new tab.
+#[wasm_bindgen]
+pub fn feedback(kind: &str, with_log: bool, agent: &str, lang: &str) -> Result<String, JsValue> {
+    with(|p| {
+        let log = p.editor.save("log").map_err(js_err)?;
+        let params = mzdraw::feedback::Params {
+            kind,
+            with_log,
+            log: &log,
+            agent,
+            lang,
+        };
+        mzdraw::feedback::build(&params)
+            .map(|f| f.json())
+            .map_err(js_err)
+    })
+}
+
+/// What the About box shows (`about/1`): the name, the version, the repository and the licence.
+#[wasm_bindgen]
+pub fn about() -> String {
+    mzdraw::feedback::about_json()
+}
+
 /// The product name, from the one place that holds it.
 #[wasm_bindgen]
 pub fn name() -> String {
@@ -430,6 +455,28 @@ pub fn maps_lost(kind: &str) -> u32 {
     with(|p| p.editor.doc().maps_lost(kind) as u32)
 }
 
+/// How many atoms and bonds with an explicit colour `save(kind)` leaves out of the file because the format has no place for it.
+#[wasm_bindgen]
+pub fn colours_lost(kind: &str) -> u32 {
+    with(|p| p.editor.doc().colours_lost(kind) as u32)
+}
+
+/// Sets the explicit colour of the selected atoms and bonds (or the focused atom): `#rgb` or `#rrggbb`, or the empty text for
+/// automatic; one undo step. A text that is not a colour, or nothing to colour, changes nothing (`error` in `state`).
+#[wasm_bindgen]
+pub fn set_colour(text: &str) -> u32 {
+    act(|e| e.colour(text))
+}
+
+/// The colours of the picker as JSON `[{"key", "name", "hex"}]`; the automatic colour is the empty text and is the page's first entry.
+#[wasm_bindgen]
+pub fn colour_palette() -> String {
+    let rows: Vec<String> = (mzdraw::ink::PALETTE.iter())
+        .map(|(k, n, h)| format!(r#"{{"key":"{k}","name":"{n}","hex":"{h}"}}"#))
+        .collect();
+    format!("[{}]", rows.join(","))
+}
+
 /// Sets the atom-to-atom map (1..=999, 0 for none) of the focused atom, or of the only selected one; a refusal changes nothing
 /// (`error` in `state`).
 #[wasm_bindgen]
@@ -528,6 +575,38 @@ pub fn set(setting: &str) -> Result<u32, JsValue> {
 #[wasm_bindgen]
 pub fn settings_schema() -> String {
     mzdraw::settings::schema_json()
+}
+
+/// The value of a setting as text (`<section>.<key>`), empty for one that is none: what the Preferences panel shows.
+#[wasm_bindgen]
+pub fn get(setting: &str) -> String {
+    with(|p| p.editor.get(setting).unwrap_or_default())
+}
+
+/// The value for `data-theme` of the theme preference (`light`, `dark`), empty for `auto`: the page applies what the module says.
+#[wasm_bindgen]
+pub fn theme_attr() -> String {
+    with(|p| p.editor.ui.attr().to_string())
+}
+
+/// `set_style` for the settings file kept in the browser: a bad `ui` object is dropped with a note and the rest is taken. The answer is
+/// `{"flags": N, "note": KEY}` (`note` empty for none).
+#[wasm_bindgen]
+pub fn set_style_stored(text: &str) -> Result<String, JsValue> {
+    with(|p| {
+        let (flags, note) = p.editor.set_style_stored(text).map_err(js_err)?;
+        Ok(format!(r#"{{"flags":{flags},"note":"{note}"}}"#))
+    })
+}
+
+/// Puts a group of the preferences back to its defaults; the flags like `set`.
+#[wasm_bindgen]
+pub fn reset_group(group: &str) -> Result<u32, JsValue> {
+    with(|p| {
+        let flags = p.editor.reset_group(group).map_err(js_err)?;
+        p.editor.refresh_values();
+        Ok(flags)
+    })
 }
 
 /// The current settings file: the style, the layout of the palettes and the export defaults.
@@ -682,8 +761,9 @@ pub fn state() -> String {
             )
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
+        let colour = e.selection_colour().map_or("null".to_string(), |c| q(&c));
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),

@@ -33,6 +33,8 @@ pub const MAX_BYTES: usize = 12_000;
 pub const MAX_LABELS: usize = 150;
 pub const MAX_STEREO: usize = 50;
 pub const MAX_IDS: usize = 400;
+/// Colours listed per structure (`colours`); a drawing with more is cut and counted.
+pub const MAX_COLOURS: usize = 20;
 
 /// The work `scene::label_extent` under the digest may cost, as atoms * (bonds + 1) (see the module text): 25 million is a chain of
 /// 5,000 atoms. A drawing of one atom per structure (no bond) costs next to nothing per atom and has no limit
@@ -128,6 +130,8 @@ struct Piece {
     labels: Vec<(u32, String)>,
     stereo: Vec<(u32, &'static str, u32)>,
     bonds: usize,
+    /// The explicit colours: colour, atom ids, bond ids (`ink`), in order of first use.
+    colours: Vec<(String, Vec<u32>, Vec<u32>)>,
 }
 
 fn root(parent: &mut [usize], mut i: usize) -> usize {
@@ -183,6 +187,7 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
                 labels: Vec::new(),
                 stereo: Vec::new(),
                 bonds: 0,
+                colours: Vec::new(),
             });
             pieces.len() - 1
         });
@@ -205,6 +210,13 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
         }
         let Some(a) = doc.atoms.get(i) else { continue };
         p.ids.push(a.id);
+        if !a.col().is_empty() {
+            let c = a.col();
+            match p.colours.iter_mut().find(|x| x.0 == c) {
+                Some(x) => x.1.push(a.id),
+                None => p.colours.push((c, vec![a.id], Vec::new())),
+            }
+        }
         let [l, rt, below, above] = crate::scene::label_extent(doc, a, style);
         let b = &mut p.bbox;
         *b = [
@@ -223,6 +235,13 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
         };
         let k = slot[root(&mut parent, x)].unwrap_or(0);
         pieces[k].bonds += 1;
+        if !b.col().is_empty() {
+            let c = b.col();
+            match pieces[k].colours.iter_mut().find(|x| x.0 == c) {
+                Some(x) => x.2.push(b.id),
+                None => pieces[k].colours.push((c, Vec::new(), vec![b.id])),
+            }
+        }
         let mark = match b.s {
             crate::doc::WEDGE_UP => "wedge",
             crate::doc::WEDGE_DOWN => "hash",
@@ -241,7 +260,7 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
     });
     let mut out = format!("{{\"format\":\"{FORMAT}\",\"pieces\":[");
     // what is cut: labels, stereo entries, atoms of an `ids` text
-    let mut cut = (0usize, 0usize, 0usize);
+    let mut cut = (0usize, 0usize, 0usize, 0usize);
     let mut listed = 0;
     for p in pieces.iter_mut() {
         if listed == MAX_LISTED || (listed > 0 && out.len() >= MAX_BYTES) {
@@ -265,8 +284,26 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
         cut.2 += all - ids.1;
         // the cyclomatic number of a connected structure: bonds - atoms + 1
         let rings = (p.bonds + 1).saturating_sub(p.ids.len());
+        // the explicit colours, only when there are some (a drawing without any gives the bytes it gave before): `[colour, atoms,
+        // bonds]`, the ids as ranges; at most `MAX_COLOURS` colours, the rest counted in `truncated`'s fourth number
+        let colours: Vec<String> = (p.colours.iter_mut().take(MAX_COLOURS))
+            .map(|(c, a, b)| {
+                format!(
+                    "[{},{},{}]",
+                    quote(c),
+                    quote(&ranges(a, MAX_IDS).0),
+                    quote(&ranges(b, MAX_IDS).0)
+                )
+            })
+            .collect();
+        cut.3 += p.colours.len() - colours.len();
+        let colours = if colours.is_empty() {
+            String::new()
+        } else {
+            format!(",\"colours\":[{}]", colours.join(","))
+        };
         out.push_str(&format!(
-            "{{\"ids\":{},\"formula\":{},\"box\":{},\"labels\":[{}],\"stereo\":[{}],\"rings\":{rings}}}",
+            "{{\"ids\":{},\"formula\":{},\"box\":{},\"labels\":[{}],\"stereo\":[{}],\"rings\":{rings}{colours}}}",
             quote(&ids.0),
             quote(&formula),
             rect_json(p.bbox),
@@ -303,7 +340,18 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
         if shown > 0 {
             out.push(',');
         }
-        out.push_str(&format!("[{},\"{}\",{}]", o.id, o.t.name(), rect_json(r)));
+        // an object with an explicit colour says it as a fourth entry
+        let colour = if o.col().is_empty() {
+            String::new()
+        } else {
+            format!(",{}", quote(&o.col()))
+        };
+        out.push_str(&format!(
+            "[{},\"{}\",{}{colour}]",
+            o.id,
+            o.t.name(),
+            rect_json(r)
+        ));
     }
     out.push_str("],\"clearance\":");
     let boxes: Vec<Rect> = pieces[..listed].iter().map(|p| p.bbox).collect();
@@ -333,8 +381,12 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
     if more != (0, 0) {
         out.push_str(&format!(",\"more\":[{},{}]", more.0, more.1));
     }
-    if cut != (0, 0, 0) {
+    if (cut.0, cut.1, cut.2) != (0, 0, 0) {
         out.push_str(&format!(",\"truncated\":[{},{},{}]", cut.0, cut.1, cut.2));
+    }
+    // colours cut from a structure's list: counted apart, so the three numbers above keep their shape
+    if cut.3 > 0 {
+        out.push_str(&format!(",\"coloursCut\":{}", cut.3));
     }
     out.push('}');
     Ok(out)
