@@ -11,7 +11,7 @@ const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT 
 // what each save format is called when downloaded: file name and media type (png is drawn by the page, savePng; pdf is bytes, savePdf)
 const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["drawing.mol", "chemical/x-mdl-molfile"], "molfile-v3000": ["drawing-v3000.mol", "chemical/x-mdl-molfile"],
   sdf: ["drawing.sdf", "chemical/x-mdl-sdfile"], smiles: ["drawing.smi", "chemical/x-daylight-smiles"], ket: ["drawing.ket", "application/json"], cdxml: ["drawing.cdxml", "chemical/x-cdxml"],
-  cml: ["drawing.cml", "chemical/x-cml"], rxn: ["drawing.rxn", "chemical/x-mdl-rxnfile"], trasf: ["drawing.trasf.json", "application/json"], svg: ["drawing.svg", "image/svg+xml"], [NAMES.slug]: [NAMES.doc, "application/json"], log: ["drawing.log.json", "application/json"] });
+  cml: ["drawing.cml", "chemical/x-cml"], rxn: ["drawing.rxn", "chemical/x-mdl-rxnfile"], trasf: ["drawing.trasf.json", "application/json"], tptable: ["drawing.tptable.json", "application/json"], "tptable-csv": ["drawing.tptable.csv", "text/csv"], svg: ["drawing.svg", "image/svg+xml"], [NAMES.slug]: [NAMES.doc, "application/json"], log: ["drawing.log.json", "application/json"] });
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus", "--d2-accent", "--d2-muted"];
 
 /** @type {any} */ let ed = null;
@@ -458,7 +458,10 @@ function save(what, name, type) {
   try {
     download(ed.save(what), name, type);
     const lost = ed.maps_lost(what);   // the module says what the format cannot hold; nothing is dropped in silence
-    if (lost) { note.textContent = t("draw2.export.mapsLost", { n: lost }); $("d2-live").textContent = note.textContent; } else open("saveas", false);
+    // the TP table says what it left empty (cells with no engine, no adduct, no name...), each with its text
+    const left = what.startsWith("tptable") ? JSON.parse(ed.save_notes()).map((/** @type {[string, number]} */ [key, n]) => t(key, { n })) : [];
+    if (lost) left.unshift(t("draw2.export.mapsLost", { n: lost }));
+    if (left.length) { note.textContent = left.join(" "); $("d2-live").textContent = note.textContent; } else open("saveas", false);
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
@@ -608,7 +611,7 @@ function panels() {
   $("d2-add").addEventListener("click", () => add(/** @type {HTMLTextAreaElement} */ ($("d2-text")).value));
   $("d2-open").addEventListener("click", () => $("d2-file").click());
   $("d2-file").addEventListener("change", async e => { const f = /** @type {HTMLInputElement} */ (e.target).files?.[0]; if (f) add(new Uint8Array(await f.arrayBuffer())); });
-  for (const [id, what] of [["molfile", "molfile"], ["v3000", "molfile-v3000"], ["sdf", "sdf"], ["smiles", "smiles"], ["ket", "ket"], ["cdxml", "cdxml"], ["cml", "cml"], ["rxn", "rxn"], ["trasf", "trasf"], ["svg", "svg"], ["doc", NAMES.slug]])
+  for (const [id, what] of [["molfile", "molfile"], ["v3000", "molfile-v3000"], ["sdf", "sdf"], ["smiles", "smiles"], ["ket", "ket"], ["cdxml", "cdxml"], ["cml", "cml"], ["rxn", "rxn"], ["trasf", "trasf"], ["tptable", "tptable"], ["tptable-csv", "tptable-csv"], ["svg", "svg"], ["doc", NAMES.slug]])
     $(`d2-ex-${id}`).addEventListener("click", () => save(what, ...FILES[what]));
   $("d2-ex-png").addEventListener("click", savePng);
   $("d2-ex-pdf").addEventListener("click", savePdf);

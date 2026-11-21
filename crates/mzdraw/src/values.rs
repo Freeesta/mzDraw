@@ -326,7 +326,20 @@ impl Scan {
         engine: Measurer,
         prev: &[Entry],
     ) -> Result<Vec<Entry>, &'static str> {
-        if self.record.atoms.len() > MAX_ATOMS || self.structures.len() > MAX_STRUCTURES {
+        self.measure_within(adducts, engine, prev, (MAX_ATOMS, MAX_STRUCTURES))
+    }
+
+    /// Like `measure_cached` with the caps `(atoms, structures)` of the caller (the live panel keeps `MAX_ATOMS` and `MAX_STRUCTURES`;
+    /// the TP table, an export asked for once, has its own, `tptable::MAX_ATOMS` and `tptable::MAX_STRUCTURES`). Above them the answer
+    /// is `error.draw2.valuesSize` and the engine is not called.
+    pub fn measure_within(
+        &self,
+        adducts: &[String],
+        engine: Measurer,
+        prev: &[Entry],
+        caps: (usize, usize),
+    ) -> Result<Vec<Entry>, &'static str> {
+        if self.record.atoms.len() > caps.0 || self.structures.len() > caps.1 {
             return Err("error.draw2.valuesSize");
         }
         let held: std::collections::HashMap<u32, &Entry> =

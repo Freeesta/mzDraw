@@ -315,7 +315,7 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `trasf`, `sdf`, `svg`, `log` (the command log), `std` (the drawing checks) or `settings`.
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `trasf`, `sdf`, `svg`, `log` (the command log), `std` (the drawing checks), `tptable` or `tptable-csv` (the TP table, with the masses of the engine) or `settings`.
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| {
@@ -331,6 +331,13 @@ pub fn save(kind: &str) -> Result<String, JsValue> {
             }
         })
     })
+}
+
+/// What the last `save("tptable")` or `save("tptable-csv")` left empty or changed, as JSON `[[key, n], ...]` (the page says each with its text:
+/// nothing is dropped in silence).
+#[wasm_bindgen]
+pub fn save_notes() -> String {
+    with(|p| serde_json::to_string(&*p.editor.table_notes.borrow()).unwrap_or_else(|_| "[]".into()))
 }
 
 /// The drawing as a PDF file (vector, text as text, the document inside so that it opens again).

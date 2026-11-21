@@ -103,7 +103,8 @@ for (const c of fx.values) {
   check(onPage.status === 0 && onCli.status === 0, `${c.name}: runs on both sides (${onPage.stderr} ${onCli.stderr})`);
   check(onPage.stdout === onCli.stdout, `${c.name}: wasm == native`);
   check(onPage.stdout === c.out, `${c.name}: the recorded bytes`);
-  if (!c.plain) check(c.request.values ? /"engine":true/.test(c.out) : /<text/.test(c.out), `${c.name}: the engine was there`);
+  // the engine was there: `values/1` says so, a table has masses with four decimals, a drawing has the mass text
+  if (!c.plain) check(c.request.values ? /"engine":true/.test(c.out) : String(c.request.out).startsWith("tptable") ? /\d+\.\d{4}/.test(c.out) : /<text/.test(c.out), `${c.name}: the engine was there`);
 }
 // the semantic diff of two documents: the same patch and hunks on both sides, the recorded ones
 for (const c of fx.diffs) {

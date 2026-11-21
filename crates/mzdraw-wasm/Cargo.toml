@@ -25,3 +25,7 @@ wasm-bindgen = "=0.2.129"
 [[example]]
 name = "replay_glue"
 required-features = ["mzlab"]
+
+[dev-dependencies]
+# the tests of the TP table read the formula deltas and the structure identity with the same pinned crate the editor core uses (no new crate)
+mzlab-mol = { workspace = true }
