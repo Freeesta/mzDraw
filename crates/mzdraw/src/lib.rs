@@ -19,6 +19,7 @@ mod editor_edit;
 mod editor_keys;
 mod editor_nudge;
 mod editor_pathway;
+mod editor_step;
 mod editor_tools;
 pub mod editor_touch;
 pub mod formats;

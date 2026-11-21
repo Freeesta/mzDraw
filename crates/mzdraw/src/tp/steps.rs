@@ -179,6 +179,51 @@ pub fn name_of(delta: &str) -> Option<&'static str> {
     }
 }
 
+/// The rows the typed `text` selects, in table order. Empty text lists every row. A text that starts with a sign and a digit or a
+/// point is a mass shift (`+15.99`, `-14`): it selects the rows whose shift, written with four decimals, starts with it
+/// (`shift` gives the shift of a delta; with no engine it gives `None` and such a text selects nothing). A text that starts with a
+/// sign and an element is a delta (`+O`): when it reads as a whole delta it selects the rows with exactly that delta (`+O` is not
+/// `+O3S`), else the rows whose delta starts with it (`+C6H` while typing). Anything else is a case-insensitive part of a name.
+pub fn filter(text: &str, shift: &dyn Fn(&str) -> Option<f64>) -> Vec<&'static Step> {
+    let t = text.trim().replace('\u{2212}', "-");
+    let signed = t.starts_with(['+', '-']);
+    let rest = t.trim_start_matches(['+', '-']);
+    let numeric = signed && rest.starts_with(|c: char| c.is_ascii_digit() || c == '.');
+    let lower = t.to_ascii_lowercase();
+    // a whole delta that some row has exactly (`+O`) selects only those rows (not `+O3S`); else the typed text is a start
+    let exact = delta::parse(&t)
+        .ok()
+        .filter(|c| signed && !numeric && !c.is_empty())
+        .map(|c| delta::print(&c))
+        .filter(|d| STEPS.iter().any(|s| s.delta == d));
+    STEPS
+        .iter()
+        .filter(|s| {
+            if t.is_empty() {
+                true
+            } else if numeric {
+                shift(s.delta).is_some_and(|m| {
+                    let w = mzlab_mol::fixed(m, 4);
+                    let w = if w.starts_with('-') {
+                        w
+                    } else {
+                        format!("+{w}")
+                    };
+                    w.starts_with(&t)
+                })
+            } else if signed {
+                if exact.is_some() {
+                    exact.as_deref() == Some(s.delta)
+                } else {
+                    s.delta.starts_with(&t)
+                }
+            } else {
+                s.name.contains(&lower)
+            }
+        })
+        .collect()
+}
+
 /// The most atoms of a structure a step is applied to (a hostile size is refused, never slow).
 pub const MAX_ATOMS: usize = super::MAX_ATOMS;
 

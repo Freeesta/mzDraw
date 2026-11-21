@@ -14,6 +14,13 @@
 <main id="d2-stage">
   <canvas id="d2-canvas" tabindex="0" role="application" aria-label="Structure canvas" data-i18n-aria-label="draw2.canvas" aria-describedby="d2-outline d2-focus"></canvas>
   <span id="d2-status" role="status"></span>
+  <div id="d2-step" role="region" aria-label="Apply a step" data-i18n-aria-label="draw2.step" hidden>
+    <div class="row"><input id="d2-step-text" type="text" role="combobox" aria-expanded="true" aria-controls="d2-step-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" maxlength="64" placeholder="Step, +O or +15.99" aria-label="Step" data-i18n-placeholder="draw2.step.placeholder" data-i18n-aria-label="draw2.step.field">
+      <button id="d2-step-derive" type="button" data-i18n="draw2.step.derive" title="Derive the step at the ringed site" data-i18n-title="draw2.step.derive.title">Derive</button>
+      <button id="d2-step-close" type="button" data-i18n="draw2.step.close" title="Close the field" data-i18n-title="draw2.step.close.title">Close</button></div>
+    <ul id="d2-step-list" role="listbox" aria-label="Steps" data-i18n-aria-label="draw2.step.list"></ul>
+    <p id="d2-step-line" role="status" aria-live="polite"></p>
+  </div>
   <div id="d2-proposal" role="region" aria-label="Proposal" data-i18n-aria-label="draw2.proposal" hidden>
     <p id="d2-proposal-at"></p>
     <ul id="d2-proposal-list" aria-label="Hunks to review" data-i18n-aria-label="draw2.proposal.list"></ul>

@@ -187,7 +187,13 @@ impl Editor {
                 return REPAINT;
             }
         };
-        if let Err(e) = self.run_guarded(&ops) {
+        self.apply_derive(first, &ops)
+    }
+
+    /// Runs the operations of a derive (`tp::derive`, `tp::derive_step`) as one undo step; the copy (every atom and bond from id
+    /// `first` on) becomes the selection and the tool is Select.
+    pub(crate) fn apply_derive(&mut self, first: u32, ops: &[Op]) -> u32 {
+        if let Err(e) = self.run_guarded(ops) {
             self.error = e.key;
             return REPAINT;
         }

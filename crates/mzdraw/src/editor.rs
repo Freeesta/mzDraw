@@ -28,6 +28,8 @@ pub const ASK: u32 = 256;
 pub const MENU: u32 = 512;
 /// A proposal (`proposal`) appeared, changed or went: the page should show its panel and say where the current hunk is.
 pub const PROPOSAL: u32 = 1024;
+/// The step field (tp-11) opened, closed or changed: the page repaints it (`step_field` of the bridge).
+pub const STEP: u32 = 2048;
 
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
@@ -184,6 +186,8 @@ pub struct Editor {
     /// An agent's patch held apart from the drawing (`proposal`), and whether a press on a hunk number is being swallowed.
     pub(crate) proposal: Option<crate::proposal::Proposal>,
     pub eat: Option<u32>,
+    /// The open step field (tp-11): the typed text, the rows it selects, the sites of the chosen row (`editor_step`).
+    pub(crate) step_field: Option<crate::editor_step::StepField>,
     /// The engine that gives masses (`values`): none in the core, set by the bridge. Without it no mass is ever shown.
     pub measurer: Option<crate::values::Measurer>,
     /// The calculated values of the structures as `refresh_values` last found them, and of the selection with the atoms it was for.
@@ -305,6 +309,7 @@ impl Default for Editor {
             ctx: Default::default(),
             proposal: None,
             eat: None,
+            step_field: None,
         }
     }
 }
@@ -936,6 +941,8 @@ impl Editor {
         let over = Overlay {
             marks: if self.live_proposal().is_some() {
                 self.proposal_marks()
+            } else if self.step_field.is_some() {
+                self.step_marks()
             } else {
                 self.over.marks.clone()
             },

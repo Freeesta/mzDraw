@@ -47,7 +47,7 @@ button[aria-pressed="true"] { background: var(--mzd-accent-soft); color: var(--f
 button:disabled { opacity: .45; cursor: default; }
 button:focus-visible, canvas:focus-visible, textarea:focus-visible, summary:focus-visible, input[type="checkbox"]:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 2px; }
 canvas:focus-visible { outline-offset: -3px; }
-#d2-restore[hidden], #d2-proposal[hidden] { display: none; }
+#d2-restore[hidden], #d2-proposal[hidden], #d2-step[hidden] { display: none; }
 #d2-proposal { position: absolute; right: 8px; bottom: 28px; width: min(26rem, calc(100% - 16px)); max-height: 34%; overflow: auto; box-sizing: border-box; padding: 4px 10px; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 6px; z-index: 5; }
 #d2-proposal p { margin: 2px 0 4px; font-weight: 600; font-size: 13px; }
 #d2-proposal ul { list-style: none; margin: 0 0 6px; padding: 0; }
@@ -159,3 +159,15 @@ p { margin: 4px 0; }
   .pal.side { max-height: max(120px, calc((100vh - 350px) / 3)); } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 .d2-notice { color: var(--mzd-danger); font-weight: 600; }
+
+/* the step field (tp-11): one line of input, the rows it selects, the live line */
+#d2-step { position: absolute; left: 8px; bottom: 28px; width: min(24rem, calc(100% - 16px)); box-sizing: border-box; padding: 6px 10px; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 6px; z-index: 6; }
+#d2-step .row { display: flex; gap: 6px; align-items: center; }
+#d2-step input { flex: 1 1 8rem; min-width: 0; min-height: 36px; box-sizing: border-box; }
+#d2-step button { min-height: 36px; }
+#d2-step ul { list-style: none; margin: 4px 0; padding: 0; max-height: 11rem; overflow: auto; }
+#d2-step li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 6px; min-height: 24px; cursor: pointer; border-bottom: 1px solid var(--mzd-border); }
+#d2-step li[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--accent); padding-left: 10px; background: var(--mzd-accent-soft); font-weight: 600; }
+#d2-step li .delta { font-variant-numeric: tabular-nums; opacity: 0.85; }
+#d2-step p { margin: 2px 0; font-size: 13px; }
+@media (pointer: coarse) { #d2-step input, #d2-step button { min-height: 44px; } #d2-step li { min-height: 44px; align-items: center; } }

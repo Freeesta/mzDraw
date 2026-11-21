@@ -7,7 +7,7 @@ import { contextMenu } from "./context.js";
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
-const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64, MENU = 512, PROPOSAL = 1024;
+const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64, MENU = 512, PROPOSAL = 1024, STEP = 2048;
 // what each save format is called when downloaded: file name and media type (png is drawn by the page, savePng; pdf is bytes, savePdf)
 const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["drawing.mol", "chemical/x-mdl-molfile"], "molfile-v3000": ["drawing-v3000.mol", "chemical/x-mdl-molfile"],
   sdf: ["drawing.sdf", "chemical/x-mdl-sdfile"], smiles: ["drawing.smi", "chemical/x-daylight-smiles"], ket: ["drawing.ket", "application/json"], cdxml: ["drawing.cdxml", "chemical/x-cdxml"],
@@ -260,6 +260,42 @@ function proposalEvents() {
   });
 }
 
+/** the step field (tp-11): paints what the module says (the rows its filter selects, the chosen row, the live line) and forwards the
+ *  text, the keys and the taps; the filter, the sites, `[` `]` `Enter` `Escape` and the overlay are decided in the module */
+function stepField() {
+  const box = $("d2-step"), input = /** @type {HTMLInputElement} */ ($("d2-step-text")), list = $("d2-step-list");
+  const s = JSON.parse(ed.step_field()), was = !box.hidden;
+  box.hidden = !s.open;
+  if (!s.open) { if (was) cv.focus({ preventScroll: true }); return; }
+  if (!was) { input.value = s.text; input.focus(); }
+  list.replaceChildren(...s.rows.map((/** @type {any} */ r, /** @type {number} */ i) => {
+    const li = document.createElement("li"), name = document.createElement("span"), delta = document.createElement("span");
+    li.setAttribute("role", "option"); li.setAttribute("aria-selected", String(i === s.pick)); li.dataset.i = String(i); li.id = `d2-step-row-${i}`;
+    name.textContent = r.name; delta.className = "delta"; delta.textContent = r.mass ? `${r.delta}  ${r.mass}` : r.delta;
+    li.append(name, delta);
+    return li;
+  }));
+  input.setAttribute("aria-activedescendant", s.rows.length ? `d2-step-row-${s.pick}` : "");
+  $("d2-step-line").textContent = s.error ? t(s.error)
+    : !s.rows.length ? t("draw2.step.nomatch")
+    : !s.sites.length ? t("draw2.step.nosite", { step: s.step, delta: s.delta })
+    : t("draw2.step.line", { step: s.step, delta: s.delta, at: s.at, n: s.site + 1, of: s.sites.length });
+}
+
+function stepEvents() {
+  const input = /** @type {HTMLInputElement} */ ($("d2-step-text"));
+  input.addEventListener("input", () => after(ed.step_text(input.value)));
+  // every key goes to the module, which says which are the field's (`[` `]` Enter Escape, the arrows); the others are typed
+  input.addEventListener("keydown", e => {
+    if (e.ctrlKey || e.metaKey || e.isComposing) return;
+    const f = ed.key(e.key, mods(e), e.timeStamp);
+    if (after(f) & HANDLED) e.preventDefault();
+  });
+  $("d2-step-list").addEventListener("click", e => { const li = /** @type {HTMLElement} */ (e.target).closest("li"); if (li) after(ed.step_pick(Number(li.dataset.i))); });
+  $("d2-step-derive").addEventListener("click", () => after(ed.step_derive() | CHANGED));
+  $("d2-step-close").addEventListener("click", () => after(ed.step_close()));
+}
+
 /** where the keyboard focus is, in words @param {any} f */
 function focusText(f) {
   // one whole sentence per case: nothing is glued together
@@ -273,6 +309,7 @@ function after(f) {
   if (f & (CHANGED | TOOL | PROPOSAL)) refresh();
   if (f & CHANGED) autosave.touch();
   if (f & PALETTES) { layout(); keep(); }
+  if (f & STEP) stepField();
   menu?.sync();
   if (f & FOCUS) { refresh(); const st = JSON.parse(ed.state()); $("d2-live").textContent = st.focus ? focusText(st.focus) : t("draw2.focus.none"); }
   return f;
@@ -620,7 +657,7 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
-  mapField(); proposalEvents();
+  mapField(); proposalEvents(); stepEvents();
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); layout(); refresh();

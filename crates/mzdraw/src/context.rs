@@ -303,6 +303,7 @@ impl Editor {
                 _ => 0,
             },
             "tp.derive" => self.tp_derive(if atom != 0 { Some(atom) } else { None }),
+            "tp.step" => self.step_open(if atom != 0 { Some(atom) } else { None }),
             "pathway.route" => {
                 let r = self.pathway_route();
                 self.pathway_flags(r)
@@ -494,6 +495,7 @@ impl Editor {
         ];
         if self.style.pathway_derive {
             items.insert(6, item("tp.derive", "Derive TP", "Shift+D", true));
+            items.insert(7, item("tp.step", "Apply step...", "", true));
         }
         items
     }
@@ -541,6 +543,7 @@ impl Editor {
         ];
         if self.style.pathway_derive {
             items.insert(5, item("tp.derive", "Derive TP", "Shift+D", atoms));
+            items.insert(6, item("tp.step", "Apply step...", "", atoms));
         }
         items
     }

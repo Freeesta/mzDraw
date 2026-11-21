@@ -266,6 +266,38 @@ pub fn context_anchor(w: f64, h: f64) -> Vec<f64> {
     })
 }
 
+/// The step field (tp-11), as JSON `{"open", "text", "pick", "rows": [{"name", "delta", "kind", "mass"}], "step", "delta", "kind",
+/// "sites", "site", "at", "error"}`. Opened by the context item `tp.step` (flag 2048 of `context_run`); the rest of
+/// the field (the filter, the sites, `[` `]` `Enter` `Escape` while it is open) is decided in Rust.
+#[wasm_bindgen]
+pub fn step_field() -> String {
+    with(|p| p.editor.step_json())
+}
+
+/// The text typed into the step field; the rows are filtered again (by name, delta and, with the engine, mass shift).
+#[wasm_bindgen]
+pub fn step_text(text: &str) -> u32 {
+    act(|e| e.step_text(text))
+}
+
+/// A tap on row `i` of the list.
+#[wasm_bindgen]
+pub fn step_pick(i: u32) -> u32 {
+    act(|e| e.step_pick(i as usize))
+}
+
+/// The "Derive" button: the chosen step at the focused site, one undo step.
+#[wasm_bindgen]
+pub fn step_derive() -> u32 {
+    act(|e| e.step_derive())
+}
+
+/// Closes the step field.
+#[wasm_bindgen]
+pub fn step_close() -> u32 {
+    act(|e| e.step_close())
+}
+
 /// Closes the menu without running anything.
 #[wasm_bindgen]
 pub fn context_close() {

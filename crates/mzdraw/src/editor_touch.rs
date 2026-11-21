@@ -70,6 +70,9 @@ impl Editor {
         mods: u32,
         t: f64,
     ) -> u32 {
+        if let Some(f) = self.step_pointer(phase, id, x, y, kind, mods) {
+            return f;
+        }
         if let Some(f) = self.proposal_pointer(phase, id, x, y, kind, mods) {
             return f;
         }

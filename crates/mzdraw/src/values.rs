@@ -636,3 +636,57 @@ pub fn caption_step(f: f64) -> f64 {
 pub fn caption_font(font: f64) -> f64 {
     font * 0.8
 }
+
+/// The monoisotopic mass of each element a step delta can name (`C H N O S Cl Br`), got from the engine alone, so the core keeps no
+/// mass table: the engine is asked for seven one-structure molfiles with implicit hydrogens (methane, ethane, water, ammonia,
+/// hydrogen sulfide, hydrogen chloride, hydrogen bromide) and the masses are solved from them (H2 = 2 CH4 - C2H6, then each element
+/// is its hydride minus its hydrogens). `None` when there is no engine or it refuses one of them.
+pub fn element_masses(engine: Measurer) -> Option<std::collections::BTreeMap<String, f64>> {
+    let mass = |atoms: &[&str]| -> Option<f64> {
+        let mut m = format!("\n  {}\n\n", crate::NAME);
+        m.push_str(&format!(
+            "{:>3}{:>3}  0  0  0  0  0  0  0  0999 V2000\n",
+            atoms.len(),
+            atoms.len().saturating_sub(1)
+        ));
+        for (i, el) in atoms.iter().enumerate() {
+            m.push_str(&format!(
+                "{:>10.4}{:>10.4}{:>10.4} {:<3} 0  0  0  0  0  0  0  0  0  0  0  0\n",
+                i as f64 * 1.5,
+                0.0,
+                0.0,
+                el
+            ));
+        }
+        if atoms.len() == 2 {
+            m.push_str("  1  2  1  0\n");
+        }
+        m.push_str("M  END\n");
+        engine(&m, &[]).ok().map(|r| r.mass)
+    };
+    let (ch4, c2h6) = (mass(&["C"])?, mass(&["C", "C"])?);
+    let h = (2.0 * ch4 - c2h6) / 2.0;
+    let mut out = std::collections::BTreeMap::new();
+    out.insert("H".to_string(), h);
+    out.insert("C".to_string(), ch4 - 4.0 * h);
+    for (el, hydride, n) in [
+        ("O", "O", 2.0),
+        ("N", "N", 3.0),
+        ("S", "S", 2.0),
+        ("Cl", "Cl", 1.0),
+        ("Br", "Br", 1.0),
+    ] {
+        out.insert(el.to_string(), mass(&[hydride])? - n * h);
+    }
+    Some(out)
+}
+
+/// The mass shift of a delta in the canonical spelling (`+O`, `-CH2`, `+H-Cl`), from the element masses of `element_masses`.
+pub fn delta_mass(delta: &str, masses: &std::collections::BTreeMap<String, f64>) -> Option<f64> {
+    let counts = mzlab_mol::delta::parse(delta).ok()?;
+    let mut sum = 0.0;
+    for (el, n) in counts {
+        sum += *masses.get(&el)? * n as f64;
+    }
+    Some(sum)
+}

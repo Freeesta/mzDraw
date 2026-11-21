@@ -341,15 +341,17 @@ impl Editor {
     /// An open proposal ended by an edit of the person (or an undo): said at once, so that nothing is left on screen that does not act.
     /// Returns `PROPOSAL | REPAINT` when it ended now.
     pub fn settle_proposal(&mut self) -> u32 {
+        // the step field follows the drawing after every call too (its sites are found again, or it closes)
+        let step = self.step_follow();
         if self.proposal.is_some() && self.live_proposal().is_none() {
             self.proposal = None;
             self.eat = None;
             self.said = ("draw2.say.proposalStale", String::new());
             // kept beside the counts until the next step: a focus announcement of the same key press must not hide it
             self.notice = self.said.clone();
-            return PROPOSAL | REPAINT;
+            return PROPOSAL | REPAINT | step;
         }
-        0
+        step
     }
 
     /// A press on the number of a hunk gives it the keyboard; the rest of that press (move, release) is swallowed, and only that

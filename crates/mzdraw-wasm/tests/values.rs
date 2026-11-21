@@ -329,3 +329,17 @@ fn the_glue_path_with_the_real_engine_scales_linearly_in_the_structures() {
         "25 structures {a} us, 100 structures {b} us"
     );
 }
+
+#[test]
+fn the_mass_shift_of_a_step_delta_is_solved_from_the_engine_alone() {
+    // tp-11: the step field matches a mass shift. The core has no table: `element_masses` asks the engine for CH4, C2H6 and five
+    // hydrides and solves them. Hand sums with the masses above: +O 15.9949, -CH2 -(12 + 2 * 1.00782503207) = -14.0157,
+    // +H2O 18.0106, -CO2 -(12 + 2 * 15.99491461956) = -43.9898.
+    let m = mzdraw::values::element_masses(glue::measure).expect("the engine answers");
+    let four = |d: &str| mzdraw::values::four(mzdraw::values::delta_mass(d, &m).unwrap());
+    assert_eq!(four("+O"), "15.9949");
+    assert_eq!(four("-CH2"), "-14.0157");
+    assert_eq!(four("+H2O"), "18.0106");
+    assert_eq!(four("-CO2"), "-43.9898");
+    assert_eq!(four("+H-Cl"), "-33.9610");
+}
