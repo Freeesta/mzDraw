@@ -43,7 +43,8 @@ for (const c of fx.contexts) {
   const request = JSON.stringify(c.request), a = site(request), b = native(request);
   check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
-  check(a.stdout === c.out && JSON.parse(c.out).items.length > 0, `${c.name}: the recorded menu`);
+  const v = JSON.parse(c.out);
+  check(a.stdout === c.out && (v.items ? v.items.length > 0 : v.flags.length > 0 && v.valid.length === 2), `${c.name}: the recorded menu or state`);
 }
 // the table of the operations (`draw-edit-schema/1`)
 for (const c of fx.schemas) {
@@ -100,6 +101,6 @@ for (const [engine, args, schema] of engines) {
   const missing = JSON.stringify({ log: drawn, engines: [{ engine: "nope" }] }), c = siteGlue(missing), d = nativeGlue(missing);
   check(c.status === 2 && d.status === 2 && c.stderr === d.stderr && JSON.parse(d.stderr).error_key === "error.draw2.engineMissing", "engine missing: same keyed refusal, exit 2");
 }
-check(fx.cases.length >= 3 && fx.refused.length >= 1 && fx.contexts.length >= 7 && fx.settings.length >= 2, "the fixture has cases");
+check(fx.cases.length >= 3 && fx.refused.length >= 1 && fx.contexts.length >= 14 && fx.settings.length >= 2, "the fixture has cases");
 console.log(`parity: ${n - bad}/${n} checks ok`);
 process.exit(bad ? 1 : 0);

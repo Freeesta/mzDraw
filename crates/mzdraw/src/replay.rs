@@ -26,12 +26,22 @@ struct Request {
     expect: Vec<Expectation>,
     /// `id`: echoed in the document (a string or an integer).
     id: Option<serde_json::Value>,
+    /// `events`: pointer and key events the page would forward, run after `commands` and before `out`: `["pointer", phase, id, x, y,
+    /// kind, mods, t]` (`Editor::pointer_event`) and `["key", key, mods, t]` (`Editor::key_at`). Their flags are kept for the
+    /// output `context-state:<w>,<h>`.
+    events: Vec<Event>,
+}
+
+/// One event of the request field `events`.
+enum Event {
+    Pointer([f64; 7]),
+    Key(String, u32, f64),
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 12] = [
+const FIELDS: [&str; 13] = [
     "import", "style", "set", "log", "commands", "command", "args", "out", "report", "dry_run",
-    "expect", "id",
+    "expect", "id", "events",
 ];
 
 impl Request {
@@ -95,7 +105,32 @@ impl Request {
             Some(x) if x.is_string() || x.is_i64() || x.is_u64() => Some(x.clone()),
             Some(_) => return Err(BAD),
         };
+        let events = match v.get("events") {
+            None => Vec::new(),
+            Some(l) => (l.as_array().ok_or(BAD)?.iter())
+                .map(|e| {
+                    let a = e.as_array().ok_or(BAD)?;
+                    let num = |i: usize| a.get(i).and_then(serde_json::Value::as_f64).ok_or(BAD);
+                    match (a.first().and_then(|k| k.as_str()), a.len()) {
+                        (Some("pointer"), 8) => {
+                            let mut n = [0.0; 7];
+                            for (i, v) in n.iter_mut().enumerate() {
+                                *v = num(i + 1)?;
+                            }
+                            Ok(Event::Pointer(n))
+                        }
+                        (Some("key"), 4) => Ok(Event::Key(
+                            a[1].as_str().ok_or(BAD)?.to_string(),
+                            num(2)? as u32,
+                            num(3)?,
+                        )),
+                        _ => Err(BAD),
+                    }
+                })
+                .collect::<Result<Vec<Event>, _>>()?,
+        };
         Ok(Request {
+            events,
             commands,
             report: flag("report")?,
             dry_run: flag("dry_run")?,
@@ -129,7 +164,7 @@ pub struct Reply {
 }
 
 /// The output `Editor::save` writes, or the context menu of `context:<x>,<y>` (for the golden parity of the menu).
-fn produce(e: &mut Editor, out: &str) -> Result<String, &'static str> {
+fn produce(e: &mut Editor, out: &str, flags: &[u32]) -> Result<String, &'static str> {
     // `context:<x>,<y>`: the context menu (JSON) of a right-click at that pixel of the default view
     if let Some(at) = out.strip_prefix("context:") {
         let xy = at
@@ -137,6 +172,26 @@ fn produce(e: &mut Editor, out: &str) -> Result<String, &'static str> {
             .and_then(|(x, y)| Some((x.trim().parse().ok()?, y.trim().parse().ok()?)));
         let (x, y) = xy.ok_or("error.draw2.request")?;
         return Ok(e.context_menu(x, y));
+    }
+    // `context-state:<w>,<h>`: what the events left, as the page asks it after them: the flags each returned, the selection, where a
+    // menu opened from the keyboard goes in a canvas of that size, the target of the menu there, and whether that menu is still
+    // valid right after it was built and after the view moved
+    if let Some(size) = out.strip_prefix("context-state:") {
+        let wh = size
+            .split_once(',')
+            .and_then(|(w, h)| Some((w.trim().parse().ok()?, h.trim().parse().ok()?)));
+        let (w, h): (f64, f64) = wh.ok_or("error.draw2.request")?;
+        let (ax, ay) = e.context_anchor(w, h);
+        let menu: serde_json::Value =
+            serde_json::from_str(&e.context_menu(ax, ay)).unwrap_or_default();
+        let opened = e.context_valid();
+        e.pan(1.0, 0.0);
+        let o = &e.over;
+        return Ok(serde_json::json!({
+            "flags": flags, "selected": [o.sel_atoms, o.sel_bonds, o.sel_objs], "anchor": [ax, ay],
+            "target": menu["target"], "valid": [opened, e.context_valid()],
+        })
+        .to_string());
     }
     e.save(out)
 }
@@ -184,8 +239,17 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             }
         }
     }
+    let flags: Vec<u32> = (r.events.iter())
+        .map(|ev| match ev {
+            Event::Pointer(n) => {
+                let [phase, id, x, y, kind, mods, t] = *n;
+                e.pointer_event(phase as u32, id as u32, x, y, kind as u32, mods as u32, t)
+            }
+            Event::Key(key, mods, t) => e.key_at(key, *mods, *t),
+        })
+        .collect();
     let kind = r.out.as_deref().unwrap_or("mzdraw");
-    let written = produce(&mut e, kind);
+    let written = produce(&mut e, kind, &flags);
     if !r.envelope() {
         return written.map_err(fail).map(|text| Reply { text, ok: true });
     }

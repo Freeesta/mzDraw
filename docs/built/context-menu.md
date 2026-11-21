@@ -6,11 +6,44 @@
 
 `web/context.js` paints the menu and forwards the choice; every decision is in Rust. The page is the interface only:
 
-- **Open**: the right button of the mouse (the `contextmenu` event, cancelled so the browser's own menu never shows on the canvas; a right-button drag still pans and does not open it) and the barrel button of a pen. A finger or a pen held still for half a second is told from a tap in Rust (`editor_touch.rs`): the pointer-up answers with the new flag `MENU` (512), over something it also selects what is under it (as before), over an empty spot or with the Select tool it only asks for the menu and the tool does not act. The Menu key and Shift+F10 answer `MENU` from `key`; `context_anchor(w, h)` says where the menu goes (the atom with the keyboard focus, else the first selected atom or object, else the middle of the canvas).
+- **Open**: every opening is decided in Rust and answered with the flag `MENU` (512); the page opens the menu at the point of the event (`context_menu`). The page forwards the buttons as modifier bits (`SECONDARY` 16: right button of a mouse or barrel button of a pen; `MIDDLE` 32) and decides nothing about them (`editor_touch.rs`): a secondary press released in place asks for the menu; dragged (past 4 px) it pans the view, as the middle button does, and asks for nothing; the barrel button of a pen asks at the press and the tool does not act; a finger or a pen held still for half a second asks for the menu on release (over something with another tool it also selects it, as before; over an empty spot or with the Select tool the tool does not act). The Menu key and Shift+F10 answer `MENU` from `key`; `context_anchor(w, h)` says where the menu goes (the atom with the keyboard focus, else the first selected atom or object, else the middle of the canvas). The `contextmenu` event is only cancelled (on the canvas and on the menu), so the browser's menu never shows and the page opens nothing for it. Ctrl+click on a Mac is a click with Ctrl (not a secondary press): it opens no menu.
 - **Paint**: `role="menu"`, items `menuitem` / `menuitemradio` (`aria-checked`), disabled ones `aria-disabled` and out of the keyboard walk, groups folded inline (`aria-haspopup`, `aria-expanded`), the key of each item shown (`aria-keyshortcuts`), the notice of an empty document as a disabled line. Labels come from the catalog (`draw2.ctx.<id>`), else the module's own English label. 44 px items for a finger or a pen.
 - **Keyboard**: arrows, Home, End, a letter (next item that starts with it), Right and Left open and fold a group, Enter and Space run, Escape and Tab close; the focus goes back to the canvas.
 - **Close**: after every action the page asks `context_valid()`; the menu closes when the document, the selection, the clipboard or the view changed since it was built (a wheel, a pan, a key, a click on the canvas). A press outside, a window blur and a resize close it too. An item run on a menu that is out of date is refused by the module (`error.draw2.contextStale`).
 - **After an item** (`context_ask`): `clipboard` writes the editor's clipboard to the system one; `element`, `label` and `text` open the palette flyout of that field and put the keyboard on it (the choice then picks the tool, as the `L` and `T` keys do); `import` puts the keyboard on the Add field; `data` and `annotation` open that side palette on the structure that was asked for (`anchor`); `fit` fits the canvas; `save-image` is the Save of the palettes (the default format of the settings, `export.default`); `copy-as` writes molfile, SMILES or SVG text (`context_copy_as`) or a PNG of the selection (`context_png_plan`, `context_png_finish`) to the system clipboard.
-- **Flag bits**: `ASK` moved from 128 to 256 (128 is `PALETTES`); `MENU` is 512.
-- **Tests**: unit tests of the long press (finger, pen, mouse, eraser end), the keys, `context_anchor` and `context_valid` in `crates/mzdraw/tests/context.rs`; three e2e steps (mouse, keyboard, touch and pen long press) and one dark step in `tests/e2e.mjs`; screenshots at deviceScaleFactor 2 in `docs/shots/context-menu-{light,dark,tablet}.png`.
+- **Flag bits**: all in `editor.rs`: `ASK` moved from 128 to 256 (128 is `PALETTES`); `MENU` is 512; the modifier bits `SECONDARY` (16) and `MIDDLE` (32) join `SHIFT`, `CTRL`, `ALT`.
+- **Menu sizes**: 44 px items for a finger or a pen, and for any menu on a device that reports a coarse pointer (also when it is opened by key); `aria-orientation="vertical"`; Enter or Space on a group opens it and moves the focus in.
+- **Tests**: unit tests of the long press (finger, pen, mouse, eraser end), the secondary, middle and barrel buttons, the keys, `context_anchor` and `context_valid` in `crates/mzdraw/tests/context.rs`; the replay request gained the field `events` (`["pointer", phase, id, x, y, kind, mods, t]`, `["key", key, mods, t]`) and the output `context-state:<w>,<h>` (the flags each event returned, the selection, the anchor, the target there, whether the menu is valid right after it was built and after the view moved): seven golden cases in `tests/data/log/context-menu.json`, held wasm == native by `tests/parity.mjs`; four e2e steps (mouse, keyboard, dark, touch and pen) in `tests/e2e.mjs`; screenshots at deviceScaleFactor 2 in `docs/shots/context-menu-{light,dark,tablet}.png`.
+
+## CLI route of each item (rule 15)
+
+Every item runs an `Op` of `draw_edit/1` (or `commands`), or is page-only for the reason given. The headless door runs the same Rust: `context_menu` as `out: "context:<x>,<y>"`, and the pointer and key events that lead to it as `events` with `out: "context-state:<w>,<h>"`.
+
+| Item (id) | `draw_edit/1` op or CLI twin | Page-only because |
+|---|---|---|
+| `atom.el.<X>` | `atom.set {id, el}` | |
+| `atom.el.more` | `atom.set {id, el}` | the element is typed in the field of the atoms flyout |
+| `atom.chg.plus` / `atom.chg.minus` | `atom.set {id, chg}` (current charge ±1, kept within ±4) | |
+| `atom.label` | `atom.set {id, lab}` | the label is typed in the field of the charges flyout |
+| `atom.data` / `atom.ann` | `atom.data {id, data}` / `atom.ann {id, ann}` | the fields are filled in the side palettes |
+| `atom.connected` | none | a selection, not a change of the document; a request names the atoms by id |
+| `edit.copy` | none; the clipboard text is `out: "mzdraw"` / `"molfile"` of the selected part | the clipboard of the system |
+| `edit.cut` | `remove {atoms, objects}` | the clipboard half is page-only |
+| `edit.paste`, `edit.duplicate` | `atom.add`, `bond.add`, `obj.add` of the copied part (one step) | the clipboard |
+| `edit.delete`, `bond.delete` | `remove {atoms, bonds, objects}` | |
+| `edit.all` | none | a selection |
+| `edit.undo` / `edit.redo` | none: a log has no history; drop the last operations of the log | the history of a session |
+| `bond.o.1..3` | `bond.set {id, o, s: 0}` | |
+| `bond.s.up` / `bond.s.down` / `bond.s.wavy` | `bond.set {id, o: 1, s}` | |
+| `bond.reverse` | `bond.set {id, rev: true}` | |
+| `sel.rotate.l` / `sel.rotate.r` | `rotate {atoms, deg: ±15, x, y}` (command `rotate`) | |
+| `sel.flip.h` / `sel.flip.v` | `flip {atoms, axis, at}` (command `flip`) | |
+| `sel.copyas.molfile` / `smiles` / `svg` | `out: "molfile"` / `"smiles"` / `"svg"` | writing to the clipboard |
+| `sel.copyas.png` | none (the module gives the plan, `png::plan`) | the raster is drawn by the browser; PNG is finished by `png::finish` |
+| `obj.edit` | `obj.set {id, text}` | the text is typed in the field of the objects flyout |
+| `canvas.add` | the `import` field of the request | the text is typed in the Add field |
+| `canvas.fit`, `canvas.zoom.in/out` | none | the view is not part of the document (the SVG and PNG are made at their own size) |
+| `canvas.save` | `out` of the request, in the format of the setting `export.default` | the download |
+| `canvas.clear` | `remove {atoms, objects}` of everything | |
+| long press, secondary, middle and barrel buttons, Menu key, Shift+F10, `context_anchor`, `context_valid` | `events` of the request, `out: "context-state:<w>,<h>"` | pointer gestures: the answer is the flags, the selection and the anchor, in the golden cases |
 - **Not in this slice**: the `Apply step…` item (planned with tp-11), an element picker for `More...` (the field of the atoms flyout is used), a replay field `context` and a different item order (the refine prompt).

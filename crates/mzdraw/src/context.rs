@@ -21,16 +21,11 @@
 //! The view is part of the fingerprint: a pan or a zoom between opening and running closes the menu, as a change of the document does.
 
 use crate::doc::{ObjKind, WEDGE_DOWN, WEDGE_UP, WEDGE_WAVY};
-use crate::editor::{Editor, Hit, CHANGED, MOUSE, REPAINT};
+use crate::editor::{Editor, Hit, ASK, CHANGED, MOUSE, REPAINT};
 use crate::ops::{Axis, Op};
 use serde_json::{json, Value};
 use std::hash::{Hash, Hasher};
 
-/// The flag of an answer that leaves work for the page: read `context_ask()`.
-pub const ASK: u32 = 256;
-/// The flag of a pointer or key event that asks the page to open the context menu: a finger or a pen held still, the Menu key or
-/// Shift+F10. The page gives `context_anchor` its size, then calls `context_menu` at the point it answers (or at the event's own).
-pub const MENU: u32 = 512;
 /// The i18n key of the line shown instead of an export on an empty canvas.
 pub const EMPTY_NOTICE: &str = "draw2.ctx.empty";
 

@@ -103,8 +103,10 @@ pub fn name() -> String {
 }
 
 /// A pointer event: `phase` 0 down, 1 move, 2 up, 3 cancel; `kind` 0 mouse, 1 pen, 2 finger; `mods` bit 1 Shift, bit 2 Ctrl/Cmd,
-/// bit 4 the eraser end of a pen; `id` the pointer id and `t` its time stamp in milliseconds (several fingers, a resting palm and a
-/// long press are told apart in Rust). Returns flags (1 repaint, 2 changed, 4 tool changed, 8 handled, 512 open the context menu: a finger or a pen held still).
+/// bit 4 the eraser end of a pen, bit 8 Alt, bit 16 the secondary button (right button of a mouse, barrel button of a pen), bit 32 the middle
+/// button; `id` the pointer id and `t` its time stamp in milliseconds (several fingers, a resting palm and a
+/// long press are told apart in Rust). Returns flags (1 repaint, 2 changed, 4 tool changed, 8 handled, 512 open the context menu: a finger or a pen held still, the secondary button released without a drag, the barrel button of a pen; a drag with the
+/// secondary or the middle button pans the view in Rust).
 #[wasm_bindgen]
 pub fn pointer(phase: u32, x: f64, y: f64, kind: u32, mods: u32, id: u32, t: f64) -> u32 {
     act(|e| e.pointer_event(phase, id, x, y, kind, mods, t))
@@ -250,7 +252,7 @@ pub fn context_close() {
     with(|p| p.editor.context_close())
 }
 
-/// What the page has to do after `context_run` answered 128: `element:<atom>`, `label:<atom>`, `data:<anchor>`, `annotation:<anchor>`,
+/// What the page has to do after `context_run` answered 256: `element:<atom>`, `label:<atom>`, `data:<anchor>`, `annotation:<anchor>`,
 /// `text:<object>`, `import`, `fit`, `save-image`, `clipboard` or `copy-as:<molfile|smiles|svg|png>`; read once.
 #[wasm_bindgen]
 pub fn context_ask() -> String {

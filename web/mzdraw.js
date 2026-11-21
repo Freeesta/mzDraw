@@ -304,47 +304,33 @@ function field(kind) {
 }
 
 // bit 8: Alt (Option); bit 4: the eraser end or eraser button of a pen (button 5, buttons bit 32)
-const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | (e.altKey ? 8 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
+const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | (e.altKey ? 8 : 0) | (e.button === 2 || ("buttons" in e && e.buttons & 2) ? 16 : 0) | (e.button === 1 || ("buttons" in e && e.buttons & 4) ? 32 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
 const kind = (/** @type {PointerEvent} */ e) => (e.pointerType === "pen" ? 1 : e.pointerType === "touch" ? 2 : 0);
 
 function events() {
-  /** a pan with the middle or the right button of the mouse: where it is, where it started, whether it went further than a click @type {{x: number, y: number, sx: number, sy: number, moved: boolean} | null} */ let panning = null;
-  /** the last pan with the right button was a drag: the context menu that some systems ask for on its release is not wanted */
-  let dragged = false;
   const at = (/** @type {PointerEvent | WheelEvent} */ e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
-  // every pointer goes to Rust with its id and its time stamp: which finger is a palm, what two fingers do and what a long press
-  // means is decided there
+  // every pointer goes to Rust with its id, its buttons and its time stamp: which finger is a palm, what two fingers do, what a long
+  // press means, what the middle and the secondary button do (pan, menu) and what the barrel button of a pen does is decided there
   const send = (/** @type {number} */ phase, /** @type {PointerEvent} */ e) => { const [x, y] = at(e); return ed.pointer(phase, x, y, kind(e), mods(e), e.pointerId, e.timeStamp); };
+  /** the flag MENU: the module asks for the context menu at the point of the event @param {number} f @param {PointerEvent} e */
+  const ask = (f, e) => { if (f & MENU) { const [x, y] = at(e); menu.open(x, y, kind(e)); } };
   cv.addEventListener("pointerdown", e => {
     cv.focus();
     try { cv.setPointerCapture(e.pointerId); } catch { /* a pointer that is already gone cannot be captured: the event still counts */ }
-    if (e.pointerType === "mouse" && (e.button === 1 || e.button === 2)) { panning = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false }; dragged = false; e.preventDefault(); return; }
-    after(send(0, e));
+    const f = send(0, e);
+    after(f);
+    if (f & HANDLED) e.preventDefault();                     // a button that is not the main one: no autoscroll, no selection
+    ask(f, e);                                               // the barrel button of a pen asks at the press
   });
-  cv.addEventListener("pointermove", e => {
-    if (panning) {
-      const moved = panning.moved || Math.hypot(e.clientX - panning.sx, e.clientY - panning.sy) > 4;
-      after(ed.pan(e.clientX - panning.x, e.clientY - panning.y)); panning = { ...panning, x: e.clientX, y: e.clientY, moved }; return;
-    }
-    after(send(1, e));
-  });
+  cv.addEventListener("pointermove", e => { after(send(1, e)); });
   cv.addEventListener("pointerup", e => {
-    if (panning) { dragged = panning.moved; panning = null; return; }
     const f = send(2, e);
     after(f | CHANGED);                                       // a release may have changed the selection alone
-    // a finger or a pen held still: the module asks for the context menu (it is the one that tells a long press from a tap)
-    if (f & MENU) { const [x, y] = at(e); menu.open(x, y, kind(e)); }
+    ask(f, e);                                                // a finger or a pen held still, the secondary button released in place
   });
-  cv.addEventListener("pointercancel", e => { panning = null; after(send(3, e)); });       // taken away by the system: nothing is committed
-  // no menu of the browser on the canvas. The right button (or the pen's barrel button) opens ours; a finger's long press does not
-  // come this way (the module sees it as a held press, above), nor does the Menu key (a key event, below)
-  cv.addEventListener("contextmenu", e => {
-    e.preventDefault();
-    const type = /** @type {PointerEvent} */ (e).pointerType;
-    if (type === "touch" || type === "" || dragged || menu.isOpen()) { dragged = false; return; }
-    const [x, y] = at(/** @type {PointerEvent} */ (e));
-    menu.open(x, y, type === "pen" ? 1 : 0);
-  });
+  cv.addEventListener("pointercancel", e => { after(send(3, e)); });       // taken away by the system: nothing is committed
+  // no menu of the browser on the canvas or on our menu: the event is cancelled and nothing else is decided here
+  cv.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = at(e); after(ed.zoom(x, y, e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
   cv.addEventListener("keydown", e => {
     const f = ed.key(e.key, mods(e), e.timeStamp);

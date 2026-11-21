@@ -109,6 +109,8 @@ button:focus-visible, canvas:focus-visible, textarea:focus-visible { outline: 3p
 @media (hover: hover) { .ctx button:hover:not([aria-disabled="true"]) { background: var(--bg); } }
 .ctx button:focus-visible { outline: 3px solid var(--accent); outline-offset: -2px; background: var(--bg); }
 #d2-menu[data-kind="touch"] .ctx button, #d2-menu[data-kind="pen"] .ctx button { min-height: 44px; }
+/* a menu from the keyboard on a device that also has a finger or a pen has the same large targets */
+@media (pointer: coarse), (any-pointer: coarse) { .ctx button { min-height: 44px; } }
 textarea { width: 100%; box-sizing: border-box; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; font: 12px/1.3 ui-monospace, monospace; }
 .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
 #d2-outline { margin: 0; padding-left: 18px; }

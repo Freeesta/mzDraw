@@ -43,7 +43,7 @@ export function contextMenu(h) {
     into.append(b);
     if (!item.children) return;
     const sub = document.createElement("div");
-    sub.className = "sub"; sub.id = `d2-ctx-sub-${n}`; sub.hidden = true; sub.setAttribute("role", "menu"); sub.setAttribute("aria-label", name.textContent);
+    sub.className = "sub"; sub.id = `d2-ctx-sub-${n}`; sub.hidden = true; sub.setAttribute("role", "menu"); sub.setAttribute("aria-orientation", "vertical"); sub.setAttribute("aria-label", name.textContent);
     b.setAttribute("aria-haspopup", "menu"); b.setAttribute("aria-expanded", "false"); b.setAttribute("aria-controls", sub.id); b.dataset.group = "1";
     item.children.forEach((/** @type {any} */ c, /** @type {number} */ i) => make(c, sub, n * 100 + i + 1));
     into.append(sub);
@@ -52,7 +52,7 @@ export function contextMenu(h) {
   /** the menu the module gave, as DOM @param {any} menu @param {string} kind */
   function build(menu, kind) {
     const root = document.createElement("div");
-    root.className = "ctx"; root.tabIndex = -1; root.setAttribute("role", "menu");
+    root.className = "ctx"; root.tabIndex = -1; root.setAttribute("role", "menu"); root.setAttribute("aria-orientation", "vertical");
     root.setAttribute("aria-label", t("draw2.ctx.menu", { target: t(`draw2.ctx.target.${menu.target}`) }));
     // a canvas with nothing drawn has nothing to export: the module says so, in words, instead of an item
     if (menu.notice) {
@@ -152,11 +152,16 @@ export function contextMenu(h) {
     } catch { h.say(t("draw2.ctx.say.copyFailed")); }
   }
 
+  host.addEventListener("contextmenu", e => e.preventDefault());       // no menu of the browser on ours either
   host.addEventListener("click", e => {
     const b = /** @type {HTMLElement} */ (e.target).closest("button");
     if (!b || b.getAttribute("aria-disabled") === "true") return;
-    if (b.dataset.group) fold(b, b.getAttribute("aria-expanded") !== "true");
-    else if (b.dataset.id) run(b.dataset.id);
+    if (b.dataset.group) {
+      // Enter or Space (a click with no pointer) on a group opens it and moves the focus in, as the Right arrow does
+      const on = b.getAttribute("aria-expanded") !== "true";
+      fold(b, on);
+      if (on && e.detail === 0) /** @type {HTMLElement | null} */ ($(b.getAttribute("aria-controls") || "").querySelector("button:not([aria-disabled='true'])"))?.focus({ preventScroll: true });
+    } else if (b.dataset.id) run(b.dataset.id);
   });
   host.addEventListener("keydown", e => {
     const items = reach(), at = items.indexOf(/** @type {HTMLElement} */ (document.activeElement)), key = e.key;
