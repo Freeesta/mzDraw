@@ -171,3 +171,18 @@ p { margin: 4px 0; }
 #d2-step li .delta { font-variant-numeric: tabular-nums; opacity: 0.85; }
 #d2-step p { margin: 2px 0; font-size: 13px; }
 @media (pointer: coarse) { #d2-step input, #d2-step button { min-height: 44px; } #d2-step li { min-height: 44px; align-items: center; } }
+
+/* the About box and the report box (feedback-about): two small popovers over the canvas, no modal dialog */
+#d2-meta { position: absolute; left: 50%; transform: translateX(-50%); bottom: 6px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; z-index: 4; }
+#d2-meta button { min-height: 28px; font-size: 12px; }
+#d2-report[hidden], #d2-about[hidden], #d2-report-copy[hidden] { display: none; }
+#d2-report, #d2-about { position: absolute; left: 50%; transform: translateX(-50%); bottom: 40px; width: min(24rem, calc(100% - 16px)); box-sizing: border-box; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 6px; z-index: 8; }
+#d2-report fieldset { border: 0; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+#d2-report legend { padding: 0; font-weight: 600; margin-bottom: 2px; }
+#d2-report label { display: flex; gap: 6px; align-items: center; min-height: 28px; }
+#d2-report label.log { align-items: flex-start; }
+#d2-report p, #d2-about p { margin: 4px 0; font-size: 13px; }
+#d2-report .row, #d2-about .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+#d2-report input:focus-visible, #d2-about a:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 2px; }
+#d2-about a { color: var(--accent); }
+@media (pointer: coarse) { #d2-meta button, #d2-report button, #d2-about button { min-height: 44px; } #d2-report label { min-height: 44px; } }

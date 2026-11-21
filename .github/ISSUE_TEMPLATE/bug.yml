@@ -1,0 +1,39 @@
+name: Bug report
+description: Something in the editor does not work as it should.
+title: "Bug:"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Everything you write here is public on GitHub. Do not put private structures or personal data in it.
+  - type: textarea
+    id: did
+    attributes:
+      label: What I did
+      description: The steps, one per line, from an empty canvas if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What I expected
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: page
+    attributes:
+      label: Page version, browser and language
+      description: Filled in by the page. Leave it as it is.
+  - type: textarea
+    id: log
+    attributes:
+      label: Command log of the drawing (optional)
+      description: Only if you ticked the box on the page. It is public once you submit. If it was too long for the link, paste the copied log here.
+      render: json

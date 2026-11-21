@@ -22,6 +22,7 @@ mod editor_pathway;
 mod editor_step;
 mod editor_tools;
 pub mod editor_touch;
+pub mod feedback;
 pub mod formats;
 pub mod io;
 pub mod ket;
@@ -62,4 +63,4 @@ pub use ops::{Axis, Op, OpError, Session};
 pub use settings::Style;
 
 /// The product name, from the one place that holds it (`brand`).
-pub use brand::NAME;
+pub use brand::{NAME, VERSION};

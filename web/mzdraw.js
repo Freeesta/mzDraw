@@ -4,6 +4,7 @@
 import { build, layout, show, open, PALETTES } from "./palettes.js";
 import { NAMES } from "./names.js";
 import { contextMenu } from "./context.js";
+import { feedbackBoxes } from "./feedback.js";
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
@@ -661,7 +662,7 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
-  mapField(); proposalEvents(); stepEvents();
+  mapField(); proposalEvents(); stepEvents(); feedbackBoxes({ ed, t, focusCanvas: () => cv.focus({ preventScroll: true }) });
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); layout(); refresh();

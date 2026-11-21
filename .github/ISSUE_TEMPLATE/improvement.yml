@@ -1,0 +1,34 @@
+name: Improvement
+description: Something the editor could do, or do better.
+title: "Improvement:"
+labels: ["improvement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Everything you write here is public on GitHub. Do not put private structures or personal data in it.
+  - type: textarea
+    id: want
+    attributes:
+      label: What I want to do
+      description: The task, in your own words.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What is hard or slow today, or why it matters to your work.
+    validations:
+      required: true
+  - type: textarea
+    id: page
+    attributes:
+      label: Page version, browser and language
+      description: Filled in by the page. Leave it as it is.
+  - type: textarea
+    id: log
+    attributes:
+      label: Command log of the drawing (optional)
+      description: Only if you ticked the box on the page. It is public once you submit. If it was too long for the link, paste the copied log here.
+      render: json

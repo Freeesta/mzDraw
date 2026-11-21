@@ -111,6 +111,31 @@ pub fn version() -> String {
     BRIDGE.to_string()
 }
 
+/// The report of a bug or the suggestion of an improvement (`feedback/1`, made in Rust): `kind` is `bug` or `improvement`, `with_log`
+/// puts the command log of the drawing in the issue, `agent` and `lang` are the browser's. The page only opens the `url` in a new tab.
+#[wasm_bindgen]
+pub fn feedback(kind: &str, with_log: bool, agent: &str, lang: &str) -> Result<String, JsValue> {
+    with(|p| {
+        let log = p.editor.save("log").map_err(js_err)?;
+        let params = mzdraw::feedback::Params {
+            kind,
+            with_log,
+            log: &log,
+            agent,
+            lang,
+        };
+        mzdraw::feedback::build(&params)
+            .map(|f| f.json())
+            .map_err(js_err)
+    })
+}
+
+/// What the About box shows (`about/1`): the name, the version, the repository and the licence.
+#[wasm_bindgen]
+pub fn about() -> String {
+    mzdraw::feedback::about_json()
+}
+
 /// The product name, from the one place that holds it.
 #[wasm_bindgen]
 pub fn name() -> String {
