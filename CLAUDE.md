@@ -15,14 +15,15 @@ mzDraw is a 2D molecule editor in Rust compiled to wasm, published at https://fr
 4. Synthetic data only in tests and examples.
 5. Never skip, disable or loosen a test. A test that fails is fixed, or the code is.
 6. Never push to `main`. Never rebase, never force-push. Merge `main` into a branch only on a real conflict.
-7. PRs are opened ready for review and are never merged by their author: the coordinator (COO-DRAW) merges with the full head SHA.
+7. PRs are opened ready for review and are never merged by their author: the coordinator (COO-MZDRAW) merges with the full head SHA.
 8. The wasm cap (`tools/wasm-cap.toml`) is respected: update `measured` when the size moves; raise `cap` only with a reason in the PR.
 9. `mzlab-mol` (and `mzlab-feat` of the `mzlab` feature) are git dependencies pinned to ONE commit of `main` of `Freeesta/mzlab` in the root `Cargo.toml`; move both `rev` together, in a PR of its own, with the golden files re-checked. `wasm-bindgen` stays at the version whose CLI `tools/install_tools.sh` pins.
-10. Every function of the page must also be producible from the CLI route of mzLab (`mzlab-cli mol draw`): the page only emits commands, the command log format is the JSON patch language `draw_edit/1` of mzLab, and replaying a log natively gives the same bytes as the page (`tests/parity.mjs`).
+10. Every function of the page must also be producible from the CLI route of mzLab (`mzlab-cli mol draw`): the page only emits commands, the command log format is the JSON patch language `draw_edit/1` of mzLab, and replaying a log natively gives the same bytes as the page (`tests/parity.mjs`). Rule 15 sets the wider principle.
 11. Every edit operation has an exact inverse: the property test "apply then undo returns the identical document" covers every new operation.
 12. Each PR is one small slice with unit tests, golden parity wasm == native, and e2e in Chromium (keep touch/pen and keyboard in the tests). UI changes come with screenshots at deviceScaleFactor 2.
 13. Scope out: macromolecules, query features, S-groups other than abbreviations. A file carrying them opens with the unsupported parts listed, never silently dropped.
 14. Cite mzDraw / mzLab when published (`CITATION.cff`; keep its `version` equal to the workspace version and add `date-released` and `doi` with the first tagged release).
+15. CLI-native and agent-first. mzDraw is born usable through the CLI (`mzlab-cli mol draw`) by people and above all by AI agents, to draw canvases of every kind as fast, as safely and as reproducibly as possible. Every feature is first a Rust command with a machine-readable form (`draw_edit/1` JSON ops, `--json` with stable keys, distinct exit codes, data on stdout and diagnostics on stderr, a `--dry-run` / validate mode, batch input and stdin streaming, deterministic bytes, no browser in the path); the page is one client of that same command set. A feature without a CLI route and a test that replays it natively is incomplete.
 
 ## Commands
 ```
