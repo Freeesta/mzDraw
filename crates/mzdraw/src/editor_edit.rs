@@ -55,7 +55,7 @@ impl Editor {
 
     /// The selected atoms, the bonds between them and the selected objects as a document of their own, ids renumbered from 1
     /// (atoms, then bonds, then objects).
-    fn selection_doc(&self) -> Document {
+    pub(crate) fn selection_doc(&self) -> Document {
         let d = self.doc();
         let sel = &self.over.sel_atoms;
         let mut out = Document::default();

@@ -26,10 +26,20 @@ impl Editor {
     pub(crate) fn focus_key(&mut self, key: &str, shift: bool) -> Option<u32> {
         let focus = self.over.focus;
         Some(match (key, focus) {
-            ("arrowright", _) => self.walk(1.0, 0.0),
-            ("arrowleft", _) => self.walk(-1.0, 0.0),
-            ("arrowup", _) => self.walk(0.0, 1.0),
-            ("arrowdown", _) => self.walk(0.0, -1.0),
+            ("arrowright" | "arrowleft" | "arrowup" | "arrowdown", _) => {
+                let (dx, dy) = match key {
+                    "arrowright" => (1.0, 0.0),
+                    "arrowleft" => (-1.0, 0.0),
+                    "arrowup" => (0.0, 1.0),
+                    _ => (0.0, -1.0),
+                };
+                let f = self.walk(dx, dy);
+                if shift {
+                    self.extend_selection(focus) | f
+                } else {
+                    f
+                }
+            }
             ("home", _) => {
                 let first = self.doc().atoms.first().map(|a| a.id);
                 self.focus_on(first, None)
@@ -84,6 +94,28 @@ impl Editor {
             }
             _ => return None,
         })
+    }
+
+    /// After Shift+Arrow: the atom the focus walked to (and the one it left, when nothing was selected yet) joins the selection,
+    /// with the bond between them. Does nothing when the focus did not move.
+    fn extend_selection(&mut self, from: Option<u32>) -> u32 {
+        let (Some(from), Some(to)) = (from, self.over.focus) else {
+            return 0;
+        };
+        if from == to {
+            return 0;
+        }
+        let bond = self.doc().bond_between(from, to).map(|b| b.id);
+        let o = &mut self.over;
+        for a in [from, to] {
+            if !o.sel_atoms.contains(&a) {
+                o.sel_atoms.push(a);
+            }
+        }
+        if let Some(b) = bond.filter(|b| !o.sel_bonds.contains(b)) {
+            o.sel_bonds.push(b);
+        }
+        REPAINT | CHANGED
     }
 
     /// Moves the focus to the neighbour that lies most in the direction (`dx`, `dy`) (document axes, y up); with no focus yet it

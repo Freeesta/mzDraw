@@ -5,7 +5,7 @@ const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
 const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64;
 // toolbar: [command or tool name, key of the short label, key of the tooltip]; "|" is a separator
-const TOOLS = ["select", "erase", "|", "bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
+const TOOLS = ["select", "move-here", "erase", "|", "bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "|", "atom:C", "atom:N", "atom:O", "atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "|",
   "ring:6a", "ring:6", "ring:5", "|", "label", "|", "arrow", "plus", "text", "|", "charge:+", "charge:-", "|", "undo", "redo", "|", "copy", "cut", "paste", "duplicate", "|", "rotate-l", "rotate-r", "flip-h", "flip-v", "|", "zoom-in", "zoom-out", "fit", "|", "clear"];
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus"];
 
@@ -121,6 +121,7 @@ function refresh() {
   for (const b of $("d2-tools").querySelectorAll("button")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
     if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
+    if (c === "move-here") b.setAttribute("aria-pressed", String(st.moveHere));
     if (c === "undo") /** @type {HTMLButtonElement} */ (b).disabled = !st.undo;
     if (c === "redo") /** @type {HTMLButtonElement} */ (b).disabled = !st.redo;
     if (c === "copy" || c === "cut" || c === "duplicate") /** @type {HTMLButtonElement} */ (b).disabled = !st.selected;
@@ -149,10 +150,19 @@ function refresh() {
     li.append(b, warningText(w)); li.dataset.code = w.code;
     return li;
   }));
+  // the drawing checks: Rust names the checks that have findings, the page lists them (a line selects what it is about)
+  const std = st.std.lines;
+  $("d2-std-list").replaceChildren(...std.map((/** @type {any} */ c) => {
+    const li = document.createElement("li"), b = document.createElement("button"), g = document.createElement("span");
+    g.className = "lvl"; g.textContent = t(`draw2.std.grade.${c.grade}`);
+    b.type = "button"; b.dataset.key = c.key; b.dataset.grade = c.grade; b.append(g, " ", t(`draw2.${c.key}`, { n: c.n }));
+    li.append(b); return li;
+  }));
+  $("d2-std-note").textContent = st.std.none ? t("draw2.std.none") : "";
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
   if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
-  else if (st.say.key) $("d2-live").textContent = t(`draw2.say.${st.say.key.slice(10)}`, { what: st.say.what });
-  document.documentElement.dataset.d2 = JSON.stringify({ focus: st.focus ? st.focus.index : 0, atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, selected: st.selected });
+  else if (st.say.key) $("d2-live").textContent = t(st.say.key, { what: st.say.what });
+  document.documentElement.dataset.d2 = JSON.stringify({ focus: st.focus ? st.focus.index : 0, atoms: st.atoms, bonds: st.bonds, objects: st.objects, tool: st.tool, style: st.style, warnings: ws.length, std: std.length, selected: st.selected });
 }
 
 /** where the keyboard focus is, in words @param {any} f */
@@ -289,8 +299,8 @@ function toolbar() {
   }
 }
 
-// bit 4: the eraser end or eraser button of a pen (button 5, buttons bit 32)
-const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
+// bit 8: Alt (Option); bit 4: the eraser end or eraser button of a pen (button 5, buttons bit 32)
+const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | (e.altKey ? 8 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
 const kind = (/** @type {PointerEvent} */ e) => (e.pointerType === "pen" ? 1 : e.pointerType === "touch" ? 2 : 0);
 
 function events() {
@@ -317,7 +327,7 @@ function events() {
   cv.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = at(e); after(ed.zoom(x, y, e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
   cv.addEventListener("keydown", e => {
-    const f = ed.key(e.key, mods(e));
+    const f = ed.key(e.key, mods(e), e.timeStamp);
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
     if (f & (ASK_LABEL | ASK_TEXT)) { const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
   });
@@ -418,6 +428,12 @@ async function styles() {
 }
 
 function panels() {
+  $("d2-std-list").addEventListener("click", e => {
+    const b = /** @type {HTMLElement} */ (e.target).closest("button");
+    if (!b) return;
+    after(ed.select_check(b.dataset.key || "")); refresh();
+    $("d2-live").textContent = t("draw2.std.selected", { n: JSON.parse(ed.state()).selected });
+  });
   $("d2-add").addEventListener("click", () => add(/** @type {HTMLTextAreaElement} */ ($("d2-text")).value));
   $("d2-open").addEventListener("click", () => $("d2-file").click());
   $("d2-file").addEventListener("change", async e => { const f = /** @type {HTMLInputElement} */ (e.target).files?.[0]; if (f) add(new Uint8Array(await f.arrayBuffer())); });

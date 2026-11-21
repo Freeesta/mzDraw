@@ -356,7 +356,12 @@ fn the_level_is_drawn_under_its_structure() {
     let svg = e.save("svg").unwrap();
     assert_eq!(svg.matches(">L2b</text>").count(), 1);
     // nothing else of the picture moves: the same lines, the same size
-    let head = |s: &str| s.lines().next().unwrap().to_string();
+    // (the ids of the title and desc in the root follow the document, so they are the one thing that may differ)
+    let head = |s: &str| {
+        let l = s.lines().next().unwrap();
+        let at = l.find(" aria-labelledby=\"").unwrap();
+        l[..at].to_string() + &l[at + 19 + l[at + 19..].find('"').unwrap() + 1..]
+    };
     assert_eq!(head(&svg), head(&plain));
     assert_eq!(svg.matches("<line").count(), plain.matches("<line").count());
     // a level of another scale is drawn as it is written
