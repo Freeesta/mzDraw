@@ -52,6 +52,7 @@ pub fn say(h: &Hunk) -> Vec<(&'static str, String)> {
     // atoms, bonds, objects: added, removed, changed, moved
     let mut c: [[Vec<u32>; 3]; 4] = Default::default();
     let mut other = 0;
+    let mut labels = 0;
     for op in &h.ops {
         match op {
             Op::AtomAdd { id, .. } => c[0][0].extend(id),
@@ -86,6 +87,7 @@ pub fn say(h: &Hunk) -> Vec<(&'static str, String)> {
                 c[3][0].extend(atoms);
                 c[3][2].extend(objects);
             }
+            Op::DocLabels { .. } => labels += 1,
             _ => other += 1,
         }
     }
@@ -121,6 +123,9 @@ pub fn say(h: &Hunk) -> Vec<(&'static str, String)> {
             }
             out.push((key, what.join(", ")));
         }
+    }
+    if labels > 0 {
+        out.push(("draw2.hunk.labels", String::new()));
     }
     if other > 0 {
         out.push(("draw2.hunk.other", other.to_string()));

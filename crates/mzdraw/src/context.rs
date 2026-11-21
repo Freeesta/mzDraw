@@ -538,8 +538,6 @@ impl Editor {
         items
     }
 
-    /// The group `Colour` of the menus: automatic, the palette, a custom colour (asked on the page). `now` is the colour of what
-    /// the menu is about (`Some("")` automatic, `None` mixed or none), which gets the check.
     /// The two groups that choose what "Label arrows" writes: the mode and, for a mode with numbers, the adduct of the m/z. What is
     /// ticked is what is in force (`labels_json`); the words of the choices come from the document field and the adduct list.
     fn label_groups(&self) -> Vec<Value> {
@@ -567,6 +565,8 @@ impl Editor {
         }]
     }
 
+    /// The group `Colour` of the menus: automatic, the palette, a custom colour (asked on the page). `now` is the colour of what
+    /// the menu is about (`Some("")` automatic, `None` mixed or none), which gets the check.
     fn colour_group(&self, now: Option<String>) -> Value {
         let is = |hex: &str| now.as_deref() == Some(hex);
         let mut kids = vec![checked(item("colour.auto", "Automatic", "", true), is(""))];

@@ -355,3 +355,62 @@ fn the_choice_is_a_loss_for_a_format_that_cannot_hold_it() {
         .iter()
         .any(|l| l.what == "unknown"));
 }
+
+#[test]
+fn the_preferences_words_are_the_words_of_the_field_and_the_adduct_list() {
+    let schema: Value = serde_json::from_str(&format!("{{{}}}", mzdraw::prefs::json())).unwrap();
+    let words = |setting: &str| -> Vec<String> {
+        schema["prefs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["setting"] == setting)
+            .unwrap_or_else(|| panic!("no pref {setting}"))["values"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["value"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let modes: Vec<String> = mzdraw::doc::LABEL_MODES.iter().map(|s| s.to_string()).collect();
+    assert_eq!(words("pathway.label"), modes);
+    let mut adducts = vec!["none".to_string()];
+    adducts.extend(mzdraw::values::ADDUCTS.iter().map(|s| s.to_string()));
+    assert_eq!(words("pathway.adduct"), adducts);
+}
+
+#[test]
+fn the_sentence_of_the_button_is_a_finished_key_in_the_catalogue() {
+    let lang = include_str!("../../../web/lang/mzdraw.js");
+    let mut e = editor(true);
+    for (mode, adduct) in [("delta", ""), ("mass", ""), ("delta+mass", "[M+H]+"), ("name+delta", "")] {
+        e.session.run(&[doc_op(mode, adduct)]).unwrap();
+        let l = labels(&e);
+        let key = l["now"].as_str().unwrap();
+        assert!(key.ends_with(&format!(".{mode}")), "{key}");
+        assert_eq!(key.contains("nowAdduct"), !adduct.is_empty(), "{key}");
+        for k in [key, l["meaning"].as_str().unwrap(), "draw2.hunk.labels"] {
+            assert!(lang.contains(&format!("\"{k}\"")), "{k}");
+        }
+    }
+}
+
+#[test]
+fn a_patch_with_the_choice_has_a_hunk_of_its_own_and_says_it() {
+    let a = Document::from_json(&scheme()).unwrap();
+    let mut e = editor(false);
+    e.session.run(&[doc_op("mass", "")]).unwrap();
+    let mut b = e.doc().clone();
+    // the choice and a change of the drawing: two hunks that apply alone
+    b.objects[0].text = "x".into();
+    let ops = mzdraw::diff::diff(&a, &b);
+    assert!(ops.iter().any(|o| matches!(o, Op::DocLabels { .. })), "{ops:?}");
+    let hunks = mzdraw::diff::hunks(&a, &ops);
+    assert_eq!(hunks.len(), 2, "{hunks:?}");
+    let own = hunks
+        .iter()
+        .find(|h| h.ops.iter().any(|o| matches!(o, Op::DocLabels { .. })))
+        .unwrap();
+    assert_eq!(own.ops.len(), 1);
+    assert_eq!(mzdraw::proposal::say(own), [("draw2.hunk.labels", String::new())]);
+}

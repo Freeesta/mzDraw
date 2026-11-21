@@ -143,6 +143,12 @@ impl Editor {
             "adduct": opts.adduct.clone().unwrap_or_default(),
             "own": !self.doc().labels().0.is_empty(),
             "meaning": format!("draw2.labels.meaning.{}", mode.name()),
+            // the finished sentence for the button: its key says the mode, the adduct is its one parameter
+            "now": format!(
+                "draw2.labels.{}.{}",
+                if opts.adduct.is_some() { "nowAdduct" } else { "now" },
+                mode.name()
+            ),
             "modes": crate::doc::LABEL_MODES,
             "adducts": crate::values::ADDUCTS,
         })

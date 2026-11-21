@@ -2506,7 +2506,7 @@ try {
     const before = await mlOpen(), area = await pg.locator("#d2-canvas").boundingBox(), at = [area.x + 12, area.y + area.height - 12];
     eq((await mlLabels()).mode, "delta"); eq((await mlLabels()).own, false);
     const PL = '[data-testid="d2-pathway-label"]';
-    eq(await pg.getAttribute(PL, "aria-description"), await pg.evaluate("I18N.t('draw2.labels.now', { mode: I18N.t('draw2.prefs.pathway.label.delta'), meaning: I18N.t('draw2.labels.meaning.delta') })"));
+    eq(await pg.getAttribute(PL, "aria-description"), await pg.evaluate("I18N.t('draw2.labels.now.delta')"));
     await pg.mouse.click(...at, { button: "right" }); await tpShown();
     const ids = (await tpMenu()).ids;
     assert(["pathway.labelmode", "labelmode.delta", "labelmode.mass", "labelmode.delta+mass", "labelmode.name+delta", "pathway.labeladduct", "labeladduct.none", "labeladduct.[M+H]+"].every(i => ids.includes(i)), "the items: " + ids);
@@ -2523,7 +2523,7 @@ try {
     eq(await pg.getAttribute(mlItem("labelmode.delta+mass"), "aria-checked"), "true");
     await pg.click(mlItem("pathway.labeladduct")); await pg.click(mlItem("labeladduct.[M+H]+")); await tpShown(false); await frames(pg);
     eq(await tpSvg(), mlGold[1].out);
-    eq(await pg.getAttribute(PL, "aria-description"), await pg.evaluate("I18N.t('draw2.labels.nowAdduct', { mode: I18N.t('draw2.prefs.pathway.label.delta+mass'), adduct: '[M+H]+', meaning: I18N.t('draw2.labels.meaning.delta+mass') })"));
+    eq(await pg.getAttribute(PL, "aria-description"), await pg.evaluate("I18N.t('draw2.labels.nowAdduct.delta+mass', { adduct: '[M+H]+' })"));
     await shot(pg, "mass-label-ui-menu");
     // the file keeps the choice: saved, cleared, opened again
     const saved = await tpDoc(); assert(saved.includes('"labels":{"adduct":"[M+H]+","mode":"delta+mass"}'), "the document holds the choice");
@@ -2567,6 +2567,32 @@ try {
     eq(await tpSvg(), mlGold[1].out);
     await shot(pg, "mass-label-ui-pen");
     await pg.keyboard.press("Control+z"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  // the same groups are in the menu of an anchored arrow: the right button, the Menu key (the arrow selected), a long press and the barrel button, on the arrow itself
+  const mlArrow = async () => { const d = await pg.evaluate("window.MZDRAW.scene().slice(0, 5)"), b = await pg.locator("#d2-canvas").boundingBox(); return [b.x + d[1] + 3.75 * (d[3] - d[1]), b.y + d[2]]; };
+  await step("mass labels on an anchored arrow: its menu has the groups (mouse, keyboard, touch, pen); the page equals the golden after each, one undo each", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    const pen = (type, x, y, barrel = false) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : barrel ? "right" : "left", buttons: type === "mousePressed" ? (barrel ? 2 : 1) : 0, clickCount: 1 });
+    const penTap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const ways = {
+      mouse: { menu: async at => { await pg.mouse.click(...at, { button: "right" }); }, tap: (x, y) => pg.mouse.click(x, y) },
+      keyboard: { menu: async at => { await pg.mouse.click(...at); await pg.focus("#d2-canvas"); await pg.keyboard.press("ContextMenu"); }, tap: (x, y) => pg.mouse.click(x, y) },
+      touch: { menu: async at => { await touch("touchStart", [at]); await pg.waitForTimeout(700); await touch("touchEnd", []); }, tap: (x, y) => pg.touchscreen.tap(x, y) },
+      pen: { menu: async at => { await pen("mouseMoved", ...at, true); await pen("mousePressed", ...at, true); await tpShown(); await pen("mouseReleased", ...at, true); }, tap: penTap },
+    };
+    for (const [way, w] of Object.entries(ways)) {
+      const before = await mlOpen(), at = await mlArrow();
+      await w.menu(at); await tpShown();
+      eq((await tpMenu()).target, "object", way);
+      assert((await tpMenu()).ids.includes("labelmode.mass") && (await tpMenu()).ids.includes("labeladduct.[M+H]+"), way + ": the groups are in the menu of the arrow");
+      await w.tap(...await center(pg, mlItem("pathway.labelmode"))); await w.tap(...await center(pg, mlItem("labelmode.delta+mass"))); await tpShown(false); await frames(pg);
+      await w.menu(await mlArrow()); await tpShown();
+      await w.tap(...await center(pg, mlItem("pathway.labeladduct"))); await w.tap(...await center(pg, mlItem("labeladduct.[M+H]+"))); await tpShown(false); await frames(pg);
+      eq(await tpSvg(), mlGold[1].out, way);
+      if (way === "mouse") await shot(pg, "mass-label-ui-arrow-menu");
+      await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before, way);
+    }
   });
   await step("mass labels default: the Preferences hold the mode and the adduct for a scheme with no choice of its own; the scheme's own choice wins; the page equals the golden", async () => {
     await pg.evaluate("window.MZDRAW.set_style('mzlab')"); const before = await mlOpen();

@@ -419,6 +419,21 @@ fn split(sets: &mut Sets, lists: &[&[u32]]) -> Vec<(u32, Vec<Vec<u32>>)> {
 /// touches several pieces (`remove`, `move`) is split. A patch with an operation `diff` never writes (`rotate`, `flip`, `ring`), an
 /// add that names no id (its id comes from the counter) or an operation that names nothing is one hunk. The hunks come in the order of their first operation.
 pub fn hunks(a: &Document, ops: &[Op]) -> Vec<Hunk> {
+    // the mass-label choice of the scheme names no id and depends on nothing in the drawing: it is a hunk of its own, last
+    if ops.iter().any(|o| matches!(o, Op::DocLabels { .. })) {
+        let (doc, rest): (Vec<Op>, Vec<Op>) = (ops.iter().cloned())
+            .partition(|o| matches!(o, Op::DocLabels { .. }));
+        let mut out = if rest.is_empty() {
+            Vec::new()
+        } else {
+            hunks(a, &rest)
+        };
+        out.push(Hunk {
+            ids: Vec::new(),
+            ops: doc,
+        });
+        return out;
+    }
     if !ops.iter().all(splittable) {
         let mut ids = Vec::new();
         for op in ops {
