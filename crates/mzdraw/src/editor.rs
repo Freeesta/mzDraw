@@ -145,6 +145,8 @@ pub(crate) struct Press {
 
 pub struct Editor {
     pub session: Session,
+    /// The steps of the last `scheme:orient` command (for the result document), empty before the first.
+    pub(crate) orient_steps: Vec<crate::orient::Step>,
     pub view: View,
     pub tool: Tool,
     pub over: Overlay,
@@ -196,6 +198,7 @@ impl Default for Editor {
             pasted: 0,
             nudge: None,
             move_here: false,
+            orient_steps: Vec::new(),
             ctx: Default::default(),
         }
     }

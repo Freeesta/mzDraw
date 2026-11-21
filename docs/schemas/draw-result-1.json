@@ -4,7 +4,7 @@
   "title": "draw-result/1: the verdict of a replay request (mzdraw::outcome)",
   "description": "Checked by crates/mzdraw/tests/outcome.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text, also inside failed, created, removed and each expect item), the required keys, the types and the stage values are asserted by hand; the other constraints here are documentation. The request `diff` (plan-15) is not answered by this document: it stands alone and any of `report`, `dry_run`, `expect`, `id` with it is the keyed error `error.draw2.diffAlone`.",
   "type": "object",
-  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed", "expect"],
+  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed", "changed", "orient", "expect"],
   "required": ["format", "id", "ok", "created", "removed"],
   "additionalProperties": false,
   "$defs": {
@@ -38,6 +38,29 @@
         "required": ["key", "n"],
         "additionalProperties": false,
         "properties": { "key": { "type": "string", "description": "the i18n key, draw2.export.mapsLost for atom maps" }, "n": { "type": "integer", "minimum": 1 } }
+      }
+    },
+    "changed": { "type": "boolean", "description": "present when a command of the request reports whether it changed the drawing (today scheme:orient): whether the commands changed it (false: nothing was changed)" },
+    "orient": {
+      "type": "array",
+      "description": "only when a command was scheme:orient: one item per product structure of its last run, in the order the plan took them",
+      "items": {
+        "type": "object",
+        "x-key-order": ["arrow", "from", "to", "status", "core", "flip", "deg", "before", "after", "at"],
+        "required": ["arrow", "from", "to", "status", "core", "flip", "deg", "before", "after"],
+        "additionalProperties": false,
+        "properties": {
+          "arrow": { "type": "integer", "minimum": 0, "description": "the arrow the product stands after" },
+          "from": { "type": "integer", "minimum": 0, "description": "an atom of the reactant it was oriented on (0: none had a core)" },
+          "to": { "type": "integer", "minimum": 0, "description": "an atom of the product (0 with from 0: an arrow that was not read, over the cap of 200 arrows)" },
+          "status": { "enum": ["oriented", "already", "no_core", "too_large", "overlap"], "description": "oriented: turned; already: nothing to do; no_core: no shared core of 3 atoms; too_large: over 500 heavy atoms or the search limit; overlap: not applied (the whole command is refused)" },
+          "core": { "type": "integer", "minimum": 0, "description": "atoms of the shared core" },
+          "flip": { "type": "boolean", "description": "the product was mirrored (never with a wedge)" },
+          "deg": { "type": "number", "description": "the turn, degrees counter-clockwise" },
+          "before": { "type": "number", "description": "root-mean-square distance of the core atoms before, bond lengths, the shift taken away" },
+          "after": { "type": "number", "description": "the same after" },
+          "at": { "type": "integer", "minimum": 1, "description": "only for overlap: the atom or object it would run into" }
+        }
       }
     },
     "failed": {

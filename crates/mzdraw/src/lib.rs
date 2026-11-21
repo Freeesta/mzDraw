@@ -28,6 +28,7 @@ pub mod loss;
 mod m;
 pub mod maps;
 pub mod ops;
+pub mod orient;
 pub mod outcome;
 pub mod outline;
 pub mod palettes;
