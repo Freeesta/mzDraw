@@ -431,6 +431,26 @@ fn expected_crossings(name: &str) -> usize {
     }
 }
 
+/// The current exact crossing counts, pinned on purpose: "no crossings for trees of equal box sizes" holds for every pathway below
+/// except `star5` (2) and `big200` (3), where the steepest arrows of a fan graze the route box of a neighbour at the head at
+/// `max_angle` 40; the DAG's long edge 0 -> 3 passes the box of node 1 (1). The fix is a gap rule in step 5 (follow-up tp-05b, not
+/// in this PR); whoever adds it must update these numbers on purpose.
+#[test]
+fn the_crossings_are_pinned_where_the_no_crossing_property_holds_and_where_it_fails() {
+    let counts: Vec<(&str, usize)> = ALL
+        .iter()
+        .map(|&n| {
+            let lay = pathway::layout(&doc(n), &style(&[])).unwrap();
+            (n, crossing_ids(&lay).len())
+        })
+        .collect();
+    let failing: Vec<&(&str, usize)> = counts.iter().filter(|c| c.1 > 0).collect();
+    assert_eq!(failing, vec![&("star5", 2), &("dag", 1), &("big200", 3)]);
+    for (n, c) in &counts {
+        assert_eq!(*c, expected_crossings(n), "{n}");
+    }
+}
+
 #[test]
 fn p5_to_p13_hold_on_every_pathway_at_both_tolerances() {
     let (mut p7, mut p7_saved) = (0, 0);

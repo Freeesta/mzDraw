@@ -9,8 +9,8 @@
 //! `layout` gives the unrounded target positions and the report; `ops` gives the rounded `move` operations and then the routing
 //! operations of every edge, on the moved document. No new operation: the log of `draw_edit/1` carries moves and tp-01's fields only.
 //!
-//! The specification and its properties (P1 to P14) are in `docs/prompts/tp-05-pathway-layout.md`; the module is written from Walker
-//! (1990, Software: Practice and Experience 20(7)) as made linear by Buchheim et al. (2002); the preprint was not read.
+//! The specification and its properties (P1 to P14) are in `docs/prompts/tp-05-pathway-layout.md`. The algorithm is Walker's tidy tree as made
+//! linear by Buchheim et al. (2002); neither paper was read, the code is written from general knowledge of it and held to the properties.
 
 use crate::conform::{Finding, Report};
 use crate::doc::{round4, Document, ObjKind};
