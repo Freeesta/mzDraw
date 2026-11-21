@@ -1,0 +1,1 @@
+{"import":"N.Cl.[NH4+].[Cl-]","log":[{"op":"move","atoms":[1],"dx":0.0,"dy":-0.0},{"op":"move","atoms":[2],"dx":0.5,"dy":-0.0},{"op":"move","atoms":[3],"dx":2.5,"dy":-0.0},{"op":"move","atoms":[4],"dx":2.5,"dy":-0.0},{"op":"obj.add","t":"plus","x":1.25,"y":0},{"op":"obj.add","t":"arrow","x":3.0,"y":0,"x2":6.0,"y2":0}],"out":"smiles"}

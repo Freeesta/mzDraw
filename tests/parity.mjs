@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const wasm = createRequire(import.meta.url)(path.join(root, "target/pkg-node/mzdraw_wasm.js"));
 // the golden files: every *.json of tests/data/log/, sorted by name, each with some of the sections below (as crates/mzdraw/tests/common reads them)
 const logDir = path.join(root, "tests/data/log");
-const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [] };
+const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [] };
 for (const f of readdirSync(logDir).filter(f => f.endsWith(".json")).sort()) {
   const part = JSON.parse(readFileSync(path.join(logDir, f), "utf8"));
   for (const k of Object.keys(part)) {
@@ -43,7 +43,8 @@ for (const c of fx.contexts) {
   const request = JSON.stringify(c.request), a = site(request), b = native(request);
   check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
-  check(a.stdout === c.out && JSON.parse(c.out).items.length > 0, `${c.name}: the recorded menu`);
+  const v = JSON.parse(c.out);
+  check(a.stdout === c.out && (v.items ? v.items.length > 0 : v.flags.length > 0 && v.valid.length === 2), `${c.name}: the recorded menu or state`);
 }
 // the table of the operations (`draw-edit-schema/1`)
 for (const c of fx.schemas) {
@@ -59,6 +60,13 @@ for (const c of fx.settings) {
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
   const file = JSON.parse(c.out);
   check(a.stdout === c.out && file.layout && file.export, `${c.name}: the recorded settings`);
+}
+// the PDF file as base64 (`out: pdf`): the same bytes from the page and from the replay, and the recorded ones
+for (const c of fx.pdf) {
+  const request = JSON.stringify(c.request), a = site(request), b = native(request);
+  check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
+  check(a.stdout === b.stdout, `${c.name}: wasm == native`);
+  check(a.stdout === c.out && Buffer.from(c.out, "base64").subarray(0, 8).toString("latin1") === "%PDF-1.7", `${c.name}: the recorded bytes`);
 }
 // the verdict of a request that asks for one (`draw-result/1`): the same bytes on both sides, exit 0 when `ok` and 1 when not; a request number `n` of a batch is the `id` of an answer without one
 for (const c of fx.results) {
@@ -93,6 +101,6 @@ for (const [engine, args, schema] of engines) {
   const missing = JSON.stringify({ log: drawn, engines: [{ engine: "nope" }] }), c = siteGlue(missing), d = nativeGlue(missing);
   check(c.status === 2 && d.status === 2 && c.stderr === d.stderr && JSON.parse(d.stderr).error_key === "error.draw2.engineMissing", "engine missing: same keyed refusal, exit 2");
 }
-check(fx.cases.length >= 3 && fx.refused.length >= 1 && fx.contexts.length >= 7 && fx.settings.length >= 2, "the fixture has cases");
+check(fx.cases.length >= 3 && fx.refused.length >= 1 && fx.contexts.length >= 14 && fx.settings.length >= 2, "the fixture has cases");
 console.log(`parity: ${n - bad}/${n} checks ok`);
 process.exit(bad ? 1 : 0);

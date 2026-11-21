@@ -3,17 +3,19 @@
 
 import { build, layout, show, open, PALETTES } from "./palettes.js";
 import { NAMES } from "./names.js";
+import { contextMenu } from "./context.js";
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
-const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64;
-// what each save format is called when downloaded: file name and media type (png is drawn by the page, savePng)
+const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64, MENU = 512;
+// what each save format is called when downloaded: file name and media type (png is drawn by the page, savePng; pdf is bytes, savePdf)
 const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["drawing.mol", "chemical/x-mdl-molfile"], "molfile-v3000": ["drawing-v3000.mol", "chemical/x-mdl-molfile"],
   sdf: ["drawing.sdf", "chemical/x-mdl-sdfile"], smiles: ["drawing.smi", "chemical/x-daylight-smiles"], ket: ["drawing.ket", "application/json"], cdxml: ["drawing.cdxml", "chemical/x-cdxml"],
   cml: ["drawing.cml", "chemical/x-cml"], rxn: ["drawing.rxn", "chemical/x-mdl-rxnfile"], svg: ["drawing.svg", "image/svg+xml"], mzdraw: [NAMES.doc, "application/json"], log: ["drawing.log.json", "application/json"] });
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus"];
 
 /** @type {any} */ let ed = null;
+/** the context menu of the canvas (context.js) @type {ReturnType<typeof contextMenu>} */ let menu;
 const cv = /** @type {HTMLCanvasElement} */ ($("d2-canvas")), g = /** @type {CanvasRenderingContext2D} */ (cv.getContext("2d"));
 
 async function load() {
@@ -93,6 +95,7 @@ function annFields(outline) {
   box.replaceChildren(...outline.map((s, i) => {
     const set = document.createElement("fieldset"), legend = document.createElement("legend"), apply = document.createElement("button");
     const scale = document.createElement("select"), level = document.createElement("select"), id = document.createElement("input"), evidence = document.createElement("textarea"), note = document.createElement("textarea");
+    set.dataset.anchor = String(s.anchor);
     const a = s.ann || { scale: schema.scale, level: "", known: true, identifier: "", evidence: "", note: "", entries: 0 };
     legend.textContent = t("draw2.data.piece", { n: i + 1, formula: s.formula });
     // the scales are those of the module (and the scale of a file, as it is written); the levels follow the scale, and a level
@@ -191,6 +194,7 @@ function after(f) {
   if (f & (CHANGED | TOOL)) refresh();
   if (f & CHANGED) autosave.touch();
   if (f & PALETTES) { layout(); keep(); }
+  menu?.sync();
   if (f & FOCUS) { refresh(); const st = JSON.parse(ed.state()); $("d2-live").textContent = st.focus ? focusText(st.focus) : t("draw2.focus.none"); }
   return f;
 }
@@ -300,35 +304,38 @@ function field(kind) {
 }
 
 // bit 8: Alt (Option); bit 4: the eraser end or eraser button of a pen (button 5, buttons bit 32)
-const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | (e.altKey ? 8 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
+const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | (e.altKey ? 8 : 0) | (e.button === 2 || ("buttons" in e && e.buttons & 2) ? 16 : 0) | (e.button === 1 || ("buttons" in e && e.buttons & 4) ? 32 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
 const kind = (/** @type {PointerEvent} */ e) => (e.pointerType === "pen" ? 1 : e.pointerType === "touch" ? 2 : 0);
 
 function events() {
-  /** @type {{x: number, y: number} | null} */ let panning = null;
   const at = (/** @type {PointerEvent | WheelEvent} */ e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
-  // every pointer goes to Rust with its id and its time stamp: which finger is a palm, what two fingers do and what a long press
-  // means is decided there
+  // every pointer goes to Rust with its id, its buttons and its time stamp: which finger is a palm, what two fingers do, what a long
+  // press means, what the middle and the secondary button do (pan, menu) and what the barrel button of a pen does is decided there
   const send = (/** @type {number} */ phase, /** @type {PointerEvent} */ e) => { const [x, y] = at(e); return ed.pointer(phase, x, y, kind(e), mods(e), e.pointerId, e.timeStamp); };
+  /** the flag MENU: the module asks for the context menu at the point of the event @param {number} f @param {PointerEvent} e */
+  const ask = (f, e) => { if (f & MENU) { const [x, y] = at(e); menu.open(x, y, kind(e)); } };
   cv.addEventListener("pointerdown", e => {
     cv.focus();
     try { cv.setPointerCapture(e.pointerId); } catch { /* a pointer that is already gone cannot be captured: the event still counts */ }
-    if (e.pointerType === "mouse" && (e.button === 1 || e.button === 2)) { panning = { x: e.clientX, y: e.clientY }; e.preventDefault(); return; }
-    after(send(0, e));
+    const f = send(0, e);
+    after(f);
+    if (f & HANDLED) e.preventDefault();                     // a button that is not the main one: no autoscroll, no selection
+    ask(f, e);                                               // the barrel button of a pen asks at the press
   });
-  cv.addEventListener("pointermove", e => {
-    if (panning) { after(ed.pan(e.clientX - panning.x, e.clientY - panning.y)); panning = { x: e.clientX, y: e.clientY }; return; }
-    after(send(1, e));
-  });
+  cv.addEventListener("pointermove", e => { after(send(1, e)); });
   cv.addEventListener("pointerup", e => {
-    if (panning) { panning = null; return; }
-    after(send(2, e) | CHANGED);                              // a release may have changed the selection alone
+    const f = send(2, e);
+    after(f | CHANGED);                                       // a release may have changed the selection alone
+    ask(f, e);                                                // a finger or a pen held still, the secondary button released in place
   });
-  cv.addEventListener("pointercancel", e => { panning = null; after(send(3, e)); });       // taken away by the system: nothing is committed
+  cv.addEventListener("pointercancel", e => { after(send(3, e)); });       // taken away by the system: nothing is committed
+  // no menu of the browser on the canvas or on our menu: the event is cancelled and nothing else is decided here
   cv.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = at(e); after(ed.zoom(x, y, e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
   cv.addEventListener("keydown", e => {
     const f = ed.key(e.key, mods(e), e.timeStamp);
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
+    if (f & MENU) menu.openAtAnchor();
     if (f & (ASK_LABEL | ASK_TEXT)) { open(f & ASK_LABEL ? "charges" : "objects", true); const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
   });
   // the key that hides every palette also works from a palette button or a handle (the canvas forwards its own keys above); the
@@ -339,7 +346,7 @@ function events() {
     if (n instanceof HTMLElement && (n.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(n.tagName))) return;
     if (after(ed.key(e.key, mods(e), e.timeStamp)) & HANDLED) e.preventDefault();
   });
-  addEventListener("resize", () => layout());
+  addEventListener("resize", () => { menu.close(); layout(); });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
 }
 
@@ -356,7 +363,7 @@ function add(text) {
 /** one click on Save: the default format of the settings (`export.default`) @returns {void | Promise<void>} */
 function saveDefault() {
   const what = JSON.parse(ed.export_settings()).default;
-  return what === "png" ? savePng() : save(what, ...FILES[what]);
+  return what === "png" ? savePng() : what === "pdf" ? savePdf() : save(what, ...FILES[what]);
 }
 
 /** downloads a text as a file @param {string} what @param {string} name @param {string} type */
@@ -372,19 +379,37 @@ function download(data, name, type) {
   URL.revokeObjectURL(url);
 }
 
+/** the PNG a plan asks for: its SVG drawn on a canvas of the size the module gives, on its paper colour @param {any} plan @returns {Promise<Blob>} */
+async function drawPng(plan) {
+  const img = new Image(), url = URL.createObjectURL(new Blob([plan.svg], { type: "image/svg+xml" }));
+  await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = url; });
+  const c = document.createElement("canvas"); c.width = plan.width; c.height = plan.height;
+  const x = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
+  x.fillStyle = plan.paper; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+  URL.revokeObjectURL(url);
+  return /** @type {Blob} */ (await new Promise(ok => c.toBlob(ok, "image/png")));
+}
+
+/** downloads the PDF the module writes (bytes, not text) */
+function savePdf() {
+  const note = $("d2-ex-note"); note.textContent = "";
+  try { download(ed.save_pdf(), "drawing.pdf", "application/pdf"); open("saveas", false); } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
+}
+
 /** saves a PNG: the SVG the module writes is drawn on a canvas of the size the module asks for; the module finishes the file */
 async function savePng() {
   const note = $("d2-ex-note"); note.textContent = "";
   try {
-    const plan = JSON.parse(ed.png_plan()), img = new Image(), url = URL.createObjectURL(new Blob([plan.svg], { type: "image/svg+xml" }));
-    await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = url; });
-    const c = document.createElement("canvas"); c.width = plan.width; c.height = plan.height;
-    const x = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
-    x.fillStyle = plan.paper; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
-    URL.revokeObjectURL(url);
-    const blob = /** @type {Blob} */ (await new Promise(ok => c.toBlob(ok, "image/png")));
+    const blob = await drawPng(JSON.parse(ed.png_plan()));
     download(ed.png_finish(new Uint8Array(await blob.arrayBuffer())), "drawing.png", "image/png"); open("saveas", false);
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
+}
+
+/** copies the selection as a PNG (the context menu): drawn as above, finished by the module with the selection inside, given to the clipboard */
+async function copyPng() {
+  const blob = await drawPng(JSON.parse(ed.context_png_plan()));
+  const png = ed.context_png_finish(new Uint8Array(await blob.arrayBuffer()));
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": new Blob([png], { type: "image/png" }) })]);
 }
 
 /** the style: the presets and the fields the module's schema names; a choice changes the screen and the saved pictures, not the
@@ -461,6 +486,7 @@ function panels() {
   for (const [id, what] of [["molfile", "molfile"], ["v3000", "molfile-v3000"], ["sdf", "sdf"], ["smiles", "smiles"], ["ket", "ket"], ["cdxml", "cdxml"], ["cml", "cml"], ["rxn", "rxn"], ["svg", "svg"], ["mzdraw", "mzdraw"]])
     $(`d2-ex-${id}`).addEventListener("click", () => save(what, ...FILES[what]));
   $("d2-ex-png").addEventListener("click", savePng);
+  $("d2-ex-pdf").addEventListener("click", savePdf);
 }
 
 I.apply(document);
@@ -469,6 +495,8 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
+  menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
+    pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); layout(); refresh();
   document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });
   await autosave.offer();
