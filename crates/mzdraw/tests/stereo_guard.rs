@@ -527,7 +527,7 @@ fn kill_test_one_thousand_documents_five_geometry_edits_each() {
 #[test]
 fn a_plain_flip_of_a_fresh_chiral_drawing_is_always_flagged() {
     let mut r = Rng(11);
-    let mut n = 0;
+    let mut flagged = 0;
     for _ in 0..1000 {
         let at = |r: &mut Rng| if r.next() < 0.5 { "@" } else { "@@" };
         let (a, b) = (at(&mut r), at(&mut r));
@@ -547,19 +547,21 @@ fn a_plain_flip_of_a_fresh_chiral_drawing_is_always_flagged() {
         let guard = mzdraw::stereo_guard::before(e.doc(), std::slice::from_ref(&op))
             .expect("a chiral drawing has elements");
         e.session.run(std::slice::from_ref(&op)).unwrap();
-        assert!(
-            !mzdraw::stereo_guard::changed(e.doc(), &guard, false).is_empty(),
-            "{smi}"
-        );
-        n += 1;
+        let said = mzdraw::stereo_guard::changed(e.doc(), &guard, false);
+        assert!(!said.is_empty(), "{smi}");
+        flagged += 1;
     }
-    assert!(n >= 1000);
+    assert_eq!(
+        flagged, 1000,
+        "every one of the 1,000 plain flips is flagged"
+    );
 }
 
 /// Separate pieces cost in proportion to their number: k chiral molecules, all mirrored by one step, take k times one (a quadratic
 /// version took 1.3 s for 4,000 in a release build).
 #[test]
 fn the_guard_scales_with_the_number_of_pieces() {
+    // (before, changed) in milliseconds: the mirror itself is not timed
     let time = |k: u32| {
         let mut s = Session::default();
         let mut atoms = Vec::new();
@@ -613,21 +615,35 @@ fn the_guard_scales_with_the_number_of_pieces() {
         };
         let t = std::time::Instant::now();
         let guard = mzdraw::stereo_guard::before(&s.doc, std::slice::from_ref(&op)).unwrap();
+        let before = t.elapsed().as_secs_f64() * 1000.0;
         s.run(std::slice::from_ref(&op)).unwrap();
+        let t = std::time::Instant::now();
         let named = mzdraw::stereo_guard::changed(&s.doc, &guard, false);
+        let after = t.elapsed().as_secs_f64() * 1000.0;
         assert_eq!(named.len(), k as usize, "every centre is said");
-        t.elapsed().as_secs_f64() * 1000.0
+        (before, after)
     };
-    let (small, big) = (time(500), time(2000));
-    println!("guarded mirror of 500 pieces: {small:.1} ms, of 2000: {big:.1} ms");
-    // linear is 4 times, quadratic 16 times; 9 leaves room for noise
+    let ((b1, c1), (b2, c2)) = (time(500), time(2000));
+    println!("500 pieces: before {b1:.1} ms, changed {c1:.1} ms; 2000 pieces: before {b2:.1} ms, changed {c2:.1} ms");
+    // linear is 4 times, quadratic 16 times; 9 leaves room for noise (1 ms floor: a fast machine has nothing to compare)
     assert!(
-        big < 9.0 * small.max(1.0),
-        "{small} ms for 500, {big} ms for 2000"
+        b2 < 9.0 * b1.max(1.0),
+        "before: {b1} ms for 500, {b2} ms for 2000"
     );
-    if !cfg!(debug_assertions) {
-        assert!(big < 600.0, "{big} ms for 2000 pieces in a release build");
-    }
+    assert!(
+        c2 < 9.0 * c1.max(1.0),
+        "changed: {c1} ms for 500, {c2} ms for 2000"
+    );
+    // absolute bounds, generous: the quadratic version took 1.3 s for 4,000 pieces in a release build; the test build is slower
+    let bound = if cfg!(debug_assertions) {
+        20_000.0
+    } else {
+        600.0
+    };
+    assert!(
+        b2 < bound && c2 < bound,
+        "2000 pieces: before {b2} ms, changed {c2} ms (bound {bound})"
+    );
 }
 
 // ----- the budget -----

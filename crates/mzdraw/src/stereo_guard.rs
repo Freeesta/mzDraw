@@ -206,7 +206,8 @@ fn canonical_text(doc: &Document) -> Option<String> {
 }
 
 /// The canonical isomeric SMILES of each of `pieces`, as `mzlab-mol` writes it from the wedges as drawn. A piece with no wedge and
-/// no double bond has no configuration to guard and is left out; so is a piece the writer refuses. Order of `pieces` is kept.
+/// no double bond has no configuration to guard and is left out; so is a piece the writer refuses. Order of `pieces` is kept. One
+/// drawing is built per piece asked (a scan of the document each): for tests, the bench and diagnostics, not for the guard.
 pub fn signature(doc: &Document, pieces: &[Piece]) -> Vec<(Piece, String)> {
     let mut out = Vec::new();
     for p in pieces {
