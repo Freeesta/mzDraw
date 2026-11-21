@@ -1,0 +1,1 @@
+{"import":"C=C.CCBr","log":[{"op":"move","atoms":[1,2],"dx":-3.5,"dy":-0.0},{"op":"move","atoms":[3,4,5],"dx":5.0,"dy":-0.0},{"op":"obj.add","t":"arrow","x":1.5,"y":0,"x2":4.5,"y2":0}],"out":"smiles"}

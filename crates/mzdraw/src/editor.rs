@@ -199,7 +199,8 @@ impl Editor {
 
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
     pub(crate) fn run(&mut self, ops: &[Op], say: &'static str, what: &str) -> u32 {
-        match self.session.run(ops) {
+        let ops = self.following(ops);
+        match self.session.run(&ops) {
             Ok(()) => {
                 self.said = (say, what.to_string());
                 self.error = "";
@@ -211,6 +212,16 @@ impl Editor {
                 REPAINT
             }
         }
+    }
+
+    /// The operations of a command and, after them, the route operations of the anchored arrows whose structures they change
+    /// (`route::follow`): the one place where a command makes the arrows follow. The log carries the route operations, so a
+    /// replay of the log gives the same bytes; an operation sent bare never follows.
+    pub(crate) fn following(&self, ops: &[Op]) -> Vec<Op> {
+        let s = &self.session.doc;
+        let mut all = ops.to_vec();
+        all.extend(crate::route::follow(s, ops, &self.style));
+        all
     }
 
     /// Drops selection, hover and flags that point at things that no longer exist.
@@ -380,7 +391,7 @@ impl Editor {
     }
 
     /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `sdf` (one record per structure, with its data),
-    /// `svg` (in the style of the editor), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
+    /// `svg` (in the style of the editor), `pdf` (base64 of the PDF file), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
             "mzdraw" => self.doc().to_json(),
@@ -393,6 +404,7 @@ impl Editor {
             "rxn" => self.doc().to_rxn()?,
             "sdf" => self.doc().to_sdf(),
             "svg" => self.svg(),
+            "pdf" => crate::pdf::base64(&self.pdf()),
             "log" => self.session.log_json(),
             // the settings file: the style, the layout of the palettes and the export defaults
             "settings" => self.settings_json(),
@@ -505,6 +517,8 @@ impl Editor {
                 x2: if arrow { o.x2 + dx } else { 0.0 },
                 y2: if arrow { o.y2 + dy } else { 0.0 },
                 text: o.text.clone(),
+                from: if o.from == 0 { 0 } else { base + o.from },
+                to: if o.to == 0 { 0 } else { base + o.to },
             });
         }
         self.session.run(&ops).map_err(|e| e.key)?;
@@ -694,6 +708,11 @@ impl Editor {
             crate::svg::to_svg_styled(self.doc(), &self.style),
             self.doc(),
         )
+    }
+
+    /// The drawing as a PDF file in the editor's style, carrying its document (`pdf::to_pdf`).
+    pub fn pdf(&self) -> Vec<u8> {
+        crate::pdf::to_pdf(self.doc(), &self.style)
     }
 
     /// Marks the atoms a check flagged (ids), replacing the previous marks.

@@ -20,7 +20,7 @@ impl Editor {
     }
 
     /// The centre of the bounding box of some atoms.
-    fn centre(&self, atoms: &[u32]) -> (f64, f64) {
+    pub(crate) fn centre(&self, atoms: &[u32]) -> (f64, f64) {
         let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
         for a in atoms.iter().filter_map(|&i| self.doc().atom(i)) {
             (x0, y0, x1, y1) = (x0.min(a.x), y0.min(a.y), x1.max(a.x), y1.max(a.y));
@@ -82,7 +82,12 @@ impl Editor {
         for o in (d.objects.iter()).filter(|o| self.over.sel_objs.contains(&o.id)) {
             let id = out.next;
             out.next += 1;
-            out.objects.push(crate::doc::Obj { id, ..o.clone() });
+            out.objects.push(crate::doc::Obj {
+                id,
+                from: 0,
+                to: 0,
+                ..o.clone()
+            });
         }
         out
     }

@@ -41,7 +41,7 @@ impl Grade {
 
 /// The checks of this slice, in the order of the study: key and grade. The page, the documentation and the tests read this list;
 /// the text of a key is the i18n key `draw2.` + the key (`draw2.std.stereo.notCentre`).
-pub const CHECKS: [(&str, Grade); 9] = [
+pub const CHECKS: [(&str, Grade); 10] = [
     ("std.stereo.wideEndCentre", Grade::Warn),
     ("std.stereo.notCentre", Grade::Warn),
     ("std.stereo.opposite", Grade::Warn),
@@ -51,6 +51,7 @@ pub const CHECKS: [(&str, Grade); 9] = [
     ("std.stereo.undefined", Grade::Info),
     ("std.stereo.doubleCollinear", Grade::Warn),
     ("std.stereo.allene", Grade::Warn),
+    ("std.scheme.anchor", Grade::Warn),
 ];
 
 /// Two bonds at an atom count as opposite (or collinear) when the angle between them is within this many degrees of 180.
@@ -399,6 +400,22 @@ pub fn report(doc: &Document) -> Report {
         }
     }
 
+    // arrows anchored to an atom that is gone: kept as written, used as a free end
+    let mut dangling: Vec<u32> = (doc.objects.iter())
+        .filter(|o| {
+            [o.from, o.to]
+                .iter()
+                .any(|&a| a != 0 && doc.atom(a).is_none())
+        })
+        .map(|o| o.id)
+        .collect();
+    if !dangling.is_empty() {
+        let mut f = Finding::new("std.scheme.anchor", &[], &[]);
+        crate::m::sort(&mut dangling);
+        f.objects = dangling;
+        out.push(f);
+    }
+
     out.sort_by(|x, y| {
         (x.key, x.first(), &x.atoms, &x.bonds).cmp(&(y.key, y.first(), &y.atoms, &y.bonds))
     });
@@ -438,7 +455,10 @@ mod tests {
     #[test]
     fn the_table_has_unique_keys_in_the_stereo_family() {
         for (i, (k, _)) in CHECKS.iter().enumerate() {
-            assert!(k.starts_with("std.stereo."), "{k}");
+            assert!(
+                k.starts_with("std.stereo.") || k.starts_with("std.scheme."),
+                "{k}"
+            );
             assert!(CHECKS[i + 1..].iter().all(|c| c.0 != *k), "{k}");
         }
     }

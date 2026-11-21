@@ -7,7 +7,7 @@ import { NAMES } from "./names.js";
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
 const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT = 32, FOCUS = 64;
-// what each save format is called when downloaded: file name and media type (png is drawn by the page, savePng)
+// what each save format is called when downloaded: file name and media type (png is drawn by the page, savePng; pdf is bytes, savePdf)
 const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["drawing.mol", "chemical/x-mdl-molfile"], "molfile-v3000": ["drawing-v3000.mol", "chemical/x-mdl-molfile"],
   sdf: ["drawing.sdf", "chemical/x-mdl-sdfile"], smiles: ["drawing.smi", "chemical/x-daylight-smiles"], ket: ["drawing.ket", "application/json"], cdxml: ["drawing.cdxml", "chemical/x-cdxml"],
   cml: ["drawing.cml", "chemical/x-cml"], rxn: ["drawing.rxn", "chemical/x-mdl-rxnfile"], svg: ["drawing.svg", "image/svg+xml"], mzdraw: [NAMES.doc, "application/json"], log: ["drawing.log.json", "application/json"] });
@@ -358,7 +358,7 @@ function add(text) {
 /** one click on Save: the default format of the settings (`export.default`) @returns {void | Promise<void>} */
 function saveDefault() {
   const what = JSON.parse(ed.export_settings()).default;
-  return what === "png" ? savePng() : save(what, ...FILES[what]);
+  return what === "png" ? savePng() : what === "pdf" ? savePdf() : save(what, ...FILES[what]);
 }
 
 /** downloads a text as a file @param {string} what @param {string} name @param {string} type */
@@ -372,6 +372,12 @@ function download(data, name, type) {
   const a = document.createElement("a"), url = URL.createObjectURL(new Blob([data], { type }));
   a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
+}
+
+/** downloads the PDF the module writes (bytes, not text) */
+function savePdf() {
+  const note = $("d2-ex-note"); note.textContent = "";
+  try { download(ed.save_pdf(), "drawing.pdf", "application/pdf"); open("saveas", false); } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
 /** saves a PNG: the SVG the module writes is drawn on a canvas of the size the module asks for; the module finishes the file */
@@ -463,6 +469,7 @@ function panels() {
   for (const [id, what] of [["molfile", "molfile"], ["v3000", "molfile-v3000"], ["sdf", "sdf"], ["smiles", "smiles"], ["ket", "ket"], ["cdxml", "cdxml"], ["cml", "cml"], ["rxn", "rxn"], ["svg", "svg"], ["mzdraw", "mzdraw"]])
     $(`d2-ex-${id}`).addEventListener("click", () => save(what, ...FILES[what]));
   $("d2-ex-png").addEventListener("click", savePng);
+  $("d2-ex-pdf").addEventListener("click", savePdf);
 }
 
 I.apply(document);

@@ -92,13 +92,18 @@ pub enum Op {
         x2: f64,
         y2: f64,
         text: String,
+        /// Arrows: an atom of the structure the arrow leaves and of the one it reaches (0: a free end).
+        from: u32,
+        to: u32,
     },
-    /// Sets the text and/or the end point of an object.
+    /// Sets the text, the end point and/or the anchors of an object (`from`, `to`: an atom id, or 0 to free the end).
     ObjSet {
         id: u32,
         text: Option<String>,
         x2: Option<f64>,
         y2: Option<f64>,
+        from: Option<u32>,
+        to: Option<u32>,
     },
     /// A ring of `n` atoms (3-8), `arom` = alternating double bonds: fused on the bond `bond`, or with the atom `atom` as a corner, or
     /// centred on (`x`, `y`).
@@ -263,6 +268,8 @@ impl Op {
                 x2,
                 y2,
                 text,
+                from,
+                to,
             } => {
                 w.text("op", "obj.add");
                 int(&mut w, "id", id(i));
@@ -277,12 +284,19 @@ impl Op {
                 if !text.is_empty() {
                     w.text("text", text);
                 }
+                for (k, v) in [("from", *from), ("to", *to)] {
+                    if v != 0 {
+                        w.int(k, i64::from(v));
+                    }
+                }
             }
             Op::ObjSet {
                 id: i,
                 text,
                 x2,
                 y2,
+                from,
+                to,
             } => {
                 w.text("op", "obj.set");
                 w.int("id", i64::from(*i));
@@ -292,6 +306,11 @@ impl Op {
                 for (k, v) in [("x2", x2), ("y2", y2)] {
                     if let Some(v) = v {
                         w.num(k, *v);
+                    }
+                }
+                for (k, v) in [("from", from), ("to", to)] {
+                    if let Some(v) = v {
+                        w.int(k, i64::from(*v));
                     }
                 }
             }
@@ -470,12 +489,16 @@ impl Op {
                 x2: g.f("x2")?.unwrap_or(0.0),
                 y2: g.f("y2")?.unwrap_or(0.0),
                 text: g.s("text")?.unwrap_or_default(),
+                from: g.u("from")?.unwrap_or(0),
+                to: g.u("to")?.unwrap_or(0),
             },
             "obj.set" => Op::ObjSet {
                 id: g.u("id")?.ok_or(())?,
                 text: g.s("text")?,
                 x2: g.f("x2")?,
                 y2: g.f("y2")?,
+                from: g.u("from")?,
+                to: g.u("to")?,
             },
             "ring" => Op::Ring {
                 n: g.u("n")?.ok_or(())?,
@@ -859,6 +882,8 @@ impl Document {
                 x2,
                 y2,
                 text,
+                from,
+                to,
             } => {
                 let mut o = Obj {
                     id: id.unwrap_or(self.next),
@@ -868,6 +893,8 @@ impl Document {
                     x2: round4(*x2),
                     y2: round4(*y2),
                     text: text.clone(),
+                    from: *from,
+                    to: *to,
                     more: Vec::new(),
                 };
                 if !o.valid() {
@@ -883,10 +910,19 @@ impl Document {
                     x2: o.x2,
                     y2: o.y2,
                     text: o.text.clone(),
+                    from: o.from,
+                    to: o.to,
                 });
                 self.objects.push(o);
             }
-            Op::ObjSet { id, text, x2, y2 } => {
+            Op::ObjSet {
+                id,
+                text,
+                x2,
+                y2,
+                from,
+                to,
+            } => {
                 let Some(i) = self.objects.iter().position(|o| o.id == *id) else {
                     return err("error.draw2.noObject", *id);
                 };
@@ -894,6 +930,8 @@ impl Document {
                 o.text = text.clone().unwrap_or(o.text);
                 o.x2 = x2.map_or(o.x2, round4);
                 o.y2 = y2.map_or(o.y2, round4);
+                o.from = from.unwrap_or(o.from);
+                o.to = to.unwrap_or(o.to);
                 if !o.valid() {
                     return err("error.draw2.object", *id);
                 }
@@ -903,6 +941,8 @@ impl Document {
                     text: text.clone(),
                     x2: x2.map(round4),
                     y2: y2.map(round4),
+                    from: *from,
+                    to: *to,
                 });
             }
             _ => {}

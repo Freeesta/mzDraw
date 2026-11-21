@@ -25,6 +25,8 @@ fn obj(t: ObjKind, x: f64, y: f64, x2: f64, y2: f64, text: &str) -> Op {
         x2,
         y2,
         text: text.into(),
+        from: 0,
+        to: 0,
     }
 }
 
@@ -48,6 +50,8 @@ fn objects_are_added_set_moved_removed_and_undone() {
         text: text.map(str::to_string),
         x2,
         y2: None,
+        from: None,
+        to: None,
     };
     s.run(&[set(1, Some("Pd/C, H2"), Some(3.0))]).unwrap();
     assert_eq!(
