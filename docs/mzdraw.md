@@ -123,6 +123,7 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 | request | `commands` | object[] | editor commands `[{"command":NAME,"args":{...}}]` (move, rotate, flip), run after `log` and before `out`; the route of the anchored arrows follows; not with `command` |
 | request | `command` | string | one editor command, with `args`: the same as a `commands` list of length one; not with `commands` |
 | request | `args` | object | the fields of the operation of the same name as `command` (a rotate without x, y or a flip without at works about the centre of its atoms) |
+| request | `events` | array[] | pointer and key events the page forwards, run after `commands` and before `out`: `["pointer",phase,id,x,y,kind,mods,t]` and `["key",key,mods,t]`; their flags and what they leave are read with `out` `context-state:<w>,<h>` (the context menu of a point is `context:<x>,<y>`) |
 | request | `report` | bool | answer with one `draw-result/1` document instead of the bare output |
 | request | `dry_run` | bool | run and report everything, write nothing: the document has no `out`; implies `report` |
 | request | `expect` | object[] | postconditions on the final drawing, one arm each; a non-empty list implies `report` |
