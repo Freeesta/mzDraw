@@ -2,8 +2,9 @@
 //! without knowing chemistry. The page paints it on a canvas; `svg` writes the same list as a file.
 //!
 //! Layout of `data` (f32): `LINE x1 y1 x2 y2 width colour` · `TEXT x y size colour string anchor` (anchor 0 middle, 1 start) ·
-//! `TEXTX x y size colour string anchor face rgb font` (a text of one style: face 1 bold + 2 italic + 4 underline, rgb `0xrrggbb` or -1
-//! for `colour`, font the index of a family name in the strings, empty for the font of the surface; formatted texts only) ·
+//! `TEXTX x y size colour string anchor face rgb font ul ulw w` (a text of one style: face 1 bold + 2 italic + 4 underline, rgb `0xrrggbb` or -1
+//! for `colour`, font the index of a family name in the strings, empty for the font of the surface; `ul` the distance of the underline
+//! below the centre line, `ulw` its thickness and `w` the width of the text, all in pixels, `ul` 0 for none; formatted texts only) ·
 //! `RECT x y w h colour` · `DISC x y r colour` · `RING x y r colour` · `TRI x1 y1 x2 y2 x3 y3 colour` (a filled triangle).
 //! Coordinates are in output pixels, y down.
 
@@ -238,6 +239,9 @@ impl Painter<'_> {
             f64::from(p.face),
             f64::from(p.rgb),
             (i + 1) as f64,
+            if p.face & 4 != 0 { p.size * 0.45 } else { 0.0 },
+            (p.size / 14.0).max(1.0),
+            p.width,
         ]);
     }
 

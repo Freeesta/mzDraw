@@ -256,7 +256,7 @@ pub(crate) fn drawn_with(
                 "<text x=\"{}\" y=\"{}\" font-size=\"{}\" fill=\"{fill}\" text-anchor=\"{anchor}\" dominant-baseline=\"central\"{style}>{}</text>\n",
                 num(d[i + 1]), num(d[i + 2]), num(d[i + 3]), crate::xml::escape(&sc.strings[d[i + 5] as usize])
             ));
-            i += 10;
+            i += 13;
         } else if op == scene::TRI {
             s.push_str(&format!(
                 "<polygon points=\"{},{} {},{} {},{}\" fill=\"{}\"/>\n",

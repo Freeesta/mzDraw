@@ -144,7 +144,7 @@
   ],
   "refused": [
     {
-      "error_key": "error.draw2.object",
+      "error_key": "error.draw2.runStyle",
       "request": {
         "import": "CC",
         "log": [
@@ -165,7 +165,7 @@
       }
     },
     {
-      "error_key": "error.draw2.object",
+      "error_key": "error.draw2.runColor",
       "request": {
         "import": "CC",
         "log": [
@@ -174,6 +174,46 @@
             "runs": [
               {
                 "color": "red",
+                "t": "x"
+              }
+            ],
+            "t": "text",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.runSize",
+      "request": {
+        "import": "CC",
+        "log": [
+          {
+            "op": "obj.add",
+            "runs": [
+              {
+                "sz": 9,
+                "t": "x"
+              }
+            ],
+            "t": "text",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.runFont",
+      "request": {
+        "import": "CC",
+        "log": [
+          {
+            "op": "obj.add",
+            "runs": [
+              {
+                "font": "a;b",
                 "t": "x"
               }
             ],

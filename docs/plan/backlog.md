@@ -151,80 +151,80 @@ Columns:
 - **COO 16** is "yes" when the item adds a `draw_edit/1` op or field (agreement before its PR) or needs a change in `mzlab-mol` / `mzlab-feat`. Ops already agreed in section 8 say "agreed".
 - **Proof** is the independent check the prompt names.
 
-Status: RUN = running now or waiting for merge, Q = queued, P = has a prompt, N = new prompt in this PR, W = withdrawn. The prompts arch-std-15..22 are on PR #45 and all `arch-cd-*` on PR #41: they are on `main` after #45 and #41 merge; until then read them from those branches.
+The state of each prompt (merged, running, queued, superseded, withdrawn, gated) is kept in `docs/plan/queue.md`, one row per file of `docs/prompts/`, checked by `tools/queue_check.sh` in CI. This table no longer has a status column: it was a snapshot of 2026-11-21 and went stale.
 
-| # | id | item | status | size | depends on | zone | COO 16 | proof |
-|---|---|---|---|---|---|---|---|---|
-| 1 | UI-2 R1 | palette layout in Rust (PR #35) | RUN | M | — | `palettes.rs`; settings `layout`, `export` | no | property tests |
-| 2 | UI-2 PR 2 | icons and page palettes | RUN | M | R1 | page | no | screenshots |
-| 3 | UI-2 PR 3 | light / dark tokens | RUN | S | PR 2 | page css | no | contrast |
-| 4 | CTX-MENU page | menu on the page (PR 1 #37 merged) | RUN | S | UI-2 PR 2 | page | no | APG menu pattern |
-| 5 | arch-std-01 | `std/1` stereo checks | RUN | M | — | conform | no | InChI TechMan 1.07 |
-| 6 | arch-std-05 | drag-free editing | RUN | S | — | input | no | 24×15° round trip |
-| 7 | arch-std-08 | label reversal | RUN | S | — | label | no | goldens, IUPAC GR-2.1.6 |
-| 8 | arch-std-14 | annotation scales | RUN | S | — | `ann.rs` | no | Charbonnet 2022 |
-| 9 | plan-01 | one table of `draw_edit/1` ops | N | S | — | new `schema.rs` | agreed (D1) | mzLab op list ⊆ table |
-| 10 | plan-02 | drawing-speed benchmark | N | M | — | `tools/velocity`, `tests/velocity.mjs` | no | pinned Ketcher; person protocol |
-| 11 | plan-03 | fidelity against RDKit / Open Babel / InChI | N | M | — | `tools/fidelity` | no | InChIKey by RDKit, Open Babel |
-| 12 | plan-04 | engine glue callable natively | N | S | — | bridge, new `glue.rs` | no (D2) | parity with engines; bytes = mzLab CLI |
-| 13 | plan-15 | semantic diff | N | M | — | new `diff.rs` | no | property apply(diff(a,b),a) == b |
-| 14 | arch-std-09 | OpenSMILES file rules | P | S | — | readers (`io.rs`) | no | OpenSMILES 1.0 |
-| 15 | arch-std-18 | PDF writer (+ E16) | P | M | — | new `pdf.rs` | no (D7) | `qpdf --check`, `pdfdetach` |
-| 16 | arch-std-22 | CDX reader (+ E17) | P | M | — | new `cdx.rs` | no | Open Babel reads the same files |
-| 17 | arch-std-02 | geometry checks | Q | M | std-01 | conform | no | flaw sheet |
-| 18 | arch-std-12 | enhanced stereo: document, op, drawing | P | M | std-01 | document atoms/bonds | yes (`stereo.group`, `stg`) | IUPAC ST rules; RDKit via plan-03 |
-| 19 | arch-std-03 | palette contrast | P | S | UI-2 PR 3 | scene/style | no | WCAG 2.2 formula |
-| 20 | arch-std-06 | shortcuts (+ E1) | P | M | std-05 | input + settings section | no | WCAG 2.1.4 |
-| 21 | arch-web-01 | editor instances | P | M | plan-04 | bridge | no | two-editor test |
-| 22 | plan-05 | cut line object | N | M | plan-01 | document objects | yes (`t:"cut"`) | `mol cut` of mzLab |
-| 23 | plan-13 | one-line scheme layout | N | M | — | new `scheme.rs` | no (moves only) | geometry invariants; RXN roles by RDKit |
-| 24 | arch-std-15 | clean-up (+ E4) | P | M | — | `layout.rs` + op | yes (`atoms.xy`) | isomeric SMILES unchanged |
-| 25 | arch-std-11 | unknown double bond | P | M | std-12 | document atoms/bonds | yes (`s:3` on order 2) | round trips (plan-03) |
-| 26 | arch-std-13 | crossing gap | Q | S | std-02 | scene | no | IUPAC ST-3.1; goldens |
-| 27 | arch-web-02 | `<mzdraw-editor>` element | P | M | web-01, UI-2 PR 2 | page (new file) | no | network log |
-| 28 | plan-06 | fragment masses on a cut | N | M | plan-04, plan-05 | glue + objects | yes (fields `h`, `adduct`) | RDKit `ExactMolWt` |
-| 29 | arch-std-17 | export default, Download, clipboard list | P | S | std-03 | `svg.rs` + page Download | no | Office SVG notes |
-| 30 | arch-cd-03 | hover hotkeys | P | S | std-06 | input | no | velocity/1 |
-| 31 | plan-14 | keep the core oriented | N | M | plan-13 | `scheme.rs` | no | RDKit `GenerateDepictionMatching2DStructure` |
-| 32 | plan-10 | survival matrix of pictures | N | S | std-18 | `tools/survival` | no | independent hosts reopen |
-| 33 | plan-11 | atom maps | N | M | std-11 | document atoms/bonds | yes (`atom.set map`) | RDKit maps |
-| 34 | arch-std-10 | label display modes | P | S | std-03 | scene/style | no | goldens |
-| 35 | arch-web-03 | host adapter | P | S | web-02 | page (element file) | no | — |
-| 36 | arch-web-07 | selection (+ E3) | P | M | std-05 | input | no | — |
-| 37 | plan-07 | peak list → explained cuts | N | M | plan-06 | glue | maybe (engine entry) | MassBank run-time rate |
-| 38 | arch-web-13 | arrow kinds (+ cd-06) | P | S | — | document objects | yes (obj fields) | KET / CDXML |
-| 39 | arch-std-16 | export profiles | P | M | std-01 | conform + svg sizes | no | journal pages read |
-| 40 | arch-std-07 | page accessibility audit | P | S | UI-2 PR 3 | page css + e2e | no | WCAG values |
-| 41 | arch-web-16 | CIP labels (+ E5) | P | M | plan-04 | scene labels + glue arm | no | RDKit `rdCIPLabeler` |
-| 42 | arch-web-08 | chain (+ cd-05) | P | S | std-06 | input + op | agreed (D3) | velocity/1 |
-| 43 | arch-web-05 | viewer and form | P | S | web-03 | page (element file) | no | WHATWG text |
-| 44 | arch-std-19 | enhanced stereo in V3000, KET | P | M | std-12 | readers + writers | maybe (`mzlab-mol` reads them) | RDKit via plan-03 |
-| 45 | plan-12 | `trasf/1` out | N | M | plan-11 | io (save arm) | maybe (constructor) | RDKit reaction; mzLab reader |
-| 46 | arch-cd-25 | curved arrows, lone pairs | P | M | web-13 | document objects | yes (`lp`, `t:"curve"`) | `mechanism/1` |
-| 47 | arch-web-17 | values (+ E6) | P | S | plan-04 | glue arm + outline | no | RDKit masses |
-| 48 | plan-16 | agent proposal layer | N | M | plan-15, UI-2 PR 2 | overlay + page panel | no | bytes = apply of hunks |
-| 49 | arch-web-09 | merge on drop | P | M | web-08 | input + op | yes (`merge`: mzLab has it, D1 table) | — |
-| 50 | arch-web-11 | atom popover (+ cd-09) | P | M | CTX-MENU page | bridge + page | no | — |
-| 51 | arch-web-18 | abbreviations (+ E8) | P | M | std-08 | label | yes (`abbr.*`) | molfile expanded = contracted |
-| 52 | arch-web-19 | templates (+ cd-12/13) | P | M | std-06 | data + op | agreed (D3) | velocity/1 |
-| 53 | arch-web-15 | highlight marks | P | M | — | document atoms/bonds | yes (`hl`) | KET |
-| 54 | arch-std-21 | text runs (+ E15) | P | M | — | document objects | yes (`runs`) | KET, CDXML goldens |
-| 55 | plan-08 | curved-arrow check | N | S | cd-25, plan-04 | glue arm + conform panel | no | `mol mech` of mzLab |
-| 56 | arch-web-20 | bond kinds (+ E9) | P | M | web-15 | document bonds | agreed (D4); valence in `mzlab-mol` maybe | V3000 9/10, KET |
-| 57 | arch-std-20 | enhanced stereo in CXSMILES | P | S | std-19 | readers | maybe (CXSMILES writer) | RDKit via plan-03 |
-| 58 | arch-cd-08 | radical, isotope, periodic table | P | S | web-07 | input | no | — |
-| 59 | arch-cd-15 | align, distribute, scale (+ E2) | P | S | std-15 | commands | no | geometry |
-| 60 | arch-web-21 | drop and copy as (+ E7) | P | S | std-17, CTX-MENU page | page clipboard | no | — |
-| 61 | arch-cd-18, arch-cd-19 | palette tear-off, then named layouts (two prompts, in order) | P | M + S | UI-2 PR 2 | `palettes.rs` + page | no | — |
-| 62 | arch-cd-20 | context-menu refine | P | S | CTX-MENU page | `context.rs` | no | — |
-| 63 | arch-cd-26 | history panel | P | S | — | editor + page | no | log |
-| 64 | arch-cd-04 | double-bond position, dashed on `k` | P | S | web-20 | document bonds | yes (`pos`) | CDXML |
-| 65 | arch-cd-16 | smart paste | P | S | web-21 | `editor_edit.rs` | no | — |
-| 66 | arch-web-04 | host theme tokens | P | S | UI-2 PR 3, std-03 | scene screen palette | no | goldens unchanged |
-| 67 | arch-cd-22 | desktop shell | P | L | web-02; owner's Tauri choice | new crate | no | headless smoke |
-| — | arch-web-10, arch-web-12, arch-web-14 | clean-up, context menu, rich text | W | — | = std-15, CTX-MENU, std-21 | — | — | — |
-| — | plan-09, plan-17, plan-18 | PDF, CDX core, CDX objects | W | — | = std-18, std-22 | — | — | — |
-| — | arch-cd-01/02/05/06/07/09/10/11/12/13/14/17/21/23/24 | superseded | additions only | — | section 3 | — | — | — |
+| # | id | item | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|
+| 1 | UI-2 R1 | palette layout in Rust (PR #35) | M | — | `palettes.rs`; settings `layout`, `export` | no | property tests |
+| 2 | UI-2 PR 2 | icons and page palettes | M | R1 | page | no | screenshots |
+| 3 | UI-2 PR 3 | light / dark tokens | S | PR 2 | page css | no | contrast |
+| 4 | CTX-MENU page | menu on the page (PR 1 #37 merged) | S | UI-2 PR 2 | page | no | APG menu pattern |
+| 5 | arch-std-01 | `std/1` stereo checks | M | — | conform | no | InChI TechMan 1.07 |
+| 6 | arch-std-05 | drag-free editing | S | — | input | no | 24×15° round trip |
+| 7 | arch-std-08 | label reversal | S | — | label | no | goldens, IUPAC GR-2.1.6 |
+| 8 | arch-std-14 | annotation scales | S | — | `ann.rs` | no | Charbonnet 2022 |
+| 9 | plan-01 | one table of `draw_edit/1` ops | S | — | new `schema.rs` | agreed (D1) | mzLab op list ⊆ table |
+| 10 | plan-02 | drawing-speed benchmark | M | — | `tools/velocity`, `tests/velocity.mjs` | no | pinned Ketcher; person protocol |
+| 11 | plan-03 | fidelity against RDKit / Open Babel / InChI | M | — | `tools/fidelity` | no | InChIKey by RDKit, Open Babel |
+| 12 | plan-04 | engine glue callable natively | S | — | bridge, new `glue.rs` | no (D2) | parity with engines; bytes = mzLab CLI |
+| 13 | plan-15 | semantic diff | M | — | new `diff.rs` | no | property apply(diff(a,b),a) == b |
+| 14 | arch-std-09 | OpenSMILES file rules | S | — | readers (`io.rs`) | no | OpenSMILES 1.0 |
+| 15 | arch-std-18 | PDF writer (+ E16) | M | — | new `pdf.rs` | no (D7) | `qpdf --check`, `pdfdetach` |
+| 16 | arch-std-22 | CDX reader (+ E17) | M | — | new `cdx.rs` | no | Open Babel reads the same files |
+| 17 | arch-std-02 | geometry checks | M | std-01 | conform | no | flaw sheet |
+| 18 | arch-std-12 | enhanced stereo: document, op, drawing | M | std-01 | document atoms/bonds | yes (`stereo.group`, `stg`) | IUPAC ST rules; RDKit via plan-03 |
+| 19 | arch-std-03 | palette contrast | S | UI-2 PR 3 | scene/style | no | WCAG 2.2 formula |
+| 20 | arch-std-06 | shortcuts (+ E1) | M | std-05 | input + settings section | no | WCAG 2.1.4 |
+| 21 | arch-web-01 | editor instances | M | plan-04 | bridge | no | two-editor test |
+| 22 | plan-05 | cut line object | M | plan-01 | document objects | yes (`t:"cut"`) | `mol cut` of mzLab |
+| 23 | plan-13 | one-line scheme layout | M | — | new `scheme.rs` | no (moves only) | geometry invariants; RXN roles by RDKit |
+| 24 | arch-std-15 | clean-up (+ E4) | M | — | `layout.rs` + op | yes (`atoms.xy`) | isomeric SMILES unchanged |
+| 25 | arch-std-11 | unknown double bond | M | std-12 | document atoms/bonds | yes (`s:3` on order 2) | round trips (plan-03) |
+| 26 | arch-std-13 | crossing gap | S | std-02 | scene | no | IUPAC ST-3.1; goldens |
+| 27 | arch-web-02 | `<mzdraw-editor>` element | M | web-01, UI-2 PR 2 | page (new file) | no | network log |
+| 28 | plan-06 | fragment masses on a cut | M | plan-04, plan-05 | glue + objects | yes (fields `h`, `adduct`) | RDKit `ExactMolWt` |
+| 29 | arch-std-17 | export default, Download, clipboard list | S | std-03 | `svg.rs` + page Download | no | Office SVG notes |
+| 30 | arch-cd-03 | hover hotkeys | S | std-06 | input | no | velocity/1 |
+| 31 | plan-14 | keep the core oriented | M | plan-13 | `scheme.rs` | no | RDKit `GenerateDepictionMatching2DStructure` |
+| 32 | plan-10 | survival matrix of pictures | S | std-18 | `tools/survival` | no | independent hosts reopen |
+| 33 | plan-11 | atom maps | M | std-11 | document atoms/bonds | yes (`atom.set map`) | RDKit maps |
+| 34 | arch-std-10 | label display modes | S | std-03 | scene/style | no | goldens |
+| 35 | arch-web-03 | host adapter | S | web-02 | page (element file) | no | — |
+| 36 | arch-web-07 | selection (+ E3) | M | std-05 | input | no | — |
+| 37 | plan-07 | peak list → explained cuts | M | plan-06 | glue | maybe (engine entry) | MassBank run-time rate |
+| 38 | arch-web-13 | arrow kinds (+ cd-06) | S | — | document objects | yes (obj fields) | KET / CDXML |
+| 39 | arch-std-16 | export profiles | M | std-01 | conform + svg sizes | no | journal pages read |
+| 40 | arch-std-07 | page accessibility audit | S | UI-2 PR 3 | page css + e2e | no | WCAG values |
+| 41 | arch-web-16 | CIP labels (+ E5) | M | plan-04 | scene labels + glue arm | no | RDKit `rdCIPLabeler` |
+| 42 | arch-web-08 | chain (+ cd-05) | S | std-06 | input + op | agreed (D3) | velocity/1 |
+| 43 | arch-web-05 | viewer and form | S | web-03 | page (element file) | no | WHATWG text |
+| 44 | arch-std-19 | enhanced stereo in V3000, KET | M | std-12 | readers + writers | maybe (`mzlab-mol` reads them) | RDKit via plan-03 |
+| 45 | plan-12 | `trasf/1` out | M | plan-11 | io (save arm) | maybe (constructor) | RDKit reaction; mzLab reader |
+| 46 | arch-cd-25 | curved arrows, lone pairs | M | web-13 | document objects | yes (`lp`, `t:"curve"`) | `mechanism/1` |
+| 47 | arch-web-17 | values (+ E6) | S | plan-04 | glue arm + outline | no | RDKit masses |
+| 48 | plan-16 | agent proposal layer | M | plan-15, UI-2 PR 2 | overlay + page panel | no | bytes = apply of hunks |
+| 49 | arch-web-09 | merge on drop | M | web-08 | input + op | yes (`merge`: mzLab has it, D1 table) | — |
+| 50 | arch-web-11 | atom popover (+ cd-09) | M | CTX-MENU page | bridge + page | no | — |
+| 51 | arch-web-18 | abbreviations (+ E8) | M | std-08 | label | yes (`abbr.*`) | molfile expanded = contracted |
+| 52 | arch-web-19 | templates (+ cd-12/13) | M | std-06 | data + op | agreed (D3) | velocity/1 |
+| 53 | arch-web-15 | highlight marks | M | — | document atoms/bonds | yes (`hl`) | KET |
+| 54 | arch-std-21 | text runs (+ E15) | M | — | document objects | yes (`runs`) | KET, CDXML goldens |
+| 55 | plan-08 | curved-arrow check | S | cd-25, plan-04 | glue arm + conform panel | no | `mol mech` of mzLab |
+| 56 | arch-web-20 | bond kinds (+ E9) | M | web-15 | document bonds | agreed (D4); valence in `mzlab-mol` maybe | V3000 9/10, KET |
+| 57 | arch-std-20 | enhanced stereo in CXSMILES | S | std-19 | readers | maybe (CXSMILES writer) | RDKit via plan-03 |
+| 58 | arch-cd-08 | radical, isotope, periodic table | S | web-07 | input | no | — |
+| 59 | arch-cd-15 | align, distribute, scale (+ E2) | S | std-15 | commands | no | geometry |
+| 60 | arch-web-21 | drop and copy as (+ E7) | S | std-17, CTX-MENU page | page clipboard | no | — |
+| 61 | arch-cd-18, arch-cd-19 | palette tear-off, then named layouts (two prompts, in order) | M + S | UI-2 PR 2 | `palettes.rs` + page | no | — |
+| 62 | arch-cd-20 | context-menu refine | S | CTX-MENU page | `context.rs` | no | — |
+| 63 | arch-cd-26 | history panel | S | — | editor + page | no | log |
+| 64 | arch-cd-04 | double-bond position, dashed on `k` | S | web-20 | document bonds | yes (`pos`) | CDXML |
+| 65 | arch-cd-16 | smart paste | S | web-21 | `editor_edit.rs` | no | — |
+| 66 | arch-web-04 | host theme tokens | S | UI-2 PR 3, std-03 | scene screen palette | no | goldens unchanged |
+| 67 | arch-cd-22 | desktop shell | L | web-02; owner's Tauri choice | new crate | no | headless smoke |
+| — | arch-web-10, arch-web-12, arch-web-14 | clean-up, context menu, rich text | — | = std-15, CTX-MENU, std-21 | — | — | — |
+| — | plan-09, plan-17, plan-18 | PDF, CDX core, CDX objects | — | = std-18, std-22 | — | — | — |
+| — | arch-cd-01/02/05/06/07/09/10/11/12/13/14/17/21/23/24 | superseded | — | section 3 | — | — | — |
 
 Deferred, no prompt: Markush / SAR (card 5, rule 13, owner); catalytic-cycle layout (after arch-cd-25 on paths); Explain-CIP trace (a `cip/1` change, COO 16); next mechanistic intermediate (a new mzLab engine, COO 16); font outlining in files (font licence); CDX writer (after std-22); live isomer re-ranking (after plan-07's numbers); automatic atom mapping.
 Dropped: Open Reaction Database export; freehand gesture recognition; 3D conformers and viewer; macromolecules; natural-language structure generation; OLE.

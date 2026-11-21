@@ -1018,6 +1018,9 @@ impl Document {
                     to: *to,
                     more: Vec::new(),
                 };
+                if let Err(key) = crate::runs::check(&o.runs) {
+                    return err(key, o.id);
+                }
                 if !o.valid() {
                     return err("error.draw2.object", o.id);
                 }
@@ -1059,6 +1062,9 @@ impl Document {
                     return err("error.draw2.object", *id);
                 }
                 if let Some(r) = &runs {
+                    if let Err(key) = crate::runs::check(r) {
+                        return err(key, *id);
+                    }
                     o.text = crate::runs::plain(r);
                     o.runs = r.clone();
                 } else if let Some(t) = text {

@@ -115,7 +115,10 @@ impl Editor {
     /// `pathway:label`: writes the computed label (`steplabel::plan`, the mode `pathway.label`) on every anchored arrow whose text is
     /// empty or its own, one undo step; none when nothing changes. The counts for the live line are kept in `said_params`.
     pub(crate) fn pathway_label(&mut self, opts: &crate::steplabel::Opts) -> Result<bool, OpError> {
-        let plan = crate::steplabel::plan(self.doc(), self.style.pathway_label, opts)?;
+        // a run that fails reports nothing from the run before
+        self.label_notes.clear();
+        let plan =
+            crate::steplabel::plan(self.doc(), self.style.pathway_label, opts, self.measurer)?;
         let changed = !plan.ops.is_empty();
         if changed {
             self.session.run(&plan.ops)?;
@@ -132,6 +135,8 @@ impl Editor {
             ("skipped", plan.skipped as u32),
         ];
         self.prune();
+        self.label_notes = plan.notes;
+        self.label_notes_doc = self.doc().to_json();
         Ok(changed)
     }
 

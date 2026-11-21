@@ -175,57 +175,75 @@ fn coord(p: &Value, name: &str, place: usize) -> f64 {
         .unwrap_or(0.0)
 }
 
-/// The text of a KET text node (the lines of its rich-text content, or the content as it is) and its runs: the bold, italic,
-/// subscript and superscript ranges of its blocks, a line break between blocks. No runs for a text with no such range.
-fn content(data: &Value) -> (String, Vec<crate::runs::Run>) {
+/// The text of a KET text node (the lines of its rich-text content, or the content as it is), its runs (the bold, italic, subscript
+/// and superscript ranges of its blocks, a line break between blocks; none for a text with no such range) and how many ranges
+/// were left out. The counts are checked before any work: a text with more characters or lines than a text can hold keeps its
+/// plain text and loses its ranges (counted), and the ranges of a block are swept once (a difference array), so the time is
+/// linear in the size of the text and of its ranges.
+fn content(data: &Value) -> (String, Vec<crate::runs::Run>, usize) {
     let raw = data["content"].as_str().unwrap_or_default();
     let rich: Option<Value> = serde_json::from_str(raw).ok();
     let Some(blocks) = rich.as_ref().and_then(|r| r["blocks"].as_array()) else {
-        return (raw.into(), Vec::new());
+        return (raw.into(), Vec::new(), 0);
     };
+    let texts: Vec<&str> = blocks.iter().filter_map(|b| b["text"].as_str()).collect();
+    let text = texts.join("\n");
+    let ranges = |b: &Value| b["inlineStyleRanges"].as_array().map_or(0, Vec::len);
+    let all: usize = blocks.iter().map(ranges).sum();
+    let chars: usize = texts.iter().map(|t| t.chars().count()).sum();
+    if chars > crate::runs::MAX_CHARS || texts.len() > crate::runs::MAX_LINES {
+        return (text, Vec::new(), usize::from(all > 0));
+    }
     let mut runs = Vec::new();
-    let mut lines: Vec<&str> = Vec::new();
     for (n, block) in blocks.iter().enumerate() {
-        let Some(text) = block["text"].as_str() else {
+        let Some(line) = block["text"].as_str() else {
             continue;
         };
-        lines.push(text);
         if n > 0 {
             runs.push(crate::runs::Run::line());
         }
-        let ranges = block["inlineStyleRanges"]
-            .as_array()
-            .map_or(&[][..], Vec::as_slice);
-        // the styles of each character, by its UTF-16 position
-        let mut at = 0usize;
-        for c in text.chars() {
-            let mut run = crate::runs::Run::plain(&c.to_string());
-            for r in ranges {
-                let (o, l) = (
-                    r["offset"].as_u64().unwrap_or(0) as usize,
-                    r["length"].as_u64().unwrap_or(0) as usize,
-                );
-                if (o..o + l).contains(&at) {
-                    match r["style"].as_str() {
-                        Some("BOLD") => run.b = true,
-                        Some("ITALIC") => run.i = true,
-                        Some("SUBSCRIPT") => run.sub = true,
-                        Some("SUPERSCRIPT") => run.sup = true,
-                        _ => {}
-                    }
-                }
+        // per style, the ranges that start and end at each UTF-16 position of the block
+        let units = line.encode_utf16().count();
+        let mut diff = vec![[0i32; 4]; units + 1];
+        for r in block["inlineStyleRanges"].as_array().into_iter().flatten() {
+            let k = match r["style"].as_str() {
+                Some("BOLD") => 0,
+                Some("ITALIC") => 1,
+                Some("SUBSCRIPT") => 2,
+                Some("SUPERSCRIPT") => 3,
+                _ => continue,
+            };
+            let start = (r["offset"].as_u64().unwrap_or(0) as usize).min(units);
+            let end = start
+                .saturating_add(r["length"].as_u64().unwrap_or(0) as usize)
+                .min(units);
+            diff[start][k] += 1;
+            diff[end][k] -= 1;
+        }
+        let (mut depth, mut at) = ([0i32; 4], 0usize);
+        for c in line.chars() {
+            for k in 0..4 {
+                depth[k] += diff[at][k];
             }
+            let mut run = crate::runs::Run::plain(&c.to_string());
+            (run.b, run.i, run.sub, run.sup) =
+                (depth[0] > 0, depth[1] > 0, depth[2] > 0, depth[3] > 0);
             run.sup &= !run.sub;
             runs.push(run);
             at += c.len_utf16();
+            // a character of two units: the second unit is passed over
+            for k in 0..4 {
+                if c.len_utf16() == 2 {
+                    depth[k] += diff[at][k];
+                }
+            }
         }
     }
     let runs = crate::runs::canon(runs);
-    let text = lines.join("\n");
     if runs.iter().any(crate::runs::Run::styled) {
-        (crate::runs::plain(&runs), runs)
+        (crate::runs::plain(&runs), runs, 0)
     } else {
-        (text, Vec::new())
+        (text, Vec::new(), 0)
     }
 }
 
@@ -312,13 +330,13 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
             info.sgroups += mol["sgroups"].as_array().map_or(0, Vec::len);
         } else if kind == "arrow" || kind == "plus" || kind == "text" {
             let p = &data["pos"];
-            let (t, from, to, (text, runs)) = match kind {
-                "arrow" => (ObjKind::Arrow, &p[0], &p[1], (String::new(), Vec::new())),
+            let (t, from, to, (text, runs, adjusted)) = match kind {
+                "arrow" => (ObjKind::Arrow, &p[0], &p[1], (String::new(), Vec::new(), 0)),
                 "plus" => (
                     ObjKind::Plus,
                     &node["location"],
                     &Value::Null,
-                    (String::new(), Vec::new()),
+                    (String::new(), Vec::new(), 0),
                 ),
                 _ => (
                     ObjKind::Text,
@@ -327,6 +345,7 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
                     content(data),
                 ),
             };
+            info.runs_adjusted += adjusted;
             objects.push((
                 t,
                 [

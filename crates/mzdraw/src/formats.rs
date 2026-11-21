@@ -382,7 +382,10 @@ pub(crate) fn assemble(
         let [x, y, x2, y2] = p.map(|c| crate::doc::round4(c * k));
         // a formatted text keeps its runs and its lines in one object; a plain text of several lines becomes one text per line,
         // each under the one before (a plain text is one line)
-        let runs = if crate::runs::valid(&runs) {
+        // formatting a text cannot hold is clamped or left out, and counted (the page says so)
+        let (runs, adjusted) = crate::runs::repair(runs);
+        info.runs_adjusted += adjusted;
+        let runs = if runs.iter().any(|r| r.br || r.styled()) {
             runs
         } else {
             Vec::new()

@@ -44,8 +44,10 @@ struct Read {
     far: (f64, usize, bool),
     other: usize,
     /// The font table (id, family name) and the color table (`#rrggbb`, index 2 on) of the file.
-    fonts: Vec<(String, String)>,
+    fonts: std::collections::HashMap<String, String>,
     colors: Vec<String>,
+    /// `s` objects beyond what a text holds, left out.
+    runs_cut: usize,
 }
 
 /// The numbers of an attribute such as `p="72 144"`, y turned up (CDXML counts y downwards).
@@ -71,7 +73,7 @@ impl Read {
     /// Empty for a text with no style and no line break (it is the plain text).
     fn runs_of(&self, e: &Element) -> Vec<crate::runs::Run> {
         let mut out = Vec::new();
-        for s in e.each("s") {
+        for s in e.each("s").take(2 * crate::runs::MAX_RUNS) {
             let face: u32 = s.attr("face").and_then(|f| f.parse().ok()).unwrap_or(0);
             let size = s
                 .attr("size")
@@ -142,7 +144,7 @@ impl Read {
                 "fonttable" => {
                     for f in c.each("font") {
                         if let (Some(id), Some(name)) = (f.attr("id"), f.attr("name")) {
-                            self.fonts.push((id.into(), name.into()));
+                            self.fonts.insert(id.into(), name.into());
                         }
                     }
                 }
@@ -158,6 +160,10 @@ impl Read {
                 }
                 "t" => match numbers(c, "p").or_else(|| numbers(c, "BoundingBox")) {
                     Some(p) => {
+                        self.runs_cut += c
+                            .each("s")
+                            .count()
+                            .saturating_sub(2 * crate::runs::MAX_RUNS);
                         let (text, runs) = (label_of(c), self.runs_of(c));
                         let text = if runs.is_empty() {
                             text
@@ -333,6 +339,7 @@ pub(crate) fn from_tree(
         bonds.push(format!("{order} {i} {j}{cfg}"));
     }
     info.other += r.other;
+    info.runs_adjusted += r.runs_cut;
     let mut d = crate::formats::assemble(&r.atoms, &bonds, r.objects, r.far, info, key)?;
     for (i, lab) in r.groups {
         if let Some(a) = d.atoms.get_mut(i) {

@@ -4,7 +4,7 @@
 //! One run is `{"t":"H"}` with optional keys, written in this order: `br` (a line break, no `t`), `sub` or `sup` (a subscript or a
 //! superscript, never both), `b` bold, `i` italic, `u` underline, `font` (a family name; empty is the style's font), `sz` (the size
 //! as a multiple of the style's font size, 0.25 to 8; absent is 1) and `color` (`#rrggbb`; absent is the ink of the drawing). A key
-//! this version does not know makes the list unreadable (an error, never a silent drop). Runs are kept canonical: no empty run,
+//! this version does not know is kept as written and written back (a later version's field survives a round through this one). Runs are kept canonical: no empty run,
 //! neighbours of one style merged, so equal texts have equal bytes.
 //!
 //! The markup of the text field (`_x`, `_{..}`, `^x`, `^{..}`, `\n` or a new line for a line break, a backslash before a character that
@@ -36,8 +36,10 @@ pub struct Run {
     pub font: String,
     /// The size as a multiple of the font of the style; 0 is the style's size.
     pub sz: f64,
-    /// `#rrggbb` in lowercase, or empty for the ink of the drawing.
+    /// `#rrggbb` in lowercase (`ink::canon`), or empty for the ink of the drawing.
     pub color: String,
+    /// Keys of a run this version does not know, kept as written (key, value as JSON text, sorted by key) and written back.
+    pub more: Vec<(String, String)>,
 }
 
 impl Run {
@@ -75,6 +77,7 @@ impl Run {
             && self.font == o.font
             && self.sz == o.sz
             && self.color == o.color
+            && self.more == o.more
     }
 
     /// Whether the run has any style (a script, bold, italic, underline, a font, a size or a colour).
@@ -82,23 +85,31 @@ impl Run {
         !self.same_style(&Run::default())
     }
 
-    fn valid(&self) -> bool {
-        let text_ok =
+    /// The key of the first thing wrong with the run, `None` when it is valid.
+    fn flaw(&self) -> Option<&'static str> {
+        let clean =
             |s: &str, max: usize| s.chars().count() <= max && !s.chars().any(char::is_control);
-        let color_ok = self.color.is_empty()
-            || (self.color.len() == 7
-                && self.color.starts_with('#')
-                && self.color[1..]
-                    .bytes()
-                    .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)));
-        let size_ok = self.sz == 0.0 || (self.sz.is_finite() && (0.25..=8.0).contains(&self.sz));
-        let base =
-            text_ok(&self.t, MAX_RUN) && text_ok(&self.font, MAX_FONT) && color_ok && size_ok;
-        if self.br {
-            base && self.t.is_empty() && !self.styled()
-        } else {
-            base && !self.t.is_empty() && !(self.sub && self.sup)
+        // a family name goes into a CSS font shorthand and an XML attribute: letters, digits, space, `-`, `_` and `.` only
+        let font_ok = clean(&self.font, MAX_FONT)
+            && self
+                .font
+                .chars()
+                .all(|c| c.is_alphanumeric() || " -_.".contains(c));
+        if !font_ok {
+            return Some("error.draw2.runFont");
         }
+        if crate::ink::canon(&self.color).as_deref() != Some(self.color.as_str()) {
+            return Some("error.draw2.runColor");
+        }
+        if !(self.sz == 0.0 || (self.sz.is_finite() && (0.25..=8.0).contains(&self.sz))) {
+            return Some("error.draw2.runSize");
+        }
+        let shape = if self.br {
+            self.t.is_empty() && !self.styled()
+        } else {
+            clean(&self.t, MAX_RUN) && !self.t.is_empty() && !(self.sub && self.sup)
+        };
+        (!shape).then_some("error.draw2.runStyle")
     }
 }
 
@@ -107,6 +118,10 @@ pub fn canon(runs: Vec<Run>) -> Vec<Run> {
     let mut out: Vec<Run> = Vec::with_capacity(runs.len());
     for mut r in runs {
         r.sz = (r.sz * 100.0).round() / 100.0;
+        // a colour in a short form or in capitals is written in the one form; another text stays and is refused by `check`
+        if let Some(c) = crate::ink::canon(&r.color) {
+            r.color = c;
+        }
         if !r.br && r.t.is_empty() {
             continue;
         }
@@ -118,14 +133,81 @@ pub fn canon(runs: Vec<Run>) -> Vec<Run> {
     out
 }
 
-/// Whether a list of runs is one a document can hold: bounded in runs, characters and lines, each run valid.
-pub fn valid(runs: &[Run]) -> bool {
-    let chars: usize = runs.iter().map(|r| r.t.chars().count()).sum();
+/// Whether a list of runs is one a document can hold; the error is the i18n key of the first thing wrong: `error.draw2.runsCount`
+/// (more than `MAX_RUNS` runs, `MAX_CHARS` characters or `MAX_LINES` lines), `runFont`, `runColor`, `runSize` or `runStyle` (a
+/// script that is both, a break with a style, an empty run, a control character).
+pub fn check(runs: &[Run]) -> Result<(), &'static str> {
+    // the counts first: nothing is looked at in a list that is too long
     let lines = runs.iter().filter(|r| r.br).count() + 1;
-    runs.len() <= MAX_RUNS
-        && chars <= MAX_CHARS
-        && lines <= MAX_LINES
-        && runs.iter().all(Run::valid)
+    let chars: usize = runs.iter().map(|r| r.t.len()).sum();
+    if runs.len() > MAX_RUNS || chars > 4 * MAX_CHARS || lines > MAX_LINES {
+        return Err("error.draw2.runsCount");
+    }
+    if runs.iter().map(|r| r.t.chars().count()).sum::<usize>() > MAX_CHARS {
+        return Err("error.draw2.runsCount");
+    }
+    match runs.iter().find_map(Run::flaw) {
+        Some(key) => Err(key),
+        None => Ok(()),
+    }
+}
+
+/// `check` as a yes or no.
+pub fn valid(runs: &[Run]) -> bool {
+    check(runs).is_ok()
+}
+
+/// A list of runs made valid, for a file that holds one that is not: sizes clamped into 0.25 to 8, a colour that is not a colour,
+/// a font name with other characters and a control character left out, a script that is both left as a subscript, a list too long
+/// cut. The number is how many runs were changed or cut (0: the list was valid as it was).
+pub fn repair(runs: Vec<Run>) -> (Vec<Run>, usize) {
+    let mut changed = 0;
+    let mut out: Vec<Run> = Vec::new();
+    let (mut chars, mut lines) = (0, 1);
+    for mut r in canon(runs) {
+        if out.len() >= MAX_RUNS {
+            changed += 1;
+            continue;
+        }
+        let before = r.clone();
+        if r.br {
+            lines += 1;
+            if lines > MAX_LINES {
+                changed += 1;
+                continue;
+            }
+            r = Run::line();
+        } else {
+            r.t.retain(|c| !c.is_control());
+            r.t = r.t.chars().take(MAX_RUN).collect();
+            let room = MAX_CHARS - chars;
+            r.t = r.t.chars().take(room).collect();
+            chars += r.t.chars().count();
+            if r.sub && r.sup {
+                r.sup = false;
+            }
+        }
+        if r.sz != 0.0 {
+            r.sz = if r.sz.is_finite() {
+                r.sz.clamp(0.25, 8.0)
+            } else {
+                0.0
+            };
+        }
+        if crate::ink::canon(&r.color).is_none() {
+            r.color.clear();
+        }
+        if r.font
+            .chars()
+            .any(|c| !(c.is_alphanumeric() || " -_.".contains(c)))
+            || r.font.chars().count() > MAX_FONT
+        {
+            r.font.clear();
+        }
+        changed += usize::from(r != before);
+        out.push(r);
+    }
+    (canon(out), changed)
 }
 
 /// The text of the runs without any style, a line break as `\n`.
@@ -172,27 +254,22 @@ pub fn to_json(runs: &[Run]) -> String {
             if !r.color.is_empty() {
                 w.text("color", &r.color);
             }
+            w.more(&r.more);
             w.0 + "}"
         })
         .collect();
     format!("[{}]", items.join(","))
 }
 
-/// The runs of a JSON value (canonical, not yet checked with `valid`); `Err` for another shape or a key this version does not know.
+/// The runs of a JSON value (canonical, not yet checked with `check`); `Err` for another shape or a field of the wrong type.
 pub(crate) fn from_value(v: &Value) -> Result<Vec<Run>, ()> {
     const KEYS: [&str; 10] = [
         "t", "br", "sub", "sup", "b", "i", "u", "font", "sz", "color",
     ];
     let list = v.as_array().ok_or(())?;
-    if list.len() > MAX_RUNS {
-        return Err(());
-    }
-    let mut out = Vec::with_capacity(list.len());
+    let mut out = Vec::with_capacity(list.len().min(MAX_RUNS + 1));
     for item in list {
         let o = item.as_object().ok_or(())?;
-        if o.keys().any(|k| !KEYS.contains(&k.as_str())) {
-            return Err(());
-        }
         let flag = |k: &str| match o.get(k) {
             None | Some(Value::Null) => Ok(false),
             Some(v) => v.as_bool().ok_or(()),
@@ -201,6 +278,12 @@ pub(crate) fn from_value(v: &Value) -> Result<Vec<Run>, ()> {
             None | Some(Value::Null) => Ok(String::new()),
             Some(v) => v.as_str().map(str::to_string).ok_or(()),
         };
+        // a key of a later version is kept as written and written back
+        let mut more: Vec<(String, String)> = (o.iter())
+            .filter(|(k, _)| !KEYS.contains(&k.as_str()))
+            .map(|(k, x)| (k.clone(), x.to_string()))
+            .collect();
+        more.sort();
         out.push(Run {
             t: text("t")?,
             br: flag("br")?,
@@ -215,6 +298,7 @@ pub(crate) fn from_value(v: &Value) -> Result<Vec<Run>, ()> {
                 Some(v) => v.as_f64().filter(|n| n.is_finite()).ok_or(())?,
             },
             color: text("color")?,
+            more,
         });
     }
     Ok(canon(out))
@@ -420,6 +504,8 @@ pub struct Piece {
     pub font: String,
     /// `0xrrggbb`, or -1 for the ink of the drawing.
     pub rgb: i32,
+    /// The width of the piece, in pixels (the one table of advance widths).
+    pub width: f64,
 }
 
 /// The runs laid out in lines at the font size `base` pixels, scripts at `script` times their run's size (subscripts lowered,
@@ -465,7 +551,9 @@ pub fn layout(runs: &[Run], base: f64, script: f64) -> Laid {
             } else {
                 i32::from_str_radix(&r.color[1..], 16).unwrap_or(-1)
             },
+            width: 0.0,
         });
+        pieces.last_mut().expect("just pushed").width = w;
         widths[line] += w;
     }
     Laid { pieces, widths }
@@ -556,8 +644,11 @@ mod tests {
         .unwrap();
         let r = from_value(&json).unwrap();
         assert_eq!(serde_json::from_str::<Value>(&to_json(&r)).unwrap(), json);
+        // a key of a later version is kept and written back
         let unknown: Value = serde_json::from_str(r#"[{"t":"H","bold":true}]"#).unwrap();
-        assert!(from_value(&unknown).is_err());
+        let kept = from_value(&unknown).unwrap();
+        assert_eq!(kept[0].more, vec![("bold".to_string(), "true".to_string())]);
+        assert_eq!(to_json(&kept), r#"[{"t":"H","bold":true}]"#);
     }
 
     #[test]

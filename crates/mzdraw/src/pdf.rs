@@ -117,8 +117,6 @@ fn content(sc: &scene::Scene, h: f32) -> String {
             } else {
                 rgb_of(d[i + 8] as u32)
             };
-            let w =
-                scene::width(text, f64::from(size)) as f32 * if face & 1 != 0 { 1.07 } else { 1.0 };
             let (x, y0) = (d[i + 1], y(d[i + 2] + BASELINE * size));
             s.push_str(&format!(
                 "BT /F{} {} Tf {colour} rg {} {} Td {} Tj ET\n",
@@ -128,17 +126,16 @@ fn content(sc: &scene::Scene, h: f32) -> String {
                 y0,
                 string(text)
             ));
-            if face & 4 != 0 {
+            if d[i + 10] > 0.0 {
+                let at = y(d[i + 2] + d[i + 10]);
                 s.push_str(&format!(
-                    "{colour} RG {} w {} {} m {} {} l S\n",
-                    num(size * 0.06),
+                    "{colour} RG {} w {} {at} m {} {at} l S\n",
+                    num(d[i + 11]),
                     num(x),
-                    y(d[i + 2] + 0.5 * size),
-                    num(x + w),
-                    y(d[i + 2] + 0.5 * size)
+                    num(x + d[i + 12])
                 ));
             }
-            i += 10;
+            i += 13;
         } else if op == scene::TRI {
             s.push_str(&format!(
                 "{} rg {} {} m {} {} l {} {} l h f\n",
