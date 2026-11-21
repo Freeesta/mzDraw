@@ -23,7 +23,7 @@ Out (do not build here, say so in the PR if you meet it):
 
 ## Context
 
-Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Built state": what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
+Read first: `CLAUDE.md` (the rules override this prompt), `docs/built/` (the Built state: what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
 
 - `ops.rs` `Move`, `Rotate`, `Flip`; `Document::bounds`; `layout::pieces`; the command list of `crates/mzdraw-wasm/src/lib.rs` `command`.
 - Study facts: ChemDraw aligns to the highest selected object, distributes three or more (CD-UG17); the new Marvin rotates 1° with Alt+arrow and 15° with Shift+Alt+arrow (M/marvin_shortcuts-and-tricks.html).
@@ -42,11 +42,11 @@ Tests to add (synthetic data, small):
 
 UI: an Arrange group (align and distribute buttons, an angle field); e2e: select two pieces with a band, align top, check boxes from `state()`; the same from the keyboard (Tab to the Arrange buttons) and with touch. Screenshots at deviceScaleFactor 2 (`MZDRAW_SHOTS=<dir> node tests/e2e.mjs`), attached to the PR description; keep the touch/pen and keyboard steps of `tests/e2e.mjs` green and add yours.
 
-Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
+Docs: keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
 CLI route and native replay (rule 15): every command produces existing ops (`move`, `rotate`, `atoms.xy`), so the log replays natively; also accept the commands in the replay request (`"commands": ["align:left", ...]`, run on the selection given by `"select"`) so an agent can align without computing offsets; parity entry.
 
-Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, there is no `measured` to write (the build prints the size); give the delta in the PR.
 
 ## Acceptance
 
@@ -59,7 +59,7 @@ cargo build --locked -p mzdraw --example replay && node tests/parity.mjs
 node tests/e2e.mjs
 ```
 
-If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend `tests/data/mzdraw_log.json` with the new op(s) so that the parity test replays them.
+If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend your own file `tests/data/log/<area>.json` with the new op(s) so that the parity test replays them.
 
 ## Messages
 

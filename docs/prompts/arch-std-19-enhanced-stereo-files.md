@@ -20,7 +20,7 @@ Out (do not do here):
 - CXSMILES (slice 20), any new operation.
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2, §2.4 molfile and KET rows).
+- `CLAUDE.md`, `docs/built/` (the Built state is what exists), `docs/study/arch-std.md` (§2.2, §2.4 molfile and KET rows).
 - The CTfile V3000 collection blocks: BIOVIA CTfile Formats, Chemistry 2026, public copy at https://www.3ds.com/assets/invest/2026-01/biovia_chemistry_2026_ctfile_formats.pdf (read by ARCH PLAN-2 on 2026-11-21: STEABS, STERACn, STERELn and the chiral flag; see `docs/plan/backlog.md` §10.1). Implement from what `mzlab-mol` reads and writes, and apply edit E20 (§10.5: no group is set from a default).
 - KET schema (https://raw.githubusercontent.com/epam/ketcher/master/packages/ketcher-core/src/domain/serializers/ket/schema.json).
 - `crates/mzdraw/src/io.rs`, `crates/mzdraw/src/ket.rs`.
@@ -31,7 +31,7 @@ Out (do not do here):
 - Synthetic data only in tests and examples (structures you write yourself). Never skip, disable or loosen a test.
 - Branch `claude/arch-std-19-enhanced-stereo-files` from `origin/main`; never push to `main`, never rebase, never force-push; merge `main` only on a real conflict. Open the PR ready for review and never merge it: the coordinator merges.
 - UI changes come with screenshots at deviceScaleFactor 2 in the PR. Keep touch, pen and keyboard in the e2e tests.
-- Keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice, "Not built" said plainly). Size: update `measured` in `tools/wasm-cap.toml` when the module moves. The owner lifted the size limit for now, but `cap` is still the owner's: if the module passes it, send the numbers to the coordinator and raise `cap` only on its answer, with the reason in the PR.
+- Keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice, "Not built" said plainly). Size: no `measured` edit (the build prints the size; the cap in `tools/wasm-cap.toml` is the guard). The owner lifted the size limit for now, but `cap` is still the owner's: if the module passes it, send the numbers to the coordinator and raise `cap` only on its answer, with the reason in the PR.
 - Rule 15 of `CLAUDE.md`, in full: 15. CLI-native and agent-first. mzDraw is born usable through the CLI (`mzlab-cli mol draw`) by people and above all by AI agents, to draw canvases of every kind as fast, as safely and as reproducibly as possible. Every feature is first a Rust command with a machine-readable form (`draw_edit/1` JSON ops, `--json` with stable keys, distinct exit codes, data on stdout and diagnostics on stderr, a `--dry-run` / validate mode, batch input and stdin streaming, deterministic bytes, no browser in the path); the page is one client of that same command set. A feature without a CLI route and a test that replays it natively is incomplete.
 - From the CLI rules of the prompts: ids are stable, every operation reports the ids it created and removed, a batch of operations is atomic (all or nothing).
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product.

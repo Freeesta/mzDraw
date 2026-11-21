@@ -21,7 +21,7 @@ Out (do not build here, say so in the PR if you meet it):
 
 ## Context
 
-Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Built state": what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
+Read first: `CLAUDE.md` (the rules override this prompt), `docs/built/` (the Built state: what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
 
 - `crates/mzdraw/src/editor_edit.rs` (`paste`, `duplicate`, `clipboard`), `web/mzdraw.js` clipboard handling (the page only moves bytes), `Editor::save` kinds.
 - Study facts: ChemDraw 23.0 pastes at the view centre or the nearest free place top-left without overlap (CD-RN23); MarvinSketch copies as SMILES and MRV with Ctrl+L / Ctrl+M (MS/marvin_shortcuts-in-marvinsketch.html).
@@ -39,11 +39,11 @@ Tests to add (synthetic data, small):
 
 UI: no new controls; e2e: paste a SMILES twice with the keyboard and once from the context menu, check no overlap and an unchanged view; touch paste from the context menu. Screenshots at deviceScaleFactor 2 (`MZDRAW_SHOTS=<dir> node tests/e2e.mjs`), attached to the PR description; keep the touch/pen and keyboard steps of `tests/e2e.mjs` green and add yours.
 
-Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
+Docs: keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
 CLI route and native replay (rule 15): the placement is part of the paste step (a `move` after the paste ops in the log), replayed natively; a replay request field `paste` (text) runs the same door, so the CLI places pasted text exactly as the page.
 
-Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, there is no `measured` to write (the build prints the size); give the delta in the PR.
 
 ## Acceptance
 
@@ -56,7 +56,7 @@ cargo build --locked -p mzdraw --example replay && node tests/parity.mjs
 node tests/e2e.mjs
 ```
 
-If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend `tests/data/mzdraw_log.json` with the new op(s) so that the parity test replays them.
+If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend your own file `tests/data/log/<area>.json` with the new op(s) so that the parity test replays them.
 
 ## Messages
 

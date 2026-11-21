@@ -20,7 +20,7 @@ Out (do not do here):
 - Geometry checks (slice arch-std-02), export checks (need the journal pages), CIP labels, any automatic fix.
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2 stereo, §4 checklist).
+- `CLAUDE.md`, `docs/built/` (the Built state is what exists), `docs/study/arch-std.md` (§2.2 stereo, §4 checklist).
 - IUPAC Recommendations 2006, Graphical representation of stereochemical configuration, HTML edition https://iupac.qmul.ac.uk/drawing/stereo.html (ST-0 to ST-6). Summarise, do not copy.
 - InChI Technical Manual, software 1.07, revision 2024-01-19, §III.d "Stereochemical layer" (https://github.com/IUPAC-InChI/InChI, `INCHI-1-DOC/TechMan/InChI_TechMan.pdf`): the two wedge conventions, the 45° construction, the atom list. Summarise, do not copy.
 - `crates/mzdraw/src/doc.rs` (wedge codes `WEDGE_UP` 1, `WEDGE_DOWN` 2, `WEDGE_WAVY` 3, narrow end at atom `a`), `crates/mzdraw/src/editor.rs` (`save`), `crates/mzdraw/src/replay.rs`.
@@ -31,7 +31,7 @@ Out (do not do here):
 - Synthetic data only in tests and examples (structures you write yourself). Never skip, disable or loosen a test.
 - Branch `claude/arch-std-01-std-report-stereo` from `origin/main`; never push to `main`, never rebase, never force-push; merge `main` only on a real conflict. Open the PR ready for review and never merge it: the coordinator merges.
 - UI changes come with screenshots at deviceScaleFactor 2 in the PR. Keep touch, pen and keyboard in the e2e tests.
-- Keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice, "Not built" said plainly). Size: update `measured` in `tools/wasm-cap.toml` when the module moves. The owner lifted the size limit for now, but `cap` is still the owner's: if the module passes it, send the numbers to the coordinator and raise `cap` only on its answer, with the reason in the PR.
+- Keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice, "Not built" said plainly). Size: no `measured` edit (the build prints the size; the cap in `tools/wasm-cap.toml` is the guard). The owner lifted the size limit for now, but `cap` is still the owner's: if the module passes it, send the numbers to the coordinator and raise `cap` only on its answer, with the reason in the PR.
 - Rule 15 of `CLAUDE.md`, in full: 15. CLI-native and agent-first. mzDraw is born usable through the CLI (`mzlab-cli mol draw`) by people and above all by AI agents, to draw canvases of every kind as fast, as safely and as reproducibly as possible. Every feature is first a Rust command with a machine-readable form (`draw_edit/1` JSON ops, `--json` with stable keys, distinct exit codes, data on stdout and diagnostics on stderr, a `--dry-run` / validate mode, batch input and stdin streaming, deterministic bytes, no browser in the path); the page is one client of that same command set. A feature without a CLI route and a test that replays it natively is incomplete.
 - From the CLI rules of the prompts: ids are stable, every operation reports the ids it created and removed, a batch of operations is atomic (all or nothing).
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product.
@@ -45,7 +45,7 @@ Out (do not do here):
 ## Tests to add
 - `crates/mzdraw/tests/conform.rs`: per check, one synthetic drawing that triggers it and one close drawing that does not (for example a wedge from C2 of butan-2-ol drawn correctly, the same wedge reversed onto a CH2, two wedges at 180°, (2R,3R)-butane-2,3-diol with one wedge joining both centres, E-but-2-ene with a methyl drawn collinear, penta-2,3-diene with one and with two opposite wedges).
 - Determinism: the same document gives the same bytes; a property test that the report of a random document never panics and lists only ids that exist.
-- Parity: add a request with `"out":"std"` to `tests/data/mzdraw_log.json` (or its sibling list) so `tests/parity.mjs` compares wasm and native bytes.
+- Parity: add a request with `"out":"std"` to `tests/data/log/std.json` (or its sibling list) so `tests/parity.mjs` compares wasm and native bytes.
 - e2e (`tests/e2e.mjs`): draw a wedge onto a CH2 with the mouse, see one line in the panel, activate it with the keyboard (Enter) and by touch, and check the atoms are selected.
 
 ## Acceptance (all green before the PR)
