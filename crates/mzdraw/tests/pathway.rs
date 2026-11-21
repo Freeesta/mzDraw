@@ -352,3 +352,91 @@ fn the_page_and_the_native_replay_give_the_same_bytes() {
     let d = Document::from_json(&replayed).unwrap();
     assert_eq!((d.objects[0].from, d.objects[0].to), (2, 7));
 }
+
+/// A drawing of `n` two-atom structures whose first atom sits at the given points (bond lengths); the smallest atom id of structure
+/// `i` is `10 * i + 1`.
+fn layout(points: &[(f64, f64)]) -> String {
+    let mut atoms = Vec::new();
+    let mut bonds = Vec::new();
+    for (i, (x, y)) in points.iter().enumerate() {
+        let a = 10 * i as u32 + 1;
+        atoms.push(json!({"id": a, "el": "C", "x": x, "y": y}));
+        atoms.push(json!({"id": a + 1, "el": "C", "x": x + 1.0, "y": *y}));
+        bonds.push(json!({"id": a + 2, "a": a, "b": a + 1, "o": 1}));
+    }
+    json!({"format":"mzdraw/1","next":100,"atoms":atoms,"bonds":bonds,"objects":[]}).to_string()
+}
+
+/// The kill test of the slice: the arrow tasks (a two-step chain, a star of four products, a parent with three products), each arrow
+/// drawn by ONE drag of the tool from the middle of one structure to the middle of another. Every arrow must be anchored to the
+/// structures it was drawn between and to no other; the number of actions is the number of arrows.
+#[test]
+fn the_arrow_tasks_never_anchor_a_wrong_structure() {
+    type Task = (&'static str, Vec<(f64, f64)>, Vec<(usize, usize)>);
+    let tasks: [Task; 3] = [
+        (
+            "two-step chain",
+            vec![(0.0, 0.0), (5.0, 0.0), (10.0, 0.0)],
+            vec![(0, 1), (1, 2)],
+        ),
+        (
+            "star of four",
+            vec![
+                (0.0, 0.0),
+                (5.0, 4.0),
+                (5.0, -4.0),
+                (-6.0, 4.0),
+                (-6.0, -4.0),
+            ],
+            vec![(0, 1), (0, 2), (0, 3), (0, 4)],
+        ),
+        (
+            "parent with three products",
+            vec![(0.0, 0.0), (6.0, 4.0), (6.0, 0.0), (6.0, -4.0)],
+            vec![(0, 1), (0, 2), (0, 3)],
+        ),
+    ];
+    let mut anchored = 0;
+    let mut total = 0;
+    for (name, points, pairs) in tasks {
+        let mut e = editor(&layout(&points));
+        e.set_tool("arrow");
+        for &(a, b) in &pairs {
+            // from the middle of structure a to the middle of structure b
+            let from = px(&e, points[a].0 + 0.5, points[a].1);
+            let to = px(&e, points[b].0 + 0.5, points[b].1);
+            drag(&mut e, from, to);
+            let o = e.doc().objects.last().unwrap();
+            total += 1;
+            if (o.from, o.to) == (10 * a as u32 + 1, 10 * b as u32 + 1) {
+                anchored += 1;
+            } else {
+                panic!(
+                    "{name}: arrow {a} -> {b} anchored {:?} -> {:?}",
+                    o.from, o.to
+                );
+            }
+        }
+        // every anchored arrow is routed: its ends are outside the boxes it joins
+        let st = Style::default();
+        for o in &e.doc().objects {
+            let (ba, bb) = (
+                structure_box(e.doc(), o.from, &st).unwrap(),
+                structure_box(e.doc(), o.to, &st).unwrap(),
+            );
+            for (x, y) in [(o.x, o.y), (o.x2, o.y2)] {
+                for b in [ba, bb] {
+                    let inside = x > b[0] && x < b[2] && y > b[1] && y < b[3];
+                    assert!(!inside, "{name}: an end of arrow {} is inside a box", o.id);
+                }
+            }
+        }
+        assert_eq!(
+            e.session.steps(),
+            1 + pairs.len(),
+            "{name}: one step per arrow (and the import)"
+        );
+    }
+    eprintln!("kill test: {anchored}/{total} arrows anchored to the structures they were drawn between; 1 action each");
+    assert_eq!(anchored, total);
+}

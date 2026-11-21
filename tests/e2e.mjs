@@ -1393,7 +1393,7 @@ try {
     await open(...bond, "bond"); eq(await pg.getAttribute(item("bond.s.up"), "aria-checked"), "true"); eq(await pg.getAttribute(item("bond.reverse"), "aria-disabled"), null, "a marked bond can be reversed");
     await pg.keyboard.press("Escape"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
     // an object: edit asks for the text field; delete is one undo step
-    await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "edit.delete"]);
+    await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "pathway.anchor", "pathway.free", "edit.delete"]);
     await pg.click(item("edit.delete")); await want(pg, { objects: 0 }); await pg.keyboard.press("Control+z"); await want(pg, { objects: 1 });
     // a selection: a click inside it keeps it; rotate is one undo step; copy as SMILES reaches the clipboard of the system
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 13 });
@@ -1545,6 +1545,98 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("ContextMenu"); await shown(pg); eq((await menuNow(pg)).kind, "key");
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-menu .ctx button')].filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).length"), 0);
     await pg.keyboard.press("Escape"); await shown(pg, false);
+  });
+  await ctx.close();
+
+  // tp-02: arrows anchored by hand. Two benzene rings 500 px apart (a bond length is 40 px); the arrow tool anchors an arrow drawn from one to the other.
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
+  const pathDoc = async pg => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+  /** the smallest atom id of the left ring and of the right ring (the ids a tool-made anchor carries) */
+  const ringIds = async pg => { const d = await pathDoc(pg), mid = (Math.min(...d.atoms.map(a => a.x)) + Math.max(...d.atoms.map(a => a.x))) / 2; const m = f => Math.min(...d.atoms.filter(f).map(a => a.id)); return [m(a => a.x < mid), m(a => a.x > mid)]; };
+  const twoRings = async (pg, cx, cy, dx) => {
+    await tool(pg, "clear"); await tool(pg, "fit");
+    await tool(pg, "ring:6a"); await pg.mouse.click(cx - dx, cy); await pg.mouse.click(cx + dx, cy); await want(pg, { atoms: 12, bonds: 12 });
+  };
+  /** the page's own log replayed by the module gives the page's document and picture: the CLI route gives the bytes of the page */
+  const replayEq = async pg => pg.evaluate(`(() => {
+    const log = JSON.parse(window.MZDRAW.save("log")), out = {};
+    for (const k of ["mzdraw", "svg"]) out[k] = window.MZDRAW.replay(JSON.stringify({ log, out: k })) === window.MZDRAW.save(k);
+    return out; })()`);
+  await step("arrow tool, mouse and keyboard: an arrow drawn between two structures is anchored and routed at once; the parent moved with Alt+Arrow, the arrow follows; the page equals the replay of its log", async () => {
+    await twoRings(pg, cx, cy, 250);
+    await tool(pg, "arrow"); await pg.mouse.move(cx - 250, cy); await pg.mouse.down(); await pg.mouse.move(cx, cy + 6, { steps: 6 }); await pg.mouse.move(cx + 250, cy + 4, { steps: 6 }); await pg.mouse.up();
+    await want(pg, { objects: 1 });
+    let a = (await pathDoc(pg)).objects[0];
+    eq([a.from, a.to], await ringIds(pg));                       // the smallest atom id of each ring
+    assert(a.x > -250 / 40 + 1 && a.x2 < 250 / 40 - 1, "routed: the ends are outside the boxes of the rings");
+    assert((await pg.innerText("#d2-live")).includes("\u2192"), "the live line says what was anchored");
+    await shot(pg, "tp02-arrow-anchored");
+    const before = await pathDoc(pg);
+    // a free arrow (ended on empty canvas) stays free
+    await tool(pg, "arrow"); await pg.mouse.move(cx - 60, cy + 120); await pg.mouse.down(); await pg.mouse.move(cx, cy + 120, { steps: 4 }); await pg.mouse.move(cx + 60, cy + 120, { steps: 4 }); await pg.mouse.up();
+    await want(pg, { objects: 2 });
+    const free = (await pathDoc(pg)).objects[1];
+    eq([free.from || 0, free.to || 0], [0, 0]);
+    await tool(pg, "undo"); await want(pg, { objects: 1 }); eq(await pathDoc(pg), before);
+    // the parent is selected by a band and moved by the keyboard; the arrow follows (its tail moves up with the structure)
+    await tool(pg, "select"); await pg.mouse.move(cx - 340, cy - 90); await pg.mouse.down(); await pg.mouse.move(cx - 250, cy, { steps: 4 }); await pg.mouse.move(cx - 160, cy + 90, { steps: 4 }); await pg.mouse.up();
+    await until(pg, `${STATE}.selected >= 6`);
+    await pg.focus("#d2-canvas");
+    for (let i = 0; i < 3; i++) await pg.keyboard.press("Alt+ArrowUp");
+    const moved = (await pathDoc(pg)).objects[0];
+    assert(moved.y > a.y + 1e-6 || moved.y2 !== a.y2, "the arrow followed the move: " + JSON.stringify([a, moved]));
+    eq([moved.from, moved.to], await ringIds(pg));
+    await shot(pg, "tp02-arrow-followed");
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+  });
+  await step("pathway:anchor by keyboard: a free arrow is selected, the context menu opens with the Menu key, A then Enter anchors it; Route arrows puts a displaced arrow back; one undo each", async () => {
+    await twoRings(pg, cx, cy, 250);
+    await tool(pg, "arrow"); await pg.mouse.move(cx - 180, cy + 10); await pg.mouse.down(); await pg.mouse.move(cx, cy + 10, { steps: 4 }); await pg.mouse.move(cx + 180, cy + 10, { steps: 4 }); await pg.mouse.up();
+    await want(pg, { objects: 1 });
+    let a = (await pathDoc(pg)).objects[0];
+    eq([a.from || 0, a.to || 0], [0, 0]);                       // 30 px (3/4 of a bond length) from each ring: out of the box, so free
+    await tool(pg, "select"); await pg.mouse.click(cx, cy + 10); await want(pg, { selected: 1 });
+    const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("ContextMenu"); await shown(pg);
+    eq((await menuNow(pg)).target, "object");
+    await pg.keyboard.press("a"); eq((await menuNow(pg)).active, "pathway.anchor");
+    await pg.keyboard.press("Enter"); await shown(pg, false);
+    a = (await pathDoc(pg)).objects[0];
+    eq([a.from, a.to], await ringIds(pg));
+    assert((await pg.innerText("#d2-live")).includes("\u2192"), "the live line says what was anchored");
+    await pg.keyboard.press("Control+z"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), before);
+    await pg.keyboard.press("Control+Shift+z"); eq([(await pathDoc(pg)).objects[0].from, (await pathDoc(pg)).objects[0].to], await ringIds(pg));
+    // Route arrows (canvas menu) on arrows that are already routed moves nothing and says so
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+    const routed = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await pg.mouse.click(cx, cy - 250, { button: "right" }); await shown(pg); eq((await menuNow(pg)).target, "canvas");
+    assert(await pg.isVisible(item("pathway.route")), "the canvas menu has Route arrows");
+    await pg.click(item("pathway.route")); await shown(pg, false);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.routeNone')"));
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), routed);
+  });
+  await ctx.close();
+
+  // the same on a tablet: a finger and a pen draw the arrow between two structures
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+  await step("arrow tool by touch and by pen: an arrow dragged from one structure to another is anchored and routed; the page equals the replay of its log", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    await tool(pg, "clear"); await tool(pg, "fit"); await tool(pg, "ring:6a");
+    await pg.touchscreen.tap(cx - 160, cy); await pg.touchscreen.tap(cx + 160, cy); await want(pg, { atoms: 12, bonds: 12 });
+    await tool(pg, "arrow");
+    await touch("touchStart", [[cx - 160, cy]]); await touch("touchMove", [[cx - 60, cy + 4]]); await touch("touchMove", [[cx + 60, cy + 4]]); await touch("touchMove", [[cx + 160, cy]]); await touch("touchEnd", []);
+    await want(pg, { objects: 1 });
+    let a = (await pathDoc(pg)).objects[0];
+    eq([a.from, a.to], await ringIds(pg));
+    assert(a.x > -160 / 40 + 1 && a.x2 < 160 / 40 - 1, "routed");
+    await shot(pg, "tp02-arrow-touch");
+    await pen("mouseMoved", cx + 160, cy); await pen("mousePressed", cx + 160, cy); await pen("mouseMoved", cx, cy + 6); await pen("mouseMoved", cx - 160, cy); await pen("mouseReleased", cx - 160, cy);
+    await want(pg, { objects: 2 });
+    a = (await pathDoc(pg)).objects[1];
+    eq([a.from, a.to], (await ringIds(pg)).reverse());           // right to left: from the second ring to the first
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
   });
   await ctx.close();
 } finally {
