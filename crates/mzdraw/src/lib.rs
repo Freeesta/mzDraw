@@ -51,6 +51,7 @@ pub mod svg;
 pub mod tp;
 pub mod tp_list;
 pub mod trasf;
+pub mod values;
 pub mod xml;
 
 pub use doc::{Atom, Bond, Document, Obj, ObjKind, FORMAT};

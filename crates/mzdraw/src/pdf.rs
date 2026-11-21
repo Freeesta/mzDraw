@@ -173,7 +173,12 @@ fn id_of(bytes: &[u8]) -> String {
 
 /// The PDF of a document in a style: the same bytes for the same document, with the document and its V3000 molfile inside.
 pub fn to_pdf(doc: &Document, style: &Style) -> Vec<u8> {
-    let (body, w, h) = match crate::svg::laid_out(doc, style) {
+    to_pdf_with(doc, style, &[])
+}
+
+/// `to_pdf` with the calculated values the editor holds (`svg::to_svg_measured`).
+pub fn to_pdf_with(doc: &Document, style: &Style, measured: &[crate::values::Entry]) -> Vec<u8> {
+    let (body, w, h) = match crate::svg::laid_out_with(doc, style, measured) {
         Some((sc, w, h)) => {
             // the size as the SVG states it (two decimals)
             let (w, h) = (

@@ -94,12 +94,56 @@ pub fn run(engine: &str, doc: &Document, args: &str) -> Result<String, GlueError
     })
 }
 
+/// The engine behind `display.values` and the request field `values` (`mzdraw::values::Measurer`): `sel` on the molfile of one
+/// structure gives the monoisotopic mass (`label.mass`), the average weight and, for a charged structure, its own m/z; each adduct's m/z is
+/// that mass plus the adduct shift of `mzlab_feat::chem::sdf::adduct_shift` (a charged structure has no adduct: `None`). No number is
+/// computed here beyond that one sum; no mass table is in this repository.
+#[cfg(feature = "sel")]
+pub fn measure(
+    molfile: &str,
+    adducts: &[String],
+) -> Result<mzdraw::values::Measured, &'static str> {
+    use mzlab_feat::chem;
+    let request = serde_json::json!({ "molfile": molfile }).to_string();
+    let answer = chem::sel::sel_json(&request).map_err(|e| e.key)?;
+    let v: serde_json::Value =
+        serde_json::from_str(&answer).map_err(|_| "error.draw2.valuesEngine")?;
+    let label = &v["label"];
+    let mass = label["mass"].as_f64().ok_or("error.draw2.valuesEngine")?;
+    let charge = label["charge"].as_i64().unwrap_or(0);
+    let mz = adducts
+        .iter()
+        .map(|name| match chem::sdf::adduct_shift(name) {
+            _ if charge != 0 => Ok(None),
+            Some(shift) => Ok(Some(mass + shift)),
+            None => Err("error.draw2.valuesAdduct"),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(mzdraw::values::Measured {
+        mass,
+        average: v["average"].as_f64(),
+        ion_mz: label["mz"].as_f64(),
+        mz,
+    })
+}
+
 /// The headless door with engines: a replay request (see `mzdraw::replay`) plus `"engines": [{"engine", "args"?}]`. Gives
 /// `{"engines": [{"engine", "answer"} | {"engine", "error": {"error_key", "params"}}]}` in request order, where `answer` is the engine's JSON.
 pub fn replay(request: &str) -> Result<String, GlueError> {
     let bad = || GlueError::new("error.draw2.request");
     let mut v: serde_json::Value = serde_json::from_str(request).map_err(|_| bad())?;
     let obj = v.as_object_mut().ok_or_else(bad)?;
+    // no `engines`: the plain replay with the engine of `display.values` attached, so the request field `values` and an export with
+    // the masses under the structures give numbers (the bare output, as `mzdraw::replay::replay`)
+    #[cfg(feature = "sel")]
+    if !obj.contains_key("engines") {
+        return mzdraw::replay::replay_with(request, 0, Some(measure))
+            .map(|r| r.text)
+            .map_err(|e| GlueError {
+                key: e.key.to_string(),
+                params: vec![("id".to_string(), e.id.to_string())],
+            });
+    }
     let wanted = obj
         .remove("engines")
         .unwrap_or_else(|| serde_json::json!([]));

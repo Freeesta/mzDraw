@@ -43,6 +43,9 @@ struct Request {
     /// kind, mods, t]` (`Editor::pointer_event`) and `["key", key, mods, t]` (`Editor::key_at`). Their flags are kept for the
     /// output `context-state:<w>,<h>`.
     events: Vec<Event>,
+    /// `values`: the answer is `values/1` (`values::document_json`): the calculated values of every structure and, when `atoms` is
+    /// given, of those atoms as one selection. `true` is no selection. It stands alone with the editing fields (no `out`, no `report`).
+    values: Option<Option<Vec<u32>>>,
 }
 
 /// One event of the request field `events`.
@@ -52,7 +55,7 @@ enum Event {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 17] = [
+const FIELDS: [&str; 18] = [
     "propose",
     "accept",
     "diff",
@@ -70,6 +73,7 @@ const FIELDS: [&str; 17] = [
     "expect",
     "id",
     "events",
+    "values",
 ];
 
 impl Request {
@@ -207,8 +211,31 @@ impl Request {
                 })
                 .collect::<Result<Vec<Event>, _>>()?,
         };
+        let values = match v.get("values") {
+            None | Some(serde_json::Value::Bool(false)) => None,
+            Some(serde_json::Value::Bool(true)) => Some(None),
+            Some(o) => {
+                // `{"atoms": [id, ...]}` and nothing else
+                let o = o.as_object().filter(|o| o.len() == 1).ok_or(BAD)?;
+                let ids = (o.get("atoms").and_then(|a| a.as_array()).ok_or(BAD)?.iter())
+                    .map(|n| n.as_u64().filter(|&n| n <= u64::from(u32::MAX)))
+                    .map(|n| n.map(|n| n as u32))
+                    .collect::<Option<Vec<u32>>>()
+                    .ok_or(BAD)?;
+                Some(Some(ids))
+            }
+        };
+        if values.is_some()
+            && (v.get("out").is_some()
+                || flag("report")?
+                || flag("dry_run")?
+                || v.get("expect").is_some())
+        {
+            return Err("error.draw2.valuesAlone");
+        }
         Ok(Request {
             diff: None,
+            values,
             propose,
             accept,
             events,
@@ -332,6 +359,16 @@ pub fn replay(request: &str) -> Result<String, OpError> {
 /// Like `replay`, for the request number `n` (0-based) of a batch: `n` is the `id` of the document when the request has none, and
 /// the reply says whether the run is good.
 pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
+    replay_with(request, n, None)
+}
+
+/// Like `replay_at`, with the engine that gives masses (`values::Measurer`; the bridge crate passes the one of mzLab). Without it the
+/// request field `values` has the formulas and `"engine": false`, and the numbers of `display.values` mass and mz are not drawn.
+pub fn replay_with(
+    request: &str,
+    n: u64,
+    engine: Option<crate::values::Measurer>,
+) -> Result<Reply, OpError> {
     let fail = |key| OpError { key, id: 0 };
     let r = Request::read(request).map_err(fail)?;
     // the diff of two documents stands alone and answers its own document (not `draw-result/1`)
@@ -413,6 +450,21 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
             Event::Key(key, mods, t) => e.key_at(key, *mods, *t),
         })
         .collect();
+    if let Some(select) = &r.values {
+        let text =
+            crate::values::document_json(e.doc(), &e.style.adducts, select.as_deref(), engine);
+        return Ok(Reply { text, ok: true });
+    }
+    // the numbers an export draws under the structures (`display.values` mass and mz)
+    if engine.is_some()
+        && matches!(
+            e.style.values,
+            crate::values::Mode::Mass | crate::values::Mode::Mz
+        )
+    {
+        e.measurer = engine;
+        e.refresh_values();
+    }
     let kind = r.out.as_deref().unwrap_or(crate::brand::SLUG);
     let written = produce(&mut e, kind, &flags, r.out_args.as_ref());
     // a refused transformation names its first atom, as a refused operation does

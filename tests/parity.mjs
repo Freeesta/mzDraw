@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const wasm = createRequire(import.meta.url)(path.join(root, "target/pkg-node/mzdraw_wasm.js"));
 // the golden files: every *.json of tests/data/log/, sorted by name, each with some of the sections below (as crates/mzdraw/tests/common reads them)
 const logDir = path.join(root, "tests/data/log");
-const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [], trasf: [], diffs: [], losses: [] };
+const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [], trasf: [], diffs: [], losses: [], values: [] };
 for (const f of readdirSync(logDir).filter(f => f.endsWith(".json")).sort()) {
   const part = JSON.parse(readFileSync(path.join(logDir, f), "utf8"));
   for (const k of Object.keys(part)) {
@@ -94,6 +94,16 @@ for (const c of fx.losses) {
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
   const v = JSON.parse(c.out);
   check(a.stdout === c.out && v.format === "loss/1" && Array.isArray(v.items), `${c.name}: the recorded loss/1`);
+}
+// the calculated values (arch-web-17, `values/1` and the masses drawn under a structure): through the glue door (the engine `sel` of mzLab),
+// wasm == native == the recorded bytes, so the masses and m/z are the same on the page and on the command line; a case that says `plain` goes
+// through the plain replay (no engine: the formulas, never a made-up number), which the `.wasm` and the native example answer alike
+for (const c of fx.values) {
+  const request = JSON.stringify(c.request), [onPage, onCli] = c.plain ? [site(request), native(request)] : [siteGlue(request), nativeGlue(request)];
+  check(onPage.status === 0 && onCli.status === 0, `${c.name}: runs on both sides (${onPage.stderr} ${onCli.stderr})`);
+  check(onPage.stdout === onCli.stdout, `${c.name}: wasm == native`);
+  check(onPage.stdout === c.out, `${c.name}: the recorded bytes`);
+  if (!c.plain) check(c.request.values ? /"engine":true/.test(c.out) : /<text/.test(c.out), `${c.name}: the engine was there`);
 }
 // the semantic diff of two documents: the same patch and hunks on both sides, the recorded ones
 for (const c of fx.diffs) {

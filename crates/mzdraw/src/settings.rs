@@ -49,6 +49,11 @@ pub struct Style {
     pub mono: bool,
     /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
     pub maps: bool,
+    /// What is drawn under each structure (`display.values`): nothing (default), the formula, the formula and the monoisotopic mass,
+    /// or the m/z of the adducts.
+    pub values: crate::values::Mode,
+    /// The adducts whose m/z is calculated (`display.adducts`), names of `values::ADDUCTS`, in the order shown.
+    pub adducts: Vec<String>,
     /// What the diff lens shows on a transformation product (`display.lens`, `off` by default).
     pub lens: LensMode,
     /// What the settings file held that this version does not know, kept to be written back: the unknown keys of the file and of
@@ -210,6 +215,8 @@ fn known(key: &str) -> bool {
         "preset"
             | "colour"
             | "maps"
+            | "display.values"
+            | "display.adducts"
             | "lens"
             | "pathway.dir"
             | "pathway.order"
@@ -243,10 +250,22 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],"fields":[{}]}}"#,
         PRESETS.join("\",\""),
+        crate::values::ADDUCTS
+            .iter()
+            .map(|a| format!("\"{a}\""))
+            .collect::<Vec<_>>()
+            .join(","),
         fields.join(",")
     )
+}
+
+fn default_adducts() -> Vec<String> {
+    crate::values::DEFAULT_ADDUCTS
+        .iter()
+        .map(ToString::to_string)
+        .collect()
 }
 
 /// The names of the built-in presets: `mzlab` (the default look), `acs-1996` (ACS "Document 1996": bond 14.4 pt, line 0.6 pt,
@@ -278,6 +297,8 @@ impl Default for Style {
             pathway_derive: false,
             mono: false,
             maps: true,
+            values: crate::values::Mode::Off,
+            adducts: default_adducts(),
             lens: LensMode::Off,
             unknown: Unknown::default(),
         }
@@ -356,6 +377,8 @@ impl Style {
             pathway_derive: false,
             mono: true,
             maps: true,
+            values: crate::values::Mode::Off,
+            adducts: default_adducts(),
             lens: LensMode::Off,
             unknown: Unknown::default(),
         };
@@ -419,6 +442,12 @@ impl Style {
             ("maps", "on") => self.maps = true,
             ("maps", "off") => self.maps = false,
             ("maps", _) => return Err("error.draw2.styleValue"),
+            ("values", v) => {
+                self.values = crate::values::Mode::parse(v).ok_or("error.draw2.styleValue")?
+            }
+            ("adducts", v) => {
+                self.adducts = crate::values::parse_adducts(v).ok_or("error.draw2.styleValue")?
+            }
             ("lens", v) => self.lens = LensMode::parse(v).ok_or("error.draw2.styleValue")?,
             _ => return Err("error.draw2.styleKey"),
         }
@@ -466,6 +495,7 @@ impl Style {
             "display.lens" => Some(self.lens.name()),
             "pathway.number" => Some(self.pathway_number.name()),
             "pathway.label" => Some(self.pathway_label.name()),
+            "display.values" => Some(self.values.name()),
             _ => None,
         }
     }
@@ -522,6 +552,14 @@ impl Style {
             Some("off") => false,
             Some(_) => return None,
         };
+        let values = match g.s("display.values").ok()? {
+            None => base.values,
+            Some(v) => crate::values::Mode::parse(&v)?,
+        };
+        let adducts = match g.s("display.adducts").ok()? {
+            None => base.adducts.clone(),
+            Some(v) => crate::values::parse_adducts(&v)?,
+        };
         let lens = match g.s("lens").ok()?.as_deref() {
             None => base.lens,
             Some(v) => LensMode::parse(v)?,
@@ -553,6 +591,8 @@ impl Style {
             pathway_number: number,
             mono: colour,
             maps,
+            values,
+            adducts,
             lens,
             pathway_down: down,
             pathway_order: order,
@@ -584,6 +624,12 @@ impl Style {
         // written only when off, so that a file that never mentions it keeps its bytes
         if !self.maps {
             style.push(("maps".to_string(), text("off")));
+        }
+        if self.values != crate::values::Mode::Off {
+            style.push(("display.values".to_string(), text(self.values.name())));
+        }
+        if self.adducts != default_adducts() {
+            style.push(("display.adducts".to_string(), text(&self.adducts.join(","))));
         }
         if self.lens != LensMode::Off {
             style.push(("lens".to_string(), text(self.lens.name())));
