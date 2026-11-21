@@ -14,10 +14,7 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- **SHA-256 first step: use what is linked.** `mzlab-mol` at the pin already depends on `sha2` 0.11 (its `Cargo.toml`; `codec.rs` uses it for `Mol::core_hash`). But it exposes only the hash of a record's core JSON, which ignores coordinates and ids, not a hash of bytes. Check the pin again when you start. If `mzlab-mol` then exposes a bytes hash, use it. Otherwise take ONE of these, in this order, and state the reason in the PR (rule 3):
-  1. add `sha2` (the same version, already in `Cargo.lock`, so no new code in the module) as a direct dependency of `crates/mzdraw`, and add it to the dependency guard of `docs/mzdraw.md` ("Leaving the repo"). The guard is the owner's rule, so ask the coordinator before you change it (D25);
-  2. ask the coordinator to ask COO 16 for `mzlab_mol::sha256(&[u8])` in a pin-move PR of its own (rule 9), and wait.
-  Never write a second SHA-256 in mzDraw. Measure the module before and after: the expected cost is 0 B, since the code is already linked; any growth is reported. `mzlab-mol` is a direct dependency of `mzdraw`, so no `glue.rs` arm is needed (glue is for `mzlab-feat`).
+- **SHA-256: decided (D25, coordinator, 2026-11-21).** Add `sha2` as a direct dependency of `crates/mzdraw`: the same version `mzlab-mol` already links at the pin (0.11, `default-features = false`), already in `Cargo.lock`. Add it to the dependency guard of `docs/mzdraw.md` ("Leaving the repo"). State the reason in the PR (rule 3): the code is already in the module through `mzlab-mol`, which exposes only `Mol::core_hash` (core JSON without coordinates or ids), not a hash of bytes. Measure the module before and after and report the bytes; the expected cost is about 0 B. Never write a second SHA-256. `mzlab-mol` is a direct dependency of `mzdraw`, so no `glue.rs` arm is needed.
 - What the chain binds:
   - `h0` = SHA-256 of `mzdraw-chain/1` + a newline + the `mzdraw/1` bytes of the document after `import`, `style` and `set` (the empty document's bytes when there is no import), so the chain binds the starting document too;
   - `h(i)` = SHA-256 of `h(i-1)` (32 bytes) followed by the bytes of op `i` as `Op::write` gives them;
@@ -38,7 +35,7 @@ Out (do not do here):
 - `ops.rs` (`Op::write`), `replay.rs`, `outcome.rs` (plan-20); `mzlab-mol` `Cargo.toml` and `codec.rs` at the pin.
 
 ## Agreement needed before the PR
-No `draw_edit/1` op. Rows in the `request` section of plan-01's table: the output `chain` and the `expect` arm `chain` (D13). A direct `sha2` dependency needs the coordinator's yes first (D25).
+No `draw_edit/1` op. Rows in the `request` section of plan-01's table: the output `chain` and the `expect` arm `chain` (D13). The direct `sha2` dependency is decided (D25).
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.
@@ -53,7 +50,7 @@ No `draw_edit/1` op. Rows in the `request` section of plan-01's table: the outpu
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product; never claim novelty without a prior-art link; patent clearance is "unverified".
 
 ## Work
-1. The SHA-256 decision (above), with the measured module size.
+1. `sha2` as a direct dependency (D25), the guard, the measured module size.
 2. Chain, `out:chain`, `expect` arm.
 3. Doc section (the definition of `h0` and `h(i)`, so another program can recompute it).
 

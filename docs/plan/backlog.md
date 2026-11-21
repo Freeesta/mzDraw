@@ -528,6 +528,14 @@ These are listed here, not rewritten. Each chat applies its edit when it starts 
 23. **E23 plan-01:** the op table gains a `class` column (`geometry`, `atoms`, `bonds`, `objects`, `structure`). plan-28 adds it if plan-01 has merged; otherwise plan-01 includes it.
 24. **E24 plan-23:** the digest gains the per-centre key `centres` (`[[atom id, tier]]`) with plan-29. The per-bond `stereo` entries are unchanged.
 25. **E25 every prompt that adds a `draw_edit/1` op after plan-28:** add its `touches` arm in `ops.rs` and its `class` in the table, next to its inverse and its property-test case.
+26. **E26 plan-20 (request id, D27):** the key table of `draw-result/1` gains `id`.
+    - Position: second, right after `format`.
+    - When present: always.
+    - Value: the request's own `id` echoed as given (a string or an integer; any other type is an invalid request, exit 2). When the request has none, it is `n`, the 0-based index of the request in its batch. The caller passes `n` (`mzlab-cli` counts the lines of a JSONL stream); a single request is `n` = 0.
+    - Effect: a batch of requests maps answer to request, line to line.
+    - The JSON Schema file `docs/schemas/draw-result-1.json` lists it, and the golden key-order test covers it (`format`, `id`, `ok`, ...).
+    - The request field `id` is one row in the `request` section of plan-01's table.
+    - If plan-20 has merged before this edit is applied, the next prompt to touch `outcome.rs` (plan-27 or plan-28) makes it in its PR.
 
 ### 10.6 Decisions (21 Nov 2026)
 | # | question | decision | by |
@@ -538,5 +546,9 @@ These are listed here, not rewritten. Each chat applies its edit when it starts 
 | D22 | op classes | A `class` column in plan-01's table (E23); `geometry` = `move`, `rotate`, `flip`, `atoms.xy`. | COO-MZDRAW |
 | D23 | `touches` | One arm per op, append-only; every later op-adding prompt adds it (E25). | COO-MZDRAW |
 | D24 | digest key for tiers | A new per-centre key `centres` (E24), not a change to the per-bond `stereo` entries. | COO-MZDRAW |
-| D25 | SHA-256 | Use what `mzlab-mol` links. Prefer `sha2` as a direct dependency (already in `Cargo.lock`, no new module code), with the coordinator's yes for the guard change; else ask COO 16 for `mzlab_mol::sha256`. Never a second implementation. | open: coordinator, at plan-30's start |
+| D25 | SHA-256 | `sha2` becomes a direct dependency of `mzdraw` (the version `mzlab-mol` already links, already in `Cargo.lock`), added to the dependency guard. plan-30 states the reason and measures the module. Never a second implementation; no request to COO 16. | COO-MZDRAW |
+| D27 | request id in `draw-result/1` | `draw-result/1` carries the request's `id`, or its index `n` in the batch when it has none, so a batch or JSONL of requests maps line to line (E26). | COO 16 (decision 4), via COO-MZDRAW |
+| D28 | who owns the writers | mzDraw owns every writer (KET, CDXML, SVG, PNG, PDF); mzLab deletes its copies in the integration PR (refines D9). | COO 16, via COO-MZDRAW |
+| D29 | how mzLab links mzDraw | `mzlab-cli` depends on `mzdraw` as a git dependency with a pinned `rev`, and a `[patch]` section keeps one copy of `mzlab-mol` in its build. | COO 16, via COO-MZDRAW |
+| D30 | mzLab site | The site runs `mzdraw::replay` in mzDraw's own wasm module, under its guard of 4,000,000 B (`tools/wasm-cap.toml`). | COO 16, via COO-MZDRAW |
 | D26 | rows of other ARCH chats | ARCH TP-DRAW (PR #54) adds its rows (tp-01..07) after #55 merges; PLAN-2 owns rows 76–80. | COO-MZDRAW |
