@@ -331,9 +331,7 @@ fn the_goldens_of_the_table_are_what_the_glue_door_writes() {
         let r: Value = serde_json::from_str(cases[i]["out"].as_str().unwrap()).unwrap();
         r["out"].as_str().unwrap().to_string()
     };
-    if cases[cases.len() - 1]["out"] != "" {
-        assert_eq!(out(cases.len() - 2), out(cases.len() - 1));
-    }
+    assert_eq!(out(cases.len() - 2), out(cases.len() - 1));
     let bless = std::env::var("MZDRAW_BLESS").is_ok();
     let mut fresh = file.clone();
     for (i, c) in cases.iter().enumerate() {

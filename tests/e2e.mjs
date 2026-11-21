@@ -2415,6 +2415,15 @@ try {
     assert(!(await tpMenu()).ids.includes("tp.step"), "no Apply step while the setting is off");
     await pg.keyboard.press("Escape"); await tpShown(false);
   });
+  await step("step field by keyboard: Ctrl+Alt+Z, A, D and Y typed in the open input (AltGr arrives as Ctrl and Alt) are not the drawing's undo, select-all, duplicate or redo: the document is unchanged and the field still takes text, a bracket key and Escape", async () => {
+    const before = await stOpen();
+    await stMenuKey(); await pg.keyboard.type("+O"); await frames(pg);
+    for (const k of ["Control+Alt+z", "Control+Alt+a", "Control+Alt+d", "Control+Alt+y", "Control+Alt+Shift+z"]) { await pg.keyboard.press(k); await frames(pg); eq(await tpDoc(), before, k); eq((await stField()).open, true, k); }
+    eq(await pg.inputValue("#d2-step-text"), "+O");
+    eq((await stField()).rows.map(r => r.name), ["hydroxylation", "n-oxidation"]);
+    await pg.keyboard.press("Control+Alt+]"); await frames(pg); eq((await stField()).site, 1);   // the bracket keys of AltGr are still the field's
+    await pg.keyboard.press("Escape"); await until(pg, `document.getElementById("d2-step").hidden`); eq(await tpDoc(), before);
+  });
   // colour-selection: a part of the drawing is selected and a colour is clicked (the toolbar flyout, the field for a typed colour, the context
   // menu). The module judges and applies it as one undo step; the page equals the goldens of tests/data/log/colour.json after each way
   const clGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/colour.json"), "utf8")).cases;
