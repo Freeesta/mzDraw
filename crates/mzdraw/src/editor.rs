@@ -478,6 +478,7 @@ impl Editor {
             "settings" => self.settings_json(),
             "std" => crate::pathway::report_with(self.doc(), &self.style).to_json(),
             "boxes" => crate::pathway::boxes_json(self.doc(), &self.style),
+            "digest" => crate::digest::json(self.doc(), &self.style)?,
             "schema" => crate::schema::json(),
             // `loss:FORMAT`: what that format would drop or change of this drawing (`loss/1`)
             k if k.starts_with("loss:") => {

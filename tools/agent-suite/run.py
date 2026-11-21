@@ -59,6 +59,25 @@ def replay(request):
     return p.stdout
 
 
+# With the arm feature `digest` a model may look at the digest of its current state: a reply whose last request has `"out":"digest"` is
+# answered by the runner (the digest is appended to the prompt) and the model is called again, up to this many times per run.
+MAX_TURNS = 8
+
+
+def digest_asked(request):
+    try:
+        v = json.loads(request)
+    except ValueError:
+        return False
+    return isinstance(v, dict) and v.get("out") == "digest"
+
+
+def read_only(request):
+    """The answer of the replay tool to a request of the model; a refusal is the answer too (its text), never a tool error."""
+    p = run([str(BIN / "replay")], request)
+    return p.stdout if p.returncode == 0 else p.stderr.strip()
+
+
 def prompt_for(task, features):
     parts = [(ARMS / "plain.md").read_text()]
     for f in features:
@@ -159,20 +178,31 @@ def main():
                 if a.reference:
                     reqs, tokens = [(SUITE / "ref" / f"{t['id']}.json").read_text().strip()], None
                 else:
-                    try:
-                        p = run(["sh", "-c", a.model_cmd], prompt_for(t, features), a.timeout)
-                    except subprocess.TimeoutExpired:
-                        reqs, tokens = [], None
-                        print(f"run.py: {t['id']} run {i + 1}: the model command timed out", file=sys.stderr)
-                    else:
+                    reqs, tokens, extra, seen = [], None, 0, ""
+                    for turn in range(MAX_TURNS if "digest" in features else 1):
+                        try:
+                            p = run(["sh", "-c", a.model_cmd], prompt_for(t, features) + seen, a.timeout)
+                        except subprocess.TimeoutExpired:
+                            print(f"run.py: {t['id']} run {i + 1}: the model command timed out", file=sys.stderr)
+                            break
                         if p.returncode != 0:
                             print(f"run.py: {t['id']} run {i + 1}: the model command exited {p.returncode}: {p.stderr.strip()[-200:]}", file=sys.stderr)
-                        reqs, tokens = requests_of(p.stdout)
+                        got, used = requests_of(p.stdout)
+                        reqs += got
+                        if used is not None:
+                            tokens = (tokens or 0) + used
+                        # every digest request is a call; the bytes of its answer count in the bytes of the run
+                        if got and "digest" in features and digest_asked(got[-1]) and turn + 1 < MAX_TURNS:
+                            answer = read_only(got[-1])
+                            extra += len(answer.encode())
+                            seen += f"\n\n# Digest {turn + 1}\n\nRequest: {got[-1]}\n\nAnswer: {answer}\n"
+                            continue
+                        break
                 if reqs:
                     ok, reason = judge(t, reqs[-1], tmp)
                 else:
                     ok, reason = False, "no request"
-                runs.append({"pass": ok, "calls": len(reqs), "bytes": sum(len(r.encode()) for r in reqs), "tokens": tokens, "reason": reason})
+                runs.append({"pass": ok, "calls": len(reqs), "bytes": sum(len(r.encode()) for r in reqs) + (0 if a.reference else extra), "tokens": tokens, "reason": reason})
                 print(f"{t['id']} run {i + 1}: {'pass' if ok else 'FAIL ' + reason}", file=sys.stderr)
             out_tasks.append({"id": t["id"], "kind": t["kind"], "passes": sum(r["pass"] for r in runs), "runs": runs})
             all_runs += runs

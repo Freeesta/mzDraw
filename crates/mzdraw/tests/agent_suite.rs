@@ -205,7 +205,7 @@ fn run_py(args: &[&str]) -> Option<(i32, String, String)> {
 #[test]
 fn the_runner_refuses_an_unknown_a_duplicated_and_an_unwritten_arm_with_exit_2_and_a_key() {
     for (arm, key) in [
-        ("digest", "arm_text_missing:"),
+        ("grant", "arm_text_missing:"),
         ("report+select", "arm_text_missing:"),
         ("nonsense", "arm_unknown:"),
         ("report+nonsense", "arm_unknown:"),
@@ -254,4 +254,59 @@ fn the_runner_writes_an_arm_as_a_sorted_set() {
         ),
         (Some("agent-suite/1"), Some("report"), Some(1))
     );
+}
+
+/// The arm `digest`: a model that asks for the digest of its state gets it in the next prompt; the digest request is a call, and the
+/// bytes of its answer count in the bytes of the run (no free reads). The model here is a script: first a digest request, then, once
+/// the prompt carries the digest, the reference solution.
+#[test]
+fn the_digest_arm_answers_a_digest_request_counts_the_call_and_the_bytes_of_the_answer() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let dir = std::env::temp_dir().join(format!("mzdraw-digest-arm-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let script = dir.join("model.py");
+    std::fs::write(
+        &script,
+        r##"import json, os, sys
+prompt = sys.stdin.read()
+if "# Digest 1" in prompt and "Answer: {\"format\":\"digest/1\"" in prompt:
+    print(open(os.environ["REF"]).read().strip())
+else:
+    print(json.dumps({"import": "CCO", "out": "digest"}))
+"##,
+    )
+    .unwrap();
+    let id = "build-02-ethyl-acetate";
+    let reference = root.join(format!("tests/data/agent-suite/ref/{id}.json"));
+    let cmd = format!("REF={} python3 {}", reference.display(), script.display());
+    let Some((code, out, err)) = run_py(&[
+        "--model-cmd",
+        &cmd,
+        "--no-build",
+        "--arm",
+        "digest",
+        "--tasks",
+        id,
+        "--model",
+        "script",
+        "--date",
+        "2026-01-01",
+    ]) else {
+        return;
+    };
+    assert_eq!(code, 0, "{err}");
+    let v: Value = serde_json::from_str(&out).unwrap();
+    let run = &v["tasks"][0]["runs"][0];
+    // as the script's json.dumps writes it, spaces included
+    let first = r#"{"import": "CCO", "out": "digest"}"#;
+    let answer = mzdraw::replay::replay(first).unwrap();
+    let last = std::fs::read_to_string(&reference).unwrap();
+    assert_eq!(run["pass"], json!(true), "{err}");
+    assert_eq!(run["calls"], json!(2));
+    assert_eq!(
+        run["bytes"].as_u64().unwrap() as usize,
+        first.len() + last.trim().len() + answer.len()
+    );
+    assert_eq!(v["arm"], "digest");
+    std::fs::remove_dir_all(&dir).ok();
 }
