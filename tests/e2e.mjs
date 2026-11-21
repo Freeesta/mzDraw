@@ -60,8 +60,42 @@ async function context(browser, opts) {
   return { ctx, pg, cx: b.x + b.width / 2, cy: b.y + b.height / 2 };
 }
 const state = pg => pg.evaluate(STATE);
-const tool = (pg, name) => pg.click(`[data-testid="d2-${name}"]`);
+/** opens, by keyboard, the flyout that holds an element when it is not in view: the focus on the button that opens it, then the
+ * arrow key across its palette (or Enter on a button that is itself in a flyout); a flyout opened this way changes no tool */
+async function reveal(pg, sel) {
+  if (await pg.isVisible(sel)) return;
+  const o = await pg.evaluate(s => {
+    const f = document.querySelector(s).closest(".fly"), btn = document.querySelector(`[aria-controls="d2-fly-${f.dataset.fly}"]`), pal = btn.closest(".pal");
+    const key = !pal ? "" : pal.dataset.orient === "h" ? (pal.dataset.dock === "bottom" ? "ArrowUp" : "ArrowDown") : (pal.dataset.dock === "right" ? "ArrowLeft" : "ArrowRight");
+    return { opener: `[data-testid="${btn.dataset.testid}"]`, key: btn.closest(".fly") ? "Enter" : key };
+  }, sel);
+  await reveal(pg, o.opener);
+  await pg.focus(o.opener); await pg.keyboard.press(o.key);
+  await until(pg, `!!document.querySelector(${JSON.stringify(sel)}).offsetParent`);
+}
+const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; await reveal(pg, sel); await pg.click(sel); };
+const fillIn = async (pg, sel, text) => { await reveal(pg, sel); await pg.fill(sel, text); };
+const saveAs = async (pg, sel) => { await reveal(pg, sel); await pg.click(sel); };
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
+// the palettes: where each one is drawn, as the page shows it
+const RECTS = `Object.fromEntries([...document.querySelectorAll(".pal")].map(p => [p.dataset.pal, p.hidden ? null
+  : (r => ({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), dock: p.dataset.dock, orient: p.dataset.orient }))(p.getBoundingClientRect())]))`;
+const rects = pg => pg.evaluate(RECTS);
+const frames = pg => pg.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
+const center = async (pg, sel) => { const b = await pg.locator(sel).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+/** the shown palettes lie inside the viewport, no two docked ones overlap, and the canvas is in the area they leave free */
+async function tidy(pg, w, h) {
+  const all = Object.entries(await rects(pg)).filter(([, r]) => r), c = await pg.locator("#d2-canvas").boundingBox();
+  eq(all.filter(([, r]) => r.x < 0 || r.y < 0 || r.x + r.w > w || r.y + r.h > h).map(([id]) => id), []);
+  const cut = (a, b) => a.x < b.x + b.w - 1 && b.x < a.x + a.w - 1 && a.y < b.y + b.h - 1 && b.y < a.y + a.h - 1;
+  const docked = all.filter(([, r]) => r.dock !== "float"), over = [];
+  for (let i = 0; i < docked.length; i++) for (let j = i + 1; j < docked.length; j++) if (cut(docked[i][1], docked[j][1])) over.push([docked[i][0], docked[j][0]]);
+  eq(over, []);
+  eq(docked.filter(([, r]) => cut(r, { x: c.x, y: c.y, w: c.width, h: c.height })).map(([id]) => id), []);
+}
+// the keys the module binds today (Editor::key): a tooltip names no other key
+const BUILT = new Set(["V", "E", "1", "2", "3", "W", "Shift+W", "Y", "C", "N", "O", "S", "P", "F", "H", "B", "I", "Shift+C", "Shift+B", "Shift+S", "+", "-", "L", "Shift+A", "T",
+  "Ctrl+Z", "Ctrl+Y", "Ctrl+Shift+Z", "Ctrl+X", "Ctrl+C", "Ctrl+V", "Ctrl+D", "Ctrl+A", "\\"]);
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
 /** the drawing loop every pointer kind must manage: template, undo/redo, atom, sprouted bonds, the valence mistake, erase */
@@ -88,8 +122,8 @@ try {
     eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
     eq(await pg.evaluate("window.MZDRAW.version()"), "mzdraw/1");
     eq(await pg.innerText("#d2-summary"), await pg.evaluate("I18N.t('draw.check.empty')"));
-    assert(await pg.locator("#d2-tools button").count() >= 26, "the toolbar");
-    eq(await pg.evaluate("[...document.querySelectorAll('#d2-tools button')].filter(b => !b.title || b.title.length > 90 || !b.getAttribute('aria-label')).map(b => b.dataset.cmd)"), []);      // every tool says in one short sentence what it does
+    assert(await pg.locator("#d2-palettes .items button, #d2-flys button[data-cmd]").count() >= 26, "the palettes");
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-palettes .items button, #d2-flys button[data-cmd], #d2-flys button[data-opens]')].filter(b => !b.title || b.title.length > 90 || !b.getAttribute('aria-label')).map(b => b.dataset.testid)"), []);      // every tool says in one short sentence what it does
     eq(await pg.evaluate("[...document.querySelectorAll('button')].filter(b => b.offsetParent && (b.offsetWidth < 24 || b.offsetHeight < 24)).map(b => b.id || b.dataset.cmd)"), []);
     eq(await pg.evaluate("[...I18N.missing || []]"), []);
   });
@@ -141,7 +175,7 @@ try {
     const got = {};
     for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"], ["ket", "ket", "drawing.ket"], ["cdxml", "cdxml", "drawing.cdxml"], ["cml", "cml", "drawing.cml"],
       ["svg", "svg", "drawing.svg"], ["mzdraw", "mzdraw", "drawing.mzdraw.json"]]) {
-      const [d] = await Promise.all([pg.waitForEvent("download"), pg.click(`#d2-ex-${button}`)]);
+      const [d] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, `#d2-ex-${button}`)]);
       eq(d.suggestedFilename(), name);
       got[kind] = readFileSync(await d.path(), "utf8");
       eq(got[kind], await pg.evaluate(`window.MZDRAW.save('${kind}')`));
@@ -155,7 +189,7 @@ try {
     assert(ket.root.nodes[0].$ref === "mol0" && ket.mol0.type === "molecule" && ket.mol0.atoms.length === 4 && ket.mol0.bonds.length === 3, "a KET file");
     assert(got.svg.startsWith("<svg") && got.svg.includes("<line") && got.svg.replaceAll("OH", "O").includes(">O<"), "an SVG with lines and labels");
     // pictures that open again: the SVG and the PNG carry the document; a PNG is 300 dpi of the SVG, drawn by the browser
-    const [p] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-png")]);
+    const [p] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, "#d2-ex-png")]);
     eq(p.suggestedFilename(), "drawing.png");
     const png = readFileSync(await p.path()), plan = JSON.parse(await pg.evaluate("window.MZDRAW.png_plan()"));
     eq(png.subarray(1, 4).toString("latin1"), "PNG");
@@ -234,7 +268,7 @@ try {
     eq(await pg.innerText("#d2-data-note"), await pg.evaluate("I18N.t('draw2.data.done', { n: 3 })"));
     eq(await rows(), [[["name", "ethanol, absolute"], ["note", "line one\nline two"], ["purity", "99.8 %"]], []]);
     await shot(pg, "data");
-    const [sd] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-sdf")]);
+    const [sd] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, "#d2-ex-sdf")]);
     eq(sd.suggestedFilename(), "drawing.sdf");
     const sdfOut = readFileSync(await sd.path(), "utf8");
     eq(sdfOut, await pg.evaluate("window.MZDRAW.save('sdf')"));
@@ -316,7 +350,7 @@ try {
     await pg.fill("#d2-text", `$RXN\n\n  synthetic\n\n  1  1\n$MOL\n${ethanol}\n$MOL\n${ethanol}\n`); await pg.click("#d2-add");
     await want(pg, { atoms: 6, bonds: 4, objects: 1 });
     eq(await pg.innerText("#d2-note"), "");
-    const [r] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-rxn")]);
+    const [r] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, "#d2-ex-rxn")]);
     eq(r.suggestedFilename(), "drawing.rxn");
     const rxn = readFileSync(await r.path(), "utf8");
     eq(rxn, await pg.evaluate("window.MZDRAW.save('rxn')"));
@@ -324,10 +358,10 @@ try {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.setInputFiles("#d2-file", { name: "drawing.rxn", mimeType: "chemical/x-mdl-rxnfile", buffer: Buffer.from(rxn) }); await want(pg, { atoms: 6, bonds: 4, objects: 1 });
     await tool(pg, "clear"); await pg.fill("#d2-text", "CCO"); await pg.click("#d2-add"); await want(pg, { atoms: 3 });
-    await pg.click("#d2-ex-rxn");
+    await saveAs(pg, "#d2-ex-rxn");
     await until(pg, "document.querySelector('#d2-ex-note').textContent.length > 0");
     eq(await pg.innerText("#d2-ex-note"), await pg.evaluate("I18N.t('error.draw2.rxnArrow')"));
-    await pg.click("#d2-ex-smiles"); await until(pg, "document.querySelector('#d2-ex-note').textContent === ''");       // the next save clears the note
+    await saveAs(pg, "#d2-ex-smiles"); await until(pg, "document.querySelector('#d2-ex-note').textContent === ''");       // the next save clears the note
     // back to what the next steps expect
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", before); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3 });
@@ -397,7 +431,7 @@ try {
     const labs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms.map(a => a.lab || "");
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     assert(await pg.locator("#d2-labels option").count() >= 30, "the list of labels");
-    await pg.fill("#d2-label", "Ph"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:Ph" });
+    await fillIn(pg, "#d2-label", "Ph"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:Ph" });
     assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-canvas')"), "the keyboard is back on the canvas");
     await pg.mouse.click(cx, cy); await want(pg, { atoms: 1, bonds: 0 });
     await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1, warnings: 0 });
@@ -410,7 +444,7 @@ try {
     assert(mol.includes("  7  7  0") && mol.includes(" R# ") && mol.includes("M  RGP  1   2   1"), "phenyl expanded to six atoms and six ring bonds, R1 as an R# atom");
     const svg = await pg.evaluate("window.MZDRAW.save('svg')");
     assert(svg.includes(">Ph<") && svg.includes(">R<") && svg.includes(">1<"), "the labels are drawn as text");
-    await pg.fill("#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
+    await fillIn(pg, "#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.label')"));
     eq((await state(pg)).tool, "label:R1");                 // a refused label changes nothing
     // the refused entry stays to be corrected, marked and selected; typing takes the mark away; a good entry is taken
@@ -419,8 +453,8 @@ try {
     await shot(pg, "label-refused");
     await pg.keyboard.type("R2"); eq(await pg.getAttribute("#d2-label", "aria-invalid"), null);
     await pg.keyboard.press("Enter"); await want(pg, { tool: "label:R2" });
-    await pg.fill("#d2-label", "R1"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:R1" });
-    await pg.fill("#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
+    await fillIn(pg, "#d2-label", "R1"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:R1" });
+    await fillIn(pg, "#d2-label", "Nope"); await pg.press("#d2-label", "Enter");
     await tool(pg, "atom:N");                              // another tool: the field does not keep what was refused
     eq(await pg.inputValue("#d2-label"), ""); eq(await pg.getAttribute("#d2-label", "aria-invalid"), null);
     await pg.mouse.click(cx + 35, cy - 20);                // an element takes the label away
@@ -460,7 +494,7 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+c"); await pg.keyboard.press("Control+v"); await want(pg, { objects: 5, selected: 1 });
     await pg.keyboard.press("Delete"); await want(pg, { objects: 4 });
     await tool(pg, "erase"); await pg.mouse.click(cx + 60, cy + 80); await want(pg, { objects: 3 });
-    await pg.fill("#d2-text-tool", "   "); await pg.press("#d2-text-tool", "Enter");
+    await fillIn(pg, "#d2-text-tool", "   "); await pg.press("#d2-text-tool", "Enter");
     eq((await state(pg)).tool, "erase");                    // an empty text picks nothing
     await tool(pg, "undo"); await want(pg, { objects: 4 });
   });
@@ -488,7 +522,7 @@ try {
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), doc);       // the style is not in the document
     assert(await pg.isDisabled('[data-testid="d2-redo"]') && JSON.parse(await pg.evaluate("window.MZDRAW.style()")).style.preset === "acs-1996", "a style is no undo step; it reads back as a settings file");
     await shot(pg, "style-acs");
-    const [d] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-svg")]);
+    const [d] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, "#d2-ex-svg")]);
     eq(readFileSync(await d.path(), "utf8"), acs);          // the saved file is in the chosen style
     await pg.focus("#d2-style"); await pg.keyboard.press("ArrowDown"); await want(pg, { style: "slides" });       // by keyboard
     await pg.selectOption("#d2-style", "mzlab"); await want(pg, { style: "mzlab" });
@@ -572,6 +606,87 @@ try {
     assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-canvas')"), "and Shift+Tab comes back");
     // the help is on the page, closed until asked for
     assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 4, "the keyboard help");
+  });
+  await step("palettes: docked on the four edges, floating and snapped by mouse, moved by keyboard, collapsed, hidden and reset from the Palettes menu, kept in the settings; tooltips name built keys only", async () => {
+    await pg.setViewportSize({ width: 1280, height: 720 }); await frames(pg);
+    const home = await rects(pg);
+    eq(Object.keys(home).length, 16);
+    eq([home.tools.dock, home.tools.orient, home.file.dock, home.file.orient, home.structure.dock], ["left", "v", "top", "h", "right"]);
+    await tidy(pg, 1280, 720);
+    // every button of the palettes says what it does; a key in brackets is a key the module binds
+    const titles = await pg.evaluate(`[...document.querySelectorAll("#d2-palettes .items button, #d2-palettes .grip, #d2-flys button[data-cmd], #d2-flys button[data-opens], #d2-show-all, .menu ~ .row button")].map(b => [b.dataset.testid || b.id, b.title, b.getAttribute("aria-label") || b.textContent])`);
+    eq(titles.filter(([, title, name]) => !title || !name).map(([id]) => id), []);
+    eq(titles.flatMap(([id, title]) => [...title.matchAll(/\(([^)]*)\)/g)].flatMap(m => m[1].split(/,\s*|\s+/)).filter(k => !BUILT.has(k)).map(k => [id, k])), []);
+    await shot(pg, "palettes-desktop");
+    /** drags a palette by its handle with the mouse to a page point; `hint`: the edge it says it will dock on before it is let go */
+    const drag = async (id, x, y, hint) => {
+      const [gx, gy] = await center(pg, `[data-testid="d2-grip-${id}"]`);
+      await pg.mouse.move(gx, gy); await pg.mouse.down(); await pg.mouse.move(x, y, { steps: 8 });
+      if (hint !== undefined) eq(await pg.evaluate("(h => h.hidden ? '' : h.dataset.edge)(document.querySelector('#d2-dock-hint'))"), hint);
+      await pg.mouse.up(); await frames(pg);
+      return [gx, gy];
+    };
+    // floating: the palette follows the pointer
+    const [ex, ey] = await drag("edit", 640, 360, "");
+    let r = await rects(pg);
+    eq(r.edit.dock, "float");
+    assert(Math.abs(r.edit.x - (640 - (ex - home.edit.x))) <= 1 && Math.abs(r.edit.y - (360 - (ey - home.edit.y))) <= 1, "the palette follows the pointer");
+    // docked on the bottom as a row, on the right as a column
+    await drag("view", 640, 719, "bottom");
+    await drag("history", 1279, 300, "right");
+    r = await rects(pg);
+    eq([r.view.dock, r.view.orient, r.view.y + r.view.h, r.history.dock, r.history.orient], ["bottom", "h", 720, "right", "v"]);
+    // a full right column wraps: the palette stands at the right edge, or flush against the column beside it
+    assert(r.history.x + r.history.w === 1280 || Object.values(r).some(q => q && q.dock === "right" && q.x === r.history.x + r.history.w), "docked in the right column");
+    // two floating palettes: one dropped 6 px from the other snaps flush to it, on the same line
+    await drag("rings", 500, 300);
+    r = await rects(pg);
+    const [kx, ky] = await center(pg, '[data-testid="d2-grip-charges"]');
+    await drag("charges", r.rings.x + r.rings.w + 6 + (kx - r.charges.x), r.rings.y + 4 + (ky - r.charges.y));
+    const s2 = await rects(pg);
+    eq([s2.charges.dock, s2.charges.x, s2.charges.y], ["float", s2.rings.x + s2.rings.w, s2.rings.y]);
+    await tidy(pg, 1280, 720);
+    await shot(pg, "palettes-moved");
+    await pg.emulateMedia({ colorScheme: "dark" }); await frames(pg); await shot(pg, "palettes-moved-dark"); await pg.emulateMedia({ colorScheme: "light" });
+    // the layout is in the settings file the module writes, and the page keeps it
+    await until(pg, "Number(document.documentElement.dataset.d2Style || 0) >= 1");
+    const layout = JSON.parse(await pg.evaluate("window.MZDRAW.style()")).layout;
+    // (docking a palette in a column numbers that column again: its neighbours are written too)
+    const ids = layout.palettes.map(p => p.id);
+    eq(["charges", "edit", "history", "rings", "view"].filter(id => !ids.includes(id)), []);
+    eq(layout.palettes.filter(p => p.dock === "float").map(p => p.id).sort(), ["charges", "edit", "rings"]);
+    // the keyboard: the arrows move a palette 8 px (32 with Shift), Escape puts it back, Enter floats it and docks it again
+    await pg.focus('[data-testid="d2-grip-tools"]');
+    await pg.keyboard.press("ArrowRight"); await pg.keyboard.press("Shift+ArrowDown"); await frames(pg);
+    r = await rects(pg);
+    eq([r.tools.dock, r.tools.x, r.tools.y], ["float", home.tools.x + 8, home.tools.y + 32]);
+    await pg.keyboard.press("Escape"); await frames(pg);
+    eq((await rects(pg)).tools, home.tools);
+    await pg.keyboard.press("Enter"); await frames(pg); eq((await rects(pg)).tools.dock, "float");
+    await pg.keyboard.press("Enter"); await frames(pg); eq((await rects(pg)).tools, home.tools);
+    eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-grip-tools");
+    // a double click on the handle expands a collapsed palette: every bond kind is in view
+    await pg.dblclick('[data-testid="d2-grip-bonds"]'); await frames(pg);
+    assert(await pg.isVisible('#d2-pal-bonds [data-testid="d2-bond:wavy"]'), "the bonds palette expanded");
+    // the Palettes menu: hide one, collapse one again, then hide all and show them, then reset the layout
+    await pg.click('[data-testid="d2-palettes"]');
+    await pg.click('[data-testid="d2-menu-hidden-keys"]'); await frames(pg);
+    eq((await rects(pg)).keys, null);
+    await pg.click('[data-testid="d2-menu-collapsed-bonds"]'); await frames(pg);
+    assert(await pg.isHidden('[data-testid="d2-bond:wavy"]'), "the bonds palette collapsed");
+    assert(await pg.isDisabled('[data-testid="d2-menu-orient-tools"]') && await pg.isEnabled('[data-testid="d2-menu-orient-edit"]'), "only a floating palette turns");
+    const was = (await rects(pg)).edit.orient;       // a floating palette keeps the orientation of its edge: the edit row
+    await pg.click('[data-testid="d2-menu-orient-edit"]'); await frames(pg); eq([was, (await rects(pg)).edit.orient], ["h", "v"]);
+    // the key \ on the canvas: every palette hidden, the whole page is canvas; the Palettes button brings them back
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("\\"); await frames(pg);
+    eq(Object.values(await rects(pg)).filter(Boolean), []);
+    eq(await pg.evaluate("[document.querySelector('#d2-canvas').clientWidth, document.querySelector('#d2-canvas').clientHeight]"), [1280, 720]);
+    await pg.click("#d2-show-all"); await frames(pg);
+    assert(await pg.isHidden("#d2-show-all") && (await rects(pg)).tools, "the palettes are back");
+    await pg.click('[data-testid="d2-palettes"]'); await pg.click('[data-testid="d2-menu-reset"]'); await frames(pg);
+    eq(await rects(pg), home);
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.style()")).layout, undefined);
+    await pg.setViewportSize({ width: 1280, height: 800 }); await frames(pg);
   });
   await ctx.close();
 
@@ -702,6 +817,48 @@ try {
     await want(pg, { atoms: 7, bonds: 4, tool: "bond:1" });
     await shot(pg, "touch");
   });
+  await step("tablet 768x1024: handles of 44 px; palettes dragged by a finger and by a pen, docked and floating; the menu by tapping; reset", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    await tool(pg, "clear"); await frames(pg);
+    const home = await rects(pg);
+    eq(Object.entries(home).filter(([, r]) => r).map(([id]) => id).sort(), ["atoms", "bonds", "charges", "edit", "file", "history", "objects", "rings", "tools", "view"]);
+    eq(await pg.evaluate("[...document.querySelectorAll('.grip')].filter(g => g.offsetParent && Math.min(g.offsetWidth, g.offsetHeight) < 44).map(g => g.dataset.testid)"), []);
+    await tidy(pg, 768, 1024);
+    await shot(pg, "palettes-tablet");
+    // the menu by tapping: a side palette hidden on a tablet is shown, and hidden again
+    await pg.tap('[data-testid="d2-palettes"]'); await pg.tap('[data-testid="d2-menu-hidden-check"]'); await frames(pg);
+    assert((await rects(pg)).check, "a side palette shown from the menu");
+    await shot(pg, "palettes-tablet-side");
+    await pg.tap('[data-testid="d2-menu-hidden-check"]'); await frames(pg);
+    eq((await rects(pg)).check, null);
+    await pg.tap('[data-testid="d2-palettes"]'); eq(await pg.getAttribute('[data-testid="d2-palettes"]', "aria-expanded"), "false");
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    const finger = async (id, x, y) => {
+      const [gx, gy] = await center(pg, `[data-testid="d2-grip-${id}"]`);
+      await touch("touchStart", [[gx, gy]]);
+      for (let i = 1; i <= 6; i++) await touch("touchMove", [[gx + (x - gx) * i / 6, gy + (y - gy) * i / 6]]);
+      await touch("touchEnd", []); await frames(pg);
+    };
+    const pen = async (id, x, y) => {
+      const [gx, gy] = await center(pg, `[data-testid="d2-grip-${id}"]`), send = (type, px, py, buttons) => cdp.send("Input.dispatchMouseEvent", { type, x: px, y: py, pointerType: "pen", button: "left", buttons, clickCount: 1 });
+      await send("mouseMoved", gx, gy, 0); await send("mousePressed", gx, gy, 1);
+      for (let i = 1; i <= 6; i++) await send("mouseMoved", gx + (x - gx) * i / 6, gy + (y - gy) * i / 6, 1);
+      await send("mouseReleased", x, y, 0); await frames(pg);
+    };
+    await finger("edit", 384, 500);
+    await finger("view", 384, 1023);
+    await pen("rings", 767, 400);
+    const r = await rects(pg);
+    eq([r.edit.dock, r.view.dock, r.view.orient, r.view.y + r.view.h, r.rings.dock, r.rings.orient, r.rings.x + r.rings.w], ["float", "bottom", "h", 1024, "right", "v", 768]);
+    await tidy(pg, 768, 1024);
+    await shot(pg, "palettes-tablet-moved");
+    // a tap on the canvas still draws: the palettes take nothing from it
+    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    // (after a synthetic touch drag, on a palette or on the canvas alike, the test protocol drops the click of the next tap: the
+    // reset is clicked)
+    await pg.click('[data-testid="d2-palettes"]'); await pg.click('[data-testid="d2-menu-reset"]'); await frames(pg);
+    eq(await rects(pg), home);
+  });
   await ctx.close();
 } finally {
   await browser.close();
@@ -710,4 +867,4 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 16 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+process.exit(steps.length === 18 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
