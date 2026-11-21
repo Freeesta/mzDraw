@@ -280,6 +280,49 @@ pub const OPS: &[OpSpec] = &[
     },
 ];
 
+/// One field of the replay request (`mol draw`), or one arm of its `expect`.
+pub struct RequestSpec {
+    /// `request` for a field of the request, `expect` for an arm of the list `expect`.
+    pub section: &'static str,
+    pub key: &'static str,
+    pub ty: &'static str,
+    /// What the field does, one sentence.
+    pub meaning: &'static str,
+}
+
+const fn r(
+    section: &'static str,
+    key: &'static str,
+    ty: &'static str,
+    meaning: &'static str,
+) -> RequestSpec {
+    RequestSpec {
+        section,
+        key,
+        ty,
+        meaning,
+    }
+}
+
+/// The fields of the replay request, then the arms of `expect`: what `replay::replay` reads. A field outside the table is an invalid
+/// request (`error.draw2.requestField`), an arm outside it too (`error.draw2.expect`).
+pub const REQUEST: &[RequestSpec] = &[
+    r("request", "import", "string", "a structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES"),
+    r("request", "import_base64", "string", "the bytes of a file to start from in base64 (a binary CDX, or a PNG saved by mzDraw), read after `import`"),
+    r("request", "style", "string|object", "the style of the SVG: a preset name or a settings file"),
+    r("request", "set", "string[]", "settings applied after `style`, each `<section>.<key>=<value>`"),
+    r("request", "log", "json[]", "the command log, operations of `draw_edit/1`"),
+    r("request", "out", "string", "the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings`"),
+    r("request", "report", "bool", "answer with one `draw-result/1` document instead of the bare output"),
+    r("request", "dry_run", "bool", "run and report everything, write nothing: the document has no `out`; implies `report`"),
+    r("request", "expect", "object[]", "postconditions on the final drawing, one arm each; a non-empty list implies `report`"),
+    r("request", "id", "string|uint", "echoed as the `id` of the document (default: the index of the request in its batch)"),
+    r("expect", "std", "string", "`\"none\"`: the drawing has no `std/1` finding"),
+    r("expect", "std_absent", "string[]", "none of these `std/1` keys is found"),
+    r("expect", "pieces", "uint", "the atoms form exactly this many connected pieces"),
+    r("expect", "smiles", "string", "the SMILES of the whole drawing equals this text"),
+];
+
 /// The row of an operation by name.
 pub fn spec(name: &str) -> Option<&'static OpSpec> {
     OPS.iter().find(|o| o.name == name)
@@ -319,6 +362,19 @@ pub fn json() -> String {
             ));
         }
         out.push_str("]}");
+    }
+    out.push_str("],\"request\":[");
+    for (i, x) in REQUEST.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!(
+            r#"{{"section":{},"key":{},"type":{},"meaning":{}}}"#,
+            q(x.section),
+            q(x.key),
+            q(x.ty),
+            q(x.meaning)
+        ));
     }
     out.push_str("]}");
     out

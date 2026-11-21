@@ -72,6 +72,17 @@ fn every_case_replays_to_the_recorded_bytes() {
             let menu: Value = serde_json::from_str(&got).unwrap();
             assert!(menu["target"].is_string() && menu["items"].is_array());
         }
+        // the verdict of a request that asks for one (`draw-result/1`): recorded text and `ok`, the request being number `n` of its batch
+        for case in section_mut(fx, "results") {
+            let n = case.get("n").and_then(Value::as_u64).unwrap_or(0);
+            let got = mzdraw::replay::replay_at(&case["request"].to_string(), n).unwrap();
+            if bless {
+                case["out"] = json!(got.text);
+            }
+            assert_eq!(case["out"], json!(got.text), "{}", case["name"]);
+            let doc: Value = serde_json::from_str(&got.text).unwrap();
+            assert_eq!(doc["ok"], json!(got.ok), "{}", case["name"]);
+        }
         // the table of the operations (`draw-edit-schema/1`): the CLI twin of the language reader
         for case in section_mut(fx, "schemas") {
             let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();

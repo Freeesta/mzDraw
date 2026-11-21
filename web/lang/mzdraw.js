@@ -268,6 +268,8 @@ I18N.add("en", {
   "error.draw2.ring": "A ring has 3 to 8 atoms.",
   "error.draw2.log": "The command log could not be read.",
   "error.draw2.request": "The drawing request is not valid.",
+  "error.draw2.requestField": "The drawing request has a field that it does not take.",
+  "error.draw2.expect": "A postcondition of the drawing request is not one this editor knows.",
   "error.draw2.opField": "An operation has a field that its kind does not take.",
   "error.draw2.molfile": "The molfile could not be read.",
   "error.draw2.smiles": "The SMILES could not be read.",

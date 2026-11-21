@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "draw-result-1",
+  "title": "draw-result/1: the verdict of a replay request (mzdraw::outcome)",
+  "description": "Checked by crates/mzdraw/tests/outcome.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text, also inside failed, created, removed and each expect item), the required keys, the types and the stage values are asserted by hand; the other constraints here are documentation.",
+  "type": "object",
+  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "failed", "expect"],
+  "required": ["format", "id", "ok", "created", "removed"],
+  "additionalProperties": false,
+  "$defs": {
+    "ids": {
+      "type": "object",
+      "x-key-order": ["atoms", "bonds", "objects"],
+      "additionalProperties": false,
+      "properties": {
+        "atoms": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1 },
+        "bonds": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1 },
+        "objects": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1 }
+      }
+    }
+  },
+  "properties": {
+    "format": { "const": "draw-result/1" },
+    "id": { "type": ["string", "integer"], "description": "the request's own id, else its 0-based index in the batch" },
+    "ok": { "type": "boolean", "description": "every op ran and every expectation holds" },
+    "dry_run": { "const": true, "description": "only when the request asked for a dry run" },
+    "patch": { "type": "array", "description": "RESERVED, never written yet (plan-27: the canonical patch of a goal)" },
+    "out": { "type": "string", "description": "what Editor::save(out) wrote; only when ok and not a dry run" },
+    "created": { "$ref": "#/$defs/ids", "description": "ids after minus before, ascending, empty lists left out" },
+    "removed": { "$ref": "#/$defs/ids", "description": "ids before minus after, ascending, empty lists left out" },
+    "failed": {
+      "type": "object",
+      "x-key-order": ["stage", "op", "key", "id", "candidates", "rows"],
+      "required": ["stage", "key", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "stage": { "enum": ["log", "select", "plan", "grant", "command"], "description": "only `log` is written today; select, plan, grant and command are RESERVED, never written yet" },
+        "op": { "type": "integer", "minimum": 0, "description": "0-based index in log (stage log) or in commands (stage command)" },
+        "key": { "type": "string", "description": "the i18n key of the refusal" },
+        "id": { "type": "integer", "minimum": 0, "description": "the id it is about, 0 when none" },
+        "candidates": { "type": "array", "items": { "type": "array", "items": { "type": "integer" } }, "description": "RESERVED, never written yet (stage select: the atom ids of each match)" },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "x-key-order": ["line", "key"],
+            "required": ["line", "key"],
+            "additionalProperties": false,
+            "properties": { "line": { "type": "integer" }, "key": { "type": "string" } }
+          },
+          "description": "RESERVED, never written yet (stage command on a command that reads rows: every failing row, in line order)"
+        }
+      }
+    },
+    "expect": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "x-key-order": ["check", "ok", "detail"],
+        "required": ["check", "ok", "detail"],
+        "additionalProperties": false,
+        "properties": {
+          "check": { "type": "object", "minProperties": 1, "maxProperties": 1, "description": "the request's expectation, as given" },
+          "ok": { "type": "boolean" },
+          "detail": { "type": "string", "description": "empty when ok" }
+        }
+      }
+    }
+  }
+}

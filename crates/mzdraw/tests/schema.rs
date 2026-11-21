@@ -263,6 +263,18 @@ fn markdown() -> String {
             fields.join("<br>").replace('|', "\\|")
         ));
     }
+    out.push_str(
+        "\nThe replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `expect` arms are these rows (`request` section of the table); a field or an arm outside it is an invalid request (`error.draw2.requestField`, `error.draw2.expect`). With `report`, `dry_run` or a non-empty `expect` the answer is the document `draw-result/1` (section \"Replay result\").\n\n| section | key | type | meaning |\n|---|---|---|---|\n",
+    );
+    for x in v["request"].as_array().unwrap() {
+        out.push_str(&format!(
+            "| {} | `{}` | {} | {} |\n",
+            cell(&x["section"]),
+            x["key"].as_str().unwrap(),
+            cell(&x["type"]),
+            cell(&x["meaning"])
+        ));
+    }
     out
 }
 

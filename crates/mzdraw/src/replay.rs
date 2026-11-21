@@ -3,6 +3,7 @@
 
 use crate::editor::Editor;
 use crate::ops::{Op, OpError};
+use crate::outcome::{read_expect, Expectation, Failed, IdSets, Outcome};
 
 /// The request, read by hand from its JSON value (as the operations and the document are).
 struct Request {
@@ -18,7 +19,29 @@ struct Request {
     style: Option<String>,
     /// Settings applied after `style`, each `<section>.<key>=<value>` (`Editor::set`): the `--set` of the CLI.
     set: Vec<String>,
+    /// `report`: answer with one `draw-result/1` document (see `outcome`).
+    report: bool,
+    /// `dry_run`: everything runs and is reported, nothing is written (`out` is left out); implies the document.
+    dry_run: bool,
+    /// `expect`: postconditions on the final drawing; a non-empty list implies the document.
+    expect: Vec<Expectation>,
+    /// `id`: echoed in the document (a string or an integer).
+    id: Option<serde_json::Value>,
 }
+
+/// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
+const FIELDS: [&str; 10] = [
+    "import",
+    "import_base64",
+    "style",
+    "set",
+    "log",
+    "out",
+    "report",
+    "dry_run",
+    "expect",
+    "id",
+];
 
 impl Request {
     fn read(text: &str) -> Result<Request, &'static str> {
@@ -44,12 +67,28 @@ impl Request {
                 .collect::<Option<Vec<String>>>()
                 .ok_or(BAD)?,
         };
-        v.is_object().then_some(()).ok_or(BAD)?;
+        let obj = v.as_object().ok_or(BAD)?;
+        if obj.keys().any(|k| !FIELDS.contains(&k.as_str())) {
+            return Err("error.draw2.requestField");
+        }
+        let flag = |k: &str| match v.get(k) {
+            None => Ok(false),
+            Some(x) => x.as_bool().ok_or(BAD),
+        };
+        let id = match v.get("id") {
+            None => None,
+            Some(x) if x.is_string() || x.is_i64() || x.is_u64() => Some(x.clone()),
+            Some(_) => return Err(BAD),
+        };
         let import_base64 = match text_of("import_base64")? {
             Some(t) => Some(base64(&t).ok_or(BAD)?),
             None => None,
         };
         Ok(Request {
+            report: flag("report")?,
+            dry_run: flag("dry_run")?,
+            expect: v.get("expect").map_or(Ok(Vec::new()), read_expect)?,
+            id,
             import: text_of("import")?,
             import_base64,
             log,
@@ -98,8 +137,42 @@ fn base64(text: &str) -> Option<Vec<u8>> {
     (pad <= 2 && bits < 6 && acc == 0).then_some(out)
 }
 
-/// Runs a request `{"import", "import_base64", "style", "set", "log", "out"}`; the error is an i18n key and the id it is about.
+impl Request {
+    /// The answer is a `draw-result/1` document, not the bare output.
+    fn envelope(&self) -> bool {
+        self.report || self.dry_run || !self.expect.is_empty()
+    }
+}
+
+/// What a request gave: the text to print and whether the run is good. A bare request is always good (its refusal is an `Err`); a
+/// `draw-result/1` document with `ok` false is a verdict, which a CLI reports with exit code 1.
+pub struct Reply {
+    pub text: String,
+    pub ok: bool,
+}
+
+/// The output `Editor::save` writes, or the context menu of `context:<x>,<y>` (for the golden parity of the menu).
+fn produce(e: &mut Editor, out: &str) -> Result<String, &'static str> {
+    // `context:<x>,<y>`: the context menu (JSON) of a right-click at that pixel of the default view
+    if let Some(at) = out.strip_prefix("context:") {
+        let xy = at
+            .split_once(',')
+            .and_then(|(x, y)| Some((x.trim().parse().ok()?, y.trim().parse().ok()?)));
+        let (x, y) = xy.ok_or("error.draw2.request")?;
+        return Ok(e.context_menu(x, y));
+    }
+    e.save(out)
+}
+
+/// Runs a request `{"import", "import_base64", "style", "set", "log", "out", "report", "dry_run", "expect", "id"}`; the error is an i18n key and the
+/// id it is about. Without `report`, `dry_run` and `expect` the answer is the bare output; with one of them it is `draw-result/1`.
 pub fn replay(request: &str) -> Result<String, OpError> {
+    replay_at(request, 0).map(|r| r.text)
+}
+
+/// Like `replay`, for the request number `n` (0-based) of a batch: `n` is the `id` of the document when the request has none, and
+/// the reply says whether the run is good.
+pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
     let fail = |key| OpError { key, id: 0 };
     let r = Request::read(request).map_err(fail)?;
     let mut e = Editor::default();
@@ -115,17 +188,60 @@ pub fn replay(request: &str) -> Result<String, OpError> {
     for setting in &r.set {
         e.set(setting).map_err(fail)?;
     }
-    for op in &r.log {
-        e.session.run(std::slice::from_ref(op))?;
+    let before = IdSets::of(e.doc());
+    let mut failed = None;
+    for (i, op) in r.log.iter().enumerate() {
+        if let Err(err) = e.session.run(std::slice::from_ref(op)) {
+            if !r.envelope() {
+                return Err(err);
+            }
+            failed = Some(Failed::log(i, err.key, err.id));
+            break;
+        }
     }
-    let out = r.out.as_deref().unwrap_or("mzdraw");
-    // `context:<x>,<y>`: the context menu (JSON) of a right-click at that pixel of the default view, for the golden parity of the menu
-    if let Some(at) = out.strip_prefix("context:") {
-        let xy = at
-            .split_once(',')
-            .and_then(|(x, y)| Some((x.trim().parse().ok()?, y.trim().parse().ok()?)));
-        let (x, y) = xy.ok_or_else(|| fail("error.draw2.request"))?;
-        return Ok(e.context_menu(x, y));
+    let kind = r.out.as_deref().unwrap_or("mzdraw");
+    let written = produce(&mut e, kind);
+    if !r.envelope() {
+        return written.map_err(fail).map(|text| Reply { text, ok: true });
     }
-    e.save(out).map_err(fail)
+    // an `out` the request cannot mean is an invalid request whatever the verdict; a refusal of the drawing (no arrow, no SMILES) only counts when it is written
+    if matches!(written, Err("error.draw2.request")) {
+        return Err(fail("error.draw2.request"));
+    }
+    let after = IdSets::of(e.doc());
+    let expect = (!r.expect.is_empty()).then(|| {
+        (r.expect.iter())
+            .map(|x| match &failed {
+                Some(_) => (
+                    x.request.clone(),
+                    false,
+                    "not checked: the log failed".to_string(),
+                ),
+                None => {
+                    let (ok, detail) = x.check.run(e.doc());
+                    (x.request.clone(), ok, detail)
+                }
+            })
+            .collect()
+    });
+    let mut outcome = Outcome {
+        id: r
+            .id
+            .as_ref()
+            .map_or_else(|| n.to_string(), ToString::to_string),
+        dry_run: r.dry_run,
+        out: None,
+        created: after.minus(&before),
+        removed: before.minus(&after),
+        failed,
+        expect,
+    };
+    if outcome.ok() {
+        let text = written.map_err(fail)?;
+        outcome.out = (!r.dry_run).then_some(text);
+    }
+    Ok(Reply {
+        ok: outcome.ok(),
+        text: outcome.json(),
+    })
 }
