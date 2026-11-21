@@ -24,6 +24,7 @@ mzDraw is a 2D molecule editor in Rust compiled to wasm, published at https://fr
 13. Scope out: macromolecules, query features, S-groups other than abbreviations. A file carrying them opens with the unsupported parts listed, never silently dropped.
 14. Cite mzDraw / mzLab when published (`CITATION.cff`; keep its `version` equal to the workspace version and add `date-released` and `doi` with the first tagged release).
 15. CLI-native and agent-first. mzDraw is born usable through the CLI (`mzlab-cli mol draw`) by people and above all by AI agents, to draw canvases of every kind as fast, as safely and as reproducibly as possible. Every feature is first a Rust command with a machine-readable form (`draw_edit/1` JSON ops, `--json` with stable keys, distinct exit codes, data on stdout and diagnostics on stderr, a `--dry-run` / validate mode, batch input and stdin streaming, deterministic bytes, no browser in the path); the page is one client of that same command set. A feature without a CLI route and a test that replays it natively is incomplete.
+16. The product name lives in brand.toml; never write it elsewhere.
 
 ## Commands
 ```
