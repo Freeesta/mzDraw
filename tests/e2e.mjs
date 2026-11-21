@@ -2426,6 +2426,110 @@ try {
     await tool(pg, "undo"); await tool(pg, "undo");                                            // the accept-all (hunks 1 and 2) and the accept of hunk 3
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), a);
   });
+  // ---- arch-web-17: calculated values (formula, masses, m/z of adducts); the numbers are the engine's, hand-summed in the tests of the crates ----
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
+  const addSmiles = (pg, smiles) => pg.setInputFiles("#d2-file", { name: "values.smi", mimeType: "text/plain", buffer: Buffer.from(smiles) });
+  const VT = (key, p) => pg.evaluate(([k, q]) => I18N.t(k, q), [key, p]);
+  const sentence = async (mass, average, rest) => `${await VT("draw2.values.mono", { mass })}; ${await VT("draw2.values.average", { mass: average })}; ${rest}.`;
+  const valueRows = pg => pg.evaluate("[...document.querySelectorAll('#d2-values li')].map(li => li.textContent)");
+  await step("calculated values by mouse and keyboard: the panel gives the masses and the m/z of each structure, one atom selected by keyboard gives its own (cut bond closed with hydrogen), select all gives the whole, Escape clears it; no number is made in JS", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    eq(await valueRows(pg), []);
+    await addSmiles(pg, "Cn1cnc2c1c(=O)n(C)c(=O)n2C.CCO"); await want(pg, { atoms: 17 });
+    // caffeine C8H10N4O2 194.0804 (8 * 12 + 10 * 1.00782503 + 4 * 14.00307400 + 2 * 15.99491462), ethanol C2H6O 46.0419
+    eq(await valueRows(pg), [
+      `${await VT("draw2.values.piece", { n: 1 })} ${await sentence("194.0804", "194.1940", "[M+H]+ 195.0877; [M-H]- 193.0731")}`,
+      `${await VT("draw2.values.piece", { n: 2 })} ${await sentence("46.0419", "46.0690", "[M+H]+ 47.0491; [M-H]- 45.0346")}`]);
+    eq(await pg.innerText("#d2-values-sel"), "");
+    await shotEl(pg, "#d2-values", "values-panel");
+    // the keyboard: Home focuses the first atom (the methyl of caffeine), Space selects it: CH4 with its bond to the nitrogen closed with hydrogen
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await pg.keyboard.press(" "); await want(pg, { selected: 1 });
+    await until(pg, "document.querySelector('#d2-values-sel').textContent !== ''");
+    eq(await pg.innerText("#d2-values-sel"), `${await VT("draw2.values.selection", { formula: "CH4", atoms: 1 })} ${await sentence("16.0313", "16.0430", "[M+H]+ 17.0386; [M-H]- 15.0240")}`);
+    await pg.keyboard.press("Control+a"); await want(pg, { selected: 17 + 17 });
+    eq(await pg.innerText("#d2-values-sel"), `${await VT("draw2.values.selection", { formula: "C10H16N4O3", atoms: 17 })} ${await sentence("240.1222", "240.2630", "[M+H]+ 241.1295; [M-H]- 239.1150")}`);
+    await shot(pg, "values-selection");
+    await pg.keyboard.press("Escape"); await want(pg, { selected: 0 });
+    await until(pg, "document.querySelector('#d2-values-sel').textContent === ''");
+    // the document is untouched by all of it, and the same numbers come from the command line door (replay_glue, the example of the parity)
+    const doc = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    const v = JSON.parse(await pg.evaluate(d => window.MZDRAW.replay_glue(JSON.stringify({ import: d, values: true })), doc));
+    eq(v.structures.map(s => s.mass), ["194.0804", "46.0419"]);
+  });
+
+  await step("calculated values under each structure: the style panel chooses what is drawn and the adducts by keyboard; the page SVG equals the replay of its log through the glue door", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await addSmiles(pg, "CCO.CC(=O)O"); await want(pg, { atoms: 7 });
+    const plain = await pg.evaluate("window.MZDRAW.save('svg')");
+    if (!(await pg.evaluate("document.querySelector('#d2-style-more').open"))) await pg.click("#d2-style-more summary");
+    const SEL = '[id="d2-style-display.values"]';
+    eq(await pg.locator(`${SEL} option`).evaluateAll(o => o.map(x => x.value)), ["off", "formula", "mass", "mz"]);
+    eq(await pg.inputValue(SEL), "off");
+    // by keyboard: the select reached with the focus, a letter picks "Formula and mass"
+    await pg.focus(SEL); await pg.keyboard.press("ArrowDown"); await want(pg, { atoms: 7 });
+    eq(await pg.inputValue(SEL), "formula");
+    assert((await pg.evaluate("window.MZDRAW.save('svg')")).includes(">C2H6O</text>"), "the formula is drawn under the structure");
+    await pg.selectOption(SEL, "mass");
+    const page = await pg.evaluate("window.MZDRAW.save('svg')");
+    assert(page.includes(">C2H6O  46.0419</text>") && page.includes(">C2H4O2  60.0211</text>"), "the mass is drawn under each structure");
+    // the page equals the replay of its log through the glue door (the command line twin, same engine and same bytes)
+    eq(await pg.evaluate("window.MZDRAW.replay_glue(JSON.stringify({ log: JSON.parse(window.MZDRAW.save('log')), set: ['display.values=mass'], out: 'svg' }))"), page);
+    // the display list the canvas paints has the same text
+    assert(await pg.evaluate("window.MZDRAW.scene() && window.MZDRAW.strings().includes('C2H6O  46.0419')"), "the canvas paints it");
+    await shot(pg, "values-under-structures");
+    // the adducts: a checkbox each, the module holds the list; the m/z mode draws one line per adduct
+    await pg.selectOption(SEL, "mz");
+    const boxes = await pg.locator("#d2-style-adducts input").evaluateAll(b => b.map(x => [x.value, x.checked]));
+    eq(boxes.filter(b => b[1]).map(b => b[0]), ["[M+H]+", "[M-H]-"]);
+    await pg.focus('#d2-style-adducts input[value="[M+Na]+"]'); await pg.keyboard.press(" ");
+    await until(pg, "JSON.parse(window.MZDRAW.state()).values.adducts.includes('[M+Na]+')");
+    eq(await pg.evaluate("JSON.parse(window.MZDRAW.state()).values.adducts"), ["[M+H]+", "[M+Na]+", "[M-H]-"]);          // the order of the schema
+    const mz = await pg.evaluate("window.MZDRAW.save('svg')");
+    assert(mz.includes(">[M+H]+ 47.0491</text>") && mz.includes(">[M+Na]+ 69.0311</text>") && mz.includes(">[M-H]- 45.0346</text>"), "a line per adduct: " + mz.slice(-600));
+    eq(await pg.evaluate("window.MZDRAW.replay_glue(JSON.stringify({ log: JSON.parse(window.MZDRAW.save('log')), set: ['display.values=mz', 'display.adducts=[M+H]+,[M+Na]+,[M-H]-'], out: 'svg' }))"), mz);
+    await pg.selectOption(SEL, "mass");
+    // the settings file keeps the words, and Rust gives the page back what it saved
+    const file = await pg.evaluate("window.MZDRAW.style()");
+    assert(file.includes('"display.values":"mass"') && file.includes('"display.adducts":"[M+H]+,[M+Na]+,[M-H]-"'), "kept in the settings file");
+    // off draws nothing
+    await pg.selectOption(SEL, "off");
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), plain);
+    eq(await pg.evaluate("JSON.parse(window.MZDRAW.save('mzdraw')).atoms.length"), 7);       // a style is no edit
+  });
+
+
+  await step("calculated values by touch and by pen: on a tablet a tap on an atom with the select tool gives the values of the selection, a pen press on a style checkbox changes the adducts, and the panel follows", async () => {
+    const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+    try {
+      const p = t.pg, cdp = await t.ctx.newCDPSession(p);
+      await addSmiles(p, "CCO"); await want(p, { atoms: 3 });
+      await tool(p, "fit"); await tool(p, "select");
+      // a tap on the first atom of the ethanol: the selection is the methyl with its bond closed with hydrogen
+      // the atom is found from the display list: the first text or line end nearest the document point of the atom
+      const at = await p.evaluate(() => { const c = document.querySelector("#d2-canvas").getBoundingClientRect(), s = window.MZDRAW.scene(); const pts = []; for (let i = 0; i < s.length;) { const k = s[i]; if (k === 1) { pts.push([s[i + 1], s[i + 2]], [s[i + 3], s[i + 4]]); i += 7; } else if (k === 2) i += 7; else if (k === 3) i += 6; else if (k === 6) i += 8; else i += 5; } pts.sort((u, v) => u[0] - v[0]); return [c.x + pts[0][0], c.y + pts[0][1]]; });
+      await p.touchscreen.tap(at[0], at[1]); await want(p, { selected: 1 });
+      await until(p, "document.querySelector('#d2-values-sel').textContent !== ''");
+      eq(await p.innerText("#d2-values-sel"), `${await p.evaluate(() => I18N.t("draw2.values.selection", { formula: "CH4", atoms: 1 }))} ${await p.evaluate(() => `${I18N.t("draw2.values.mono", { mass: "16.0313" })}; ${I18N.t("draw2.values.average", { mass: "16.0430" })}; [M+H]+ 17.0386; [M-H]- 15.0240.`)}`);
+      await shot(p, "values-tablet");
+      // a pen press on a checkbox of the style panel adds the adduct to the list
+      await tapPalette(p, "style", true);
+      if (!(await p.evaluate("document.querySelector('#d2-style-more').open"))) await p.locator("#d2-style-more summary").tap();
+      const cb = '#d2-style-adducts input[value="[M+K]+"]';
+      await p.locator(cb).scrollIntoViewIfNeeded();
+      const b = await p.locator(cb).boundingBox(), x = b.x + b.width / 2, y = b.y + b.height / 2;
+      const pen = (type) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+      await pen("mouseMoved"); await pen("mousePressed"); await pen("mouseReleased");
+      await until(p, "JSON.parse(window.MZDRAW.state()).values.adducts.includes('[M+K]+')");
+      assert((await p.innerText("#d2-values-sel")).includes("[M+K]+ 54.9945"), "the selection has the new adduct: " + await p.innerText("#d2-values-sel"));
+      // a tap on a checkbox takes it away again
+      await p.locator(cb).scrollIntoViewIfNeeded();
+      const b2 = await p.locator(cb).boundingBox(); await p.touchscreen.tap(b2.x + b2.width / 2, b2.y + b2.height / 2);
+      await until(p, "!JSON.parse(window.MZDRAW.state()).values.adducts.includes('[M+K]+')");
+      // the select that chooses what is drawn is reached by a tap too
+      assert(await p.locator('[id="d2-style-display.values"]').evaluate(el => el.getBoundingClientRect().height >= 24), "a finger can hit the select");
+    } finally { await t.ctx.close(); }
+  });
+
   await ctx.close();
 } finally {
   await browser.close();

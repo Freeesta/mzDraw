@@ -50,6 +50,7 @@ pub mod stereo_guard;
 pub mod svg;
 pub mod tp;
 pub mod trasf;
+pub mod values;
 pub mod xml;
 
 pub use doc::{Atom, Bond, Document, Obj, ObjKind, FORMAT};

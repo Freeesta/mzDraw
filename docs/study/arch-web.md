@@ -185,7 +185,7 @@ Columns: **who** = editors that have it (source keys of §0, `*` = not read at t
 |---|---|---|---|---|---|---|
 | live valence and charge marks, never blocking | KH (structure check, `Alt+S`), MNC* | marks while drawing | MUST | `check/1` (not logged) | S | B |
 | check panel: list of problems, go to each | KH (check dialog with categories) | list in the side panel; Enter moves the focus to the atom | SHOULD (a list is what a screen reader can read) | `check/1` | S | - |
-| calculated values: formula, average mass, monoisotopic mass, composition, m/z of chosen adducts | KH (`Alt+C`), MNC (on the canvas), CJ (properties) | values of the selection or of each structure, in the panel or pinned under the structure | MUST (the question of a mass spectrometrist; Ketcher has it) | setting `display.values`; CLI `--json` | S | p (Hill formula in "What is drawn") → slice 17 |
+| calculated values: formula, average mass, monoisotopic mass, composition, m/z of chosen adducts | KH (`Alt+C`), MNC (on the canvas), CJ (properties) | values of the selection or of each structure, in the panel or pinned under the structure | MUST (the question of a mass spectrometrist; Ketcher has it) | setting `display.values`, `display.adducts`; replay field `values` (`values/1`) | S | B (`docs/built/arch-web-17-values.md`) |
 | identification annotations (Schymanski level, evidence) | none | per structure, drawn under it | MUST (mzLab's own; no competitor) | `atom.ann` | M | B |
 | InChI and InChIKey out | KA, PC (server), JD (on-demand module) | InChI library | SHOULD in the desktop app and CLI; LATER in the page (a C library, `mzdraw-plan.md` decision 5) | replay `out=inchi` | M | - |
 

@@ -142,6 +142,18 @@ function warningText(w) {
   return t(`draw.check.${w.code}.what`, { el: w.el || "", valence: w.valence ?? "", allowed, q: w.q ?? "", fix: w.fix ?? "", n: w.n ?? "", iso: w.iso ?? "", list: allowed });
 }
 
+/** the calculated values of one structure or of the selection as one sentence: the numbers are the module's strings, this only puts them in words (no chemistry here) @param {any} v @param {string[]} adducts */
+function valuesText(v, adducts) {
+  if (!v) return "";
+  if (v.error) return t(v.error);
+  if (v.mass === null) return "";
+  const parts = [t("draw2.values.mono", { mass: v.mass })];
+  if (v.average) parts.push(t("draw2.values.average", { mass: v.average }));
+  if (v.ionMz) parts.push(t("draw2.values.ion", { mz: v.ionMz }));
+  for (const a of adducts) if (v.mz[a]) parts.push(`${a} ${v.mz[a]}`);
+  return parts.join("; ") + ".";
+}
+
 function refresh() {
   const st = JSON.parse(ed.state());
   show(st);
@@ -160,6 +172,14 @@ function refresh() {
     return li;
   }));
   if (!st.outline.length) { const li = document.createElement("li"); li.textContent = t("draw2.outline.empty"); $("d2-outline").append(li); }
+  // the calculated values, one line per structure, apart from the outline (which keeps its words)
+  $("d2-values").replaceChildren(...st.values.structures.map((/** @type {any} */ v, /** @type {number} */ i) => {
+    const li = document.createElement("li");
+    li.textContent = t("draw2.values.piece", { n: i + 1 }) + " " + (valuesText(v, st.values.adducts) || t("draw2.values.none"));
+    return li;
+  }));
+  const sel = st.values.selection;
+  $("d2-values-sel").textContent = sel ? t("draw2.values.selection", { formula: sel.formula, atoms: sel.atoms }) + " " + valuesText(sel, st.values.adducts) : "";
   dataFields(st.outline); annFields(st.outline);
   $("d2-focus").textContent = st.focus ? focusText(st.focus) : "";
   for (const [id, kind] of [["d2-element", "atom:"], ["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
@@ -496,6 +516,9 @@ function keep() {
   }, 500);
 }
 
+/** shows the adducts the module holds in the checkboxes of the style panel (set by `styles`) @type {() => void} */
+let box_sync = () => {};
+
 async function styles() {
   const sel = /** @type {HTMLSelectElement} */ ($("d2-style")), note = $("d2-style-note"), NAME = NAMES.settings;
   const schema = JSON.parse(ed.settings_schema()), box = $("d2-style-fields");
@@ -507,18 +530,19 @@ async function styles() {
     const style = JSON.parse(ed.style()).style;
     sel.value = style.preset; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
     for (const [key, input] of Object.entries(inputs)) { input.value = key in words ? ed.choice(key) : String(style[key]); input.removeAttribute("aria-invalid"); }
+    box_sync();
   };
   /** one change asked of the module; a refusal is said in words, the field is marked and nothing changes */
   const ask = (/** @type {() => number} */ change, /** @type {string} */ said, /** @type {Element | null} */ field) => {
     try { after(change() | CHANGED); show(); note.textContent = said; $("d2-live").textContent = t("draw2.say.style", { what: sel.selectedOptions[0].textContent || "" }); keep(); }
     catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; field?.setAttribute("aria-invalid", "true"); }
   };
-  const row = (/** @type {string} */ key, /** @type {HTMLInputElement | HTMLSelectElement} */ input, /** @type {string} */ unit, /** @type {string} */ setting = `style.${key}`) => {
+  const row = (/** @type {string} */ key, /** @type {HTMLInputElement | HTMLSelectElement} */ input, /** @type {string} */ unit, /** @type {string} */ setting = `style.${key}`, /** @type {HTMLElement} */ into = box) => {
     const label = document.createElement("label"), name = document.createElement("span");
     label.className = "field"; name.textContent = t(`draw2.style.field.${key}`);
     input.id = `d2-style-${key}`; inputs[key] = input;
     input.addEventListener("change", () => ask(() => ed.set(`${setting}=${input.value}`), t("draw2.style.custom.note"), input));
-    label.append(name, input, unit); box.append(label);
+    label.append(name, input, unit); into.append(label);
   };
   for (const f of schema.fields) {
     const input = document.createElement("input");
@@ -532,6 +556,22 @@ async function styles() {
     words[c.key] = true;
     row(c.key, input, "", c.key);
   }
+  // what is drawn under each structure, and the adducts whose m/z is calculated (the words and the names come from the schema)
+  const under = document.createElement("select");
+  for (const v of schema.display.values) { const o = document.createElement("option"); o.value = v; o.textContent = t(`draw2.style.choice.display.values.${v}`); under.append(o); }
+  words["display.values"] = true;
+  const display = $("d2-style-display");
+  row("display.values", under, "", "display.values", display);
+  const adducts = document.createElement("fieldset"), legend = document.createElement("legend");
+  adducts.id = "d2-style-adducts"; legend.textContent = t("draw2.style.field.display.adducts"); adducts.append(legend);
+  for (const a of schema.display.adducts) {
+    const label = document.createElement("label"), box = document.createElement("input");
+    box.type = "checkbox"; box.value = a; box.dataset.adduct = a;
+    box.addEventListener("change", () => ask(() => ed.set(`display.adducts=${[...adducts.querySelectorAll("input:checked")].map(b => /** @type {HTMLInputElement} */ (b).value).join(",")}`), t("draw2.style.custom.note"), adducts));
+    label.append(box, " " + a); adducts.append(label);
+  }
+  box_sync = () => { const on = JSON.parse(ed.state()).values.adducts; for (const b of adducts.querySelectorAll("input")) /** @type {HTMLInputElement} */ (b).checked = on.includes(/** @type {HTMLInputElement} */ (b).value); };
+  display.append(adducts);
   const colour = document.createElement("select");
   for (const c of schema.colours) { const o = document.createElement("option"); o.value = c; o.textContent = t(`draw2.style.colour.${c}`); colour.append(o); }
   row("colour", colour, "");

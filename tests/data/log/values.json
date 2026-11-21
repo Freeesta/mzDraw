@@ -1,0 +1,101 @@
+{
+  "values": [
+    {
+      "name": "values: caffeine and glucose, every adduct",
+      "out": "{\"format\":\"values/1\",\"adducts\":[\"[M+H]+\",\"[M+Na]+\",\"[M+K]+\",\"[M+NH4]+\",\"[M-H]-\",\"[M+Cl]-\",\"[M+HCOO]-\"],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":14,\"formula\":\"C8H10N4O2\",\"charge\":0,\"composition\":{\"C\":8,\"H\":10,\"N\":4,\"O\":2},\"mass\":\"194.0804\",\"average\":\"194.1940\",\"ionMz\":null,\"mz\":{\"[M+H]+\":\"195.0877\",\"[M+Na]+\":\"217.0696\",\"[M+K]+\":\"233.0435\",\"[M+NH4]+\":\"212.1142\",\"[M-H]-\":\"193.0731\",\"[M+Cl]-\":\"229.0498\",\"[M+HCOO]-\":\"239.0786\"},\"error\":null},{\"anchor\":15,\"atoms\":12,\"formula\":\"C6H12O6\",\"charge\":0,\"composition\":{\"C\":6,\"H\":12,\"O\":6},\"mass\":\"180.0634\",\"average\":\"180.1560\",\"ionMz\":null,\"mz\":{\"[M+H]+\":\"181.0707\",\"[M+Na]+\":\"203.0526\",\"[M+K]+\":\"219.0265\",\"[M+NH4]+\":\"198.0972\",\"[M-H]-\":\"179.0561\",\"[M+Cl]-\":\"215.0328\",\"[M+HCOO]-\":\"225.0616\"},\"error\":null}],\"selection\":null}",
+      "request": {
+        "import": "Cn1cnc2c1c(=O)n(C)c(=O)n2C.OCC(O)C(O)C(O)C(O)C=O",
+        "set": [
+          "display.adducts=[M+H]+,[M+Na]+,[M+K]+,[M+NH4]+,[M-H]-,[M+Cl]-,[M+HCOO]-"
+        ],
+        "values": true
+      }
+    },
+    {
+      "name": "values: a chloride salt, an ammonium and a doubly charged anion",
+      "out": "{\"format\":\"values/1\",\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":2,\"formula\":\"CH6N+\",\"charge\":1,\"composition\":{\"C\":1,\"H\":6,\"N\":1},\"mass\":\"32.0500\",\"average\":\"32.0660\",\"ionMz\":\"32.0495\",\"mz\":{\"[M+H]+\":null,\"[M-H]-\":null},\"error\":null},{\"anchor\":3,\"atoms\":1,\"formula\":\"Cl−\",\"charge\":-1,\"composition\":{\"Cl\":1},\"mass\":\"34.9689\",\"average\":\"35.4500\",\"ionMz\":\"34.9694\",\"mz\":{\"[M+H]+\":null,\"[M-H]-\":null},\"error\":null},{\"anchor\":4,\"atoms\":5,\"formula\":\"C4H12N+\",\"charge\":1,\"composition\":{\"C\":4,\"H\":12,\"N\":1},\"mass\":\"74.0970\",\"average\":\"74.1470\",\"ionMz\":\"74.0964\",\"mz\":{\"[M+H]+\":null,\"[M-H]-\":null},\"error\":null},{\"anchor\":9,\"atoms\":5,\"formula\":\"O4S2−\",\"charge\":-2,\"composition\":{\"O\":4,\"S\":1},\"mass\":\"95.9517\",\"average\":\"96.0560\",\"ionMz\":\"47.9764\",\"mz\":{\"[M+H]+\":null,\"[M-H]-\":null},\"error\":null}],\"selection\":null}",
+      "request": {
+        "import": "C[NH3+].[Cl-].C[N+](C)(C)C.[O-]S(=O)(=O)[O-]",
+        "values": true
+      }
+    },
+    {
+      "name": "values: a selection with its cut bond closed with hydrogen",
+      "out": "{\"format\":\"values/1\",\"adducts\":[\"[M+H]+\"],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":3,\"formula\":\"C2H6O\",\"charge\":0,\"composition\":{\"C\":2,\"H\":6,\"O\":1},\"mass\":\"46.0419\",\"average\":\"46.0690\",\"ionMz\":null,\"mz\":{\"[M+H]+\":\"47.0491\"},\"error\":null}],\"selection\":{\"of\":[1],\"atoms\":1,\"formula\":\"CH4\",\"charge\":0,\"composition\":{\"C\":1,\"H\":4},\"mass\":\"16.0313\",\"average\":\"16.0430\",\"ionMz\":null,\"mz\":{\"[M+H]+\":\"17.0386\"},\"error\":null}}",
+      "request": {
+        "import": "CCO",
+        "set": [
+          "display.adducts=[M+H]+"
+        ],
+        "values": {
+          "atoms": [
+            1
+          ]
+        }
+      }
+    },
+    {
+      "name": "values: what the engine cannot read is a key and no number",
+      "out": "{\"format\":\"values/1\",\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":4,\"formula\":\"C2H3O2−\",\"charge\":-1,\"composition\":{\"C\":2,\"H\":3,\"O\":2},\"mass\":\"59.0133\",\"average\":\"59.0440\",\"ionMz\":\"59.0139\",\"mz\":{\"[M+H]+\":null,\"[M-H]-\":null},\"error\":null},{\"anchor\":5,\"atoms\":1,\"formula\":\"Na+\",\"charge\":1,\"composition\":{\"Na\":1},\"mass\":null,\"average\":null,\"ionMz\":null,\"mz\":{},\"error\":\"error.grafo.element\"}],\"selection\":null}",
+      "request": {
+        "import": "CC(=O)[O-].[Na+]",
+        "values": true
+      }
+    },
+    {
+      "name": "values: no adduct asked",
+      "out": "{\"format\":\"values/1\",\"adducts\":[],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":3,\"formula\":\"C2H6O\",\"charge\":0,\"composition\":{\"C\":2,\"H\":6,\"O\":1},\"mass\":\"46.0419\",\"average\":\"46.0690\",\"ionMz\":null,\"mz\":{},\"error\":null}],\"selection\":null}",
+      "request": {
+        "import": "CCO",
+        "set": [
+          "display.adducts="
+        ],
+        "values": true
+      }
+    },
+    {
+      "name": "values: the mass under each structure in an SVG",
+      "out": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"259.42pt\" height=\"140.88pt\" viewBox=\"0 0 259.42 140.88\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-e4d35b1b d-e4d35b1b\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":13,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":3.5,\"y\":0.433},{\"id\":2,\"el\":\"C\",\"x\":4.5,\"y\":0.433},{\"id\":3,\"el\":\"O\",\"x\":5.0,\"y\":-0.433},{\"id\":4,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":5,\"el\":\"C\",\"x\":1.0,\"y\":0.0},{\"id\":6,\"el\":\"O\",\"x\":1.5,\"y\":-0.866},{\"id\":7,\"el\":\"O\",\"x\":1.5,\"y\":0.866}],\"bonds\":[{\"id\":8,\"a\":1,\"b\":2,\"o\":1},{\"id\":9,\"a\":2,\"b\":3,\"o\":1},{\"id\":10,\"a\":4,\"b\":5,\"o\":1},{\"id\":11,\"a\":5,\"b\":6,\"o\":2},{\"id\":12,\"a\":5,\"b\":7,\"o\":1}]}</metadata>\n<title id=\"t-e4d35b1b\">C2H6O and C2H4O2</title>\n<desc id=\"d-e4d35b1b\">C2H6O and C2H4O2.</desc>\n<line x1=\"161.05\" y1=\"47.19\" x2=\"191.05\" y2=\"47.19\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"191.05\" y1=\"47.19\" x2=\"202.33\" y2=\"66.73\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"56.05\" y1=\"60.18\" x2=\"86.05\" y2=\"60.18\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"84.36\" y1=\"61.16\" x2=\"95.64\" y2=\"80.69\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"87.74\" y1=\"59.2\" x2=\"99.02\" y2=\"78.74\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.05\" y1=\"60.18\" x2=\"97.33\" y2=\"40.64\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"206.05\" y=\"73.17\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"210.25\" y=\"73.17\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"101.05\" y=\"86.16\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"101.05\" y=\"34.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"105.25\" y=\"34.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"183.55\" y=\"90.81\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">C2H6O  46.0419</text>\n<text x=\"78.55\" y=\"103.8\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">C2H4O2  60.0211</text>\n</svg>\n",
+      "request": {
+        "import": "CCO.CC(=O)O",
+        "out": "svg",
+        "set": [
+          "display.values=mass"
+        ]
+      }
+    },
+    {
+      "name": "values: the m/z of the adducts under a structure in an SVG",
+      "out": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"188.4pt\" height=\"213.97pt\" viewBox=\"0 0 188.4 213.97\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-7f34e97a d-7f34e97a\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":24,\"atoms\":[{\"id\":1,\"el\":\"O\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":1.0,\"y\":0.0},{\"id\":3,\"el\":\"C\",\"x\":1.5,\"y\":-0.866},{\"id\":4,\"el\":\"O\",\"x\":1.0,\"y\":-1.7321},{\"id\":5,\"el\":\"C\",\"x\":2.5,\"y\":-0.866},{\"id\":6,\"el\":\"O\",\"x\":3.0,\"y\":-1.7321},{\"id\":7,\"el\":\"C\",\"x\":3.0,\"y\":0.0},{\"id\":8,\"el\":\"O\",\"x\":4.0,\"y\":0.0},{\"id\":9,\"el\":\"C\",\"x\":2.5,\"y\":0.866},{\"id\":10,\"el\":\"O\",\"x\":3.0,\"y\":1.7321},{\"id\":11,\"el\":\"C\",\"x\":1.5,\"y\":0.866},{\"id\":12,\"el\":\"O\",\"x\":1.0,\"y\":1.7321}],\"bonds\":[{\"id\":13,\"a\":1,\"b\":2,\"o\":1},{\"id\":14,\"a\":2,\"b\":3,\"o\":1},{\"id\":15,\"a\":3,\"b\":4,\"o\":1},{\"id\":16,\"a\":3,\"b\":5,\"o\":1},{\"id\":17,\"a\":5,\"b\":6,\"o\":1},{\"id\":18,\"a\":5,\"b\":7,\"o\":1},{\"id\":19,\"a\":7,\"b\":8,\"o\":1},{\"id\":20,\"a\":7,\"b\":9,\"o\":1},{\"id\":21,\"a\":9,\"b\":10,\"o\":1},{\"id\":22,\"a\":9,\"b\":11,\"o\":1},{\"id\":23,\"a\":11,\"b\":12,\"o\":2}]}</metadata>\n<title id=\"t-7f34e97a\">C6H12O6</title>\n<desc id=\"d-7f34e97a\">C6H12O6.</desc>\n<line x1=\"41.64\" y1=\"86.16\" x2=\"64.2\" y2=\"86.16\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"64.2\" y1=\"86.16\" x2=\"79.2\" y2=\"112.14\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"79.2\" y1=\"112.14\" x2=\"67.92\" y2=\"131.68\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"79.2\" y1=\"112.14\" x2=\"109.2\" y2=\"112.14\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"109.2\" y1=\"112.14\" x2=\"120.48\" y2=\"131.68\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"109.2\" y1=\"112.14\" x2=\"124.2\" y2=\"86.16\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"124.2\" y1=\"86.16\" x2=\"146.76\" y2=\"86.16\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"124.2\" y1=\"86.16\" x2=\"109.2\" y2=\"60.18\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"109.2\" y1=\"60.18\" x2=\"120.48\" y2=\"40.64\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"109.2\" y1=\"60.18\" x2=\"79.2\" y2=\"60.18\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"80.89\" y1=\"59.21\" x2=\"69.61\" y2=\"39.67\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"77.51\" y1=\"61.16\" x2=\"66.23\" y2=\"41.62\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"34.2\" y=\"86.16\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"21.6\" y=\"86.16\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"64.2\" y=\"138.13\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"51.6\" y=\"138.13\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"124.2\" y=\"138.13\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"128.4\" y=\"138.13\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"154.2\" y=\"86.16\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"158.4\" y=\"86.16\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"124.2\" y=\"34.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"128.4\" y=\"34.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"64.2\" y=\"34.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"94.2\" y=\"155.77\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">[M+H]+ 181.0707</text>\n<text x=\"94.2\" y=\"166.33\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">[M+Na]+ 203.0526</text>\n<text x=\"94.2\" y=\"176.89\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">[M-H]- 179.0561</text>\n</svg>\n",
+      "request": {
+        "import": "OCC(O)C(O)C(O)C(O)C=O",
+        "out": "svg",
+        "set": [
+          "display.values=mz",
+          "display.adducts=[M+H]+,[M+Na]+,[M-H]-"
+        ]
+      }
+    },
+    {
+      "name": "values: the same request on the plain door has the formulas and no number",
+      "out": "{\"format\":\"values/1\",\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"engine\":false,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":3,\"formula\":\"C2H6O\",\"charge\":0,\"composition\":{\"C\":2,\"H\":6,\"O\":1},\"mass\":null,\"average\":null,\"ionMz\":null,\"mz\":{},\"error\":null}],\"selection\":null}",
+      "plain": true,
+      "request": {
+        "import": "CCO",
+        "values": true
+      }
+    },
+    {
+      "name": "values: the plain door draws the formula where a mass would stand",
+      "out": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"113.4pt\" height=\"114.9pt\" viewBox=\"0 0 113.4 114.9\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-f52d889d d-f52d889d\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.433},{\"id\":2,\"el\":\"C\",\"x\":1.0,\"y\":0.433},{\"id\":3,\"el\":\"O\",\"x\":1.5,\"y\":-0.433}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1}]}</metadata>\n<title id=\"t-f52d889d\">C2H6O</title>\n<desc id=\"d-f52d889d\">C2H6O.</desc>\n<line x1=\"34.2\" y1=\"34.2\" x2=\"64.2\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"64.2\" y1=\"34.2\" x2=\"75.48\" y2=\"53.74\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"79.2\" y=\"60.18\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"83.4\" y=\"60.18\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"56.7\" y=\"77.82\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">C2H6O</text>\n</svg>\n",
+      "plain": true,
+      "request": {
+        "import": "CCO",
+        "out": "svg",
+        "set": [
+          "display.values=mass"
+        ]
+      }
+    }
+  ]
+}

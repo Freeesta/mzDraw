@@ -119,12 +119,40 @@ pub fn to_svg_styled(doc: &Document, style: &Style) -> String {
     drawn(doc, style).0
 }
 
+/// `to_svg_styled` with the calculated values the editor holds (`values::Entry`): the numbers of `display.values` that need an engine
+/// are drawn only for the structures they are held for.
+pub fn to_svg_measured(doc: &Document, style: &Style, measured: &[crate::values::Entry]) -> String {
+    drawn_with(doc, style, measured).0
+}
+
 /// The display list of the whole drawing in a style, in points, with the width and the height of the page (`None` for an empty
 /// document). SVG and PDF are written from it.
-pub(crate) fn laid_out(doc: &Document, style: &Style) -> Option<(scene::Scene, f64, f64)> {
-    let (x0, y0, mut x1, y1) = doc.bounds()?;
+pub(crate) fn laid_out_with(
+    doc: &Document,
+    style: &Style,
+    measured: &[crate::values::Entry],
+) -> Option<(scene::Scene, f64, f64)> {
+    let (mut x0, mut y0, mut x1, y1) = doc.bounds()?;
     let scale = style.bond_length;
     let m = style.metrics(scale, false);
+    // the calculated values under the structures take room: the page grows to hold them
+    let captions = crate::values::captions(doc, style.values, &style.adducts, measured);
+    let cf = crate::values::caption_font(m.font);
+    for c in &captions {
+        let depth = crate::values::caption_first(scale, cf, c.below)
+            + c.lines.len().saturating_sub(1) as f64 * crate::values::caption_step(cf)
+            + cf * 0.3;
+        y0 = y0.min(c.y - depth / scale);
+        let half = c
+            .lines
+            .iter()
+            .map(|l| scene::width(l, cf))
+            .fold(0.0, f64::max)
+            / 2.0
+            / scale;
+        x0 = x0.min(c.x - half);
+        x1 = x1.max(c.x + half);
+    }
     // a text runs to the right of its anchor
     for o in doc.objects.iter().filter(|o| o.t == ObjKind::Text) {
         x1 = x1.max(o.x + scene::width(&o.text, m.font) / scale);
@@ -137,12 +165,24 @@ pub(crate) fn laid_out(doc: &Document, style: &Style) -> Option<(scene::Scene, f
         oy: pad + y1 * scale,
     };
     let (w, h) = ((x1 - x0) * scale + 2.0 * pad, (y1 - y0) * scale + 2.0 * pad);
-    Some((scene::build(doc, view, &Overlay::default(), m), w, h))
+    let over = Overlay {
+        captions,
+        ..Overlay::default()
+    };
+    Some((scene::build(doc, view, &over, m), w, h))
 }
 
 /// `to_svg_styled` with the width and the height of the drawing in points.
 pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
-    let Some((sc, w, h)) = laid_out(doc, style) else {
+    drawn_with(doc, style, &[])
+}
+
+pub(crate) fn drawn_with(
+    doc: &Document,
+    style: &Style,
+    measured: &[crate::values::Entry],
+) -> (String, f64, f64) {
+    let Some((sc, w, h)) = laid_out_with(doc, style, measured) else {
         let (attrs, elements) = alternative(doc);
         let empty = format!(
             "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"{attrs}>\n{elements}</svg>\n"

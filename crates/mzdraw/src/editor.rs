@@ -182,6 +182,17 @@ pub struct Editor {
     /// An agent's patch held apart from the drawing (`proposal`), and whether a press on a hunk number is being swallowed.
     pub(crate) proposal: Option<crate::proposal::Proposal>,
     pub eat: Option<u32>,
+    /// The engine that gives masses (`values`): none in the core, set by the bridge. Without it no mass is ever shown.
+    pub measurer: Option<crate::values::Measurer>,
+    /// The calculated values of the structures as `refresh_values` last found them, and of the selection with the atoms it was for.
+    pub(crate) measured: Vec<crate::values::Entry>,
+    pub(crate) measured_error: &'static str,
+    pub(crate) measured_adducts: Vec<String>,
+    pub(crate) measured_sel: Option<(
+        Vec<u32>,
+        crate::values::Selected,
+        Result<crate::values::Measured, &'static str>,
+    )>,
 }
 
 impl Default for Editor {
@@ -205,6 +216,11 @@ impl Default for Editor {
             style: Style::default(),
             layout: Default::default(),
             export: Default::default(),
+            measurer: None,
+            measured: Vec::new(),
+            measured_error: "",
+            measured_adducts: Vec::new(),
+            measured_sel: None,
             clip: String::new(),
             pasted: 0,
             nudge: None,
@@ -516,7 +532,7 @@ impl Editor {
 
     /// The PNG of the drawing in the editor's style, for the surface that has a rasteriser (`png::plan`).
     pub fn png_plan(&self) -> crate::png::Plan {
-        crate::png::plan(self.doc(), &self.style)
+        crate::png::plan_with(self.doc(), &self.style, &self.measured)
     }
 
     /// `import`, also giving the ids of what was added.
@@ -845,14 +861,14 @@ impl Editor {
     /// The drawing as an SVG in the editor's style, carrying its document (`svg::carrying`).
     pub fn svg(&self) -> String {
         crate::svg::carrying(
-            crate::svg::to_svg_styled(self.doc(), &self.style),
+            crate::svg::to_svg_measured(self.doc(), &self.style, &self.measured),
             self.doc(),
         )
     }
 
     /// The drawing as a PDF file in the editor's style, carrying its document (`pdf::to_pdf`).
     pub fn pdf(&self) -> Vec<u8> {
-        crate::pdf::to_pdf(self.doc(), &self.style)
+        crate::pdf::to_pdf_with(self.doc(), &self.style, &self.measured)
     }
 
     /// Marks the atoms a check flagged (ids), replacing the previous marks.
@@ -862,13 +878,107 @@ impl Editor {
 
     pub fn scene(&self) -> Scene {
         let metrics = self.style.metrics(self.view.scale, true);
-        if self.live_proposal().is_some() {
-            let over = Overlay {
-                marks: self.proposal_marks(),
-                ..self.over.clone()
-            };
-            return scene::build(self.doc(), self.view, &over, metrics);
+        let over = Overlay {
+            marks: if self.live_proposal().is_some() {
+                self.proposal_marks()
+            } else {
+                self.over.marks.clone()
+            },
+            captions: crate::values::captions(
+                self.doc(),
+                self.style.values,
+                &self.style.adducts,
+                &self.measured,
+            ),
+            ..self.over.clone()
+        };
+        scene::build(self.doc(), self.view, &over, metrics)
+    }
+
+    /// Asks the engine for the calculated values of every structure and of the selection (`values`), after a change or a change of
+    /// the adducts. Without an engine, or above the caps, nothing is held (the formulas are always there, from the record).
+    pub fn refresh_values(&mut self) {
+        self.measured_sel = None;
+        let Some(engine) = self.measurer else {
+            self.measured.clear();
+            self.measured_error = "";
+            return;
+        };
+        if self.doc().atoms.is_empty() {
+            self.measured.clear();
+            self.measured_error = "";
+            return;
         }
-        scene::build(self.doc(), self.view, &self.over, metrics)
+        let scan = crate::values::scan(self.doc());
+        // a move or a bond edit that leaves every structure as it was (formula, isotopes, anchor) and the adducts as they were keeps
+        // what the engine gave: a mass does not depend on where an atom is drawn
+        let same = self.measured_error.is_empty()
+            && self.measured_adducts == self.style.adducts
+            && self.measured.len() == scan.structures.len()
+            && (self.measured.iter().zip(&scan.structures)).all(|(e, s)| e.matches(s));
+        if !same {
+            self.measured.clear();
+            self.measured_error = "";
+            self.measured_adducts = self.style.adducts.clone();
+            match scan.measure(&self.style.adducts, engine) {
+                Ok(entries) => self.measured = entries,
+                Err(key) => self.measured_error = key,
+            }
+        }
+        let ids = self.over.sel_atoms.clone();
+        if let Some(sel) = scan.selection(self.doc(), &ids) {
+            let r = sel.measure(&self.style.adducts, engine);
+            self.measured_sel = Some((ids, sel, r));
+        }
+    }
+
+    /// Recomputes only the numbers of the selection, when the atoms selected are not the ones they were found for (a selection is not a
+    /// change of the drawing, so `refresh_values` did not run).
+    pub fn refresh_selection_values(&mut self) {
+        let Some(engine) = self.measurer else {
+            return;
+        };
+        let held = self.measured_sel.as_ref().map(|s| &s.0);
+        if held == Some(&self.over.sel_atoms) || (held.is_none() && self.over.sel_atoms.is_empty())
+        {
+            return;
+        }
+        self.measured_sel = None;
+        let ids = self.over.sel_atoms.clone();
+        let scan = crate::values::scan(self.doc());
+        if let Some(sel) = scan.selection(self.doc(), &ids) {
+            let r = sel.measure(&self.style.adducts, engine);
+            self.measured_sel = Some((ids, sel, r));
+        }
+    }
+
+    /// The `values` of the page: `{"adducts", "error", "structures": [{numbers of each structure, in the order of the outline}],
+    /// "selection": {...} | null}`; the numbers are the ones `refresh_values` found, `null` where there are none.
+    pub fn values_json(&self) -> String {
+        let doc = self.doc();
+        let scan = crate::values::scan(doc);
+        let rows: Vec<String> = (scan.structures.iter())
+            .map(|s| {
+                let r = (self.measured.iter())
+                    .find(|e| e.matches(s))
+                    .map(|e| &e.result);
+                crate::values::structure_json(s, r, &self.style.adducts)
+            })
+            .collect();
+        let selection = match &self.measured_sel {
+            Some((ids, sel, r)) => {
+                crate::values::selection_json(sel, ids, Some(r), &self.style.adducts)
+            }
+            None => "null".to_string(),
+        };
+        let names: Vec<String> = (self.style.adducts.iter())
+            .map(|a| serde_json::Value::from(a.as_str()).to_string())
+            .collect();
+        format!(
+            r#"{{"adducts":[{}],"error":{},"structures":[{}],"selection":{selection}}}"#,
+            names.join(","),
+            serde_json::Value::from(self.measured_error),
+            rows.join(",")
+        )
     }
 }

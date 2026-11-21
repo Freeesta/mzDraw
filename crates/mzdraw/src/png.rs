@@ -37,7 +37,12 @@ pub struct Plan {
 
 /// The plan of the PNG of a document in a style: 300 pixels per inch of the SVG, on white.
 pub fn plan(doc: &Document, style: &Style) -> Plan {
-    let (svg, w, h) = crate::svg::drawn(doc, style);
+    plan_with(doc, style, &[])
+}
+
+/// `plan` with the calculated values the editor holds.
+pub fn plan_with(doc: &Document, style: &Style, measured: &[crate::values::Entry]) -> Plan {
+    let (svg, w, h) = crate::svg::drawn_with(doc, style, measured);
     // points to pixels
     let k = (DPI / 72.0).min(MAX_SIDE / w.max(h).max(1.0));
     Plan {

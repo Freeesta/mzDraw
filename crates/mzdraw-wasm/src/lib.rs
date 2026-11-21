@@ -26,8 +26,18 @@ struct Page {
     std_none: bool,
 }
 
+/// A page with the editor connected to the engine that gives the masses (`glue::measure`, the engine `sel` of mzLab).
+fn new_page() -> Page {
+    let mut page = Page::default();
+    #[cfg(feature = "sel")]
+    {
+        page.editor.measurer = Some(glue::measure);
+    }
+    page
+}
+
 thread_local! {
-    static PAGE: RefCell<Page> = RefCell::new(Page::default());
+    static PAGE: RefCell<Page> = RefCell::new(new_page());
 }
 
 fn with<T>(f: impl FnOnce(&mut Page) -> T) -> T {
@@ -58,6 +68,8 @@ fn recheck(p: &mut Page) {
     p.std = report.counts_json();
     p.std_none = !p.editor.doc().atoms.is_empty() && report.checks.is_empty();
     live_check(p);
+    // the calculated values (formula, masses, m/z): the formulas come from the record, the numbers from the engine
+    p.editor.refresh_values();
 }
 
 #[cfg(feature = "mzlab")]
@@ -366,7 +378,11 @@ pub fn styles() -> Vec<String> {
 /// Sets the drawing style of the screen and of the saved SVG: a preset name or the text of a settings file `mzdraw-settings/1`.
 #[wasm_bindgen]
 pub fn set_style(text: &str) -> Result<u32, JsValue> {
-    with(|p| p.editor.set_style(text).map_err(js_err))
+    with(|p| {
+        let flags = p.editor.set_style(text).map_err(js_err)?;
+        p.editor.refresh_values();
+        Ok(flags)
+    })
 }
 
 /// How many atom maps `save(kind)` leaves out of the file because the format has none (0 for the formats that hold them).
@@ -461,7 +477,12 @@ pub fn ann_levels(scale: &str, file_level: &str) -> String {
 /// Sets one setting, `<section>.<key>=<value>` (for the style: `style.line_width=2`, `style.colour=mono`).
 #[wasm_bindgen]
 pub fn set(setting: &str) -> Result<u32, JsValue> {
-    with(|p| p.editor.set(setting).map_err(js_err))
+    with(|p| {
+        let flags = p.editor.set(setting).map_err(js_err)?;
+        // the adducts and the mode of `display.values` change what is asked of the engine
+        p.editor.refresh_values();
+        Ok(flags)
+    })
 }
 
 /// The schema of the settings file: presets, colours and the numeric fields with unit, bounds and default.
@@ -551,11 +572,13 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, moveHere, clip, say: {key, what}, notice: {key, what}, error, check, std}` (`check` is
+/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, moveHere, clip, say: {key, what}, notice: {key, what}, error, check, std, proposal, values: {adducts, error, structures: [{anchor, atoms, formula, charge, composition, mass, average, ionMz, mz, error}], selection: {of, atoms, formula, ...} | null}}` (`check` is
 /// the `check/1` document or null; `std` is `{none, lines}`: `lines` lists the drawing checks that have findings, `[{key, grade, n}]`, as `Editor::save("std")` reports them, and `none` is true when something is drawn and there are none).
 #[wasm_bindgen]
 pub fn state() -> String {
     with(|p| {
+        // a selection is not a change of the drawing: its numbers are asked for here
+        p.editor.refresh_selection_values();
         let e = &p.editor;
         // written by hand: building the state as a JSON value cost about 2 kB of module more
         let q = |s: &str| serde_json::Value::from(s).to_string();
@@ -601,7 +624,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -626,6 +649,7 @@ pub fn state() -> String {
             p.std_none,
             if p.std.is_empty() { "[]" } else { &p.std },
             e.proposal_json(),
+            e.values_json(),
         )
     })
 }

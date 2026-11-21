@@ -94,6 +94,8 @@ pub struct Overlay {
     pub band: Option<(f64, f64, f64, f64)>,
     /// The marks of an open proposal, laid over the drawing (filled by `Editor::scene`).
     pub marks: Vec<Mark>,
+    /// The calculated values drawn under the structures (`display.values`), filled by the editor and by the exports.
+    pub captions: Vec<crate::values::Caption>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -607,6 +609,19 @@ impl Painter<'_> {
         }
     }
 
+    /// The calculated values under each structure (`display.values`), below the level when there is one.
+    fn captions(&mut self) {
+        let f = crate::values::caption_font(self.font);
+        for c in &self.over.captions {
+            let (x, y) = self.view.to_px(c.x, c.y);
+            let first = y + crate::values::caption_first(self.view.scale, f, c.below);
+            for (k, line) in c.lines.iter().enumerate() {
+                let at = first + k as f64 * crate::values::caption_step(f);
+                self.text(x, at, f, colour::INK, line, 0.0);
+            }
+        }
+    }
+
     /// The level of each annotated structure, as `L` and the level (`L2b`) centred under the structure.
     fn levels(&mut self) {
         if self.doc.atoms.iter().all(|a| a.ann().is_empty()) {
@@ -700,6 +715,7 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
     }
     p.atoms();
     p.levels();
+    p.captions();
     for o in &doc.objects {
         p.object(o);
     }
