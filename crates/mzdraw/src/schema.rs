@@ -179,6 +179,25 @@ pub const OPS: &[OpSpec] = &[
         mzlab: false,
     },
     OpSpec {
+        name: "colour",
+        fields: &[
+            nf("atoms", "uint[]", false, "", "atom ids"),
+            nf("bonds", "uint[]", false, "", "bond ids"),
+            nf("objects", "uint[]", false, "", "object ids: arrows, plus signs, texts"),
+            nf(
+                "col",
+                "string",
+                true,
+                "",
+                "`#rgb` or `#rrggbb` in any case, kept as `#rrggbb`; the empty text is automatic and takes the colour away (the element colour, or the ink of the mono style, shows again)",
+            ),
+        ],
+        inverse: "SetAtom, SetBond, SetObj",
+        since: crate::brand::FIRST_DOCUMENT_ID,
+        mzdraw: true,
+        mzlab: false,
+    },
+    OpSpec {
         name: "bond.set",
         fields: &[
             f("id", "uint", true, "", ""),

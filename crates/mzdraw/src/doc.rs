@@ -123,6 +123,11 @@ pub fn data_valid(data: &[(String, String)]) -> bool {
 }
 
 impl Atom {
+    /// The explicit colour (`ink`): `#rrggbb`, empty for automatic.
+    pub fn col(&self) -> String {
+        crate::ink::get(&self.more)
+    }
+
     /// The data kept on this atom (empty for most atoms; a field `data` of another shape is not data and is left alone).
     pub fn data(&self) -> Data {
         let text = self
@@ -207,6 +212,13 @@ pub struct Bond {
     pub more: More,
 }
 
+impl Bond {
+    /// The explicit colour (`ink`): `#rrggbb`, empty for automatic.
+    pub fn col(&self) -> String {
+        crate::ink::get(&self.more)
+    }
+}
+
 /// What a drawing object other than a molecule is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjKind {
@@ -257,6 +269,11 @@ impl ObjKind {
 }
 
 impl Obj {
+    /// The explicit colour (`ink`): `#rrggbb`, empty for automatic.
+    pub fn col(&self) -> String {
+        crate::ink::get(&self.more)
+    }
+
     /// An arrow has a length, a text has a text of one line, a plus has neither a second point nor a text.
     pub fn valid(&self) -> bool {
         let one_line = !self.text.contains(['\n', '\r']) && self.text.chars().count() <= 200;

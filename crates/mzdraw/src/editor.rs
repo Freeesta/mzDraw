@@ -258,6 +258,14 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
                 ann,
             });
         }
+        if !a.col().is_empty() {
+            ops.push(Op::Colour {
+                atoms: vec![base + a.id],
+                bonds: Vec::new(),
+                objects: Vec::new(),
+                col: a.col(),
+            });
+        }
     }
     for b in &new.bonds {
         ops.push(Op::BondAdd {
@@ -267,6 +275,14 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             o: b.o,
             s: b.s,
         });
+        if !b.col().is_empty() {
+            ops.push(Op::Colour {
+                atoms: Vec::new(),
+                bonds: vec![base + b.id],
+                objects: Vec::new(),
+                col: b.col(),
+            });
+        }
     }
     for o in &new.objects {
         let arrow = o.t == ObjKind::Arrow;
@@ -281,6 +297,14 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             from: if o.from == 0 { 0 } else { base + o.from },
             to: if o.to == 0 { 0 } else { base + o.to },
         });
+        if !o.col().is_empty() {
+            ops.push(Op::Colour {
+                atoms: Vec::new(),
+                bonds: Vec::new(),
+                objects: vec![base + o.id],
+                col: o.col(),
+            });
+        }
     }
     ops
 }
@@ -638,16 +662,19 @@ impl Editor {
             return self.table_notes.borrow().clone();
         }
         // the notes of the last `pathway:label` (a structure the engine could not measure, a charged product with no m/z)
-        Some(("draw2.export.mapsLost", self.doc().maps_lost(kind)))
-            .filter(|l| l.1 > 0)
-            .into_iter()
-            .chain(
-                self.label_notes
-                    .iter()
-                    .copied()
-                    .filter(|_| self.doc().to_json() == self.label_notes_doc),
-            )
-            .collect()
+        [
+            ("draw2.export.mapsLost", self.doc().maps_lost(kind)),
+            ("draw2.export.coloursLost", self.doc().colours_lost(kind)),
+        ]
+        .into_iter()
+        .filter(|l| l.1 > 0)
+        .chain(
+            self.label_notes
+                .iter()
+                .copied()
+                .filter(|_| self.doc().to_json() == self.label_notes_doc),
+        )
+        .collect()
     }
 
     /// Adds the structure of a text (SMILES, molfile or SDF, `mzdraw/1`) to the right of the drawing, as one undo step.

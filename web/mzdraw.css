@@ -96,6 +96,13 @@ canvas:focus-visible { outline-offset: -3px; }
 /* flyouts: beside the button that opens them, on the side away from the palette's edge */
 #d2-flys .fly { position: fixed; z-index: 40; display: flex; flex-direction: column; gap: 2px; min-width: 200px; max-height: 80vh; overflow: auto; padding: 6px; background: var(--bg); border: 1px solid var(--mzd-border); border-radius: 8px; box-shadow: 0 6px 20px var(--mzd-shadow); }
 #d2-flys .fly[hidden], #d2-fly-saveas[hidden] { display: none; }
+#d2-colour-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+#d2-colour-list button { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 8px; text-align: left; }
+#d2-colour-list .chip { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--fg); box-sizing: border-box; }
+#d2-colour-list .chip.auto { background: conic-gradient(var(--fg) 0 25%, transparent 0 50%, var(--fg) 0 75%, transparent 0); }
+.d2-colour-custom { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.d2-colour-custom input { min-height: 36px; width: 7.5em; }
+#d2-colour-note { margin: 4px 0 0; min-height: 1.2em; }
 .fly button[data-cmd], .fly button[data-opens] { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; min-height: 40px; border-color: transparent; background: transparent; }
 .fly.grid { display: grid; grid-template-columns: repeat(5, 44px); min-width: 0; }
 .fly.grid button[data-cmd] { width: 44px; height: 44px; justify-content: center; padding: 0; }

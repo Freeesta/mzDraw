@@ -1904,7 +1904,7 @@ try {
     await pg.focus("#d2-canvas");
     // a bond: its order and its wedge; the item that is already the state is checked
     await open(...bond, "bond");
-    eq((await menuNow(pg)).ids, ["bond.o.1", "bond.o.2", "bond.o.3", "bond.s.up", "bond.s.down", "bond.s.wavy", "bond.reverse", "bond.delete"]);
+    eq((await menuNow(pg)).ids, ["bond.o.1", "bond.o.2", "bond.o.3", "bond.s.up", "bond.s.down", "bond.s.wavy", "bond.reverse", "edit.colour", "colour.auto", "colour.black", "colour.red", "colour.orange", "colour.yellow", "colour.green", "colour.teal", "colour.blue", "colour.purple", "colour.magenta", "colour.brown", "colour.grey", "colour.custom", "bond.delete"]);   // the group Colour of colour-selection is folded in the menu and listed here with its children
     // an item that is not offered is not on the keyboard walk
     await pg.focus("#d2-menu .ctx"); const walk = [];
     for (let i = 0; i < 9; i++) { await pg.keyboard.press("ArrowDown"); walk.push((await menuNow(pg)).active); }
@@ -1915,7 +1915,7 @@ try {
     await open(...bond, "bond"); eq(await pg.getAttribute(item("bond.s.up"), "aria-checked"), "true"); eq(await pg.getAttribute(item("bond.reverse"), "aria-disabled"), null, "a marked bond can be reversed");
     await pg.keyboard.press("Escape"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
     // an object: edit asks for the text field; delete is one undo step
-    await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "pathway.anchor", "pathway.free", "edit.delete"]);
+    await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "pathway.anchor", "pathway.free", "edit.colour", "colour.auto", "colour.black", "colour.red", "colour.orange", "colour.yellow", "colour.green", "colour.teal", "colour.blue", "colour.purple", "colour.magenta", "colour.brown", "colour.grey", "colour.custom", "edit.delete"]);
     await pg.click(item("edit.delete")); await want(pg, { objects: 0 }); await pg.keyboard.press("Control+z"); await want(pg, { objects: 1 });
     // a selection: a click inside it keeps it; rotate is one undo step; copy as SMILES reaches the clipboard of the system
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 13 });
@@ -2356,6 +2356,102 @@ try {
     await pg.mouse.click(...(await tpAtom()), { button: "right" }); await tpShown();
     assert(!(await tpMenu()).ids.includes("tp.step"), "no Apply step while the setting is off");
     await pg.keyboard.press("Escape"); await tpShown(false);
+  });
+  // colour-selection: a part of the drawing is selected and a colour is clicked (the toolbar flyout, the field for a typed colour, the context
+  // menu). The module judges and applies it as one undo step; the page equals the goldens of tests/data/log/colour.json after each way
+  const clGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/colour.json"), "utf8")).cases;
+  const clOpen = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), clGold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 4 }); return tpDoc(); };
+  const clSame = async (gold, what) => { eq(await tpDoc(), gold.out.mzdraw, what + ": document"); eq(await tpSvg(), gold.out.svg, what + ": picture"); };
+  /** the pixel of the oxygen of the drawing (its label in the display list) */
+  const clOxygen = async () => {
+    const d = await pg.evaluate("Array.from(window.MZDRAW.scene())"), t = await pg.evaluate("Array.from(window.MZDRAW.strings())"), b = await pg.locator("#d2-canvas").boundingBox();
+    for (let i = 0; i < d.length;) { const op = d[i]; if (op === 2 && t[d[i + 5]] === "O") return [b.x + d[i + 1], b.y + d[i + 2]]; i += op === 1 ? 7 : op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : 5; }
+    throw new Error("no oxygen in the display list");
+  };
+  await step("colour by keyboard: select all (Ctrl+A), reach the Colour flyout of the toolbar by the arrow key, Enter on Red; the page equals the golden, the name is text, the colour in use is pressed, one undo; Automatic gives the element colours back", async () => {
+    const before = await clOpen();
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await until(pg, `${STATE}.selected > 0`);
+    await reveal(pg, '[data-testid="d2-colour-red"]');
+    // the name of each colour is text, not colour only
+    eq(await pg.locator("#d2-colour-list .txt").allInnerTexts(), ["Automatic", "Black", "Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Purple", "Magenta", "Brown", "Grey"]);
+    await pg.focus('[data-testid="d2-colour-red"]'); await pg.keyboard.press("Enter"); await frames(pg);
+    await clSame(clGold[2], "keyboard, palette");
+    eq(await pg.getAttribute('[data-testid="d2-colour-red"]', "aria-pressed"), "true");
+    eq(await pg.innerText("#d2-colour-note"), "Colour set: Red.");
+    await shot(pg, "colour-flyout"); await shotEl(pg, "#d2-fly-colour", "colour-flyout-el");
+    await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+    // Automatic takes the colour away again: the document is as it was before the first colour
+    await pg.keyboard.press("Control+y"); await clSame(clGold[2], "redo");
+    await reveal(pg, '[data-testid="d2-colour-auto"]'); await pg.focus('[data-testid="d2-colour-auto"]'); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await tpDoc(), before); eq(await pg.getAttribute('[data-testid="d2-colour-auto"]', "aria-pressed"), "true");
+  });
+  await step("colour by keyboard, typed: the focused atom (Home) takes #0F8 from the field and Enter; the page equals the golden; a word that is no colour is refused with its text and changes nothing", async () => {
+    const before = await clOpen();
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await until(pg, `${STATE}.focus === 1`);
+    await fillIn(pg, "#d2-colour-hex", "red"); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await tpDoc(), before); eq(await pg.getAttribute("#d2-colour-hex", "aria-invalid"), "true");
+    eq(await pg.innerText("#d2-colour-note"), await pg.evaluate("I18N.t('error.draw2.colour')"));
+    await pg.fill("#d2-colour-hex", "#0F8"); await pg.keyboard.press("Enter"); await frames(pg);
+    await clSame(clGold[3], "typed");
+    eq(await pg.inputValue("#d2-colour-hex"), "");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+    // nothing selected, nothing focused: the word says so
+    const area = await pg.locator("#d2-canvas").boundingBox(); await pg.mouse.click(area.x + 12, area.y + area.height - 12); await frames(pg);
+    await pg.keyboard.press("Escape");
+    await fillIn(pg, "#d2-colour-hex", "#d00000"); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await tpDoc(), before); eq(await pg.innerText("#d2-colour-note"), await pg.evaluate("I18N.t('error.draw2.colourNone')"));
+  });
+  await step("colour: the mono style does not erase an explicit colour (the page equals the golden picture), and the files with no place for colours say what they left out", async () => {
+    await pg.evaluate(text => { const m = /** @type {any} */ (window).MZDRAW; m.open(text); m.set("style.colour=mono"); }, clGold[1].out.mzdraw);
+    await frames(pg); eq(await tpSvg(), clGold[1].out.svg);
+    await pg.evaluate("window.MZDRAW.set('style.colour=element')");
+    eq(await pg.evaluate("window.MZDRAW.colours_lost('molfile')"), 4); eq(await pg.evaluate("window.MZDRAW.colours_lost('cdxml')"), 0); eq(await pg.evaluate("window.MZDRAW.colours_lost('svg')"), 0);
+    await saveAs(pg, "#d2-ex-molfile"); await until(pg, `document.getElementById("d2-ex-note").textContent.includes("colours")`);
+    eq(await pg.innerText("#d2-ex-note"), "This format has no place for colours: 4 atoms, bonds and objects are written without theirs.");
+  });
+  await step("colour by mouse: right-click the oxygen, the group Colour, Blue; the page equals the golden, the item that is in use is checked, one undo", async () => {
+    const before = await clOpen(), at = await clOxygen();
+    await pg.mouse.click(...at, { button: "right" }); await tpShown();
+    assert((await tpMenu()).ids.includes("colour.blue") && (await tpMenu()).ids.includes("colour.auto") && (await tpMenu()).ids.includes("colour.custom"), "the colour items");
+    await pg.click('[data-testid="d2-ctx-edit.colour"]'); await pg.click('[data-testid="d2-ctx-colour.blue"]'); await tpShown(false); await frames(pg);
+    await clSame(clGold[4], "mouse");
+    await pg.mouse.click(...at, { button: "right" }); await tpShown(); await pg.click('[data-testid="d2-ctx-edit.colour"]');
+    eq(await pg.getAttribute('[data-testid="d2-ctx-colour.blue"]', "aria-checked"), "true");
+    // Custom... gives the keyboard to the field of the flyout
+    await pg.click('[data-testid="d2-ctx-colour.custom"]'); await tpShown(false); await until(pg, `document.activeElement.id === "d2-colour-hex"`);
+    await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  /** the Colour flyout of the toolbar open (a tap on its opener when it is shut: one tap toggles it) */
+  const clFly = async tap => { const red = '[data-testid="d2-colour-red"]'; if (await pg.isVisible(red)) return; await reveal(pg, '[data-testid="d2-colour"]'); await tap(...await center(pg, '[data-testid="d2-colour"]')); await until(pg, `!document.getElementById("d2-fly-colour").hidden`); };
+  await step("colour by touch: long press the oxygen, tap Colour, tap Blue; the page equals the golden, one undo", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    const before = await clOpen(), at = await clOxygen();
+    await touch("touchStart", [at]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await tpShown(); eq((await tpMenu()).kind, "touch");
+    await pg.touchscreen.tap(...await center(pg, '[data-testid="d2-ctx-edit.colour"]'));
+    await pg.touchscreen.tap(...await center(pg, '[data-testid="d2-ctx-colour.blue"]')); await tpShown(false); await frames(pg);
+    await clSame(clGold[4], "touch"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+    // the flyout of the toolbar by touch: select all by the keyboard-free route is the toolbar's Select all, then a tap on Red
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
+    await clFly((x, y) => pg.touchscreen.tap(x, y));
+    const box = await pg.locator('[data-testid="d2-colour-red"]').boundingBox(); assert(box.height >= 40, "a finger-size swatch: " + box.height);
+    await shot(pg, "colour-flyout-touch");
+    await pg.touchscreen.tap(...await center(pg, '[data-testid="d2-colour-red"]')); await frames(pg);
+    await clSame(clGold[2], "touch, toolbar");
+    await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  await step("colour by pen: barrel button on the oxygen, Colour, Blue; a pen tap on Red of the flyout after Select all; the page equals the goldens, one undo each", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y, barrel = false) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : barrel ? "right" : "left", buttons: type === "mousePressed" ? (barrel ? 2 : 1) : 0, clickCount: 1 });
+    const tap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const before = await clOpen(), at = await clOxygen();
+    await pen("mouseMoved", ...at, true); await pen("mousePressed", ...at, true); await tpShown(); eq((await tpMenu()).kind, "pen"); await pen("mouseReleased", ...at, true);
+    await tap(...await center(pg, '[data-testid="d2-ctx-edit.colour"]')); await tap(...await center(pg, '[data-testid="d2-ctx-colour.blue"]')); await tpShown(false); await frames(pg);
+    await clSame(clGold[4], "pen"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
+    await clFly(tap); await tap(...await center(pg, '[data-testid="d2-colour-red"]')); await frames(pg);
+    await clSame(clGold[2], "pen, toolbar"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
   });
   await ctx.close();
 

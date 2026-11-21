@@ -23,11 +23,11 @@ const SPEC = /** @type {Record<string, any>} */ ({
   objects: { keep: ["arrow", "plus", "scheme-row", "pathway-tree", "pathway-label"], items: [], head: "text", owns: "text:", fields: ["text"], more: "text" },
   file: { items: ["open", "save", "saveas", "clear", "prefs", "palettes"], head: "open" },
   history: { items: ["undo", "redo"], head: "undo" },
-  edit: { items: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v", "scheme-orient"], head: "more" },
+  edit: { items: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v", "colour", "scheme-orient"], head: "more" },
   view: { items: ["zoom-out", "zoom-in", "fit"], head: "fit" },
 });
 /** the buttons that open a flyout of their own, and the icon of each */
-const OPENERS = { saveas: "formats", palettes: "palettes", prefs: "gear" };
+const OPENERS = { saveas: "formats", palettes: "palettes", prefs: "gear", colour: "colour" };
 
 /** @type {any} */ let ctx = null;
 /** the palettes by id: element, its parts, and what it holds @type {Record<string, any>} */
@@ -55,7 +55,7 @@ function button(c, pal) {
   b.type = "button"; b.dataset.testid = P + c;
   if (c in OPENERS) { b.dataset.opens = c; b.setAttribute("aria-expanded", "false"); b.setAttribute("aria-controls", P + "fly-" + c); }
   else b.dataset.cmd = c;
-  b.append(c in OPENERS ? icon(OPENERS[/** @type {"saveas" | "palettes" | "prefs"} */ (c)]) : face(c));
+  b.append(c in OPENERS ? icon(OPENERS[/** @type {"saveas" | "palettes" | "prefs" | "colour"} */ (c)]) : face(c));
   b.title = t(`draw2.tool.${k}.title`); b.setAttribute("aria-label", b.title);
   const s = document.createElement("span"); s.className = "txt"; s.textContent = c.startsWith("atom:") ? b.title.replace(/ \(.*$/, "") : t(`draw2.tool.${k}`); b.append(s);
   // a pointer click gives the keyboard back to the canvas (shortcuts keep working); a keyboard activation stays on the button

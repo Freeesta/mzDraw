@@ -43,6 +43,38 @@ struct Read {
     groups: Vec<(usize, String)>,
     far: (f64, usize, bool),
     other: usize,
+    /// The index into the colour table of each node and each bond (`None`: the default ink), in the order they were read.
+    atom_col: Vec<Option<usize>>,
+    bond_col: Vec<Option<usize>>,
+}
+
+/// The colour index of an object: `color` as a number; 0 and 1 (black and white) are the default ink and background, the table
+/// starts at 2.
+fn colour_index(e: &Element) -> Option<usize> {
+    e.attr("color")?.parse::<usize>().ok().filter(|i| *i >= 2)
+}
+
+/// The colours of the `colortable` of the root as written: entry `i` is the colour `i` of the file (a file lists white and black as
+/// entries 0 and 1, so the first colour of a drawing is entry 2), as canonical `#rrggbb` (an entry that is not three numbers of 0..1
+/// is empty).
+fn colour_table(root: &Element) -> Vec<String> {
+    let Some(t) = root.each("colortable").next() else {
+        return Vec::new();
+    };
+    t.each("color")
+        .map(|c| {
+            let v = |k: &str| {
+                c.attr(k)
+                    .and_then(|x| x.parse::<f64>().ok())
+                    .filter(|x| (0.0..=1.0).contains(x))
+                    .map(|x| (x * 255.0).round() as u32)
+            };
+            match (v("r"), v("g"), v("b")) {
+                (Some(r), Some(g), Some(b)) => format!("#{r:02x}{g:02x}{b:02x}"),
+                _ => String::new(),
+            }
+        })
+        .collect()
 }
 
 /// The numbers of an attribute such as `p="72 144"`, y turned up (CDXML counts y downwards).
@@ -177,6 +209,7 @@ impl Read {
         ));
         self.ids
             .push((n.attr("id").unwrap_or_default().to_string(), index));
+        self.atom_col.push(colour_index(n));
     }
 
     fn bond(&mut self, b: &Element) {
@@ -204,6 +237,7 @@ impl Read {
             (end("B"), end("E"))
         };
         self.bonds.push((from, to, order, cfg));
+        self.bond_col.push(colour_index(b));
     }
 }
 
@@ -248,6 +282,17 @@ pub(crate) fn from_tree(
             a.lab = lab;
         }
     }
+    // the colours: the atoms are in file order; the bonds only when the reader kept every one of them (it may refuse some)
+    let table = colour_table(root);
+    let hex = |c: &Option<usize>| c.and_then(|i| table.get(i)).cloned().unwrap_or_default();
+    for (a, c) in d.atoms.iter_mut().zip(&r.atom_col) {
+        crate::ink::put(&mut a.more, &hex(c));
+    }
+    if d.bonds.len() == r.bond_col.len() {
+        for (b, c) in d.bonds.iter_mut().zip(&r.bond_col) {
+            crate::ink::put(&mut b.more, &hex(c));
+        }
+    }
     Ok(d)
 }
 
@@ -271,11 +316,41 @@ impl Document {
                 xml::escape(s)
             )
         };
+        // the colours of the atoms and bonds, in order of first use; the table lists white and black as entries 0 and 1 (as the files of
+        // tests/data do), so the first of these is entry 2
+        let mut table: Vec<String> = Vec::new();
+        for c in (self.atoms.iter().map(|a| a.col())).chain(self.bonds.iter().map(|b| b.col())) {
+            if !c.is_empty() && !table.contains(&c) {
+                table.push(c);
+            }
+        }
+        let paint = |c: String| match table.iter().position(|t| *t == c) {
+            Some(i) => format!(" color=\"{}\"", i + 2),
+            None => String::new(),
+        };
         let mut out = format!(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"{}\" BondLength=\"{}\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n",
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"{}\" BondLength=\"{}\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n{}<page>\n",
             crate::NAME,
             // as an integer: an `f64` given to the formatter of the standard library costs 22 kB of module
-            BOND as u32
+            BOND as u32,
+            if table.is_empty() {
+                String::new()
+            } else {
+                let rows: String = (table.iter())
+                    .map(|h| {
+                        let v = |i: usize| {
+                            let x = u8::from_str_radix(&h[i..i + 2], 16).unwrap_or(0);
+                            let t = fixed(f64::from(x) / 255.0, 3);
+                            match t.trim_end_matches('0').trim_end_matches('.') {
+                                "" => "0".to_string(),
+                                t => t.to_string(),
+                            }
+                        };
+                        format!("<color r=\"{}\" g=\"{}\" b=\"{}\"/>", v(1), v(3), v(5))
+                    })
+                    .collect();
+                format!("<colortable><color r=\"1\" g=\"1\" b=\"1\"/><color r=\"0\" g=\"0\" b=\"0\"/>{rows}</colortable>\n")
+            }
         );
         let mut id = 0;
         let mut next = || {
@@ -291,6 +366,7 @@ impl Document {
             let p = m.coords.as_ref().and_then(|c| c.xy.get(i));
             let (x, y) = p.map_or((0.0, 0.0), |p| (p[0], p[1]));
             out += &format!("<n id=\"{}\" p=\"{}\"", next(), pt(x, y));
+            out += &paint(self.atoms.get(i).map_or_else(String::new, |d| d.col()));
             let drawn = self.atoms.get(i).map_or("", |d| d.lab.as_str());
             if let Some(Kind::R(_)) = label::kind(drawn) {
                 out += &format!(
@@ -341,6 +417,10 @@ impl Document {
                 None if b.o > 1 => (b.a as usize, b.b as usize, format!(" Order=\"{}\"", b.o)),
                 None => (b.a as usize, b.b as usize, String::new()),
             };
+            let more = format!(
+                "{more}{}",
+                paint(self.bonds.get(k).map_or_else(String::new, |d| d.col()))
+            );
             out += &format!(
                 "<b id=\"{}\" B=\"{}\" E=\"{}\"{more}/>\n",
                 next(),

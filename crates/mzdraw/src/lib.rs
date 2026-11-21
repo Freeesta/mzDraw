@@ -24,6 +24,7 @@ mod editor_tools;
 pub mod editor_touch;
 pub mod feedback;
 pub mod formats;
+pub mod ink;
 pub mod io;
 pub mod ket;
 pub mod label;
