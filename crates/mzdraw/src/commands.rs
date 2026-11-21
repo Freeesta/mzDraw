@@ -1,6 +1,6 @@
 //! The editor commands of a request (`"commands":[{"command":NAME,"args":{...}}]`): the same commands the page runs, so a raw-op
 //! agent gets the follow of anchored arrows (`route`) that a bare operation of the log does not give. The commands of this slice
-//! are `move`, `rotate` and `flip`; their `args` are the fields of the operation of the same name, and a `rotate` without `x`,
+//! are `move`, `rotate`, `flip` and (tp-02) `pathway:anchor` (`{"arrow": id}`) and `pathway:route`; their `args` are the fields of the operation of the same name, and a `rotate` without `x`,
 //! `y` (or a `flip` without `at`) works about the centre of the bounding box of its atoms, as the buttons of the page do.
 
 use crate::editor::Editor;
@@ -9,7 +9,10 @@ use serde_json::{json, Value};
 
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
-    matches!(name, "move" | "rotate" | "flip")
+    matches!(
+        name,
+        "move" | "rotate" | "flip" | "pathway:anchor" | "pathway:route"
+    )
 }
 
 /// Checks the shape of a command before any command runs: a known name, `args` an object whose fields are the fields of the
@@ -18,6 +21,9 @@ pub(crate) fn known(name: &str) -> bool {
 pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     if !known(name) {
         return Err("error.draw2.command");
+    }
+    if name.starts_with("pathway:") {
+        return pathway_args(name, args).map(|_| ());
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or("error.draw2.request")?;
@@ -34,12 +40,36 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     Op::parse(&v).map(|_| ())
 }
 
+/// The arrow of `pathway:anchor` (`args` is `{"arrow": id}`); `pathway:route` takes no argument. Anything else is an invalid request.
+fn pathway_args(name: &str, args: &Value) -> Result<Option<u32>, &'static str> {
+    let obj = args.as_object().ok_or("error.draw2.request")?;
+    if name == "pathway:route" {
+        return if obj.is_empty() {
+            Ok(None)
+        } else {
+            Err("error.draw2.request")
+        };
+    }
+    let id = obj.get("arrow").and_then(Value::as_u64);
+    match id {
+        Some(i) if obj.len() == 1 && i > 0 && i <= u64::from(u32::MAX) => Ok(Some(i as u32)),
+        _ => Err("error.draw2.request"),
+    }
+}
+
 /// Runs one command as one undo step, with the route operations of the arrows that follow. The error is an i18n key and the id it
 /// is about.
 pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpError> {
     let bad = |key| OpError { key, id: 0 };
     if !known(name) {
         return Err(bad("error.draw2.command"));
+    }
+    if name.starts_with("pathway:") {
+        let id = pathway_args(name, args).map_err(bad)?;
+        return match id {
+            Some(arrow) => e.pathway_anchor(arrow),
+            None => e.pathway_route(),
+        };
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or(bad("error.draw2.request"))?;

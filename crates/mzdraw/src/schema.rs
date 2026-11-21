@@ -363,6 +363,8 @@ pub const REQUEST: &[RequestSpec] = &[
     r("request", "dry_run", "bool", "run and report everything, write nothing: the document has no `out`; implies `report`"),
     r("request", "expect", "object[]", "postconditions on the final drawing, one arm each; a non-empty list implies `report`"),
     r("request", "id", "string|uint", "echoed as the `id` of the document (default: the index of the request in its batch)"),
+    r("command", "pathway:anchor", "object", "`args` `{\"arrow\":ID}`: anchors each end of that arrow to the nearest structure within 1 bond length (box distance; ties by the smallest atom id) and routes it; an end with nothing in reach stays as it was"),
+    r("command", "pathway:route", "object", "no `args`: routes every anchored arrow in one step; no operation when nothing moves"),
     r("expect", "std", "string", "`\"none\"`: the drawing has no `std/1` finding"),
     r("expect", "std_absent", "string[]", "none of these `std/1` keys is found"),
     r("expect", "pieces", "uint", "the atoms form exactly this many connected pieces"),

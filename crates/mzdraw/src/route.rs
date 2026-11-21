@@ -150,3 +150,118 @@ pub fn follow(doc: &Document, ops: &[Op], style: &Style) -> Vec<Op> {
     }
     out
 }
+
+/// The smallest atom id of the structure that holds `atom`: the id an anchor made by hand or by `pathway:anchor` carries.
+fn smallest(piece: &[u32]) -> u32 {
+    piece.iter().copied().min().unwrap_or(0)
+}
+
+/// How far (bond lengths) the point (`x`, `y`) is from a box; 0 inside it or on its edge.
+pub fn box_distance(b: Rect, x: f64, y: f64) -> f64 {
+    let dx = (b[0] - x).max(x - b[2]).max(0.0);
+    let dy = (b[1] - y).max(y - b[3]).max(0.0);
+    crate::m::hypot(dx, dy)
+}
+
+/// How far outside its box (bond lengths) a point still counts as inside a structure for the arrow tool: the box of a chain of
+/// carbons is a line, and a press on a bond or an atom must count.
+pub const HIT_SLACK: f64 = 0.25;
+
+/// The smallest atom id of the structure whose box (labels included, `HIT_SLACK` more on every side) holds the point (`x`, `y`);
+/// with several boxes over the point, the nearest, then the smallest id. `None` on empty canvas.
+pub fn structure_at(doc: &Document, x: f64, y: f64, style: &Style) -> Option<u32> {
+    nearest_structure(doc, x, y, HIT_SLACK, style).map(|(id, _)| id)
+}
+
+/// The structure nearest to the point (`x`, `y`) by box distance, within `reach` bond lengths: its smallest atom id and the
+/// distance. Ties go to the smallest atom id. `None` when no structure is within reach.
+pub fn nearest_structure(
+    doc: &Document,
+    x: f64,
+    y: f64,
+    reach: f64,
+    style: &Style,
+) -> Option<(u32, f64)> {
+    let mut best: Option<(u32, f64)> = None;
+    for piece in crate::layout::pieces(doc) {
+        let id = smallest(&piece);
+        let Some(b) = structure_box(doc, id, style) else {
+            continue;
+        };
+        let d = box_distance(b, x, y);
+        if d > reach + 1e-9 {
+            continue;
+        }
+        // the distance is compared as the documents store numbers: to four decimals
+        let better = match best {
+            None => true,
+            Some((bid, bd)) => round4(d) < round4(bd) || (round4(d) == round4(bd) && id < bid),
+        };
+        if better {
+            best = Some((id, d));
+        }
+    }
+    best
+}
+
+/// The operations that anchor the ends of the arrow `id` to the nearest structures, each within `reach` bond lengths, then route
+/// it (`route`). The anchors come back as `[from, to]` after the operations (0 = free). An end with no structure in reach keeps
+/// what it has; when both ends reach the same structure the end farther from it (the head on a tie) is left as it was. Empty when
+/// nothing changes. `None` when `id` is not an arrow.
+pub fn anchor(doc: &Document, id: u32, reach: f64, style: &Style) -> Option<(Vec<Op>, [u32; 2])> {
+    let o = doc.object(id).filter(|o| o.t == ObjKind::Arrow)?;
+    let found = [
+        nearest_structure(doc, o.x, o.y, reach, style),
+        nearest_structure(doc, o.x2, o.y2, reach, style),
+    ];
+    let mut now = [o.from, o.to];
+    match found {
+        [Some((a, da)), Some((b, db))] if a == b => {
+            if round4(da) < round4(db) {
+                now[0] = a;
+            } else {
+                now[1] = b;
+            }
+        }
+        _ => {
+            for (n, f) in now.iter_mut().zip(found) {
+                *n = f.map_or(*n, |(s, _)| s);
+            }
+        }
+    }
+    let mut ops = Vec::new();
+    if now != [o.from, o.to] {
+        ops.push(Op::ObjSet {
+            id,
+            text: None,
+            x2: None,
+            y2: None,
+            from: Some(now[0]),
+            to: Some(now[1]),
+        });
+    }
+    let mut after = doc.clone();
+    after.apply(&ops).ok()?;
+    ops.extend(route(&after, id, style));
+    Some((ops, now))
+}
+
+/// The route operations of every anchored arrow of the document (none when nothing moves).
+pub fn route_all(doc: &Document, style: &Style) -> Vec<Op> {
+    (doc.objects.iter().filter(|o| o.t == ObjKind::Arrow))
+        .flat_map(|o| route(doc, o.id, style))
+        .collect()
+}
+
+/// The Hill formula of the structure that holds `atom`, for a line in words.
+pub fn formula_of(doc: &Document, atom: u32) -> String {
+    let first = crate::layout::pieces(doc)
+        .into_iter()
+        .find(|p| p.contains(&atom))
+        .and_then(|p| p.first().copied());
+    crate::outline::pieces(doc)
+        .into_iter()
+        .find(|p| Some(p.anchor) == first)
+        .map(|p| p.formula)
+        .unwrap_or_default()
+}

@@ -234,7 +234,7 @@ impl Editor {
     }
 
     /// Drops selection, hover and flags that point at things that no longer exist.
-    fn prune(&mut self) {
+    pub(crate) fn prune(&mut self) {
         let d = &self.session.doc;
         self.over.sel_atoms.retain(|&i| d.atom(i).is_some());
         self.over.sel_bonds.retain(|&i| d.bond(i).is_some());

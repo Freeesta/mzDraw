@@ -1,0 +1,354 @@
+//! Anchoring by hand (tp-02): the arrow tool anchors an arrow drawn from one structure to another, `pathway:anchor` anchors a free
+//! arrow, `pathway:route` routes every anchored arrow, and the context-menu items run the same Rust. Synthetic structures only.
+
+use mzdraw::editor::{ALT, MOUSE};
+use mzdraw::route::{nearest_structure, structure_at, structure_box};
+use mzdraw::{Document, Editor, Style};
+use serde_json::{json, Value};
+
+/// Two structures, each a chain of two carbons, with ids that are not in pool order: A has the atoms 6 and 2 at x 0 and 1, B the
+/// atoms 9 and 7 at x `gap` + 1 and `gap` + 2 (the smallest ids are 2 and 7). `arrows` is the list of objects.
+fn scheme(gap: f64, arrows: Value) -> String {
+    json!({"format":"mzdraw/1","next":20,
+        "atoms":[{"id":6,"el":"C","x":0,"y":0},{"id":2,"el":"C","x":1,"y":0},
+                 {"id":9,"el":"C","x":gap+1.0,"y":0},{"id":7,"el":"C","x":gap+2.0,"y":0}],
+        "bonds":[{"id":3,"a":6,"b":2,"o":1},{"id":4,"a":9,"b":7,"o":1}],
+        "objects":arrows})
+    .to_string()
+}
+
+fn editor(text: &str) -> Editor {
+    let mut e = Editor::default();
+    e.import(text).unwrap();
+    e
+}
+
+fn px(e: &Editor, x: f64, y: f64) -> (f64, f64) {
+    e.view.to_px(x, y)
+}
+
+fn drag(e: &mut Editor, from: (f64, f64), to: (f64, f64)) {
+    e.pointer_down(from.0, from.1, MOUSE, 0);
+    e.pointer_move((from.0 + to.0) / 2.0, (from.1 + to.1) / 2.0, MOUSE);
+    e.pointer_move(to.0, to.1, MOUSE);
+    e.pointer_up(to.0, to.1);
+}
+
+fn arrows(e: &Editor) -> Vec<(u32, u32, u32, [f64; 4])> {
+    (e.doc().objects.iter())
+        .map(|o| (o.id, o.from, o.to, [o.x, o.y, o.x2, o.y2]))
+        .collect()
+}
+
+fn replay(request: Value) -> Value {
+    serde_json::from_str(&mzdraw::replay::replay(&request.to_string()).unwrap()).unwrap()
+}
+
+#[test]
+fn the_tool_anchors_an_arrow_drawn_from_one_structure_to_another_in_one_step() {
+    let mut e = editor(&scheme(5.0, json!([])));
+    let before = e.doc().to_json();
+    e.set_tool("arrow");
+    let (a, b) = (px(&e, 0.5, 0.2), px(&e, 6.5, 0.2));
+    drag(&mut e, a, b);
+    let list = arrows(&e);
+    assert_eq!(list.len(), 1);
+    let (_, from, to, [x, y, x2, y2]) = list[0];
+    assert_eq!((from, to), (2, 7), "the smallest atom id of each structure");
+    // routed: the ends are on the line between the centres, outside both boxes, and not where the hand left them
+    let st = Style::default();
+    let (ba, bb) = (
+        structure_box(e.doc(), 2, &st).unwrap(),
+        structure_box(e.doc(), 7, &st).unwrap(),
+    );
+    assert!(x > ba[2] && x2 < bb[0], "tail {x} head {x2}");
+    assert!(
+        (y - y2).abs() < 1e-9 && y.abs() < 1e-9,
+        "level between the centres: {y} {y2}"
+    );
+    assert_eq!(e.said.0, "draw2.say.anchored");
+    assert_eq!(e.said.1, "C2H6 \u{2192} C2H6");
+    // one undo step takes the arrow, anchors and route together
+    assert_eq!(e.undo() & mzdraw::editor::CHANGED, mzdraw::editor::CHANGED);
+    assert_eq!(e.doc().to_json(), before);
+}
+
+#[test]
+fn an_arrow_that_ends_on_empty_canvas_or_in_its_own_structure_is_free() {
+    for (from, to) in [
+        ((0.5, 0.2), (3.0, 0.2)),
+        ((0.5, 0.2), (0.9, 0.1)),
+        ((3.0, 2.0), (6.5, 0.2)),
+    ] {
+        let mut e = editor(&scheme(5.0, json!([])));
+        e.set_tool("arrow");
+        let (a, b) = (px(&e, from.0, from.1), px(&e, to.0, to.1));
+        drag(&mut e, a, b);
+        let list = arrows(&e);
+        assert_eq!(list.len(), 1, "{from:?} -> {to:?}");
+        assert_eq!((list[0].1, list[0].2), (0, 0), "{from:?} -> {to:?}");
+        assert_eq!(e.said.0, "draw2.say.arrow");
+    }
+    // a click gives the standard free arrow
+    let mut e = editor(&scheme(5.0, json!([])));
+    e.set_tool("arrow");
+    let a = px(&e, 0.5, 0.0);
+    e.pointer_down(a.0, a.1, MOUSE, 0);
+    e.pointer_up(a.0, a.1);
+    assert_eq!((arrows(&e)[0].1, arrows(&e)[0].2), (0, 0));
+}
+
+#[test]
+fn the_nearest_structure_is_by_box_distance_within_reach_and_ties_go_to_the_smallest_id() {
+    let st = Style::default();
+    let e = editor(&scheme(2.0, json!([])));
+    let (ba, bb) = (
+        structure_box(e.doc(), 2, &st).unwrap(),
+        structure_box(e.doc(), 7, &st).unwrap(),
+    );
+    let mid = (ba[2] + bb[0]) / 2.0;
+    // the same distance from both boxes: the smaller smallest-id (A: 2) wins
+    let (id, d) = nearest_structure(e.doc(), mid, 0.0, 1.0, &st).unwrap();
+    assert_eq!(id, 2);
+    assert!((d - (bb[0] - ba[2]) / 2.0).abs() < 1e-9);
+    // nearer to B: B
+    assert_eq!(
+        nearest_structure(e.doc(), mid + 0.2, 0.0, 1.0, &st)
+            .unwrap()
+            .0,
+        7
+    );
+    // out of reach
+    assert!(nearest_structure(e.doc(), mid, 5.0, 1.0, &st).is_none());
+    // inside a box: the point is held, at distance 0
+    assert_eq!(structure_at(e.doc(), 0.5, 0.0, &st), Some(2));
+    assert_eq!(structure_at(e.doc(), mid, 0.0, &st), None);
+}
+
+#[test]
+fn the_ids_of_a_tie_do_not_depend_on_the_order_of_the_atoms() {
+    // B first in the pool with the smaller id: the winner is the smaller id, not the earlier atom
+    let text = json!({"format":"mzdraw/1","next":20,
+        "atoms":[{"id":9,"el":"C","x":3,"y":0},{"id":4,"el":"C","x":4,"y":0},{"id":6,"el":"C","x":0,"y":0},{"id":5,"el":"C","x":1,"y":0}],
+        "bonds":[{"id":10,"a":9,"b":4,"o":1},{"id":11,"a":6,"b":5,"o":1}],"objects":[]})
+    .to_string();
+    let st = Style::default();
+    let e = editor(&text);
+    let (ba, bb) = (
+        structure_box(e.doc(), 5, &st).unwrap(),
+        structure_box(e.doc(), 4, &st).unwrap(),
+    );
+    let mid = (ba[2] + bb[0]) / 2.0;
+    assert_eq!(nearest_structure(e.doc(), mid, 0.0, 1.0, &st).unwrap().0, 4);
+}
+
+fn free_arrow_scheme() -> String {
+    // the tail is one bond length from A (its box ends at x = 1), the head is far from everything
+    scheme(
+        2.0,
+        json!([{"id":10,"t":"arrow","x":1.8,"y":0.0,"x2":12.0,"y2":0.0}]),
+    )
+}
+
+#[test]
+fn pathway_anchor_anchors_the_ends_in_reach_and_says_what_stays_free() {
+    let mut e = editor(&free_arrow_scheme());
+    let before = e.doc().to_json();
+    let steps = e.session.steps();
+    let (mx, my) = {
+        let p = px(&e, 8.0, 0.0);
+        (p.0, p.1)
+    };
+    let menu: Value = serde_json::from_str(&e.context_menu(mx, my)).unwrap();
+    assert_eq!(menu["target"], "object");
+    let ids: Vec<&str> = menu["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["id"].as_str().unwrap())
+        .collect();
+    assert!(
+        ids.contains(&"pathway.anchor") && ids.contains(&"pathway.free"),
+        "{ids:?}"
+    );
+    let free = menu["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["id"] == "pathway.free")
+        .unwrap();
+    assert_eq!(free["enabled"], false, "nothing to free yet");
+    e.context_run("pathway.anchor");
+    let list = arrows(&e);
+    assert_eq!(
+        (list[0].1, list[0].2),
+        (2, 0),
+        "tail anchored to A, head free"
+    );
+    assert_eq!(e.said.0, "draw2.say.anchorOne");
+    assert_eq!(e.session.steps(), steps + 1);
+    assert_eq!(e.undo() & mzdraw::editor::CHANGED, mzdraw::editor::CHANGED);
+    assert_eq!(e.doc().to_json(), before);
+}
+
+#[test]
+fn nothing_in_reach_is_no_step() {
+    let mut e = editor(&scheme(
+        2.0,
+        json!([{"id":10,"t":"arrow","x":5.0,"y":4.0,"x2":9.0,"y2":4.0}]),
+    ));
+    let before = e.doc().to_json();
+    let steps = e.session.steps();
+    let p = px(&e, 7.0, 4.0);
+    e.context_menu(p.0, p.1);
+    e.context_run("pathway.anchor");
+    assert_eq!(e.said.0, "draw2.say.anchorNone");
+    assert_eq!(e.session.steps(), steps, "no step");
+    assert_eq!(e.doc().to_json(), before);
+}
+
+#[test]
+fn pathway_anchor_anchors_both_ends_and_a_second_run_changes_nothing() {
+    let text = scheme(
+        5.0,
+        json!([{"id":10,"t":"arrow","x":1.6,"y":0.5,"x2":5.4,"y2":-0.5}]),
+    );
+    let req = |commands: Value| replay(json!({"import": text, "commands": commands, "out": "log"}));
+    let once = req(json!([{"command":"pathway:anchor","args":{"arrow":10}}]));
+    let twice = req(json!([
+        {"command":"pathway:anchor","args":{"arrow":10}},
+        {"command":"pathway:anchor","args":{"arrow":10}},
+        {"command":"pathway:route"},
+        {"command":"pathway:route"}
+    ]));
+    assert_eq!(
+        once, twice,
+        "a second anchor and a second route emit no operation"
+    );
+    let set = (once.as_array().unwrap().iter())
+        .find(|o| o["op"] == "obj.set")
+        .expect("the anchors are an obj.set of the log");
+    assert_eq!(
+        (set["from"].clone(), set["to"].clone()),
+        (json!(2), json!(7))
+    );
+    // the arrow now leaves A and reaches B on the line between the centres
+    let doc = replay(
+        json!({"import": text, "commands":[{"command":"pathway:anchor","args":{"arrow":10}}], "out":"mzdraw"}),
+    );
+    let a = &doc["objects"][0];
+    assert_eq!((a["from"].clone(), a["to"].clone()), (json!(2), json!(7)));
+    let (y, y2) = (
+        a["y"].as_f64().unwrap_or(0.0),
+        a["y2"].as_f64().unwrap_or(0.0),
+    );
+    assert!((y - y2).abs() < 1e-9, "{y} {y2}");
+}
+
+#[test]
+fn pathway_route_puts_every_anchored_arrow_back_and_is_idempotent() {
+    // an anchored arrow moved by a bare operation is routed by the command, in one step
+    let mut e = editor(&scheme(
+        5.0,
+        json!([{"id":10,"t":"arrow","x":1.6,"y":0.0,"x2":5.4,"y2":0.0,"from":2,"to":7}]),
+    ));
+    let routed = e.doc().to_json();
+    e.session
+        .run(&[mzdraw::Op::ObjSet {
+            id: 10,
+            text: None,
+            x2: Some(9.0),
+            y2: Some(3.0),
+            from: None,
+            to: None,
+        }])
+        .unwrap();
+    let moved = e.doc().to_json();
+    assert_ne!(moved, routed);
+    let steps = e.session.steps();
+    let p = px(&e, 20.0, 20.0);
+    let menu: Value = serde_json::from_str(&e.context_menu(p.0, p.1)).unwrap();
+    assert_eq!(menu["target"], "canvas");
+    e.context_run("pathway.route");
+    assert_eq!(e.said.0, "draw2.say.routed");
+    assert_eq!(e.session.steps(), steps + 1);
+    let once = e.doc().to_json();
+    assert_ne!(once, moved);
+    // a second run has nothing to move: no step
+    e.context_menu(p.0, p.1);
+    e.context_run("pathway.route");
+    assert_eq!(e.said.0, "draw2.say.routeNone");
+    assert_eq!(e.session.steps(), steps + 1);
+    assert_eq!(e.doc().to_json(), once);
+    // undo returns the identical document
+    e.undo();
+    assert_eq!(e.doc().to_json(), moved);
+}
+
+#[test]
+fn free_ends_frees_both_anchors_and_undo_restores_them() {
+    let mut e = editor(&scheme(
+        5.0,
+        json!([{"id":10,"t":"arrow","x":1.6,"y":0.0,"x2":5.4,"y2":0.0,"from":2,"to":7}]),
+    ));
+    let before = e.doc().to_json();
+    let p = px(&e, 3.5, 0.0);
+    e.context_menu(p.0, p.1);
+    e.context_run("pathway.free");
+    assert_eq!((arrows(&e)[0].1, arrows(&e)[0].2), (0, 0));
+    e.undo();
+    assert_eq!(e.doc().to_json(), before);
+}
+
+#[test]
+fn a_command_on_something_that_is_not_an_arrow_is_refused() {
+    let text = scheme(5.0, json!([]));
+    for args in [json!({"arrow": 3}), json!({"arrow": 99})] {
+        let r = replay(
+            json!({"import": text, "commands":[{"command":"pathway:anchor","args":args}], "report": true}),
+        );
+        assert_eq!(r["ok"], false);
+        assert_eq!(r["failed"]["stage"], "command");
+    }
+    for bad in [
+        json!({}),
+        json!({"arrow": 0}),
+        json!({"arrow": 1, "x": 2}),
+        json!({"arrow": "a"}),
+    ] {
+        assert!(mzdraw::replay::replay(
+            &json!({"import": text, "commands":[{"command":"pathway:anchor","args":bad}]})
+                .to_string()
+        )
+        .is_err());
+    }
+    assert!(mzdraw::replay::replay(
+        &json!({"import": text, "commands":[{"command":"pathway:route","args":{"x":1}}]})
+            .to_string()
+    )
+    .is_err());
+}
+
+#[test]
+fn the_page_and_the_native_replay_give_the_same_bytes() {
+    // the page: the tool draws an arrow between two structures, the parent is moved by the keyboard, the arrow follows
+    let mut e = editor(&scheme(5.0, json!([])));
+    e.set_tool("arrow");
+    let (a, b) = (px(&e, 0.5, 0.2), px(&e, 6.5, 0.2));
+    drag(&mut e, a, b);
+    e.set_tool("select");
+    let p = px(&e, 0.0, 0.0);
+    e.pointer_down(p.0, p.1, MOUSE, 0);
+    e.pointer_up(p.0, p.1);
+    e.key_at("ArrowUp", ALT, 0.0);
+    let page_doc = e.doc().to_json();
+    let log = e.save("log").unwrap();
+    // the log replays natively to the same document
+    let replayed = mzdraw::replay::replay(
+        &json!({"log": serde_json::from_str::<Value>(&log).unwrap(), "out": "mzdraw"}).to_string(),
+    )
+    .unwrap();
+    assert_eq!(replayed, page_doc);
+    let d = Document::from_json(&replayed).unwrap();
+    assert_eq!((d.objects[0].from, d.objects[0].to), (2, 7));
+}
