@@ -11,7 +11,7 @@ const REPAINT = 1, CHANGED = 2, TOOL = 4, HANDLED = 8, ASK_LABEL = 16, ASK_TEXT 
 // what each save format is called when downloaded: file name and media type (png is drawn by the page, savePng; pdf is bytes, savePdf)
 const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["drawing.mol", "chemical/x-mdl-molfile"], "molfile-v3000": ["drawing-v3000.mol", "chemical/x-mdl-molfile"],
   sdf: ["drawing.sdf", "chemical/x-mdl-sdfile"], smiles: ["drawing.smi", "chemical/x-daylight-smiles"], ket: ["drawing.ket", "application/json"], cdxml: ["drawing.cdxml", "chemical/x-cdxml"],
-  cml: ["drawing.cml", "chemical/x-cml"], rxn: ["drawing.rxn", "chemical/x-mdl-rxnfile"], svg: ["drawing.svg", "image/svg+xml"], mzdraw: [NAMES.doc, "application/json"], log: ["drawing.log.json", "application/json"] });
+  cml: ["drawing.cml", "chemical/x-cml"], rxn: ["drawing.rxn", "chemical/x-mdl-rxnfile"], trasf: ["drawing.trasf.json", "application/json"], svg: ["drawing.svg", "image/svg+xml"], [NAMES.slug]: [NAMES.doc, "application/json"], log: ["drawing.log.json", "application/json"] });
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus"];
 
 /** @type {any} */ let ed = null;
@@ -19,9 +19,9 @@ const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-pre
 const cv = /** @type {HTMLCanvasElement} */ ($("d2-canvas")), g = /** @type {CanvasRenderingContext2D} */ (cv.getContext("2d"));
 
 async function load() {
-  const mod = await import("./pkg/mzdraw_wasm.js");
+  const mod = await import(`./pkg/${NAMES.wasm}.js`);
   await mod.default();
-  if (mod.version() !== NAMES.version) throw new Error("version");
+  if (mod.version() !== NAMES.bridge) throw new Error("version");
   return mod;
 }
 
@@ -216,11 +216,13 @@ function after(f) {
 const autosave = (() => {
   const NAME = NAMES.autosave;
   let timer = 0, last = "", paused = false;
-  const file = async (/** @type {boolean} */ create) => (await (await navigator.storage.getDirectory()).getFileHandle(NAME, { create }));
+  // the file of the name in use, and the files an earlier name wrote (read when the current one is not there)
+  const OLD = NAMES.autosaveOld;
+  const file = async (/** @type {boolean} */ create, /** @type {string} */ name = NAME) => (await (await navigator.storage.getDirectory()).getFileHandle(name, { create }));
   const mark = (/** @type {string} */ k, /** @type {string} */ v) => { document.documentElement.dataset[k] = v; };
   async function write() {
     timer = 0;
-    const text = ed.save("mzdraw");
+    const text = ed.save(NAMES.slug);
     if (paused || text === last) return;
     try {
       const w = await (await file(true)).createWritable();
@@ -229,10 +231,11 @@ const autosave = (() => {
     } catch { mark("d2Autosave", "off"); }
   }
   async function read() {
-    try { return await (await (await file(false)).getFile()).text(); } catch { return ""; }
+    for (const name of [NAME, ...OLD]) { try { return await (await (await file(false, name)).getFile()).text(); } catch { /* not there */ } }
+    return "";
   }
   async function drop() {
-    try { await (await navigator.storage.getDirectory()).removeEntry(NAME); } catch { /* nothing saved */ }
+    for (const name of [NAME, ...OLD]) { try { await (await navigator.storage.getDirectory()).removeEntry(name); } catch { /* nothing saved */ } }
   }
   /** shows the offer when a drawing worth restoring was saved */
   async function offer() {
@@ -267,22 +270,23 @@ function run(c) {
   if (c === "copy" || c === "cut") navigator.clipboard?.writeText(ed.clipboard("molfile")).catch(() => { });       // best effort: the editor keeps its own copy
 }
 
-// The system clipboard: plain text is a molfile (for other programs), our own type is the document (nothing lost between two mzDraw pages).
+// The system clipboard: plain text is a molfile (for other programs), our own type is the document (nothing lost between two pages of the editor).
 const CLIP = NAMES.clip;
 function clipboardEvents() {
   const here = () => document.activeElement === cv;
   const put = (/** @type {ClipboardEvent} */ e, /** @type {string} */ c) => {
     if (!here() || !e.clipboardData) return;
     const f = ed.command(c);
-    if (!ed.clipboard("mzdraw")) return;
-    e.clipboardData.setData("text/plain", ed.clipboard("molfile")); e.clipboardData.setData(CLIP, ed.clipboard("mzdraw"));
+    if (!ed.clipboard(NAMES.slug)) return;
+    e.clipboardData.setData("text/plain", ed.clipboard("molfile")); e.clipboardData.setData(CLIP, ed.clipboard(NAMES.slug));
     e.preventDefault(); after(f | CHANGED);
   };
   document.addEventListener("copy", e => put(e, "copy"));
   document.addEventListener("cut", e => put(e, "cut"));
   document.addEventListener("paste", e => {
     if (!here() || !e.clipboardData) return;
-    const text = e.clipboardData.getData(CLIP) || e.clipboardData.getData("text/plain");
+    const own = [CLIP, ...NAMES.clipOld].map(k => /** @type {DataTransfer} */ (e.clipboardData).getData(k)).find(Boolean);
+    const text = own || e.clipboardData.getData("text/plain");
     if (text) { e.preventDefault(); after(ed.paste(text) | CHANGED); }
   });
 }
@@ -485,7 +489,9 @@ async function styles() {
     if (f) { const text = await f.text(); ask(() => ed.set_style(text), t("draw2.style.opened.note"), null); }
     /** @type {HTMLInputElement} */ (e.target).value = "";
   });
-  try { ed.set_style(await (await (await (await navigator.storage.getDirectory()).getFileHandle(NAME)).getFile()).text()); } catch { /* nothing kept, or a file the module refuses */ }
+  for (const name of [NAME, ...NAMES.settingsOld]) {       // the file of the name in use, else one an earlier name wrote
+    try { ed.set_style(await (await (await (await navigator.storage.getDirectory()).getFileHandle(name)).getFile()).text()); break; } catch { /* nothing kept, or a file the module refuses */ }
+  }
   show();
   note.textContent = t(`draw2.style.${sel.value}.note`);
 }
@@ -500,7 +506,7 @@ function panels() {
   $("d2-add").addEventListener("click", () => add(/** @type {HTMLTextAreaElement} */ ($("d2-text")).value));
   $("d2-open").addEventListener("click", () => $("d2-file").click());
   $("d2-file").addEventListener("change", async e => { const f = /** @type {HTMLInputElement} */ (e.target).files?.[0]; if (f) add(new Uint8Array(await f.arrayBuffer())); });
-  for (const [id, what] of [["molfile", "molfile"], ["v3000", "molfile-v3000"], ["sdf", "sdf"], ["smiles", "smiles"], ["ket", "ket"], ["cdxml", "cdxml"], ["cml", "cml"], ["rxn", "rxn"], ["svg", "svg"], ["mzdraw", "mzdraw"]])
+  for (const [id, what] of [["molfile", "molfile"], ["v3000", "molfile-v3000"], ["sdf", "sdf"], ["smiles", "smiles"], ["ket", "ket"], ["cdxml", "cdxml"], ["cml", "cml"], ["rxn", "rxn"], ["trasf", "trasf"], ["svg", "svg"], ["doc", NAMES.slug]])
     $(`d2-ex-${id}`).addEventListener("click", () => save(what, ...FILES[what]));
   $("d2-ex-png").addEventListener("click", savePng);
   $("d2-ex-pdf").addEventListener("click", savePdf);

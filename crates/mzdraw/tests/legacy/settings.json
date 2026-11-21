@@ -1,0 +1,10 @@
+{
+ "format": "zzzzzz-settings/1",
+ "style": {
+  "preset": "slides"
+ },
+ "export": {
+  "default": "zzzzzz",
+  "background": "none"
+ }
+}

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "draw-result-1",
   "title": "draw-result/1: the verdict of a replay request (mzdraw::outcome)",
-  "description": "Checked by crates/mzdraw/tests/outcome.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text, also inside failed, created, removed and each expect item), the required keys, the types and the stage values are asserted by hand; the other constraints here are documentation.",
+  "description": "Checked by crates/mzdraw/tests/outcome.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text, also inside failed, created, removed and each expect item), the required keys, the types and the stage values are asserted by hand; the other constraints here are documentation. The request `diff` (plan-15) is not answered by this document: it stands alone and any of `report`, `dry_run`, `expect`, `id` with it is the keyed error `error.draw2.diffAlone`.",
   "type": "object",
   "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed", "changed", "orient", "expect"],
   "required": ["format", "id", "ok", "created", "removed"],

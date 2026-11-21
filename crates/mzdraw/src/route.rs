@@ -11,7 +11,7 @@ use crate::ops::Op;
 use crate::settings::Style;
 
 /// An axis-aligned box: x0, y0, x1, y1 (bond lengths).
-type Rect = [f64; 4];
+pub type Rect = [f64; 4];
 
 /// The box of the structure that holds `atom`: its atoms and the ink of their labels (`scene::label_extent`, the layout the
 /// painter uses). `None` when no atom has that id.
@@ -20,6 +20,11 @@ pub fn structure_box(doc: &Document, atom: u32, style: &Style) -> Option<Rect> {
     let piece = crate::layout::pieces(doc)
         .into_iter()
         .find(|p| p.contains(&atom))?;
+    Some(piece_box(doc, &piece, style))
+}
+
+/// The box of one structure, given as the ids of its atoms: the atoms and the ink of their labels.
+pub fn piece_box(doc: &Document, piece: &[u32], style: &Style) -> Rect {
     let mut r = [f64::MAX, f64::MAX, f64::MIN, f64::MIN];
     for a in piece.iter().filter_map(|&i| doc.atom(i)) {
         let [l, rt, below, above] = crate::scene::label_extent(doc, a, style);
@@ -30,7 +35,7 @@ pub fn structure_box(doc: &Document, atom: u32, style: &Style) -> Option<Rect> {
             r[3].max(a.y + above),
         ];
     }
-    Some(r)
+    r
 }
 
 /// How far from its centre a ray along the unit vector (`ux`, `uy`) leaves the box inflated by `margin`.
@@ -97,7 +102,13 @@ pub fn route(doc: &Document, id: u32, style: &Style) -> Vec<Op> {
     let Some((a, b)) = boxes(doc, o.from, o.to, style) else {
         return Vec::new();
     };
-    let Some((tail, head)) = clip(a, b, style.pathway_margin) else {
+    route_between(o, a, b, style.pathway_margin)
+}
+
+/// The operations that put the arrow `o` on the routed ends between two boxes (see `route`).
+pub fn route_between(o: &crate::doc::Obj, a: Rect, b: Rect, margin: f64) -> Vec<Op> {
+    let id = o.id;
+    let Some((tail, head)) = clip(a, b, margin) else {
         return Vec::new();
     };
     let (tx, ty) = (round4(tail.0), round4(tail.1));

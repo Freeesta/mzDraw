@@ -244,7 +244,9 @@ try {
 
   await step("the page loads the module and starts empty on the single-bond tool", async () => {
     eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, std: 0, selected: 0 });
-    eq(await pg.evaluate("window.MZDRAW.version()"), "mzdraw/1");
+    eq(await pg.evaluate("window.MZDRAW.version()"), NAMES.bridge);
+    eq(await pg.title(), NAMES.name);                         // the tab carries the name from brand.toml (appname.js), never blank
+    eq(await pg.innerText("h1"), NAMES.name);                 // and so does the heading, through {app} of the catalog
     eq(await pg.innerText("#d2-summary"), await pg.evaluate("I18N.t('draw.check.empty')"));
     assert(await pg.locator("#d2-palettes .items button, #d2-flys button[data-cmd]").count() >= 26, "the palettes");
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-palettes .items button, #d2-flys button[data-cmd], #d2-flys button[data-opens]')].filter(b => !b.title || b.title.length > 90 || !b.getAttribute('aria-label')).map(b => b.dataset.testid)"), []);      // every tool says in one short sentence what it does
@@ -354,7 +356,7 @@ try {
   await step("molfile (V2000 and V3000), SMILES, SVG, PNG and the mzdraw/1 document are saved as the module writes them; the pictures open again", async () => {
     const got = {};
     for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"], ["ket", "ket", "drawing.ket"], ["cdxml", "cdxml", "drawing.cdxml"], ["cml", "cml", "drawing.cml"],
-      ["svg", "svg", "drawing.svg"], ["mzdraw", "mzdraw", "drawing.mzdraw.json"]]) {
+      ["svg", "svg", "drawing.svg"], ["doc", "mzdraw", "drawing.mzdraw.json"]]) {
       const [d] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, `#d2-ex-${button}`)]);
       eq(d.suggestedFilename(), name);
       got[kind] = readFileSync(await d.path(), "utf8");
@@ -1263,6 +1265,86 @@ try {
     await tapPalette(pg, "data", false);
   });
 
+  await step("transformation by mouse and keyboard: parent, arrow and product are drawn, two atoms on each side are mapped by keyboard, trasf/1 is saved and opens again; an unmapped drawing is refused with its atoms", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")), key = k => pg.keyboard.press(k);
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.mouse.click(cx - 288, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "arrow"); await pg.mouse.click(cx - 223, cy); await want(pg, { objects: 1 });
+    await tool(pg, "bond:1"); await pg.mouse.click(cx - 108, cy); await want(pg, { atoms: 4, bonds: 2 });
+    // nothing is mapped yet: the save is refused and the message names the four atoms
+    const ids = (await doc()).atoms.map(a => a.id).join(", ");
+    await saveAs(pg, "#d2-ex-trasf");
+    await until(pg, "document.querySelector('#d2-ex-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-ex-note"), await pg.evaluate(`I18N.t('error.draw2.trasfMap', { atoms: ${JSON.stringify(ids)} })`));
+    // the keyboard walks to each atom; the end atom of the product becomes oxygen
+    await tapPalette(pg, "data", true);
+    if (!(await pg.evaluate("document.querySelector('#d2-data-more').open"))) await pg.locator("#d2-data-more summary").evaluate(el => el.click());
+    const goto = async i => {
+      const a = (await doc()).atoms, base = i >= 2 ? 2 : 0, dx = a[i].x - a[base].x, dy = a[i].y - a[base].y;
+      await pg.locator("#d2-canvas").focus(); await key("Home"); if (base) await key("PageDown");
+      if (i !== base) await key(Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? "ArrowRight" : "ArrowLeft") : (dy > 0 ? "ArrowUp" : "ArrowDown"));
+    };
+    await goto(3); await key("o");
+    for (const [i, n] of [[0, 1], [1, 2], [2, 1], [3, 2]]) {
+      await goto(i); await pg.fill("#d2-map", String(n)); await pg.locator("#d2-map").focus(); await key("Enter");
+      await until(pg, `document.querySelector('#d2-map-note').textContent === I18N.t('draw2.map.done', { n: ${n} })`);
+    }
+    // Save by keyboard: focus the button, Enter
+    await reveal(pg, "#d2-ex-trasf"); await pg.focus("#d2-ex-trasf");
+    const [dl] = await Promise.all([pg.waitForEvent("download"), key("Enter")]);
+    eq(dl.suggestedFilename(), "drawing.trasf.json");
+    const file = readFileSync(await dl.path(), "utf8");
+    eq(file, await pg.evaluate("window.MZDRAW.save('trasf')"));
+    const lines = file.trim().split("\n"), rec = JSON.parse(lines[0]);
+    eq([lines.length, rec.format, rec.delta, rec.map.length, rec.added.length, rec.centre.length], [3, "trasf/1", "+O-CH2", 2, 0, 1]);
+    assert(lines.slice(1).every(l => JSON.parse(l).format === "mol/1"), "the two records beside it");
+    await shot(pg, "trasf-mapped");
+    // opened again: parent, arrow, product, the maps drawn
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.setInputFiles("#d2-file", { name: "drawing.trasf.json", mimeType: "application/json", buffer: Buffer.from(file) }); await want(pg, { atoms: 4, bonds: 2, objects: 1 });
+    eq((await doc()).atoms.map(a => a.map || 0).join(","), "1,2,1,2");
+    eq((await pg.evaluate("window.MZDRAW.save('trasf')")).split("\n")[0], lines[0]);       // the same record (the layout of an opened file is its own, so the coordinates may differ)
+    // a record that is not a pair is refused in words
+    await pg.setInputFiles("#d2-file", { name: "bad.json", mimeType: "application/json", buffer: Buffer.from(lines.slice(0, 2).join("\n") + "\n") });
+    await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-note"), await pg.evaluate("I18N.t('error.draw2.trasf')"));
+    await tapPalette(pg, "data", false);
+  });
+
+  await step("transformation by touch: the maps are set by tapping atoms, the field and Set; trasf/1 is saved by tapping", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    const tap = (x, y) => pg.touchscreen.tap(x, y);       // the tablet: the Data palette, once shown, takes the right of the canvas (x 488 on, y 54 on), so the drawing stays left of it
+    const tapOn = async sel => { await pg.locator(sel).scrollIntoViewIfNeeded(); const b = await pg.locator(sel).boundingBox(); await tap(b.x + b.width / 2, b.y + b.height / 2); };
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await tap(cx - 288, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "arrow"); await tap(cx - 223, cy); await want(pg, { objects: 1 });
+    await tool(pg, "bond:1"); await tap(cx - 108, cy); await want(pg, { atoms: 4, bonds: 2 });
+    const at = async i => { const a = (await doc()).atoms, base = i >= 2 ? 2 : 0, px = base ? cx - 108 : cx - 288; return [px + (a[i].x - a[base].x) * 40, cy - (a[i].y - a[base].y) * 40]; };
+    await tool(pg, "atom:O"); await tap(...await at(3)); await want(pg, { atoms: 4, bonds: 2 });         // the end atom of the product becomes oxygen
+    await tapPalette(pg, "data", true);
+    if (!(await pg.evaluate("document.querySelector('#d2-data-more').open"))) await pg.locator("#d2-data-more summary").evaluate(el => el.click());
+    await tool(pg, "select");
+    for (const [i, n] of [[0, 1], [1, 2], [2, 1], [3, 2]]) {
+      const [x, y] = await at(i);
+      await pg.locator("#d2-canvas").scrollIntoViewIfNeeded(); await tap(x, y); await want(pg, { selected: 1 });
+      await pg.fill("#d2-map", String(n)); await tapOn("#d2-map-set");
+      await until(pg, `document.querySelector('#d2-map-note').textContent === I18N.t('draw2.map.done', { n: ${n} })`);
+    }
+    eq((await doc()).atoms.map(a => a.map || 0).join(","), "1,2,1,2");
+    await reveal(pg, "#d2-ex-trasf");
+    const [dl] = await Promise.all([pg.waitForEvent("download"), tapOn("#d2-ex-trasf")]);
+    const lines = readFileSync(await dl.path(), "utf8").trim().split("\n");
+    eq([lines.length, JSON.parse(lines[0]).format, JSON.parse(lines[0]).delta], [3, "trasf/1", "+O-CH2"]);
+    // the same button pressed with a pen gives the same record
+    const cdp = await pg.context().newCDPSession(pg);
+    await reveal(pg, "#d2-ex-trasf");
+    const bb = await pg.locator("#d2-ex-trasf").boundingBox(), pen = { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2, button: "left", clickCount: 1, pointerType: "pen" };
+    const [dl2] = await Promise.all([pg.waitForEvent("download"), (async () => { await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...pen }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...pen }); })()]);
+    eq(readFileSync(await dl2.path(), "utf8").trim().split("\n")[0], lines[0]);
+    await shot(pg, "trasf-touch");
+    await tapPalette(pg, "data", false);
+  });
+
   await step("tablet with touch: a CDX file is opened by tapping Open", async () => {
     // a page of its own; the Open button of the file palette is on the page from the start
     const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
@@ -1270,6 +1352,30 @@ try {
       const tap = async sel => { const b = await t.pg.locator(sel).boundingBox(); await t.pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
       const [fc] = await Promise.all([t.pg.waitForEvent("filechooser"), tap('[data-testid="d2-open"]')]);
       await fc.setFiles({ name: "dimethylamine.cdx", mimeType: "chemical/x-cdx", buffer: CDX }); await want(t.pg, { atoms: 3, bonds: 2 });
+    } finally { await t.ctx.close(); }
+  });
+
+  await step("style: the pathway fields hold their defaults, are set by touch and by keyboard, and a value out of bounds is refused with its key", async () => {
+    const t = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true });
+    try {
+      const f = k => `[id="d2-style-pathway.${k}"]`;
+      const tap = async sel => { await t.pg.locator(sel).scrollIntoViewIfNeeded(); const b = await t.pg.locator(sel).boundingBox(); await t.pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+      const style = async () => JSON.parse(await t.pg.evaluate("window.MZDRAW.style()")).style;
+      await tap("#d2-style-more summary");
+      eq([await t.pg.inputValue(f("col_gap")), await t.pg.inputValue(f("row_gap")), await t.pg.inputValue(f("max_angle")), await t.pg.inputValue(f("min_arrow"))], ["2.5", "1", "40", "1.2"]);
+      // by touch: tap the field, enter the value
+      await tap(f("col_gap")); await t.pg.fill(f("col_gap"), "3"); await t.pg.press(f("col_gap"), "Enter");
+      await until(t.pg, "JSON.parse(window.MZDRAW.style()).style['pathway.col_gap'] === 3");
+      // by keyboard: focus, type, Enter
+      await t.pg.focus(f("max_angle")); await t.pg.fill(f("max_angle"), "30"); await t.pg.keyboard.press("Enter");
+      await until(t.pg, "JSON.parse(window.MZDRAW.style()).style['pathway.max_angle'] === 30");
+      // out of bounds: refused with its key, nothing changes
+      await t.pg.fill(f("max_angle"), "95"); await t.pg.keyboard.press("Enter");
+      await until(t.pg, "document.querySelector('[id=\"d2-style-pathway.max_angle\"]').getAttribute('aria-invalid') === 'true'");
+      eq(await t.pg.innerText("#d2-style-note"), await t.pg.evaluate("I18N.t('error.draw2.styleValue')"));
+      eq((await style())["pathway.max_angle"], 30);
+      // the labels and the unit come from the language file
+      eq(await t.pg.evaluate("I18N.t('draw2.style.unit.deg')"), "degrees");
     } finally { await t.ctx.close(); }
   });
 

@@ -20,7 +20,7 @@
   "settings": [
     {
       "name": "layout and export defaults set one by one, as the CLI --set does",
-      "out": "{\"export\":{\"background\":\"none\",\"default\":\"png\"},\"format\":\"mzdraw-settings/1\",\"layout\":{\"preset\":\"tablet\",\"snap\":16.0},\"style\":{\"bold_width\":6.0,\"bond_length\":30.0,\"bond_spacing\":0.13,\"colour\":\"element\",\"font_size\":12.0,\"hash_spacing\":3.6,\"line_width\":1.35,\"margin\":2.04,\"pathway.margin\":0.35,\"preset\":\"mzlab\",\"subscript_scale\":0.7}}",
+      "out": "{\"export\":{\"background\":\"none\",\"default\":\"png\"},\"format\":\"mzdraw-settings/1\",\"layout\":{\"preset\":\"tablet\",\"snap\":16.0},\"style\":{\"bold_width\":6.0,\"bond_length\":30.0,\"bond_spacing\":0.13,\"colour\":\"element\",\"font_size\":12.0,\"hash_spacing\":3.6,\"line_width\":1.35,\"margin\":2.04,\"pathway.col_gap\":2.5,\"pathway.margin\":0.35,\"pathway.max_angle\":40.0,\"pathway.min_arrow\":1.2,\"pathway.row_gap\":1.0,\"preset\":\"mzlab\",\"subscript_scale\":0.7}}",
       "request": {
         "out": "settings",
         "set": [
@@ -34,7 +34,7 @@
     },
     {
       "name": "a whole layout object set, then the export defaults",
-      "out": "{\"export\":{\"background\":\"none\",\"default\":\"molfile\"},\"format\":\"mzdraw-settings/1\",\"layout\":{\"preset\":\"phone\",\"palettes\":[{\"id\":\"edit\",\"dock\":\"float\",\"x\":300.0,\"y\":200.0,\"orient\":\"v\"},{\"id\":\"view\",\"hidden\":true}]},\"style\":{\"bold_width\":6.0,\"bond_length\":30.0,\"bond_spacing\":0.13,\"colour\":\"element\",\"font_size\":12.0,\"hash_spacing\":3.6,\"line_width\":1.35,\"margin\":2.04,\"pathway.margin\":0.35,\"preset\":\"mzlab\",\"subscript_scale\":0.7}}",
+      "out": "{\"export\":{\"background\":\"none\",\"default\":\"molfile\"},\"format\":\"mzdraw-settings/1\",\"layout\":{\"preset\":\"phone\",\"palettes\":[{\"id\":\"edit\",\"dock\":\"float\",\"x\":300.0,\"y\":200.0,\"orient\":\"v\"},{\"id\":\"view\",\"hidden\":true}]},\"style\":{\"bold_width\":6.0,\"bond_length\":30.0,\"bond_spacing\":0.13,\"colour\":\"element\",\"font_size\":12.0,\"hash_spacing\":3.6,\"line_width\":1.35,\"margin\":2.04,\"pathway.col_gap\":2.5,\"pathway.margin\":0.35,\"pathway.max_angle\":40.0,\"pathway.min_arrow\":1.2,\"pathway.row_gap\":1.0,\"preset\":\"mzlab\",\"subscript_scale\":0.7}}",
       "request": {
         "out": "settings",
         "set": [

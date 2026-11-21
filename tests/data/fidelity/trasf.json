@@ -1,0 +1,111 @@
+{
+  "program": "RDKit",
+  "version": "2026.09.2",
+  "cases": [
+    {
+      "reaction": "[CH3:1][CH2:2][CH3:3]>>[CH3:1][CH2:2][CH2:3]O",
+      "delta": "+O",
+      "inchikey": "BDERNNFJNOPAEC-UHFFFAOYSA-N",
+      "checks": {
+        "product": true,
+        "pairs": true,
+        "lost": true,
+        "added": true,
+        "centre": true,
+        "delta": true
+      },
+      "ok": true,
+      "file_hash": "9745b3e90dc0975d"
+    },
+    {
+      "reaction": "[CH3:1][CH2:2][CH2:3][CH3:4]>>[CH3:1][CH2:2][CH:3]([OH])[CH3:4]",
+      "delta": "+O",
+      "inchikey": "BTANRVKWQNVYAZ-UHFFFAOYSA-N",
+      "checks": {
+        "product": true,
+        "pairs": true,
+        "lost": true,
+        "added": true,
+        "centre": true,
+        "delta": true
+      },
+      "ok": true,
+      "file_hash": "e7fe0c42d2c722b0"
+    },
+    {
+      "reaction": "[CH3:1][CH2:2][NH:3][CH3]>>[CH3:1][CH2:2][NH2:3]",
+      "delta": "-CH2",
+      "inchikey": "QUSNBJAOOMFDIB-UHFFFAOYSA-N",
+      "checks": {
+        "product": true,
+        "pairs": true,
+        "lost": true,
+        "added": true,
+        "centre": true,
+        "delta": true
+      },
+      "ok": true,
+      "file_hash": "42dc556bc0701ddb"
+    },
+    {
+      "reaction": "[CH3:1][CH2:2][CH2:3][NH:4][CH3]>>[CH3:1][CH2:2][CH2:3][NH2:4]",
+      "delta": "-CH2",
+      "inchikey": "WGYKZJWCGVVSQN-UHFFFAOYSA-N",
+      "checks": {
+        "product": true,
+        "pairs": true,
+        "lost": true,
+        "added": true,
+        "centre": true,
+        "delta": true
+      },
+      "ok": true,
+      "file_hash": "bff0593b4656c2ef"
+    },
+    {
+      "reaction": "[CH3:1][C:2](=[O:3])[O:4][CH3]>>[CH3:1][C:2](=[O:3])[OH:4]",
+      "delta": "-CH2",
+      "inchikey": "QTBSBXVTEAMEQO-UHFFFAOYSA-N",
+      "checks": {
+        "product": true,
+        "pairs": true,
+        "lost": true,
+        "added": true,
+        "centre": true,
+        "delta": true
+      },
+      "ok": true,
+      "file_hash": "adb7ec2b3d76502d"
+    },
+    {
+      "reaction": "[CH3][CH2][O:3][C:4](=[O:5])[CH3:6]>>[OH:3][C:4](=[O:5])[CH3:6]",
+      "delta": "-C2H4",
+      "inchikey": "QTBSBXVTEAMEQO-UHFFFAOYSA-N",
+      "checks": {
+        "product": true,
+        "pairs": true,
+        "lost": true,
+        "added": true,
+        "centre": true,
+        "delta": true
+      },
+      "ok": true,
+      "file_hash": "c7e64b5ffbe80904"
+    },
+    {
+      "reaction": "[CH3:1][CH2:2][Cl:3]>>[CH3:1][CH2:2][OH:3]",
+      "delta": "+HO-Cl",
+      "inchikey": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+      "checks": {
+        "product": true,
+        "pairs": true,
+        "lost": true,
+        "added": true,
+        "centre": true,
+        "delta": true
+      },
+      "ok": true,
+      "file_hash": "3069d671632d299c"
+    }
+  ]
+}
