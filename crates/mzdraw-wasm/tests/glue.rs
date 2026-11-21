@@ -158,3 +158,30 @@ fn replay_gives_the_answers_in_request_order() {
     );
     assert!(glue::replay("{").is_err());
 }
+
+/// The monoisotopic mass of a structure as `sel` (the mass of `label/1`) answers it.
+fn mono(smiles: &str) -> f64 {
+    let request = serde_json::json!({"import": smiles, "engines": [{"engine": "sel"}]}).to_string();
+    let out: serde_json::Value = serde_json::from_str(&glue::replay(&request).unwrap()).unwrap();
+    let label = &out["engines"][0]["answer"]["label"];
+    label["mass"].as_f64().unwrap_or_else(|| panic!("{label}"))
+}
+
+/// tp-07: the mass shifts that the mass labels will write are the differences of the masses the glue returns, not typed numbers.
+/// `pathway:label` writes the formula delta only for now (the mass modes are refused until arch-web-17); this pins that the numbers of
+/// the study (`+O` 15.9949, `-CH2` -14.0157, `+C6H8O6` 176.0321, `+SO3` 79.9568, `-H2` -2.0157, `+H2O` 18.0106) hold on the engine.
+#[test]
+fn the_mass_shifts_of_the_deltas_come_from_the_masses_the_glue_returns() {
+    for (from, to, shift) in [
+        ("CC", "CCO", 15.9949),
+        ("CCC", "CC", -14.0157),
+        ("CC", "C=C", -2.0157),
+        ("C=C", "CCO", 18.0106),
+        ("CO", "COS(=O)(=O)O", 79.9568),
+    ] {
+        let d = mono(to) - mono(from);
+        assert!((d - shift).abs() < 1e-4, "{from} -> {to}: {d} vs {shift}");
+    }
+    // +C6H8O6: the mass of the group itself (ascorbic acid has that formula)
+    assert!((mono("OCC(O)C1OC(=O)C(O)=C1O") - 176.0321).abs() < 1e-4);
+}
