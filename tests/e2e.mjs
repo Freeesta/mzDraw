@@ -2605,6 +2605,18 @@ try {
     eq((await txText()).editing, false);
     await pg.keyboard.press("Control+z"); await frames(pg); eq(await txRuns(), []);
   });
+  await step("text panel, a cancelled press: a finger press taken away by the system (pointercancel) ends the drag of the range, and a later move over the text does not grow it", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    const [ox, oy] = await txOpen();
+    await pg.mouse.click(ox + 6, oy); await txShown(true);
+    await pg.click("#d2-text-edit"); await until(pg, "window.MZDRAW.state().includes('\"editing\":true')");
+    await touch("touchStart", [[ox + 1, oy]]); await touch("touchMove", [[ox + 20, oy]]);
+    await touch("touchCancel", []); await frames(pg);
+    const x = await txText(), at = [x.from, x.to];
+    await pg.mouse.move(ox + 90, oy, { steps: 4 }); await frames(pg);
+    eq([(await txText()).from, (await txText()).to], at);
+  });
   await step("text panel by pen: a pen drag selects a range inside the edited text and a pen tap on Subscript sets only it", async () => {
     const cdp = await ctx.newCDPSession(pg);
     const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" || type === "mouseMoved" ? 1 : 0, clickCount: 1 });

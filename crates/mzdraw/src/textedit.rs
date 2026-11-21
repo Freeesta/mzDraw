@@ -19,6 +19,17 @@ pub const FONTS: [(&str, &str); 7] = [
     ("verdana", "Verdana"),
 ];
 
+/// The keys of `FONTS` (the words of the preference `text.font`); a test holds the two lists together.
+pub const FONT_KEYS: [&str; 7] = [
+    "default",
+    "arial",
+    "helvetica",
+    "times",
+    "courier",
+    "georgia",
+    "verdana",
+];
+
 /// The sizes the panel offers, as percent of the size of the style (a run's `sz` is this divided by 100).
 pub const SIZES: [u32; 8] = [50, 75, 100, 125, 150, 200, 300, 400];
 
@@ -281,6 +292,61 @@ pub fn splice(runs: &[Run], lo: usize, hi: usize, text: &str, style: &Run) -> (V
 /// The runs with the characters `lo..hi` removed.
 pub fn remove(runs: &[Run], lo: usize, hi: usize) -> Vec<Run> {
     splice(runs, lo, hi, "", &Run::default()).0
+}
+
+/// Whether the character joins the one before it into one visible character: a zero-width joiner (which also joins the next
+/// character), a variation selector, a combining mark, an emoji skin-tone modifier. Editing moves and deletes by these clusters, so
+/// Backspace on a joined emoji leaves no dangling joiner. (Two regional indicators, a flag, are not joined: the limit is in the doc.)
+fn extends(c: char) -> bool {
+    matches!(c, '\u{200D}' | '\u{FE00}'..='\u{FE0F}' | '\u{0300}'..='\u{036F}' | '\u{20D0}'..='\u{20FF}' | '\u{1F3FB}'..='\u{1F3FF}')
+}
+
+/// The start of the cluster that ends at `pos` (the boundary before the character the caret has just passed).
+pub fn cluster_before(runs: &[Run], pos: usize) -> usize {
+    let cs: Vec<char> = crate::runs::plain(runs).chars().collect();
+    let mut i = pos.min(cs.len());
+    if i == 0 {
+        return 0;
+    }
+    i -= 1;
+    loop {
+        while i > 0 && extends(cs[i]) {
+            i -= 1;
+        }
+        // a base after a joiner belongs to the one before the joiner
+        if i > 0 && cs[i - 1] == '\u{200D}' {
+            i -= 1;
+        } else {
+            return i;
+        }
+    }
+}
+
+/// The end of the cluster that starts at `pos`.
+pub fn cluster_after(runs: &[Run], pos: usize) -> usize {
+    let cs: Vec<char> = crate::runs::plain(runs).chars().collect();
+    let n = cs.len();
+    if pos >= n {
+        return n;
+    }
+    let mut i = pos + 1;
+    while i < n && extends(cs[i]) {
+        i += if cs[i] == '\u{200D}' { 2 } else { 1 };
+    }
+    i.min(n)
+}
+
+/// A position moved to the boundary of the cluster it is in (a pointer may land between a base and its joiner).
+pub fn snap(runs: &[Run], pos: usize) -> usize {
+    if pos >= len(runs) {
+        return len(runs);
+    }
+    cluster_before(runs, cluster_after(runs, pos))
+}
+
+/// Whether some of `text` would be put in by `splice` (a text of control characters only would not).
+pub fn insertable(text: &str) -> bool {
+    text.chars().any(|c| c == '\n' || !c.is_control())
 }
 
 /// The width of one character of a run, as `runs::layout` measures it.
@@ -561,6 +627,83 @@ mod tests {
         assert_eq!(line_span(&runs, 1), (0, 2));
         assert_eq!(line_span(&runs, 4), (3, 5));
         assert_eq!(word_span(&runs, 3), (3, 5));
+    }
+
+    #[test]
+    fn the_lists_of_the_panel_the_preference_and_the_document_agree() {
+        let keys: Vec<&str> = FONTS.iter().map(|f| f.0).collect();
+        assert_eq!(keys, FONT_KEYS);
+        assert_eq!(crate::prefs::FONT_WORDS, FONT_KEYS);
+        let sizes: Vec<String> = SIZES.iter().map(u32::to_string).collect();
+        assert_eq!(crate::prefs::SIZE_WORDS, sizes);
+        // every family of the list is one the document accepts (the check of `runs.rs`), and every size is in its bounds
+        for (_, family) in FONTS {
+            let run = Run {
+                font: family.to_string(),
+                ..Run::plain("x")
+            };
+            assert_eq!(crate::runs::check(&[run]), Ok(()), "{family}");
+        }
+        for pct in SIZES {
+            let run = Run {
+                sz: f64::from(pct) / 100.0,
+                ..Run::plain("x")
+            };
+            assert_eq!(crate::runs::check(&[run]), Ok(()), "{pct}");
+        }
+    }
+
+    #[test]
+    fn an_empty_range_changes_nothing() {
+        let runs = vec![Run::plain("ab"), bold("cd")];
+        for change in [
+            Change::Bold,
+            Change::Sub,
+            Change::Size(2.0),
+            Change::Colour("#d00000".into()),
+        ] {
+            assert_eq!(apply(&runs, 2, 2, &change), runs, "{change:?}");
+        }
+    }
+
+    #[test]
+    fn editing_moves_and_deletes_by_visible_characters() {
+        // a family emoji of three people joined, an e with a combining accent, an emoji with a variation selector, a character outside the BMP
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";
+        let text = format!("a{family}e\u{301}\u{2764}\u{FE0F}\u{1D54F}");
+        let runs = vec![Run::plain(&text)];
+        let n = len(&runs);
+        assert_eq!(n, 1 + 5 + 2 + 2 + 1);
+        assert_eq!(cluster_after(&runs, 1), 6);
+        assert_eq!(cluster_before(&runs, 6), 1);
+        assert_eq!(
+            cluster_before(&runs, 5),
+            1,
+            "inside the family the start is the family's"
+        );
+        assert_eq!(cluster_after(&runs, 6), 8);
+        assert_eq!(cluster_before(&runs, 8), 6);
+        assert_eq!(cluster_after(&runs, 8), 10);
+        assert_eq!(cluster_after(&runs, 10), 11);
+        assert_eq!(cluster_before(&runs, 11), 10);
+        assert_eq!(snap(&runs, 3), 1);
+        assert_eq!(snap(&runs, 7), 6);
+        assert_eq!(snap(&runs, 0), 0);
+        assert_eq!(snap(&runs, 11), 11);
+        // removing the family leaves no joiner behind
+        let gone = remove(&runs, 1, 6);
+        assert!(!crate::runs::plain(&gone).contains('\u{200D}'));
+        // a lone joiner at the end of a text does not run off it
+        let odd = vec![Run::plain("a\u{200D}")];
+        assert_eq!(cluster_after(&odd, 0), 2);
+        assert_eq!(cluster_before(&odd, 2), 0);
+    }
+
+    #[test]
+    fn a_text_of_control_characters_is_not_insertable() {
+        assert!(!insertable("\u{7}\u{1b}"));
+        assert!(insertable("\n"));
+        assert!(insertable("a\u{7}"));
     }
 
     #[test]

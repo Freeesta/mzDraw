@@ -385,6 +385,7 @@ I18N.add("en", {
   "draw2.say.textTyped": "Text changed.",
   "draw2.say.textGone": "The text was removed.",
   "draw2.say.textStyled": "Text style set: {what}.",
+  "error.draw2.textChars": "Nothing was inserted: control characters are not text.",
   "error.draw2.textArrow": "The panel styles text objects only. Set the text of an arrow with the Text tool.",
   "error.draw2.textNone": "Select a text first.",
   "error.draw2.textStyle": "That style is not one the text panel can set.",

@@ -397,22 +397,19 @@ const textPanel = (() => {
     const edit = $("d2-text-edit");
     edit.setAttribute("aria-pressed", String(x.editing)); edit.textContent = t(x.editing ? "draw2.text.done" : "draw2.text.edit"); edit.title = t(x.editing ? "draw2.text.done.title" : "draw2.text.edit.title");
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (bar.querySelectorAll("button[data-text]"))) { const v = x.style[b.dataset.text || ""]; b.setAttribute("aria-pressed", v === null ? "mixed" : String(v)); }
-    // the lists come from the module; a value outside the list (a file's font, a size between two) is shown too, never lost
+    // the lists and the entries come from the module (`fontKey`, `fontExtra`, `sizes`, `range`): this only paints them
     const fonts = /** @type {HTMLSelectElement} */ ($("d2-text-font")), sizes = /** @type {HTMLSelectElement} */ ($("d2-text-size"));
     const opt = (/** @type {string} */ v, /** @type {string} */ label, /** @type {boolean} */ off = false) => { const o = document.createElement("option"); o.value = v; o.textContent = label; o.disabled = off; return o; };
-    const fontKey = x.style.font === null ? "mixed" : (x.fonts.find((/** @type {any} */ f) => f.name === x.style.font) || { key: "other" }).key;
-    fonts.replaceChildren(...x.fonts.map((/** @type {any} */ f) => opt(f.key, f.name || t("draw2.text.font.default"))));
-    if (fontKey === "mixed") fonts.prepend(opt("mixed", t("draw2.text.mixed"), true)); else if (fontKey === "other") fonts.prepend(opt("other", x.style.font, true));
-    fonts.value = fontKey;
-    const list = [...x.sizes]; if (x.style.size !== null && !list.includes(x.style.size)) list.push(x.style.size);
-    sizes.replaceChildren(...list.sort((/** @type {number} */ a, /** @type {number} */ b) => a - b).map(n => opt(String(n), t("draw2.text.size.pct", { n }))));
-    if (x.style.size === null) { sizes.prepend(opt("-1", t("draw2.text.size.mixed"), true)); sizes.value = "-1"; } else sizes.value = String(x.style.size);
+    fonts.replaceChildren(...(x.fontExtra ? [opt(x.fontExtra.key, x.fontExtra.name || t("draw2.text.mixed"), true)] : []), ...x.fonts.map((/** @type {any} */ f) => opt(f.key, f.name || t("draw2.text.font.default"))));
+    fonts.value = x.fontKey;
+    sizes.replaceChildren(...(x.style.size === null ? [opt("-1", t("draw2.text.size.mixed"), true)] : []), ...x.sizes.map((/** @type {number} */ n) => opt(String(n), t("draw2.text.size.pct", { n }))));
+    sizes.value = x.style.size === null ? "-1" : String(x.style.size);
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (colours().querySelectorAll("button"))) b.setAttribute("aria-pressed", String(x.style.colour !== null && b.dataset.hex === x.style.colour));
     // the keyboard goes to the text while it is edited, and back to the canvas when it stops
     const at = document.activeElement;
     if (x.editing && (at === cv || at === document.body)) $in().focus({ preventScroll: true });
     else if (!x.editing && at === $in()) cv.focus({ preventScroll: true });
-    const range = x.from === x.to ? t("draw2.text.range.caret", { at: x.to, total: x.len }) : x.to - x.from === x.len ? t("draw2.text.range.all", { n: x.len }) : t("draw2.text.range.some", { n: x.to - x.from, total: x.len });
+    const range = t("draw2.text.range." + x.range.kind, x.range);
     const line = t("draw2.text.state", { range });
     if (line !== said) { said = line; $("d2-text-state").textContent = line; }
   };

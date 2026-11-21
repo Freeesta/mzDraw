@@ -228,13 +228,18 @@ impl Editor {
         let Some(t) = self.text_target().filter(|t| t.editing) else {
             return 0;
         };
+        if text.is_empty() {
+            return 0;
+        }
         let style = self.text_style_at(&t);
         let (new, n) = te::splice(&t.runs, t.lo, t.hi, text, &style);
-        if n == 0 && t.lo == t.hi {
-            // a text at its cap takes nothing more
-            if !text.is_empty() {
-                self.error = "error.draw2.runsCount";
-            }
+        if n == 0 {
+            // nothing went in: the range stays and no step is written; the note says why (control characters only, or a cap)
+            self.error = if te::insertable(text) {
+                "error.draw2.runsCount"
+            } else {
+                "error.draw2.textChars"
+            };
             return REPAINT;
         }
         self.text_replace(&t, new, t.lo + n, "draw2.say.textTyped")
@@ -280,8 +285,8 @@ impl Editor {
         let n = te::len(&t.runs);
         let (lo, hi) = match (t.lo < t.hi, back) {
             (true, _) => (t.lo, t.hi),
-            (false, true) if t.lo > 0 => (t.lo - 1, t.lo),
-            (false, false) if t.lo < n => (t.lo, t.lo + 1),
+            (false, true) if t.lo > 0 => (te::cluster_before(&t.runs, t.lo), t.lo),
+            (false, false) if t.lo < n => (t.lo, te::cluster_after(&t.runs, t.lo)),
             _ => return REPAINT,
         };
         let new = te::remove(&t.runs, lo, hi);
@@ -326,7 +331,15 @@ impl Editor {
                 // undo, redo and the rest keep their bindings
                 _ => return None,
             }
-        } else if ctrl || (alt && !(ctrl && alt)) {
+        } else if ctrl {
+            // Ctrl with Alt is AltGr on many layouts: a character typed with it is text; another key with it is not ours
+            if key.chars().count() == 1 {
+                self.text_input(key)
+            } else {
+                return None;
+            }
+        } else if alt {
+            // Alt alone belongs to the nudge and turn keys
             return None;
         } else {
             match lower.as_str() {
@@ -339,12 +352,12 @@ impl Editor {
                         if !shift && t.lo < t.hi {
                             t.lo
                         } else {
-                            t.caret.saturating_sub(1)
+                            te::cluster_before(&t.runs, t.caret)
                         }
                     } else if !shift && t.lo < t.hi {
                         t.hi
                     } else {
-                        (t.caret + 1).min(n)
+                        te::cluster_after(&t.runs, t.caret)
                     };
                     self.text_move(&t, to, shift)
                 }
@@ -371,7 +384,7 @@ impl Editor {
                     let to = te::line_span(&t.runs, t.caret).1;
                     self.text_move(&t, to, shift)
                 }
-                // a character: AltGr (Ctrl with Alt) and the plain keys; `Tab` and the function keys are not text
+                // a character; `Tab` and the function keys are not text (AltGr characters are the branch above)
                 _ if key.chars().count() == 1 => self.text_input(key),
                 _ => return None,
             }
@@ -384,7 +397,8 @@ impl Editor {
         let (font, script) = self.text_metrics();
         let (x, y) = self.view.to_px(o.x, o.y);
         let line = ((py - y) / (font * 1.25)).round() as i64;
-        te::pos_at(&te::runs_of(o), font, script, line, px - x)
+        let runs = te::runs_of(o);
+        te::snap(&runs, te::pos_at(&runs, font, script, line, px - x))
     }
 
     /// The width and the number of lines of a text, in pixels, for the hit test: what is drawn, not the first line of the plain text.
@@ -509,7 +523,9 @@ impl Editor {
     }
 
     /// The panel as JSON for the page: `{"id", "editing", "from", "to", "len", "style": {"b", "i", "u", "sub", "sup", "font", "size",
-    /// "colour"} (each `null` where the range differs), "fonts": [{"key", "name"}], "sizes": [percent], "max"}`, or `null` when no text
+    /// "colour"} (each `null` where the range differs), "range": {"kind": "caret" | "all" | "some", "n", "at", "total"}, "fontKey" (the
+    /// key of the font shown, or `mixed` / `other`), "fontExtra" (the entry for those two, or `null`), "fonts": [{"key", "name"}],
+    /// "sizes": [percent, with the size in use among them], "max"}`, or `null` when no text
     /// is selected. The style is that of the range, or of the character before the caret (the pending style of a button when it was
     /// pressed with no range).
     pub fn text_json(&self) -> String {
@@ -527,24 +543,50 @@ impl Editor {
             .iter()
             .map(|(k, n)| format!(r#"{{"key":{},"name":{}}}"#, q(k), q(n)))
             .collect();
-        let sizes: Vec<String> = te::SIZES.iter().map(u32::to_string).collect();
-        let size = s.sz.map_or("null".to_string(), |z| {
-            ((z * 100.0).round() as i64).to_string()
-        });
+        // the control shows one of the listed fonts, or an entry of its own for a font outside the list or a mixed range
+        let (font_key, font_extra) = match &s.font {
+            None => (
+                "mixed".to_string(),
+                r#"{"key":"mixed","name":""}"#.to_string(),
+            ),
+            Some(f) => match te::FONTS.iter().find(|x| x.1 == f) {
+                Some((k, _)) => (k.to_string(), "null".to_string()),
+                None => (
+                    "other".to_string(),
+                    format!(r#"{{"key":"other","name":{}}}"#, q(f)),
+                ),
+            },
+        };
+        let pct = s.sz.map(|z| (z * 100.0).round() as i64);
+        let mut sizes: Vec<i64> = te::SIZES.iter().map(|&n| i64::from(n)).collect();
+        sizes.extend(pct.filter(|p| !sizes.contains(p)));
+        sizes.sort_unstable();
+        let sizes: Vec<String> = sizes.iter().map(i64::to_string).collect();
+        let size = pct.map_or("null".to_string(), |p| p.to_string());
+        let n = te::len(&t.runs);
+        let kind = if t.lo == t.hi {
+            "caret"
+        } else if t.hi - t.lo == n {
+            "all"
+        } else {
+            "some"
+        };
         format!(
-            r#"{{"id":{},"editing":{},"from":{},"to":{},"len":{},"style":{{"b":{},"i":{},"u":{},"sub":{},"sup":{},"font":{},"size":{size},"colour":{}}},"fonts":[{}],"sizes":[{}],"max":{}}}"#,
+            r#"{{"id":{},"editing":{},"from":{},"to":{},"len":{n},"range":{{"kind":"{kind}","n":{},"at":{},"total":{n}}},"style":{{"b":{},"i":{},"u":{},"sub":{},"sup":{},"font":{},"size":{size},"colour":{}}},"fontKey":{},"fontExtra":{font_extra},"fonts":[{}],"sizes":[{}],"max":{}}}"#,
             t.id,
             t.editing,
             t.lo,
             t.hi,
-            te::len(&t.runs),
+            t.hi - t.lo,
+            t.hi,
             tri(s.b),
             tri(s.i),
             tri(s.u),
             tri(s.sub),
             tri(s.sup),
-            s.font.map_or("null".to_string(), |f| q(&f)),
+            s.font.as_ref().map_or("null".to_string(), |f| q(f)),
             s.color.map_or("null".to_string(), |c| q(&c)),
+            q(&font_key),
             fonts.join(","),
             sizes.join(","),
             crate::runs::MAX_CHARS

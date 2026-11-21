@@ -50,16 +50,8 @@ const BACKGROUND: &[&str] = &["white", "none"];
 const FORMATS: &[&str] = &crate::palettes::FORMATS;
 const PRESET_WORDS: &[&str] = &PRESETS;
 const THEME_WORDS: &[&str] = &THEMES;
-const FONT_WORDS: &[&str] = &[
-    "default",
-    "arial",
-    "helvetica",
-    "times",
-    "courier",
-    "georgia",
-    "verdana",
-];
-const SIZE_WORDS: &[&str] = &["50", "75", "100", "125", "150", "200", "300", "400"];
+pub(crate) const FONT_WORDS: &[&str] = &crate::textedit::FONT_KEYS;
+pub(crate) const SIZE_WORDS: &[&str] = &["50", "75", "100", "125", "150", "200", "300", "400"];
 
 const fn p(setting: &'static str, group: &'static str, label: &'static str, kind: Kind) -> Pref {
     Pref {
