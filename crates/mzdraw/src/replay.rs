@@ -275,6 +275,16 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         e.set(setting).map_err(fail)?;
     }
     let before = IdSets::of(e.doc());
+    let stereo_start = if r
+        .expect
+        .iter()
+        .any(|x| x.check == crate::outcome::Check::StereoKept)
+    {
+        let all = crate::stereo_guard::pieces(e.doc());
+        crate::stereo_guard::signature(e.doc(), &all)
+    } else {
+        Vec::new()
+    };
     let mut failed = None;
     for (i, op) in r.log.iter().enumerate() {
         if let Err(err) = e.session.run(std::slice::from_ref(op)) {
@@ -324,7 +334,7 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
                     "not checked: the log failed".to_string(),
                 ),
                 None => {
-                    let (ok, detail) = x.check.run(e.doc());
+                    let (ok, detail) = x.check.run(e.doc(), &stereo_start);
                     (x.request.clone(), ok, detail)
                 }
             })

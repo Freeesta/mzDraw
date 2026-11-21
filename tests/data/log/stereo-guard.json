@@ -1,0 +1,157 @@
+{
+  "results": [
+    {
+      "name": "a rigid move keeps the configuration",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":8,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":2.0,\\\"y\\\":1.0},{\\\"id\\\":2,\\\"el\\\":\\\"F\\\",\\\"x\\\":2.0,\\\"y\\\":2.0},{\\\"id\\\":3,\\\"el\\\":\\\"Cl\\\",\\\"x\\\":1.1,\\\"y\\\":0.5},{\\\"id\\\":4,\\\"el\\\":\\\"Br\\\",\\\"x\\\":2.9,\\\"y\\\":0.5}],\\\"bonds\\\":[{\\\"id\\\":5,\\\"a\\\":1,\\\"b\\\":2,\\\"o\\\":1,\\\"s\\\":1},{\\\"id\\\":6,\\\"a\\\":1,\\\"b\\\":3,\\\"o\\\":1},{\\\"id\\\":7,\\\"a\\\":1,\\\"b\\\":4,\\\"o\\\":1}]}\",\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":true,\"detail\":\"\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "{\"format\":\"mzdraw/1\",\"next\":8,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"F\",\"x\":0.0,\"y\":1.0},{\"id\":3,\"el\":\"Cl\",\"x\":-0.9,\"y\":-0.5},{\"id\":4,\"el\":\"Br\",\"x\":0.9,\"y\":-0.5}],\"bonds\":[{\"id\":5,\"a\":1,\"b\":2,\"o\":1,\"s\":1},{\"id\":6,\"a\":1,\"b\":3,\"o\":1},{\"id\":7,\"a\":1,\"b\":4,\"o\":1}]}",
+        "log": [
+          {
+            "atoms": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "dx": 2.0,
+            "dy": 1.0,
+            "op": "move"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a plain flip of a chiral piece changes it",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed: atoms 1 changed: [Br][C@@H]([Cl])[F] became [Br][C@H]([Cl])[F]\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "{\"format\":\"mzdraw/1\",\"next\":8,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"F\",\"x\":0.0,\"y\":1.0},{\"id\":3,\"el\":\"Cl\",\"x\":-0.9,\"y\":-0.5},{\"id\":4,\"el\":\"Br\",\"x\":0.9,\"y\":-0.5}],\"bonds\":[{\"id\":5,\"a\":1,\"b\":2,\"o\":1,\"s\":1},{\"id\":6,\"a\":1,\"b\":3,\"o\":1},{\"id\":7,\"a\":1,\"b\":4,\"o\":1}]}",
+        "log": [
+          {
+            "at": 0.0,
+            "atoms": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "axis": "h",
+            "op": "flip"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dragging one neighbour across the others changes it",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed: atoms 1 changed: [Br][C@@H]([Cl])[F] became [Br][C@H]([Cl])[F]\"}]}",
+      "request": {
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "{\"format\":\"mzdraw/1\",\"next\":8,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"F\",\"x\":0.0,\"y\":1.0},{\"id\":3,\"el\":\"Cl\",\"x\":-0.9,\"y\":-0.5},{\"id\":4,\"el\":\"Br\",\"x\":0.9,\"y\":-0.5}],\"bonds\":[{\"id\":5,\"a\":1,\"b\":2,\"o\":1,\"s\":1},{\"id\":6,\"a\":1,\"b\":3,\"o\":1},{\"id\":7,\"a\":1,\"b\":4,\"o\":1}]}",
+        "log": [
+          {
+            "atoms": [
+              3
+            ],
+            "dx": 1.8,
+            "dy": 1.5,
+            "op": "move"
+          }
+        ]
+      }
+    },
+    {
+      "name": "the flip command of the page gives the same verdict",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed: atoms 1 changed: [Br][C@@H]([Cl])[F] became [Br][C@H]([Cl])[F]\"}]}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "atoms": [
+                1,
+                2,
+                3,
+                4
+              ],
+              "axis": "h"
+            },
+            "command": "flip"
+          }
+        ],
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "{\"format\":\"mzdraw/1\",\"next\":8,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"F\",\"x\":0.0,\"y\":1.0},{\"id\":3,\"el\":\"Cl\",\"x\":-0.9,\"y\":-0.5},{\"id\":4,\"el\":\"Br\",\"x\":0.9,\"y\":-0.5}],\"bonds\":[{\"id\":5,\"a\":1,\"b\":2,\"o\":1,\"s\":1},{\"id\":6,\"a\":1,\"b\":3,\"o\":1},{\"id\":7,\"a\":1,\"b\":4,\"o\":1}]}"
+      }
+    },
+    {
+      "name": "a turn of 90 degrees about the centre keeps it",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":8,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.25,\\\"y\\\":0.25},{\\\"id\\\":2,\\\"el\\\":\\\"F\\\",\\\"x\\\":-0.75,\\\"y\\\":0.25},{\\\"id\\\":3,\\\"el\\\":\\\"Cl\\\",\\\"x\\\":0.75,\\\"y\\\":-0.65},{\\\"id\\\":4,\\\"el\\\":\\\"Br\\\",\\\"x\\\":0.75,\\\"y\\\":1.15}],\\\"bonds\\\":[{\\\"id\\\":5,\\\"a\\\":1,\\\"b\\\":2,\\\"o\\\":1,\\\"s\\\":1},{\\\"id\\\":6,\\\"a\\\":1,\\\"b\\\":3,\\\"o\\\":1},{\\\"id\\\":7,\\\"a\\\":1,\\\"b\\\":4,\\\"o\\\":1}]}\",\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":true,\"detail\":\"\"},{\"check\":{\"pieces\":1},\"ok\":true,\"detail\":\"\"}]}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "atoms": [
+                1,
+                2,
+                3,
+                4
+              ],
+              "deg": 90.0
+            },
+            "command": "rotate"
+          }
+        ],
+        "expect": [
+          {
+            "stereo": "kept"
+          },
+          {
+            "pieces": 1
+          }
+        ],
+        "import": "{\"format\":\"mzdraw/1\",\"next\":8,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"F\",\"x\":0.0,\"y\":1.0},{\"id\":3,\"el\":\"Cl\",\"x\":-0.9,\"y\":-0.5},{\"id\":4,\"el\":\"Br\",\"x\":0.9,\"y\":-0.5}],\"bonds\":[{\"id\":5,\"a\":1,\"b\":2,\"o\":1,\"s\":1},{\"id\":6,\"a\":1,\"b\":3,\"o\":1},{\"id\":7,\"a\":1,\"b\":4,\"o\":1}]}"
+      }
+    },
+    {
+      "name": "an imported SMILES mirrored as drawn changes it",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"stereo\":\"kept\"},\"ok\":false,\"detail\":\"the configuration changed: atoms 2 changed: [C@H]([CH3])([Cl])[F] became [C@@H]([CH3])([Cl])[F]\"}]}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "atoms": [
+                1,
+                2,
+                3,
+                4
+              ],
+              "axis": "v"
+            },
+            "command": "flip"
+          }
+        ],
+        "expect": [
+          {
+            "stereo": "kept"
+          }
+        ],
+        "import": "C[C@H](F)Cl"
+      }
+    }
+  ]
+}

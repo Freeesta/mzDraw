@@ -208,10 +208,12 @@ impl Editor {
 
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
     pub(crate) fn run(&mut self, ops: &[Op], say: &'static str, what: &str) -> u32 {
+        let guard = crate::stereo_guard::before(self.doc(), ops);
         let ops = self.following(ops);
         match self.session.run(&ops) {
             Ok(()) => {
                 self.said = (say, what.to_string());
+                self.say_stereo(guard);
                 self.error = "";
                 self.prune();
                 REPAINT | CHANGED
@@ -219,6 +221,18 @@ impl Editor {
             Err(e) => {
                 self.error = e.key;
                 REPAINT
+            }
+        }
+    }
+
+    /// The guard of the configuration: after a geometry step, when a piece that held a wedge now has another signature, the live
+    /// line says at which atoms (report only, the step stands).
+    pub(crate) fn say_stereo(&mut self, before: Option<Vec<(crate::stereo_guard::Piece, String)>>) {
+        if let Some(then) = before {
+            let atoms = crate::stereo_guard::changed(self.doc(), &then);
+            if !atoms.is_empty() {
+                let list: Vec<String> = atoms.iter().map(u32::to_string).collect();
+                self.said = ("draw2.say.stereoChanged", list.join(", "));
             }
         }
     }

@@ -107,7 +107,7 @@ fn an_invalid_request_is_an_error_whatever_the_fields() {
     ] {
         assert!(replay(&bad.to_string()).is_err(), "{bad}");
     }
-    let e = replay(&json!({"expect":[{"stereo":"kept"}]}).to_string()).unwrap_err();
+    let e = replay(&json!({"expect":[{"stereo":"lost"}]}).to_string()).unwrap_err();
     assert_eq!(e.key, "error.draw2.expect");
     let e = replay(&json!({"flavour":1}).to_string()).unwrap_err();
     assert_eq!(e.key, "error.draw2.requestField");

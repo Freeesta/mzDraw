@@ -7,6 +7,7 @@
 
 use crate::conform;
 use crate::doc::Document;
+use crate::stereo_guard::{self, Piece};
 use serde_json::Value;
 use std::collections::BTreeSet;
 
@@ -78,6 +79,8 @@ pub enum Check {
     Pieces(u32),
     /// `{"smiles":"..."}`: the SMILES of the whole drawing (`Editor::save("smiles")`) is this text.
     Smiles(String),
+    /// `{"stereo":"kept"}`: no piece has another stereo signature than at the start of the request (after `import`).
+    StereoKept,
 }
 
 /// A postcondition with the request object it came from (written back as `check`).
@@ -113,6 +116,7 @@ pub fn read_expect(v: &Value) -> Result<Vec<Expectation>, &'static str> {
                     .ok_or(BAD_EXPECT)?,
             ),
             "smiles" => Check::Smiles(val.as_str().ok_or(BAD_EXPECT)?.to_string()),
+            "stereo" if val.as_str() == Some("kept") => Check::StereoKept,
             _ => return Err(BAD_EXPECT),
         };
         out.push(Expectation {
@@ -146,8 +150,27 @@ pub fn pieces(doc: &Document) -> u32 {
 
 impl Check {
     /// Whether the drawing satisfies it, and when it does not, why (English text for a reader; empty when it holds).
-    pub fn run(&self, doc: &Document) -> (bool, String) {
+    /// `start` is the signature of the pieces at the start of the request (`stereo_guard::signature` of all pieces).
+    pub fn run(&self, doc: &Document, start: &[(Piece, String)]) -> (bool, String) {
         match self {
+            Check::StereoKept => {
+                let diff = stereo_guard::differing(start, doc);
+                if diff.is_empty() {
+                    (true, String::new())
+                } else {
+                    let parts: Vec<String> = diff
+                        .iter()
+                        .map(|(atoms, was, now)| {
+                            let ids: Vec<String> = atoms.iter().map(u32::to_string).collect();
+                            format!("atoms {} changed: {was} became {now}", ids.join(", "))
+                        })
+                        .collect();
+                    (
+                        false,
+                        format!("the configuration changed: {}", parts.join("; ")),
+                    )
+                }
+            }
             Check::StdNone => {
                 let keys = found(doc, None);
                 if keys.is_empty() {

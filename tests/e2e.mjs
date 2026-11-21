@@ -602,6 +602,26 @@ try {
     eq((await state(pg)).atoms, 16);
   });
 
+  await step("stereo guard by keyboard and buttons: a rigid nudge and a turn say nothing, a plain mirror of a wedged centre says where the configuration changed, and undo takes it back", async () => {
+    const smiles = () => pg.evaluate("window.MZDRAW.save('smiles')");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.focus("#d2-canvas");
+    await pg.evaluate("(() => { const d = new DataTransfer(); d.setData('text/plain', 'C[C@H](F)Cl'); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()");
+    await want(pg, { atoms: 4 });
+    const was = await smiles();
+    await pg.keyboard.press("Control+a");
+    await pg.keyboard.press("ArrowRight");
+    assert(!(await pg.innerText("#d2-live")).includes("onfiguration"), "a nudge of the whole piece says nothing about the configuration");
+    await tool(pg, "rotate-l");
+    assert(!(await pg.innerText("#d2-live")).includes("onfiguration"), "a turn says nothing about the configuration");
+    eq(await smiles(), was);
+    await tool(pg, "flip-h");
+    assert((await pg.innerText("#d2-live")).startsWith("Configuration changed at atoms"), "the live line names the change");
+    assert((await smiles()) !== was, "the mirror image is the other enantiomer");
+    await pg.keyboard.press("Control+z");
+    eq(await smiles(), was);
+  });
+
   await step("labels: an abbreviation and an R group are chosen, typed, refused in words, drawn and expanded in the molfile", async () => {
     const labs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms.map(a => a.lab || "");
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
@@ -1152,6 +1172,17 @@ try {
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
+  });
+  await step("stereo guard by touch: the mirror button of a wedged centre says where the configuration changed", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.evaluate("(() => { const d = new DataTransfer(); d.setData('text/plain', 'C[C@H](F)Cl'); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()");
+    await want(pg, { atoms: 4 });
+    const was = await pg.evaluate("window.MZDRAW.save('smiles')");
+    await tool(pg, "select"); await pg.keyboard.press("Control+a");
+    await tool(pg, "flip-h");
+    assert((await pg.innerText("#d2-live")).startsWith("Configuration changed at atoms"), "the live line names the change");
+    await tool(pg, "undo");
+    eq(await pg.evaluate("window.MZDRAW.save('smiles')"), was);
   });
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
