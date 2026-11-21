@@ -121,6 +121,17 @@ fn every_case_replays_to_the_recorded_bytes() {
             assert_eq!(case["out"], json!(got), "{}", case["name"]);
             assert!(got.starts_with("JVBERi0xLjc"), "{}: %PDF-1.7", case["name"]);
         }
+        // a drawn parent and product as `trasf/1` with its two records (`out: trasf`): the same bytes on both sides; the record is read back
+        // by `mzlab-mol` and its `delta` is the one written in the case
+        for case in section_mut(fx, "trasf") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            let t = mzlab_mol::Transformation::from_json(got.lines().next().unwrap()).unwrap();
+            assert_eq!(json!(t.delta), case["delta"], "{}", case["name"]);
+        }
         if bless {
             std::fs::write(&*path, serde_json::to_string_pretty(&*fx).unwrap() + "\n").unwrap();
         }

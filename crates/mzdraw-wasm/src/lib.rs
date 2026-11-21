@@ -295,10 +295,22 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log` (the command log), `std` (the drawing checks) or `settings`.
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `trasf`, `sdf`, `svg`, `log` (the command log), `std` (the drawing checks) or `settings`.
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
-    with(|p| p.editor.save(kind).map_err(js_err))
+    with(|p| {
+        p.editor.save(kind).map_err(|key| {
+            // a refused transformation names its atoms (the ids of the drawing) for the message
+            match p.editor.trasf_problem().filter(|_| kind == "trasf") {
+                Some((_, atoms)) if !atoms.is_empty() => {
+                    let ids: Vec<String> = atoms.iter().map(u32::to_string).collect();
+                    let params = serde_json::json!({ "atoms": ids.join(", ") });
+                    JsValue::from_str(&format!(r#"{{"error_key":"{key}","params":{params}}}"#))
+                }
+                _ => js_err(key),
+            }
+        })
+    })
 }
 
 /// The drawing as a PDF file (vector, text as text, the document inside so that it opens again).
