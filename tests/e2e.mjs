@@ -12,6 +12,7 @@ import { readFile } from "node:fs/promises";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { NAMES } from "../web/names.js";
 
 const { chromium } = createRequire(import.meta.url)("playwright");       // require, so that a global install (NODE_PATH) is found too
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -38,7 +39,12 @@ const assert = (ok, what) => { if (!ok) throw new Error(typeof what === "string"
 const eq = (a, b) => assert(JSON.stringify(a) === JSON.stringify(b), `${JSON.stringify(a)} != ${JSON.stringify(b)}`);
 async function step(name, fn) {
   try { await fn(); steps.push([name, "ok"]); }
-  catch (e) { steps.push([name, "FAIL " + String(e && e.message || e).split("\n")[0].slice(0, 300)]); }
+  catch (e) {
+    // the first line says what failed; the call log of the page (what was waited for, what covered the target) and the line of this
+    // file that threw say where, which is what a failure on a machine other than this one needs
+    const lines = String(e && e.message || e).split("\n").map(l => l.trim()).filter(Boolean), at = String(e && e.stack || "").split("\n").find(l => l.includes("e2e.mjs"));
+    steps.push([name, "FAIL " + lines.slice(0, 8).join(" | ").slice(0, 900) + (at ? " @ " + at.trim().replace(/^at /, "").replace(/^.*\//, "") : "")]);
+  }
 }
 const STATE = "JSON.parse(document.documentElement.dataset.d2 || '{}')";
 
@@ -119,6 +125,57 @@ async function tidy(pg, w, h) {
 // the keys the module binds today (Editor::key): a tooltip names no other key
 const BUILT = new Set(["V", "E", "1", "2", "3", "W", "Shift+W", "Y", "C", "N", "O", "S", "P", "F", "H", "B", "I", "Shift+C", "Shift+B", "Shift+S", "+", "-", "L", "Shift+A", "T", "M",
   "Ctrl+Z", "Ctrl+Y", "Ctrl+Shift+Z", "Ctrl+X", "Ctrl+C", "Ctrl+V", "Ctrl+D", "Ctrl+A", "\\"]);
+// WCAG 2 contrast of the theme tokens: a colour with alpha is laid over its background first
+const rgba = c => { if (c[0] === "#") return [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)).concat(1); const m = c.match(/rgba?\(([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)(?:[ ,/]+([\d.]+))?\)/); return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]]; };
+const over = (f, b) => f.slice(0, 3).map((v, i) => v * f[3] + b[i] * (1 - f[3]));
+const linear = c => c.map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+const lum = c => { const [r, g, b] = linear(c); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (fg, bg) => { const b = rgba(bg), f = over(rgba(fg), b), [x, y] = [lum(f), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+const lab = c => { const [r, g, b] = linear(rgba(c).slice(0, 3)), f = v => (v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
+  const [x, y, z] = [(r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047, r * 0.2126 + g * 0.7152 + b * 0.0722, (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883];
+  return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))]; };
+const TOKENS = ["surface", "surface-raised", "paper", "border", "control", "ink", "ink-muted", "accent", "accent-soft", "hover", "selection", "focus", "danger", "preview", "atom-n", "atom-o", "atom-s", "atom-x", "atom-p"];
+// [foreground, background, least ratio]: text 4.5:1, icons, borders of controls and the focus ring 3:1 (WCAG 2.2 AA, 1.4.3 and 1.4.11)
+const PAIRS = [["ink", "surface", 4.5], ["ink", "surface-raised", 4.5], ["ink", "paper", 4.5], ["ink", "hover", 4.5], ["ink", "accent-soft", 4.5], ["ink", "selection", 4.5],
+  ["ink-muted", "surface", 4.5], ["ink-muted", "surface-raised", 4.5], ["ink-muted", "paper", 4.5], ["ink-muted", "hover", 4.5], ["ink-muted", "accent-soft", 4.5], ["ink-muted", "selection", 4.5],
+  ["danger", "surface", 4.5], ["danger", "surface-raised", 4.5], ["danger", "paper", 4.5], ["danger", "hover", 4.5], ["danger", "selection", 4.5],
+  ["control", "surface", 3], ["control", "surface-raised", 3], ["control", "hover", 3],
+  ["focus", "surface", 3], ["focus", "surface-raised", 3], ["focus", "paper", 3], ["focus", "accent-soft", 3], ["focus", "hover", 3], ["focus", "selection", 3],
+  ["accent", "accent-soft", 3], ["accent", "surface", 3], ["accent", "selection", 3], ["preview", "paper", 3],
+  // an atom colour is read on the paper, on the chrome, and on the halo of a selection (the label is drawn over it)
+  ...["atom-n", "atom-o", "atom-s", "atom-x", "atom-p"].flatMap(a => [[a, "paper", 4.5], [a, "surface", 4.5], [a, "surface-raised", 4.5], [a, "selection", 4.5], [a, "hover", 4.5]])];
+/** the canvas, as a user sees it: whether an opaque pixel of the colour `want` ([r, g, b]) lies within `rad` CSS pixels of each point
+ * [x, y] of the canvas (read back from the 2D context), for the points of the display list that the colour index `col` paints */
+const inkAt = (pg, col, ops, want) => pg.evaluate(([col, ops, want]) => {
+  const d = Array.from(window.MZDRAW.scene()), cv = document.querySelector("#d2-canvas"), g = cv.getContext("2d"), dpr = devicePixelRatio || 1;
+  const found = (x, y, rad) => {
+    const r = Math.max(1, Math.round(rad * dpr)), x0 = Math.max(0, Math.round(x * dpr) - r), y0 = Math.max(0, Math.round(y * dpr) - r);
+    const w = Math.min(2 * r + 1, cv.width - x0), h = Math.min(2 * r + 1, cv.height - y0);
+    if (w < 1 || h < 1) return false;
+    const im = g.getImageData(x0, y0, w, h).data;
+    for (let i = 0; i < im.length; i += 4) if (im[i + 3] > 250 && Math.abs(im[i] - want[0]) <= 1 && Math.abs(im[i + 1] - want[1]) <= 1 && Math.abs(im[i + 2] - want[2]) <= 1) return true;
+    return false;
+  };
+  let n = 0, hit = 0;
+  for (let i = 0; i < d.length;) {
+    const op = d[i];
+    if (op === 1) { if (d[i + 6] === col && ops.includes(1)) { n++; if (found((d[i + 1] + d[i + 3]) / 2, (d[i + 2] + d[i + 4]) / 2, 2)) hit++; } i += 7; }
+    else if (op === 2) { if (d[i + 4] === col && ops.includes(2)) { n++; if (found(d[i + 1], d[i + 2], d[i + 3] / 2)) hit++; } i += 7; }
+    else if (op === 3) i += 6;
+    else if (op === 6) i += 8;
+    else { if (d[i + 4] === col && ops.includes(op)) { n++; if (found(d[i + 1], d[i + 2], d[i + 3] * 0.8)) hit++; } i += 5; }
+  }
+  return [n, hit];
+}, [col, ops, want]);
+/** the colour of the page at a point, from a screenshot (the paper under the canvas is CSS, not canvas ink) */
+const pixelAt = async (pg, x, y) => {
+  const png = await pg.screenshot({ clip: { x, y, width: 2, height: 2 } });
+  return pg.evaluate(async b64 => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)), bm = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+    const c = document.createElement("canvas"); c.width = bm.width; c.height = bm.height; const g = c.getContext("2d"); g.drawImage(bm, 0, 0);
+    return Array.from(g.getImageData(0, 0, 1, 1).data).slice(0, 3);
+  }, png.toString("base64"));
+};
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
 /** the PDF round trip: acetic acid is drawn, the PDF is downloaded the way `get` says (keyboard or touch), it is a vector PDF with the
@@ -174,6 +231,62 @@ try {
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-palettes .items button, #d2-flys button[data-cmd], #d2-flys button[data-opens]')].filter(b => !b.title || b.title.length > 90 || !b.getAttribute('aria-label')).map(b => b.dataset.testid)"), []);      // every tool says in one short sentence what it does
     eq(await pg.evaluate("[...document.querySelectorAll('button')].filter(b => b.offsetParent && (b.offsetWidth < 24 || b.offsetHeight < 24)).map(b => b.id || b.dataset.cmd)"), []);
     eq(await pg.evaluate("[...I18N.missing || []]"), []);
+  });
+
+  await step("theme: the token pairs reach WCAG AA in light and in dark, the atom colours stay apart, data-theme and the system setting agree, the focus ring shows", async () => {
+    // its own browser context: the drawing it makes and selects is not part of the history of the steps that follow
+    const { ctx: own, pg } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
+    try {
+    const tokens = () => pg.evaluate(([names, prefix]) => { const c = getComputedStyle(document.documentElement); return Object.fromEntries(names.map(n => [n, c.getPropertyValue(prefix + n).trim()])); }, [TOKENS, NAMES.tokens]);
+    const sets = {};
+    // a small structure with every element colour in it, all selected: the canvas shows ink, the halo of the selection and the atom colours
+    await pg.fill("#d2-text", "NC(=O)C(S)(P)Cl"); await pg.click("#d2-add"); await want(pg, { atoms: 7, bonds: 6 });
+    const area = await pg.locator("#d2-canvas").boundingBox(), spot = [area.x + area.width - 30, area.y + area.height - 30];
+    // five bonds on one carbon: the mistake the page marks in the colour of a warning
+    await tool(pg, "atom:C"); await pg.mouse.click(area.x + 150, area.y + area.height - 150); await tool(pg, "bond:1");
+    for (let n = 0; n < 5; n++) await pg.mouse.click(area.x + 150, area.y + area.height - 150);
+    await want(pg, { atoms: 13, bonds: 11 });
+    await until(pg, "!!document.querySelector('#d2-warnings li[data-code=valence]')");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 24 });
+    for (const theme of ["light", "dark"]) {
+      await pg.evaluate(t => { document.documentElement.dataset.theme = t; }, theme);
+      const t = sets[theme] = await tokens();
+      eq(TOKENS.filter(n => !t[n]), []);
+      eq(PAIRS.map(([f, b, min]) => [theme, f, b, Math.round(contrast(t[f], t[b]) * 100) / 100, min]).filter(r => r[3] < r[4]), []);
+      // the colours of the elements, and the ink of carbon, stay apart from each other (CIE76 distance of at least 20)
+      const atoms = ["ink", "atom-n", "atom-o", "atom-s", "atom-x", "atom-p"], near = [];
+      for (let i = 0; i < atoms.length; i++) for (let j = i + 1; j < atoms.length; j++) {
+        const [a, b] = [lab(t[atoms[i]]), lab(t[atoms[j]])];
+        if (Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 20) near.push([theme, atoms[i], atoms[j]]);
+      }
+      eq(near, []);
+      // ink is never pure black on light nor pure white on dark; the paper of the canvas differs from the chrome
+      assert(!["#000000", "#ffffff"].includes(t.ink.toLowerCase()) && t.paper !== t.surface, "calm ink, paper apart from the chrome");
+      // no yellow field: every surface is near neutral (CIELAB b* under 12)
+      eq(["surface", "surface-raised", "paper", "hover", "accent-soft", "selection"].filter(n => lab(t[n])[2] >= 12).map(n => [theme, n]), []);
+      // the canvas is painted with the theme's colours: what the 2D context holds is read back and compared with the tokens (a theme that
+      // did not repaint, or a canvas that read the wrong variable, would show the other theme's pixels)
+      await pg.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
+      const rgb = n => rgba(t[n]).slice(0, 3).map(Math.round);
+      eq(await pixelAt(pg, ...spot), rgb("paper"));
+      for (const [what, col, ops, token] of [["ink", 0, [1], "ink"], ["the halo of the selection", 1, [4], "selection"], ["nitrogen", 5, [2], "atom-n"], ["oxygen", 6, [2], "atom-o"], ["sulfur", 7, [2], "atom-s"],
+        ["chlorine", 8, [2], "atom-x"], ["phosphorus", 9, [2], "atom-p"], ["the mistake", 3, [4, 5], "danger"]]) {
+        const [n, hit] = await inkAt(pg, col, ops, rgb(token));
+        assert(n > 0 && hit === n, `${theme}: ${what} is drawn in ${token} (${hit} of ${n} marks)`);
+      }
+      // the focus ring: drawn, in the focus colour, on every surface
+      await pg.focus('[data-testid="d2-erase"]'); await pg.keyboard.press("ArrowUp");
+      const ring = await pg.evaluate("(s => [s.outlineStyle, s.outlineWidth, s.outlineColor])(getComputedStyle(document.activeElement))");
+      assert(ring[0] !== "none" && parseFloat(ring[1]) >= 2, "the focus ring " + ring);
+      assert(["surface", "surface-raised", "paper", "selection", "hover"].every(n => contrast(ring[2], t[n]) >= 3), "the focus ring stands out " + ring[2]);
+      await shot(pg, "theme-" + theme);
+    }
+    await pg.evaluate("delete document.documentElement.dataset.theme");
+    await pg.emulateMedia({ colorScheme: "dark" }); eq(await tokens(), sets.dark);
+    await pg.emulateMedia({ colorScheme: "light" }); eq(await tokens(), sets.light);
+    await pg.emulateMedia({ colorScheme: "dark" }); await pg.evaluate("document.documentElement.dataset.theme = 'light'"); eq(await tokens(), sets.light);       // the host's choice wins
+    await pg.evaluate("delete document.documentElement.dataset.theme"); await pg.emulateMedia({ colorScheme: "light" });
+    } finally { await own.close(); }
   });
 
   await step("mouse: template, undo and redo, atom, bonds, live valence mistake, erase", () => loop(pg, cx, cy, (x, y) => pg.mouse.click(x, y), "desktop"));
@@ -781,6 +894,13 @@ try {
     eq(Object.keys(home).length, 16);
     eq([home.tools.dock, home.tools.orient, home.file.dock, home.file.orient, home.structure.dock], ["left", "v", "top", "h", "right"]);
     await tidy(pg, 1280, 720);
+    // the kinds drawn most are in view in the collapsed palettes, and no palette overlaps another or the canvas at 720 px
+    const KEPT = ["bond:1", "bond:2", "bond:up", "bond:down", "ring:6a", "ring:6", "ring:5", "charge:+", "charge:-", "arrow", "plus"];
+    eq(await pg.evaluate(k => k.filter(c => { const b = document.querySelector(`[data-testid="d2-${c}"]`); return !b || !b.offsetParent; }), KEPT), []);
+    // by keyboard: a kept button is a stop of its palette, Enter runs it
+    await pg.focus('[data-testid="d2-ring:5"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "ring:5" });
+    await pg.focus('[data-testid="d2-bond:down"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "bond:down" });
+    await tool(pg, "select");
     // every button of the palettes says what it does; a key in brackets is a key the module binds
     const titles = await pg.evaluate(`[...document.querySelectorAll("#d2-palettes .items button, #d2-palettes .grip, #d2-flys button[data-cmd], #d2-flys button[data-opens], #d2-show-all, .menu ~ .row button")].map(b => [b.dataset.testid || b.id, b.title, b.getAttribute("aria-label") || b.textContent])`);
     eq(titles.filter(([, title, name]) => !title || !name).map(([id]) => id), []);
@@ -881,6 +1001,21 @@ try {
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
+  await step("collapsed palettes: the head of a fresh page runs the single bond and benzene, then the kind used last, kept in view or not", async () => {
+    // a fresh page: nothing has been chosen yet, so the head shows what the palette was made to offer first
+    eq((await state(pg)).tool, "bond:1");
+    await tool(pg, "select"); await want(pg, { tool: "select" });
+    await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });          // not the triple bond that heads the flyout
+    await tool(pg, "select"); await pg.click('[data-testid="d2-head-rings"]'); await want(pg, { tool: "ring:6a" });          // benzene, not the ring of three
+    // the head follows the last used kind: one kept in view, then one from the flyout, then back
+    await pg.click('[data-testid="d2-bond:2"]'); await want(pg, { tool: "bond:2" });
+    await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:2" });
+    await tool(pg, "bond:wavy"); await want(pg, { tool: "bond:wavy" });
+    await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:wavy" });
+    await pg.click('[data-testid="d2-bond:1"]'); await want(pg, { tool: "bond:1" });
+    await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });
+    await tool(pg, "bond:1"); await want(pg, { tool: "bond:1" });
+  });
   await step("autosave: the drawing is saved in the browser, offered on the next visit, restored with the same bytes, or discarded; the style is remembered", async () => {
     const ready = () => until(pg, "document.documentElement.dataset.d2Ready === '1'");
     const saves = () => pg.evaluate("Number(document.documentElement.dataset.d2Saved || 0)");
@@ -1138,7 +1273,18 @@ try {
     eq(Object.entries(home).filter(([, r]) => r).map(([id]) => id).sort(), ["atoms", "bonds", "charges", "edit", "file", "history", "objects", "rings", "tools", "view"]);
     eq(await pg.evaluate("[...document.querySelectorAll('.grip')].filter(g => g.offsetParent && Math.min(g.offsetWidth, g.offsetHeight) < 44).map(g => g.dataset.testid)"), []);
     await tidy(pg, 768, 1024);
+    // the kept kinds are in view here too, 44 px each, and a finger runs them
+    const KEPT = ["bond:1", "bond:2", "bond:up", "bond:down", "ring:6a", "ring:6", "ring:5", "charge:+", "charge:-", "arrow", "plus"];
+    eq(await pg.evaluate(k => k.filter(c => { const b = document.querySelector(`[data-testid="d2-${c}"]`); return !b || !b.offsetParent || Math.min(b.offsetWidth, b.offsetHeight) < 44; }), KEPT), []);
+    for (const [c, tl] of [["ring:6", "ring:6"], ["bond:up", "bond:up"], ["plus", "plus"]]) {
+      const b = await pg.locator(`[data-testid="d2-${c}"]`).boundingBox();
+      await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await want(pg, { tool: tl });
+    }
+    await tool(pg, "select");
+    await tool(pg, "ring:6a"); await pg.mouse.click(cx, cy + 100); await want(pg, { atoms: 6 });
     await shot(pg, "palettes-tablet");
+    await pg.emulateMedia({ colorScheme: "dark" }); await frames(pg); await shot(pg, "palettes-tablet-dark"); await pg.emulateMedia({ colorScheme: "light" });
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
     // the menu by tapping: a side palette hidden on a tablet is shown, and hidden again
     await pg.tap('[data-testid="d2-palettes"]'); await pg.tap('[data-testid="d2-menu-hidden-check"]'); await frames(pg);
     assert((await rects(pg)).check, "a side palette shown from the menu");
@@ -1204,6 +1350,8 @@ try {
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, permissions: ["clipboard-read", "clipboard-write"] }));
   await step("context menu, mouse: each target has its menu, the items run as one undo step, the keys are shown, the menu closes on any change and a stale one is refused", async () => {
     const live = () => pg.innerText("#d2-live");
+    // an empty spot of the canvas, 60 px inside its left edge (the palettes at the sides take as much as they need, so it is not cx - 450)
+    const box = await pg.locator("#d2-canvas").boundingBox(), empty = [box.x + 60, cy - 300];
     const open = async (x, y, target) => { await pg.mouse.click(x, y, { button: "right" }); await shown(pg); eq((await menuNow(pg)).target, target); };
     // the menu of the browser never opens on the canvas (the event is cancelled) and the page opens nothing for it: the module decides
     const cancelled = sel => pg.evaluate(`(() => { const e = new MouseEvent("contextmenu", { cancelable: true, bubbles: true }); document.querySelector(${JSON.stringify(sel)}).dispatchEvent(e); return e.defaultPrevented; })()`);
@@ -1269,14 +1417,16 @@ try {
     // a right-button drag pans the view and opens no menu; a click in place does
     await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas");
     const where = (await firstLine(pg)).atom;
-    await pg.mouse.move(cx - 450, cy - 300); await pg.mouse.down({ button: "right" }); await pg.mouse.move(cx - 390, cy - 280, { steps: 5 }); await pg.mouse.up({ button: "right" });
+    // (the drag starts inside the canvas, 60 px from its left edge: the palettes at the sides take as much as they need)
+    const [px, py] = empty;
+    await pg.mouse.move(px, py); await pg.mouse.down({ button: "right" }); await pg.mouse.move(px + 60, py + 20, { steps: 5 }); await pg.mouse.up({ button: "right" });
     await shown(pg, false);
     const moved = (await firstLine(pg)).atom; eq([moved[0] - where[0], moved[1] - where[1]], [60, 20]);
-    await pg.mouse.move(cx - 390, cy - 280); await pg.mouse.down({ button: "middle" }); await pg.mouse.move(cx - 360, cy - 280, { steps: 3 }); await pg.mouse.up({ button: "middle" });
+    await pg.mouse.move(px + 60, py + 20); await pg.mouse.down({ button: "middle" }); await pg.mouse.move(px + 90, py + 20, { steps: 3 }); await pg.mouse.up({ button: "middle" });
     await shown(pg, false); eq((await firstLine(pg)).atom[0] - moved[0], 30);
     await pg.keyboard.press("Control+a"); await pg.keyboard.press("Escape");
     // an empty spot: the canvas menu; the menu closes on any change (here the wheel) and a stale one is refused
-    await open(cx - 450, cy - 300, "canvas"); eq((await state(pg)).selected, 0);
+    await open(...empty, "canvas"); eq((await state(pg)).selected, 0);
     await pg.mouse.move(cx, cy); await pg.mouse.wheel(0, -120); await shown(pg, false);
     const atom2 = (await firstLine(pg)).atom;                           // the wheel moved the view
     await open(...atom2, "atom");
@@ -1286,14 +1436,14 @@ try {
     eq(await doc(), after); eq(await live(), await pg.evaluate("I18N.err({ error_key: 'error.draw2.contextStale', params: {} }).message"));
     await pg.keyboard.press("Control+Shift+z");
     // Clear all, then the empty document: no export item, a notice in words instead
-    await open(cx - 450, cy - 300, "canvas"); await pg.click(item("canvas.clear")); await want(pg, { atoms: 0, objects: 0 });
-    await open(cx - 450, cy - 300, "canvas");
+    await open(...empty, "canvas"); await pg.click(item("canvas.clear")); await want(pg, { atoms: 0, objects: 0 });
+    await open(...empty, "canvas");
     assert(!(await menuNow(pg)).ids.includes("canvas.save"), "no export on an empty canvas");
     eq(await pg.innerText("#d2-menu .note"), await pg.evaluate("I18N.t('draw2.ctx.empty')"));
     eq(await pg.getAttribute(item("canvas.clear"), "aria-disabled"), "true");
     await pg.keyboard.press("Escape");
     await ring(pg, cx, cy);
-    await open(cx - 450, cy - 300, "canvas"); eq((await menuNow(pg)).ids.includes("canvas.save"), true);
+    await open(...empty, "canvas"); eq((await menuNow(pg)).ids.includes("canvas.save"), true);
     await shot(pg, "context-menu-light");
     await pg.keyboard.press("Escape");
   });

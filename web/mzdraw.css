@@ -1,53 +1,74 @@
-/* The page: colours only from these variables (the canvas reads them too). */
-:root { --fg: #1a1a1a; --bg: #ffffff; --panel: #f3f4f6; --line: #767676; --grip: #4d4d4d; --accent: #005a9c; --d2-ink: #111111; --d2-select: #9cc7ee; --d2-hover: #d5d9de; --d2-warn: #c62828; --d2-preview: #5b7fa6; --d2-n: #1f3fbf; --d2-o: #c02020; --d2-s: #8a6d00; --d2-x: #1f7a1f; --d2-p: #b05a00; --d2-focus: #005a9c; }
-@media (prefers-color-scheme: dark) { :root { --fg: #ececec; --bg: #1b1b1b; --panel: #262626; --line: #9a9a9a; --grip: #d0d0d0; --accent: #7cc0ff; --d2-ink: #f0f0f0; --d2-select: #2f5f8a; --d2-hover: #454545; --d2-warn: #ff8a80; --d2-preview: #9db8d6; --d2-n: #8fa8ff; --d2-o: #ff8a80; --d2-s: #e6c14a; --d2-x: #7fd37f; --d2-p: #ffb066; --d2-focus: #7cc0ff; } }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+/* The page: every colour comes from the token layer --mzd-* (a light and a dark set, chosen by prefers-color-scheme or by
+   data-theme="light|dark" on the root, so a host such as mzLab maps its own theme onto the tokens without touching the page).
+   The prefix is NAMES.tokens of web/names.js; CSS cannot read it, so it is written out here only. The canvas reads the --d2-*
+   names, the rules the short names below, both made of tokens. Contrast of the token pairs is measured in tests/e2e.mjs. */
+:root, :root[data-theme="light"] { color-scheme: light;
+  --mzd-surface: #f3f2ee; --mzd-surface-raised: #fbfaf8; --mzd-paper: #fefefc; --mzd-border: rgb(43 40 34 / .13); --mzd-control: #7a756b;
+  --mzd-ink: #2a2925; --mzd-ink-muted: #5c5850; --mzd-accent: #2d5d8c; --mzd-accent-soft: #dce6ef; --mzd-hover: #e7e5df;
+  --mzd-selection: #c5d8ea; --mzd-focus: #2f6aa6; --mzd-danger: #a3231b; --mzd-shadow: rgb(43 40 34 / .16);
+  --mzd-atom-n: #2d47b5; --mzd-atom-o: #a92b25; --mzd-atom-s: #6b5300; --mzd-atom-x: #25652a; --mzd-atom-p: #8c4600; --mzd-preview: #62809f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark;
+  --mzd-surface: #22221f; --mzd-surface-raised: #2b2a27; --mzd-paper: #1b1b19; --mzd-border: rgb(240 234 222 / .12); --mzd-control: #8b867d;
+  --mzd-ink: #e2dfd8; --mzd-ink-muted: #b4afa5; --mzd-accent: #93b9e0; --mzd-accent-soft: #2f3e4f; --mzd-hover: #353430;
+  --mzd-selection: #2a3f54; --mzd-focus: #8db6e2; --mzd-danger: #f59b91; --mzd-shadow: rgb(0 0 0 / .45);
+  --mzd-atom-n: #aab9ff; --mzd-atom-o: #ff9a90; --mzd-atom-s: #e3c862; --mzd-atom-x: #8ed38e; --mzd-atom-p: #f7b070; --mzd-preview: #9ab3cf; } }
+:root[data-theme="dark"] { color-scheme: dark;
+  --mzd-surface: #22221f; --mzd-surface-raised: #2b2a27; --mzd-paper: #1b1b19; --mzd-border: rgb(240 234 222 / .12); --mzd-control: #8b867d;
+  --mzd-ink: #e2dfd8; --mzd-ink-muted: #b4afa5; --mzd-accent: #93b9e0; --mzd-accent-soft: #2f3e4f; --mzd-hover: #353430;
+  --mzd-selection: #2a3f54; --mzd-focus: #8db6e2; --mzd-danger: #f59b91; --mzd-shadow: rgb(0 0 0 / .45);
+  --mzd-atom-n: #aab9ff; --mzd-atom-o: #ff9a90; --mzd-atom-s: #e3c862; --mzd-atom-x: #8ed38e; --mzd-atom-p: #f7b070; --mzd-preview: #9ab3cf; }
+/* the names the canvas reads (web/mzdraw.js COLOURS) */
+:root { --d2-ink: var(--mzd-ink); --d2-select: var(--mzd-selection); --d2-hover: var(--mzd-hover); --d2-warn: var(--mzd-danger); --d2-preview: var(--mzd-preview);
+  --d2-n: var(--mzd-atom-n); --d2-o: var(--mzd-atom-o); --d2-s: var(--mzd-atom-s); --d2-x: var(--mzd-atom-x); --d2-p: var(--mzd-atom-p); --d2-focus: var(--mzd-focus); }
+:root { --fg: var(--mzd-ink); --bg: var(--mzd-surface-raised); --panel: var(--mzd-surface); --line: var(--mzd-control); --accent: var(--mzd-accent); --grip: var(--mzd-ink-muted); }
+html, body { margin: 0; height: 100%; background: var(--mzd-paper); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
 body { overflow: hidden; }
 h2 { font-size: 13px; margin: 8px 0 4px; }
 button { -webkit-tap-highlight-color: transparent; min-height: 32px; min-width: 32px; padding: 2px 8px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; font: inherit; }
-button[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+button[aria-pressed="true"] { background: var(--mzd-accent-soft); color: var(--fg); border-color: var(--accent); font-weight: 600; }
 .field { display: flex; align-items: center; gap: 4px; }
 .field select { min-height: 32px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; font: inherit; }
-.field select:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.field select:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 1px; }
 .field input { min-height: 28px; padding: 2px 6px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; font: inherit; }
 #d2-style-fields .field { justify-content: space-between; margin: 4px 0; }
 #d2-style-fields .field span { flex: 1; }
 #d2-style-fields input { width: 6em; }
-#d2-data fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 6px 0; padding: 6px; }
+#d2-data fieldset { border: 1px solid var(--mzd-border); border-radius: 6px; margin: 6px 0; padding: 6px; }
 #d2-data .d2-datum { align-items: flex-start; margin: 4px 0; }
 #d2-data .d2-datum input { width: 8em; min-height: 28px; }
 #d2-data .d2-datum textarea { flex: 1; min-width: 0; min-height: 28px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
-#d2-ann fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 6px 0; padding: 6px; }
+#d2-ann fieldset { border: 1px solid var(--mzd-border); border-radius: 6px; margin: 6px 0; padding: 6px; }
 #d2-ann .d2-annf { display: block; margin: 4px 0; }
 #d2-ann .d2-annf input, #d2-ann .d2-annf select, #d2-ann .d2-annf textarea { display: block; width: 100%; box-sizing: border-box; min-height: 28px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
 #d2-data-more summary, #d2-ann-more summary, #d2-style-more summary { cursor: pointer; margin: 6px 0; }
 .field input.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.field input[aria-invalid="true"] { border-color: var(--d2-warn); box-shadow: inset 0 0 0 1px var(--d2-warn); text-decoration: underline wavy var(--d2-warn); }
-.field input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.field input[aria-invalid="true"] { border-color: var(--mzd-danger); box-shadow: inset 0 0 0 1px var(--mzd-danger); text-decoration: underline wavy var(--mzd-danger); }
+.field input:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 1px; }
 button:disabled { opacity: .45; cursor: default; }
-button:focus-visible, canvas:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+button:focus-visible, canvas:focus-visible, textarea:focus-visible, summary:focus-visible, input[type="checkbox"]:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 2px; }
+canvas:focus-visible { outline-offset: -3px; }
 #d2-restore[hidden] { display: none; }
 #d2-restore { position: absolute; left: 8px; right: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 10px; background: var(--panel); border: 1px solid var(--line); border-bottom: 2px solid var(--accent); border-radius: 6px; }
 /* the canvas takes the area the palettes leave free (placed by the module's layout) */
 #d2-stage { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; }
-#d2-canvas { display: block; width: 100%; height: 100%; touch-action: none; background: var(--bg); cursor: crosshair; }
-#d2-status { position: absolute; left: 8px; bottom: 6px; color: var(--fg); opacity: .75; pointer-events: none; font-size: 12px; }
+#d2-canvas { display: block; width: 100%; height: 100%; touch-action: none; background: var(--mzd-paper); cursor: crosshair; }
+#d2-status { position: absolute; left: 8px; bottom: 6px; color: var(--mzd-ink-muted); pointer-events: none; font-size: 12px; }
 /* palettes: placed by the module (left, top); a row at the top or bottom, a column at the sides, either when floating */
-.pal { position: fixed; z-index: 10; display: flex; width: max-content; box-sizing: border-box; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.pal { position: fixed; z-index: 10; display: flex; width: max-content; box-sizing: border-box; padding: 4px; background: var(--panel); border: 1px solid var(--mzd-border); border-radius: 8px; box-shadow: 0 1px 3px var(--mzd-shadow); }
 .pal[hidden] { display: none; }
 .pal[data-orient="v"] { flex-direction: column; }
 .pal .items { display: flex; gap: 0; }
 .pal[data-orient="v"] .items { flex-direction: column; }
-.pal.moving { z-index: 30; box-shadow: 0 6px 18px rgb(0 0 0 / .25); }
+.pal.moving { z-index: 30; box-shadow: 0 6px 18px var(--mzd-shadow); }
 .pal .items button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 0; padding: 0; border-color: transparent; background: transparent; }
-@media (hover: hover) { .pal .items button:hover:not(:disabled), .fly button:hover:not(:disabled), .grip:hover { background-color: var(--bg); } }
+@media (hover: hover) { .pal .items button:hover:not(:disabled), .fly button:hover:not(:disabled), .grip:hover { background-color: var(--mzd-hover); } }
 .pal .txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .pal .head { position: relative; }
 .pal .head::after { content: ""; position: absolute; right: 3px; bottom: 3px; border: 3px solid transparent; border-right-color: currentColor; border-bottom-color: currentColor; opacity: .7; }
 .grip { flex: none; box-sizing: border-box; min-width: 0; min-height: 0; border: 0; border-radius: 3px; background: radial-gradient(circle, var(--grip) 1.5px, transparent 1.9px) 0 0 / 6px 6px; background-clip: content-box; background-origin: content-box; cursor: grab; touch-action: none; }
 .pal[data-orient="v"] > .grip { height: 24px; width: 100%; padding: 9px 10px; }
 .pal[data-orient="h"] > .grip { width: 24px; align-self: stretch; padding: 10px 9px; }
-.pal .items button[aria-pressed="true"], .fly button[aria-pressed="true"] { background: var(--bg); color: var(--fg); box-shadow: inset 0 0 0 2px var(--accent); }
+.pal .items button[aria-pressed="true"], .fly button[aria-pressed="true"] { background: var(--mzd-accent-soft); color: var(--fg); box-shadow: inset 0 0 0 2px var(--accent); }
 .grip:active { cursor: grabbing; }
 .ico { width: 24px; height: 24px; flex: none; }
 .sym { font-weight: 600; font-size: 17px; min-width: 24px; text-align: center; }
@@ -59,14 +80,14 @@ button:focus-visible, canvas:focus-visible, textarea:focus-visible { outline: 3p
 .pal.side { flex-direction: column; width: 280px; max-height: max(120px, calc((100vh - 280px) / 3)); padding: 4px 10px 6px; }
 /* what does not fit scrolls, and says so: a shadow at the edge that has more behind it */
 .pal.side > details { overflow: auto; min-height: 0; background-color: var(--panel);
-  background-image: linear-gradient(var(--panel) 40%, transparent), linear-gradient(transparent, var(--panel) 60%), radial-gradient(farthest-side at 50% 0, rgb(0 0 0 / .3), transparent), radial-gradient(farthest-side at 50% 100%, rgb(0 0 0 / .3), transparent);
+  background-image: linear-gradient(var(--panel) 40%, transparent), linear-gradient(transparent, var(--panel) 60%), radial-gradient(farthest-side at 50% 0, var(--mzd-shadow), transparent), radial-gradient(farthest-side at 50% 100%, var(--mzd-shadow), transparent);
   background-position: 0 0, 0 100%, 0 0, 0 100%; background-repeat: no-repeat; background-size: 100% 24px, 100% 24px, 100% 9px, 100% 9px; background-attachment: local, local, scroll, scroll; }
 .pal.side > details > summary { padding: 4px 0; }
 .pal.side p, .pal.side h2, .pal.side ul { margin: 2px 0; }
 .pal.side h2 { font-size: 1em; }
 .pal.side textarea { display: block; }
 /* flyouts: beside the button that opens them, on the side away from the palette's edge */
-#d2-flys .fly { position: fixed; z-index: 40; display: flex; flex-direction: column; gap: 2px; min-width: 200px; max-height: 80vh; overflow: auto; padding: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 20px rgb(0 0 0 / .2); }
+#d2-flys .fly { position: fixed; z-index: 40; display: flex; flex-direction: column; gap: 2px; min-width: 200px; max-height: 80vh; overflow: auto; padding: 6px; background: var(--bg); border: 1px solid var(--mzd-border); border-radius: 8px; box-shadow: 0 6px 20px var(--mzd-shadow); }
 #d2-flys .fly[hidden], #d2-fly-saveas[hidden] { display: none; }
 .fly button[data-cmd], .fly button[data-opens] { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; min-height: 40px; border-color: transparent; background: transparent; }
 .fly.grid { display: grid; grid-template-columns: repeat(5, 44px); min-width: 0; }
@@ -85,7 +106,7 @@ button:focus-visible, canvas:focus-visible, textarea:focus-visible { outline: 3p
 .menu input:disabled { cursor: default; border-style: dashed; border-color: var(--line); background: var(--panel); }
 .menu input:checked:disabled { background: var(--line); border-color: var(--line); }
 .menu input:focus-visible { outline: 3px solid var(--d2-focus); outline-offset: 2px; }
-#d2-dock-hint { position: fixed; z-index: 25; background: var(--accent); opacity: .45; pointer-events: none; }
+#d2-dock-hint { position: fixed; z-index: 25; background: var(--mzd-accent); opacity: .5; pointer-events: none; }
 #d2-dock-hint[data-edge="left"] { left: 0; top: 0; bottom: 0; width: 6px; } #d2-dock-hint[data-edge="right"] { right: 0; top: 0; bottom: 0; width: 6px; }
 #d2-dock-hint[data-edge="top"] { left: 0; right: 0; top: 0; height: 6px; } #d2-dock-hint[data-edge="bottom"] { left: 0; right: 0; bottom: 0; height: 6px; }
 #d2-show-all { position: fixed; z-index: 30; left: 6px; top: 6px; }
