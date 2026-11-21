@@ -1,0 +1,1 @@
+{"import":"CC(C)=O","log":[{"op":"move","atoms":[1,2,3,4],"dx":0.0,"dy":-0.0},{"op":"obj.add","t":"text","x":2.5,"y":0,"text":"solvent THF"}],"out":"smiles"}

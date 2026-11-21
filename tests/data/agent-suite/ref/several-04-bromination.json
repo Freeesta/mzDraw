@@ -1,0 +1,1 @@
+{"import":"C=C.BrBr.BrCCBr","log":[{"op":"move","atoms":[1,2],"dx":-4.5,"dy":-0.0},{"op":"move","atoms":[3,4],"dx":-4.0,"dy":-0.0},{"op":"move","atoms":[5,6,7,8],"dx":8.5,"dy":-0.0},{"op":"obj.add","t":"plus","x":2.25,"y":0},{"op":"obj.add","t":"arrow","x":5.0,"y":0,"x2":8.0,"y2":0,"text":"CH2Cl2"}],"out":"smiles"}
