@@ -419,18 +419,18 @@ Input: `docs/input/gemini-strategy-2.md` (Gemini Deep Research, PR #49). It prop
 Counts, each idea once: ideas 1 and 5 kept (1 reduced to plan-24; 5 split into plan-20, -22, -23, -25), idea 2 reframed (plan-21, plan-26), ideas 3 and 4 deferred. Do-not list: 1 new drop, 2 drops already made. Validation: 1 kept (plan-19), 1 reframed (E19), 1 deferred.
 
 ### 9.4 Rows
-Same columns as §4. "request row" in the COO 16 column means the item adds request fields or outputs of the `mol draw` contract: one row each in the `request` section of plan-01's table, which COO 16 reviews (D13); no PR-by-PR agreement is needed as long as no `draw_edit/1` op is added.
+Same columns as §4 (this table has no status column either: the state is in `docs/plan/queue.md`). "request row" in the COO 16 column means the item adds request fields or outputs of the `mol draw` contract: one row each in the `request` section of plan-01's table, which COO 16 reviews (D13); no PR-by-PR agreement is needed as long as no `draw_edit/1` op is added.
 
-| # | id | item | status | size | depends on | zone | COO 16 | proof |
-|---|---|---|---|---|---|---|---|---|
-| 68 | plan-19 | agent task suite | N | M | plan-01 | `tools/agent-suite`, `tests/data/agent-suite`, new example | no | RDKit InChIKey of targets |
-| 69 | plan-20 | replay result: ids, failing op, dry run, `expect` | N | M | plan-01 | `replay.rs` + new `outcome.rs` | request row | property on id sets |
-| 70 | plan-21 | stereo guard (signature, live line, `expect` arm `stereo`) | N | M | plan-20 | new `stereo_guard.rs` | request row (`expect` arm `stereo`) | InChI stereo layer by RDKit |
-| 71 | plan-22 | loss manifest `loss/1` | N | M | plan-20, plan-15 | new `loss.rs` | request row | plan-03 differences explained |
-| 72 | plan-23 | digest `digest/1` | N | S–M | plan-20 | new `digest.rs` | request row | RDKit formula |
-| 73 | plan-24 | selectors `select/1` | N | M | plan-20, plan-23, first plan-19 run | new `select.rs` | request row | RDKit match counts |
-| 74 | plan-25 | exact fix-its on `std/1` | N | S | std-02, std-15, plan-20 | conform | request row (`std/1` field `fix`; `std/1` goldens move) | isomeric SMILES unchanged (RDKit) |
-| 75 | plan-26 | `flip:keep`, with the rule for a selection that cuts a stereocentre | N | S | plan-21 | input (one command) + `context.rs` arm | no | InChI stereo layer by RDKit |
+| # | id | item | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|
+| 68 | plan-19 | agent task suite | M | plan-01 | `tools/agent-suite`, `tests/data/agent-suite`, new example | no | RDKit InChIKey of targets |
+| 69 | plan-20 | replay result: ids, failing op, dry run, `expect` | M | plan-01 | `replay.rs` + new `outcome.rs` | request row | property on id sets |
+| 70 | plan-21 | stereo guard (signature, live line, `expect` arm `stereo`) | M | plan-20 | new `stereo_guard.rs` | request row (`expect` arm `stereo`) | InChI stereo layer by RDKit |
+| 71 | plan-22 | loss manifest `loss/1` | M | plan-20, plan-15 | new `loss.rs` | request row | plan-03 differences explained |
+| 72 | plan-23 | digest `digest/1` | S–M | plan-20 | new `digest.rs` | request row | RDKit formula |
+| 73 | plan-24 | selectors `select/1` | M | plan-20, plan-23, first plan-19 run | new `select.rs` | request row | RDKit match counts |
+| 74 | plan-25 | exact fix-its on `std/1` | S | std-02, std-15, plan-20 | conform | request row (`std/1` field `fix`; `std/1` goldens move) | isomeric SMILES unchanged (RDKit) |
+| 75 | plan-26 | `flip:keep`, with the rule for a selection that cuts a stereocentre | S | plan-21 | input (one command) + `context.rs` arm | no | InChI stereo layer by RDKit |
 
 Deferred, no prompt, added to §4's list:
 - live analog families (master/instance);
@@ -496,13 +496,13 @@ Input: two more external research outputs. They are **not in the repository**: t
 ### 10.3 Rows
 Same columns as §4 and §9.4.
 
-| # | id | item | status | size | depends on | zone | COO 16 | proof |
-|---|---|---|---|---|---|---|---|---|
-| 76 | plan-27 | goal → canonical patch (`goal`, `budget`) | N | M | plan-01, plan-20 (E21); kinds gated (plan-13, web-19/18, plan-24) | new `plan.rs` | request row (`goal`, `budget`; key `patch` and stage `plan` via E21) | RDKit canonical SMILES |
-| 77 | plan-28 | scope grant + per-op contracts | N | M | plan-20; plan-24 optional | new `grant.rs` + `touches` arms in `ops.rs` + `class` column in `schema.rs` | request row (`grant`, class column, stage `grant`) | property: bytes outside the scope unchanged; `touches` checked against real differences |
-| 78 | plan-29 | stereo tier: noted never assumed, `tierUndefined`, digest `centres` | N | S–M | std-12, std-19 (E20), plan-22, plan-23 | readers (`io.rs`), conform, `digest.rs` | request row (`expect` arm, digest key `centres`) | InChI stereo flags by RDKit (meaning not verified) |
-| 79 | plan-30 | hash chain of the log, `expect` arm `chain` | N | S | plan-20 | new `chain.rs` + one replay arm | request row (`out:chain`, arm `chain`); `sha2` direct dependency decided YES (D25; reason and wasm cost in the PR, guard in `docs/mzdraw.md` updated) | FIPS 180-4 examples; Python `hashlib` |
-| 80 | plan-31 | chain head in saved SVG and PNG, `export.chain` | N | S | plan-30, std-16, std-17 | `svg.rs`, `png.rs`, settings table | request row (setting and output element) | head recomputed from the goldens |
+| # | id | item | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|
+| 76 | plan-27 | goal → canonical patch (`goal`, `budget`) | M | plan-01, plan-20 (E21); kinds gated (plan-13, web-19/18, plan-24) | new `plan.rs` | request row (`goal`, `budget`; key `patch` and stage `plan` via E21) | RDKit canonical SMILES |
+| 77 | plan-28 | scope grant + per-op contracts | M | plan-20; plan-24 optional | new `grant.rs` + `touches` arms in `ops.rs` + `class` column in `schema.rs` | request row (`grant`, class column, stage `grant`) | property: bytes outside the scope unchanged; `touches` checked against real differences |
+| 78 | plan-29 | stereo tier: noted never assumed, `tierUndefined`, digest `centres` | S–M | std-12, std-19 (E20), plan-22, plan-23 | readers (`io.rs`), conform, `digest.rs` | request row (`expect` arm, digest key `centres`) | InChI stereo flags by RDKit (meaning not verified) |
+| 79 | plan-30 | hash chain of the log, `expect` arm `chain` | S | plan-20 | new `chain.rs` + one replay arm | request row (`out:chain`, arm `chain`); `sha2` direct dependency decided YES (D25; reason and wasm cost in the PR, guard in `docs/mzdraw.md` updated) | FIPS 180-4 examples; Python `hashlib` |
+| 80 | plan-31 | chain head in saved SVG and PNG, `export.chain` | S | plan-30, std-16, std-17 | `svg.rs`, `png.rs`, settings table | request row (setting and output element) | head recomputed from the goldens |
 
 The page part of plan-28 (a proposal held under a grant) is not built in row 77. It becomes a follow-up row once plan-16 (wave 6) merges.
 
@@ -564,19 +564,19 @@ Input: six ideas of an external LLM (Gemini) on drawing transformation products 
 ### 11.1 Rows
 Same columns as §4, §9.4 and §10.3. "request row" has the meaning of §9.4 (D13).
 
-| # | id | item | status | size | depends on | zone | COO 16 | proof |
-|---|---|---|---|---|---|---|---|---|
-| 81 | tp-01 | arrow anchors `from`/`to`; follow on commands; `commands` in the request | N | M | plan-01, plan-20 (E29) | document objects + `replay.rs` (`commands`) | **yes** (fields `from`, `to` on `obj.add`/`obj.set`, `mzlab:false`); request rows (incl. `std.scheme.anchor`) | brute-force clip sampler; parity |
-| 82 | tp-02 | anchoring by hand: arrow tool, `pathway:anchor`, `pathway:route` | N | S | tp-01; CTX-MENU page | input + `context.rs` arms | request row | velocity/1 (two new arrow tasks, four in all) |
-| 83 | tp-03 | `tp:derive`: copy the parent, keep its scaffold, maps and patch | N | M | tp-01, tp-02, tp-05 (settings), plan-11, plan-20; CTX-MENU page | new `tp.rs` | request row | RDKit mapped RXN, formula delta |
-| 84 | tp-04 | diff lens, `lens/1`, `display.lens` | N | S | tp-03 | `tp.rs` + scene | request row (`lens`, `display.lens`, `std.tp.unmapped`) | RDKit mapped sets |
-| 85 | tp-05 | pathway layout core `pathway:tree`, properties P1–P14 | N | M | tp-01, plan-20 | new `pathway.rs` | request row (`pathway:tree`, `boxes`, `pathway.*`, `std.scheme.*`) | independent Python re-check of the properties |
-| 86 | tp-06 | pathway layout on the page; Graphviz proof | N | S | tp-05, tp-02; CTX-MENU page | page + `palettes.rs`/`context.rs` arms + `tools/fidelity` | no | Graphviz `dot` ranks and crossings (optional) |
-| 87 | tp-07 | arrow labels computed: Δ formula, Δ mass | N | S | tp-01, tp-05, arch-web-17; arch-web-13 optional; tp-10 for names | `pathway.rs` | request row | RDKit formula and `ExactMolWt` |
-| 88 | tp-08 | `tp:import` of a TP list, `tp:number` | N | M | tp-01, tp-05, plan-20 (E29); tp-07 and plan-14 optional | new `tp_list.rs` | request row (`failed.rows`, reserved data names) | Python `csv` + RDKit canonical SMILES |
-| 89 | tp-09 | TP table out (`tptable/1`, CSV), SDF round trip | N | S | tp-08, tp-07, arch-web-17 | new `tptable.rs` | request row | RDKit masses; S66 column names (run-time) |
-| 90 | tp-10 | named steps, `sites/1`, derive by step | N | M | tp-03 | `tp.rs` + `label.rs` row | request row (`step`, `site`, `sites`, `steps`) | RDKit reaction SMARTS in the tool only |
-| 91 | tp-11 | step field on the page (`Shift+T`, `[` `]` while open) | N | S | tp-10 (its kill test passed); CTX-MENU page | input + page + overlay | no | velocity/1 |
+| # | id | item | size | depends on | zone | COO 16 | proof |
+|---|---|---|---|---|---|---|---|
+| 81 | tp-01 | arrow anchors `from`/`to`; follow on commands; `commands` in the request | M | plan-01, plan-20 (E29) | document objects + `replay.rs` (`commands`) | **yes** (fields `from`, `to` on `obj.add`/`obj.set`, `mzlab:false`); request rows (incl. `std.scheme.anchor`) | brute-force clip sampler; parity |
+| 82 | tp-02 | anchoring by hand: arrow tool, `pathway:anchor`, `pathway:route` | S | tp-01; CTX-MENU page | input + `context.rs` arms | request row | velocity/1 (two new arrow tasks, four in all) |
+| 83 | tp-03 | `tp:derive`: copy the parent, keep its scaffold, maps and patch | M | tp-01, tp-02, tp-05 (settings), plan-11, plan-20; CTX-MENU page | new `tp.rs` | request row | RDKit mapped RXN, formula delta |
+| 84 | tp-04 | diff lens, `lens/1`, `display.lens` | S | tp-03 | `tp.rs` + scene | request row (`lens`, `display.lens`, `std.tp.unmapped`) | RDKit mapped sets |
+| 85 | tp-05 | pathway layout core `pathway:tree`, properties P1–P14 | M | tp-01, plan-20 | new `pathway.rs` | request row (`pathway:tree`, `boxes`, `pathway.*`, `std.scheme.*`) | independent Python re-check of the properties |
+| 86 | tp-06 | pathway layout on the page; Graphviz proof | S | tp-05, tp-02; CTX-MENU page | page + `palettes.rs`/`context.rs` arms + `tools/fidelity` | no | Graphviz `dot` ranks and crossings (optional) |
+| 87 | tp-07 | arrow labels computed: Δ formula, Δ mass | S | tp-01, tp-05, arch-web-17; arch-web-13 optional; tp-10 for names | `pathway.rs` | request row | RDKit formula and `ExactMolWt` |
+| 88 | tp-08 | `tp:import` of a TP list, `tp:number` | M | tp-01, tp-05, plan-20 (E29); tp-07 and plan-14 optional | new `tp_list.rs` | request row (`failed.rows`, reserved data names) | Python `csv` + RDKit canonical SMILES |
+| 89 | tp-09 | TP table out (`tptable/1`, CSV), SDF round trip | S | tp-08, tp-07, arch-web-17 | new `tptable.rs` | request row | RDKit masses; S66 column names (run-time) |
+| 90 | tp-10 | named steps, `sites/1`, derive by step | M | tp-03 | `tp.rs` + `label.rs` row | request row (`step`, `site`, `sites`, `steps`) | RDKit reaction SMARTS in the tool only |
+| 91 | tp-11 | step field on the page (`[` `]` while open; the field has no key of its own, see built/tp-11-step-field.md) | S | tp-10 (its kill test passed); CTX-MENU page | input + page + overlay | no | velocity/1 |
 
 Deferred, no prompt: V3, the uncertain L3 TP drawn as a site mark mapped onto `trasf/1`'s uncertain form (after plan-12); the "metro" mode of tp-05 (polyline routing, lane pins, y by Δm/z or RT, after tp-06); a TP table drawn on the canvas (after tp-09).
 Dropped: arrow width or dash from peak areas (V4); the rigidity slider (V1); the journal preset compiler (V6, covered by arch-std-16).
