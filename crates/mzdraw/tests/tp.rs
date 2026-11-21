@@ -48,7 +48,7 @@ fn derive(of: u32, patch: Value) -> Value {
 }
 
 fn hydroxylate() -> Value {
-    json!([{"op":"atom.add","el":"O","x":0.5,"y":-1.7320508},{"op":"bond.add","a":5,"b":-1,"o":1}])
+    json!([{"op":"atom.add","el":"O","x":-1.0,"y":-1.7321},{"op":"bond.add","a":5,"b":-1,"o":1}])
 }
 
 fn doc_of(r: &Value) -> Document {
@@ -126,7 +126,7 @@ fn hydroxylation_demethylation_and_ring_opening_keep_the_scaffold() {
             1,
             json!([
                 {"op":"remove","atoms":[],"bonds":[9]},
-                {"op":"atom.add","el":"O","x":0.5,"y":1.7320508},
+                {"op":"atom.add","el":"O","x":1.366,"y":1.366},
                 {"op":"bond.add","a":2,"b":-1,"o":1}
             ])
         ),
@@ -332,6 +332,18 @@ fn shift_d_and_the_menu_item_derive_the_focused_structure_and_select_the_copy() 
     let mut e = Editor::default();
     e.import(&lactam(0.0).to_string()).unwrap();
     let before = e.doc().to_json();
+    // off by default: the key does nothing and the menu has no item
+    e.over.sel_atoms = vec![3];
+    assert_eq!(e.key("D", SHIFT) & CHANGED, 0);
+    assert_eq!(e.doc().to_json(), before);
+    let (px, py) = e.view.to_px(1.0, 0.0);
+    assert!(
+        !e.context_menu(px, py).contains("tp.derive"),
+        "no item while the setting is off"
+    );
+    e.over.sel_atoms.clear();
+    e.set("pathway.derive=on").unwrap();
+    assert!(e.set("pathway.derive=maybe").is_err());
     // nothing focused or selected: refused, nothing written
     assert_eq!(e.key("D", SHIFT) & CHANGED, 0);
     assert_eq!(e.doc().to_json(), before);
@@ -355,4 +367,136 @@ fn shift_d_and_the_menu_item_derive_the_focused_structure_and_select_the_copy() 
     assert_ne!(e.context_run("tp.derive") & CHANGED, 0);
     assert_eq!(e.doc().atoms.len(), 16);
     assert_eq!(e.doc().objects.len(), 1);
+}
+
+/// `n` two-atom structures on a wide grid (atom ids 1..=2n, bond ids after them).
+fn many(n: u32) -> String {
+    let mut atoms = Vec::new();
+    let mut bonds = Vec::new();
+    for k in 0..n {
+        let (x, y) = ((k % 60) as f64 * 6.0, -((k / 60) as f64) * 6.0);
+        atoms.push(json!({"id": 2 * k + 1, "el": "C", "x": x, "y": y}));
+        atoms.push(json!({"id": 2 * k + 2, "el": "C", "x": x + 1.0, "y": y}));
+        bonds.push(json!({"id": 2 * n + k + 1, "a": 2 * k + 1, "b": 2 * k + 2, "o": 1}));
+    }
+    json!({"format":"mzdraw/1","next":3 * n + 1,"atoms":atoms,"bonds":bonds}).to_string()
+}
+
+/// The best of three runs of `derives` derives from the first structure of a drawing of `n` structures, in seconds.
+fn derive_time(n: u32, derives: usize) -> f64 {
+    let doc = many(n);
+    let cmds: Vec<Value> = (0..derives).map(|_| derive(1, json!([]))).collect();
+    let req = json!({"import": doc, "commands": cmds, "report": true}).to_string();
+    (0..3)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            let r: Value = serde_json::from_str(&mzdraw::replay::replay(&req).unwrap()).unwrap();
+            assert_eq!(r["ok"], true, "{r}");
+            t.elapsed().as_secs_f64()
+        })
+        .fold(f64::MAX, f64::min)
+}
+
+#[test]
+fn the_cost_of_a_derive_grows_linearly_with_the_drawing() {
+    // twice the structures must cost about twice as much, not four times: the pieces, the placement and the checks are linear.
+    // A floor keeps timer noise out: the small run must take long enough to measure.
+    let (mut n, mut small) = (1000u32, 0.0);
+    while n <= 16_000 {
+        small = derive_time(n, 6);
+        if small > 0.05 {
+            break;
+        }
+        n *= 2;
+    }
+    let big = derive_time(2 * n, 6);
+    assert!(
+        big < 3.0 * small + 0.02,
+        "{n} structures {small:.3} s, {} structures {big:.3} s",
+        2 * n
+    );
+}
+
+#[test]
+fn a_parent_above_the_size_cap_and_a_patch_above_the_operation_cap_are_refused() {
+    // 5001 atoms that all carry a map (the same one, which a file may hold): no map is needed, so the size cap is what refuses it
+    let n = 5001u32;
+    let atoms: Vec<Value> = (1..=n)
+        .map(|i| json!({"id": i, "el": "C", "x": i as f64, "y": 0.0, "map": 1}))
+        .collect();
+    let bonds: Vec<Value> = (1..n)
+        .map(|i| json!({"id": n + i, "a": i, "b": i + 1, "o": 1}))
+        .collect();
+    let doc = json!({"format":"mzdraw/1","next":2 * n + 1,"atoms":atoms,"bonds":bonds}).to_string();
+    let r = replay(json!({"import": doc, "report": true, "commands": [derive(1, json!([]))]}));
+    assert_eq!(r["failed"]["key"], "error.draw2.tpSize", "{r}");
+    // the operation cap: in the request (an invalid request names the key) and in the function
+    let many_ops: Vec<Value> = (0..10_001)
+        .map(|_| json!({"op":"atom.set","id":1,"chg":0}))
+        .collect();
+    let e = mzdraw::replay::replay(
+        &json!({"import": lactam(0.0).to_string(), "commands": [derive(1, json!(many_ops))]})
+            .to_string(),
+    );
+    assert_eq!(e.unwrap_err().key, "error.draw2.tpPatch");
+    let mut ed = Editor::default();
+    ed.import(&lactam(0.0).to_string()).unwrap();
+    let ops: Vec<mzdraw::ops::Op> = (0..10_001)
+        .map(|_| mzdraw::ops::Op::parse(&json!({"op":"atom.set","id":1,"chg":0})).unwrap())
+        .collect();
+    assert_eq!(
+        mzdraw::tp::derive(ed.doc(), &ed.style, 1, &ops, None).unwrap_err(),
+        "error.draw2.tpPatch"
+    );
+}
+
+#[test]
+fn a_map_number_names_one_atom_a_patch_cannot_give_it_to_another() {
+    // 3 is the map of atom 3 of the parent (and of its copy): a new atom may not take it, nor may two new atoms share one
+    let take = |patch: Value| {
+        replay(
+            json!({"import": lactam(0.0).to_string(), "report": true, "commands": [derive(1, patch)]}),
+        )
+    };
+    let r = take(
+        json!([{"op":"atom.add","el":"O","x":-1.0,"y":-1.7321,"map":3},{"op":"bond.add","a":5,"b":-1,"o":1}]),
+    );
+    assert_eq!(r["failed"]["key"], "error.draw2.tpMapDup", "{r}");
+    let r = take(
+        json!([{"op":"atom.add","el":"O","x":-1.0,"y":-1.7321,"map":50},{"op":"atom.add","el":"O","x":0.0,"y":-3.0,"map":50}]),
+    );
+    assert_eq!(r["failed"]["key"], "error.draw2.tpMapDup", "{r}");
+    let r = take(json!([{"op":"atom.set","id":4,"map":3}]));
+    assert_eq!(r["failed"]["key"], "error.draw2.tpMapDup", "{r}");
+    // a free number, or the atom's own, or none, is fine
+    let r = take(
+        json!([{"op":"atom.add","el":"O","x":-1.0,"y":-1.7321,"map":50},{"op":"atom.set","id":4,"map":4},{"op":"atom.set","id":6,"map":0}]),
+    );
+    assert_eq!(r["ok"], true, "{r}");
+    // a map above 999 is the refusal of the operation itself
+    let r = take(json!([{"op":"atom.set","id":4,"map":1000}]));
+    assert_eq!(r["ok"], false, "{r}");
+}
+
+#[test]
+fn the_copy_must_be_a_record_the_chemistry_layer_accepts() {
+    // an order the record cannot hold (0 or 4), a bond to the atom itself, a second bond between two atoms: refused, nothing written
+    for patch in [
+        json!([{"op":"atom.add","el":"O","x":-1.0,"y":-1.7321},{"op":"bond.add","a":5,"b":-1,"o":4}]),
+        json!([{"op":"atom.add","el":"O","x":-1.0,"y":-1.7321},{"op":"bond.add","a":5,"b":-1,"o":0}]),
+        json!([{"op":"bond.add","a":5,"b":5,"o":1}]),
+        json!([{"op":"bond.add","a":5,"b":4,"o":1}]),
+        json!([{"op":"bond.set","id":9,"o":3},{"op":"bond.set","id":10,"o":3}]),
+    ] {
+        let r = replay(
+            json!({"import": lactam(0.0).to_string(), "report": true, "commands": [derive(1, patch.clone())]}),
+        );
+        assert_eq!(r["ok"], false, "{patch}: {r}");
+    }
+    // a charge makes the valence allowed (N+ with four bonds): the allowed set of mzlab-mol, with the charge
+    let r = replay(
+        json!({"import": lactam(0.0).to_string(), "report": true, "commands": [derive(1, json!([
+        {"op":"atom.add","el":"C","x":1.0,"y":-1.0},{"op":"bond.add","a":1,"b":-1,"o":1},{"op":"atom.set","id":1,"chg":1}]))]}),
+    );
+    assert_eq!(r["ok"], true, "{r}");
 }

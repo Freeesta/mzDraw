@@ -129,6 +129,9 @@ impl Editor {
     /// first selected atom, is copied with its maps and an arrow to the copy (`tp::derive` with no patch), one undo step. The copy
     /// becomes the selection and the tool Select, so the next edit applies to it.
     pub fn tp_derive(&mut self, atom: Option<u32>) -> u32 {
+        if !self.style.pathway_derive {
+            return 0;
+        }
         let from = atom
             .or(self.over.focus)
             .or_else(|| self.over.sel_atoms.iter().copied().min());

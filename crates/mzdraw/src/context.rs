@@ -477,19 +477,22 @@ impl Editor {
             .map(|&(el, key)| checked(item(&format!("atom.el.{el}"), el, key, true), el == now))
             .collect();
         elements.push(item("atom.el.more", "More...", "", true));
-        vec![
+        let mut items = vec![
             group("atom.element", "Element", elements),
             item("atom.chg.plus", "Charge +", "+", chg < CHARGE_MAX),
             item("atom.chg.minus", "Charge -", "-", chg > -CHARGE_MAX),
             item("atom.label", "Label or abbreviation...", "L", true),
             item("atom.data", "Data...", "", true),
             item("atom.ann", "Annotation...", "", true),
-            item("tp.derive", "Derive TP", "Shift+D", true),
             item("edit.copy", "Copy", "Ctrl+C", true),
             item("edit.cut", "Cut", "Ctrl+X", true),
             item("edit.delete", "Delete", "Del", true),
             item("atom.connected", "Select connected", "", piece > 1),
-        ]
+        ];
+        if self.style.pathway_derive {
+            items.insert(6, item("tp.derive", "Derive TP", "Shift+D", true));
+        }
+        items
     }
 
     fn bond_items(&self, b: u32) -> Vec<Value> {
@@ -521,19 +524,22 @@ impl Editor {
             item("sel.copyas.svg", "SVG", "", atoms),
             item("sel.copyas.png", "PNG", "", atoms),
         ];
-        vec![
+        let mut items = vec![
             item("edit.cut", "Cut", "Ctrl+X", copyable),
             item("edit.copy", "Copy", "Ctrl+C", copyable),
             item("edit.paste", "Paste", "Ctrl+V", !self.clip.is_empty()),
             item("edit.duplicate", "Duplicate", "Ctrl+D", copyable),
-            item("tp.derive", "Derive TP", "Shift+D", atoms),
             item("sel.rotate.l", "Rotate left", "", atoms),
             item("sel.rotate.r", "Rotate right", "", atoms),
             item("sel.flip.h", "Flip horizontal", "", atoms),
             item("sel.flip.v", "Flip vertical", "", atoms),
             item("edit.delete", "Delete", "Del", true),
             group("sel.copyas", "Copy as", copy_as),
-        ]
+        ];
+        if self.style.pathway_derive {
+            items.insert(5, item("tp.derive", "Derive TP", "Shift+D", atoms));
+        }
+        items
     }
 
     fn object_items(&self, o: u32) -> Vec<Value> {

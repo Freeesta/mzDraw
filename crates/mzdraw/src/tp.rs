@@ -29,6 +29,7 @@ pub fn new_ref(k: u32) -> u32 {
 const PATCH: &str = "error.draw2.tpPatch";
 const MAPS: &str = "error.draw2.tpMaps";
 const SIZE: &str = "error.draw2.tpSize";
+const MAP_DUP: &str = "error.draw2.tpMapDup";
 
 /// The operations that derive a transformation product of the structure that holds `of`: the maps given to the parent when it has
 /// none, the copy (atoms, bonds, labels, wedges; not data or annotation), the `patch` on the copy, and the routed arrow. `at` is the
@@ -156,6 +157,22 @@ pub fn derive(
             .collect::<Result<Vec<_>, _>>()
     };
     let mut made = 0usize;
+    // a map names one atom across the pathway: a number the patch gives must be free in the drawing (and among the patch's own)
+    let mut used: BTreeSet<u16> = doc
+        .atoms
+        .iter()
+        .map(|a| a.map)
+        .filter(|&m| m != 0)
+        .collect();
+    used.extend(maps.values().copied().filter(|&m| m != 0));
+    let own: HashMap<u32, u16> = to_copy.iter().map(|(p, c)| (*c, maps[p])).collect();
+    let give = |used: &mut BTreeSet<u16>, id: u32, m: u16| -> Result<(), &'static str> {
+        if m == 0 || own.get(&id) == Some(&m) || used.insert(m) {
+            Ok(())
+        } else {
+            Err(MAP_DUP)
+        }
+    };
     for op in patch {
         ops.push(match op {
             Op::AtomAdd {
@@ -168,12 +185,19 @@ pub fn derive(
                 let id = new_ids[made];
                 made += 1;
                 let map = match map {
-                    Some(m) => Some(*m),
+                    Some(m) => {
+                        give(&mut used, id, *m)?;
+                        Some(*m)
+                    }
                     None => {
                         next_map += 1;
+                        while used.contains(&next_map) {
+                            next_map += 1;
+                        }
                         if next_map > MAX_MAP {
                             return Err(MAPS);
                         }
+                        used.insert(next_map);
                         Some(next_map)
                     }
                 };
@@ -207,16 +231,22 @@ pub fn derive(
                 h,
                 lab,
                 map,
-            } => Op::AtomSet {
-                id: atom_ref(*id)?,
-                el: el.clone(),
-                chg: *chg,
-                iso: *iso,
-                rad: *rad,
-                h: *h,
-                lab: lab.clone(),
-                map: *map,
-            },
+            } => {
+                let id = atom_ref(*id)?;
+                if let Some(m) = map {
+                    give(&mut used, id, *m)?;
+                }
+                Op::AtomSet {
+                    id,
+                    el: el.clone(),
+                    chg: *chg,
+                    iso: *iso,
+                    rad: *rad,
+                    h: *h,
+                    lab: lab.clone(),
+                    map: *map,
+                }
+            }
             Op::BondSet { id, o, s, rev } => Op::BondSet {
                 id: *bond_copy.get(id).ok_or(PATCH)?,
                 o: *o,
@@ -268,8 +298,15 @@ pub fn derive(
         });
     }
 
-    // the copy as the patch leaves it must be valid for the chemistry layer
-    let mut after = doc.clone();
+    // the copy as the patch leaves it must be valid for the chemistry layer. Everything is checked on a document of the parent
+    // alone (the cost does not grow with the drawing): the copy, the patch and the arrow are applied to it
+    let parent = Document {
+        atoms: atoms.iter().map(|a| (*a).clone()).collect(),
+        bonds: bonds.iter().map(|b| (*b).clone()).collect(),
+        next: doc.next,
+        ..Document::default()
+    };
+    let mut after = parent.clone();
     after.apply(&ops).map_err(|_| PATCH)?;
     let copied: BTreeSet<u32> = to_copy.values().chain(&new_ids).copied().collect();
     let mine: Vec<u32> = (after.atoms.iter())
@@ -282,11 +319,12 @@ pub fn derive(
         .filter(|&i| after.atom(i).is_some()))
     .min()
     .ok_or(PATCH)?;
-    if overvalent(&after, &mine, doc, &to_copy).is_some() {
+    if overvalent(&after, &mine, &parent, &to_copy).is_some() || !record_ok(&after, &copied) {
         return Err(PATCH);
     }
 
-    // the arrow, from the smallest atom of the parent to the smallest of the copy, then routed
+    // the arrow, from the smallest atom of the parent to the smallest of the copy, then routed (between the two boxes, with the
+    // structures of the small document: the parent and the copy)
     let id = take();
     let from = *piece.iter().min().unwrap_or(&of);
     let pc = centre(parent_box);
@@ -310,6 +348,23 @@ pub fn derive(
     Ok(ops)
 }
 
+/// Whether the copy (the atoms `ids` of `d` and the bonds between them) is a record `mzlab-mol` accepts (`Mol::validate`).
+fn record_ok(d: &Document, ids: &BTreeSet<u32>) -> bool {
+    let part = Document {
+        atoms: (d.atoms.iter())
+            .filter(|a| ids.contains(&a.id))
+            .cloned()
+            .collect(),
+        bonds: (d.bonds.iter())
+            .filter(|b| ids.contains(&b.a) && ids.contains(&b.b))
+            .cloned()
+            .collect(),
+        next: d.next,
+        ..Document::default()
+    };
+    part.to_mol_stereo().validate().is_ok()
+}
+
 fn centre(b: Rect) -> (f64, f64) {
     ((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0)
 }
@@ -324,22 +379,17 @@ fn place(style: &Style, st: &Structures, b: Rect, at: Option<(f64, f64)>) -> (f6
     }
     let x0 = b[2] + style.pathway_col_gap;
     let mut y0 = b[1];
-    let boxes: Vec<Rect> = (st.pieces().iter())
-        .filter_map(|p| p.first().and_then(|&a| st.box_of(a)))
-        .collect();
+    // the boxes in the way of the column, highest first: one pass moves the copy below each box it meets, so the cost is that of
+    // the sort (a box passed stays above the copy, and one not met yet is lower than the window or in it)
     let eps = 1e-9;
-    let taken = |y0: f64| -> Option<Rect> {
-        (boxes.iter().copied())
-            .filter(|r| {
-                r[0] < x0 + w - eps && x0 < r[2] - eps && r[1] < y0 + h - eps && y0 < r[3] - eps
-            })
-            .min_by(|p, q| p[1].total_cmp(&q[1]))
-    };
-    for _ in 0..=boxes.len() {
-        match taken(y0) {
-            None => break,
-            // below the lowest box in the way
-            Some(r) => y0 = r[1] - style.pathway_row_gap - h,
+    let mut column: Vec<Rect> = (st.pieces().iter())
+        .filter_map(|p| p.first().and_then(|&a| st.box_of(a)))
+        .filter(|r| r[0] < x0 + w - eps && x0 < r[2] - eps)
+        .collect();
+    column.sort_by(|p, q| q[3].total_cmp(&p[3]));
+    for r in column {
+        if r[1] < y0 + h - eps && y0 < r[3] - eps {
+            y0 = r[1] - style.pathway_row_gap - h;
         }
     }
     (x0 - b[0], y0 - b[1])

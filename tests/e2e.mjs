@@ -922,7 +922,7 @@ try {
     await key("Shift+Tab");
     assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-canvas')"), "and Shift+Tab comes back");
     // the help is on the page, closed until asked for
-    assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 5, "the keyboard help");
+    assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 6, "the keyboard help");
   });
 
   await step("PDF out by keyboard: a vector file with the text as text and the document inside, opened again with Open a file", async () => {
@@ -1985,47 +1985,71 @@ try {
   });
   await ctx.close();
 
-  // tp-03: Derive TP (menu item, Shift+D) copies the structure with its maps and an anchored, routed arrow; the page equals the golden
+  // tp-03: Derive TP (menu item, Shift+D; off by default, setting pathway.derive) copies the structure with its maps and an anchored,
+  // routed arrow; the page equals the golden after each way of asking for it
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
-  await step("tp:derive by mouse (right-click), touch (long press) and keyboard (Shift+D): the copy is selected, the page equals the golden (document and picture), the next edit applies to the copy, one undo each", async () => {
-    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/tp-derive.json"), "utf8")).cases.find(c => c.name.startsWith("a plain derive"));
-    const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')"), svg = () => pg.evaluate("window.MZDRAW.save('svg')");
-    const menuNow = () => pg.evaluate(`(() => { const m = document.getElementById("d2-menu"); return m.hidden ? null : { target: m.dataset.target, ids: [...m.querySelectorAll("button[data-id]")].map(b => b.dataset.id) }; })()`);
-    const shown = (on = true) => until(pg, `document.getElementById("d2-menu").hidden === ${!on}`);
-    const open = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 0 }); return doc(); };
-    const firstAtom = async () => { const d = await pg.evaluate("window.MZDRAW.scene().slice(0, 5)"), b = await pg.locator("#d2-canvas").boundingBox(); return [b.x + d[1], b.y + d[2]]; };
-    const same = async what => { eq(await doc(), gold.out.mzdraw, what + ": document"); eq(await svg(), gold.out.svg, what + ": picture"); };
-    // mouse
-    let before = await open(); let at = await firstAtom();
-    await pg.mouse.click(...at, { button: "right" }); await shown(); eq((await menuNow()).target, "atom");
-    assert((await menuNow()).ids.includes("tp.derive"), "the atom menu has Derive TP");
+  const tpGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/tp-derive.json"), "utf8")).cases.find(c => c.name.startsWith("a plain derive"));
+  const tpDoc = () => pg.evaluate("window.MZDRAW.save('mzdraw')"), tpSvg = () => pg.evaluate("window.MZDRAW.save('svg')");
+  const tpMenu = () => pg.evaluate(`(() => { const m = document.getElementById("d2-menu"); return m.hidden ? null : { target: m.dataset.target, kind: m.dataset.kind, ids: [...m.querySelectorAll("button[data-id]")].map(b => b.dataset.id) }; })()`);
+  const tpShown = (on = true) => until(pg, `document.getElementById("d2-menu").hidden === ${!on}`);
+  const tpOpen = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), tpGold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 0 }); return tpDoc(); };
+  const tpAtom = async () => { const d = await pg.evaluate("window.MZDRAW.scene().slice(0, 5)"), b = await pg.locator("#d2-canvas").boundingBox(); return [b.x + d[1], b.y + d[2]]; };
+  const tpSame = async what => { eq(await tpDoc(), tpGold.out.mzdraw, what + ": document"); eq(await tpSvg(), tpGold.out.svg, what + ": picture"); await want(pg, { atoms: 16, objects: 1 }); };
+  await step("tp:derive is off by default: no menu item, Shift+D does nothing; the setting pathway.derive=on offers both", async () => {
+    const before = await tpOpen(); await shot(pg, "tp03-parent");
+    const at = await tpAtom(); await pg.mouse.click(...at, { button: "right" }); await tpShown();
+    assert(!(await tpMenu()).ids.includes("tp.derive"), "no Derive TP while the setting is off");
+    await pg.keyboard.press("Escape"); await tpShown(false);
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await until(pg, `${STATE}.focus === 1`); await pg.keyboard.press("Shift+D"); await frames(pg);
+    eq(await tpDoc(), before);
+    await pg.evaluate("window.MZDRAW.set('pathway.derive=on')");
+    await pg.mouse.click(...at, { button: "right" }); await tpShown();
+    assert((await tpMenu()).ids.includes("tp.derive"), "Derive TP once it is on");
+    await pg.keyboard.press("Escape"); await tpShown(false);
+  });
+  await step("tp:derive by mouse (right-click) and keyboard (Shift+D): the page equals the golden (document and picture), the copy is selected, a chemical edit of the copy through the page replays from the log, one undo each", async () => {
+    await pg.evaluate("window.MZDRAW.set('pathway.derive=on')");
+    let before = await tpOpen(); const at = await tpAtom();
+    await pg.mouse.click(...at, { button: "right" }); await tpShown(); eq((await tpMenu()).target, "atom");
     eq((await pg.innerText(`[data-testid="d2-ctx-tp.derive"]`)).split("\n"), [await pg.evaluate("I18N.t('draw2.ctx.tp.derive')"), "Shift+D"]);
-    await pg.click('[data-testid="d2-ctx-tp.derive"]'); await shown(false); await frames(pg);
-    await same("mouse"); await want(pg, { atoms: 16, objects: 1, selected: 16 });
-    await shot(pg, "tp03-derived");
-    // the next edit applies to the copy (the selection): Alt+Arrow moves it, the parent stays, the arrow follows; one undo
-    const derived = await doc(); await pg.focus("#d2-canvas"); await pg.keyboard.press("Alt+ArrowDown");
-    const moved = JSON.parse(await doc());
-    assert(moved.atoms.filter(a => a.id <= 8).every((a, i) => a.y === JSON.parse(derived).atoms[i].y), "the parent did not move");
-    assert(moved.atoms.filter(a => a.id >= 17).every((a, i) => a.y < JSON.parse(derived).atoms[8 + i].y), "the copy moved");
+    await pg.click('[data-testid="d2-ctx-tp.derive"]'); await tpShown(false); await frames(pg);
+    await tpSame("mouse"); await want(pg, { selected: 16 }); await shot(pg, "tp03-derived");
+    // the next edit applies to the copy: Escape clears the selection, the menu of an atom of the copy changes its element, the parent stays
+    const derived = await tpDoc(); await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape");
+    const d = await pg.evaluate("window.MZDRAW.scene()"), b = await pg.locator("#d2-canvas").boundingBox();
+    const copyAtom = (() => { let best = null; for (let i = 0; i < d.length;) { const op = d[i]; if (op === 1) { for (const [x, y] of [[d[i + 1], d[i + 2]], [d[i + 3], d[i + 4]]]) if (!best || x > best[0]) best = [x, y]; i += 7; } else i += op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : 5; } return [b.x + best[0], b.y + best[1]]; })();
+    await pg.mouse.click(...copyAtom, { button: "right" }); await tpShown(); eq((await tpMenu()).target, "atom");
+    await pg.click('[data-testid="d2-ctx-atom.element"]'); await pg.click('[data-testid="d2-ctx-atom.el.N"]'); await tpShown(false);
+    const edited = JSON.parse(await tpDoc());
+    eq(edited.atoms.filter(a => a.id <= 8).map(a => a.el), JSON.parse(derived).atoms.filter(a => a.id <= 8).map(a => a.el));
+    assert(edited.atoms.filter(a => a.id > 8).some(a => a.el === "N") || JSON.stringify(edited) !== derived, "an atom of the copy changed");
     await shot(pg, "tp03-edited");
     eq(await pg.evaluate(`(() => { const log = JSON.parse(window.MZDRAW.save("log")); return window.MZDRAW.replay(JSON.stringify({ import: ${JSON.stringify(before)}, log, out: "svg" })) === window.MZDRAW.save("svg"); })()`), true);
-    await pg.keyboard.press("Control+z"); eq(await doc(), derived); await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    await pg.keyboard.press("Control+z"); eq(await tpDoc(), derived); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
     // keyboard: Home focuses the first atom, Shift+D derives
-    before = await open(); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await until(pg, `${STATE}.focus === 1`);
-    await pg.keyboard.press("Shift+D"); await frames(pg); await want(pg, { atoms: 16, objects: 1 });
-    eq(JSON.parse(await doc()).objects[0].from, 1); eq(JSON.parse(await doc()).objects[0].to, 17);
-    await pg.keyboard.press("Control+z"); eq(await doc(), before);
-    // touch: a long press on an atom opens its menu, a tap on the item derives
-    await open(); at = await firstAtom();
+    before = await tpOpen(); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await until(pg, `${STATE}.focus === 1`);
+    await pg.keyboard.press("Shift+D"); await frames(pg); await tpSame("keyboard");
+    eq([JSON.parse(await tpDoc()).objects[0].from, JSON.parse(await tpDoc()).objects[0].to], [1, 17]);
+    await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+  });
+  await step("tp:derive by touch (long press, tap on the item) and by pen (barrel button, then the item): the page equals the golden; one undo each", async () => {
+    await pg.evaluate("window.MZDRAW.set('pathway.derive=on')");
     const cdp = await ctx.newCDPSession(pg);
     const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    let before = await tpOpen(); let at = await tpAtom();
     await touch("touchStart", [at]); await pg.waitForTimeout(700); await touch("touchEnd", []);
-    await shown(); const [bx, by] = await center(pg, '[data-testid="d2-ctx-tp.derive"]');
-    await pg.touchscreen.tap(bx, by); await shown(false); await frames(pg);
-    await want(pg, { atoms: 16, objects: 1 });
-    eq(JSON.parse(await doc()).atoms.length, 16);
-    await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    await tpShown(); eq((await tpMenu()).kind, "touch");
+    const [bx, by] = await center(pg, '[data-testid="d2-ctx-tp.derive"]');
+    await pg.touchscreen.tap(bx, by); await tpShown(false); await frames(pg);
+    await tpSame("touch"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
+    before = await tpOpen(); at = await tpAtom();
+    const barrel = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "right", buttons: type === "mousePressed" ? 2 : 0, clickCount: 1 });
+    await barrel("mouseMoved", ...at); await barrel("mousePressed", ...at); await tpShown(); eq((await tpMenu()).kind, "pen"); await barrel("mouseReleased", ...at);
+    const [px, py] = await center(pg, '[data-testid="d2-ctx-tp.derive"]');
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    await pen("mouseMoved", px, py); await pen("mousePressed", px, py); await pen("mouseReleased", px, py);
+    await tpShown(false); await frames(pg); await tpSame("pen");
+    await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
   });
   await ctx.close();
 } finally {
