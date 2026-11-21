@@ -362,7 +362,9 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
                 if !r.envelope() {
                     return Err(err);
                 }
-                failed = Some(Failed::command(i, err.key, err.id));
+                let mut f = Failed::command(i, err.key, err.id);
+                f.rows = e.failed_rows.clone();
+                failed = Some(f);
                 break;
             }
         }

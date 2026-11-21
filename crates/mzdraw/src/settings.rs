@@ -38,6 +38,8 @@ pub struct Style {
     pub pathway_down: bool,
     /// `pathway.order`: the sibling order key.
     pub pathway_order: crate::pathway::Order,
+    /// `pathway.number`: the order `tp:number` numbers the transformation products in.
+    pub pathway_number: crate::tp_list::Number,
     /// `pathway.derive`: whether the page offers "Derive TP" (menu item and Shift+D). Off by default: the kill test of tp-03 did not
     /// show the page route needs half the actions of copy-paste-and-edit. The command `tp:derive` is not gated.
     pub pathway_derive: bool,
@@ -201,13 +203,19 @@ pub const FIELDS: [Field; 13] = [
 fn known(key: &str) -> bool {
     matches!(
         key,
-        "preset" | "colour" | "maps" | "pathway.dir" | "pathway.order" | "pathway.derive"
+        "preset"
+            | "colour"
+            | "maps"
+            | "pathway.dir"
+            | "pathway.order"
+            | "pathway.derive"
+            | "pathway.number"
     ) || FIELDS.iter().any(|f| f.key == key)
 }
 
 /// The keys of the settings that take a word: the key, the words (the first is the default) as `--set` and the settings file read
 /// them. `pathway.order` has `id`, `mz` and `rt` here; `reverse-id` is for the tests of the layout and is not offered.
-const CHOICES: &str = r#"{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"}"#;
+const CHOICES: &str = r#"{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"},{"key":"pathway.number","values":["layout","mz","rt"],"default":"layout"}"#;
 
 /// The schema of the settings file as JSON, for the surfaces that show or document it (the fields of the page, the help of the
 /// CLI): `{"format", "presets", "colours", "fields": [{"key", "unit", "min", "max", "default"}]}`, the defaults being the ones of
@@ -259,6 +267,7 @@ impl Default for Style {
             pathway_min_arrow: 1.2,
             pathway_down: false,
             pathway_order: crate::pathway::Order::Id,
+            pathway_number: crate::tp_list::Number::Layout,
             pathway_derive: false,
             mono: false,
             maps: true,
@@ -305,6 +314,7 @@ impl Style {
             pathway_min_arrow: 1.2,
             pathway_down: false,
             pathway_order: crate::pathway::Order::Id,
+            pathway_number: crate::tp_list::Number::Layout,
             pathway_derive: false,
             mono: true,
             maps: true,
@@ -385,6 +395,10 @@ impl Style {
             ("derive", "on") => self.pathway_derive = true,
             ("derive", "off") => self.pathway_derive = false,
             ("derive", _) => return Err("error.draw2.styleValue"),
+            ("number", v) => {
+                self.pathway_number =
+                    crate::tp_list::Number::parse(v).ok_or("error.draw2.styleValue")?
+            }
             ("order", v) => {
                 self.pathway_order =
                     crate::pathway::Order::parse(v).ok_or("error.draw2.styleValue")?
@@ -405,6 +419,7 @@ impl Style {
         match key {
             "pathway.dir" => Some(if self.pathway_down { "down" } else { "right" }),
             "pathway.order" => Some(self.pathway_order.name()),
+            "pathway.number" => Some(self.pathway_number.name()),
             _ => None,
         }
     }
@@ -476,7 +491,12 @@ impl Style {
             None => crate::pathway::Order::Id,
             Some(v) => crate::pathway::Order::parse_public(&v)?,
         };
+        let number = match g.s("pathway.number").ok()? {
+            None => crate::tp_list::Number::Layout,
+            Some(v) => crate::tp_list::Number::parse(&v)?,
+        };
         let mut s = Style {
+            pathway_number: number,
             mono: colour,
             maps,
             pathway_down: down,
@@ -520,6 +540,12 @@ impl Style {
             crate::pathway::Order::Id | crate::pathway::Order::ReverseId
         ) {
             style.push(("pathway.order".to_string(), text(self.pathway_order.name())));
+        }
+        if self.pathway_number != crate::tp_list::Number::Layout {
+            style.push((
+                "pathway.number".to_string(),
+                text(self.pathway_number.name()),
+            ));
         }
         for f in &FIELDS {
             style.push((f.key.to_string(), num(f.of(self))));
