@@ -19,6 +19,8 @@ struct Page {
     check: String,
     /// The drawing checks as the panel lists them (`Report::counts_json`), recomputed after every change.
     std: String,
+    /// Whether something is drawn and the checks found nothing (the page says so in words).
+    std_none: bool,
 }
 
 thread_local! {
@@ -46,7 +48,9 @@ fn act(f: impl FnOnce(&mut Editor) -> u32) -> u32 {
 
 /// After a change: the drawing checks `std/1` and, with the `mzlab` feature, the structure check.
 fn recheck(p: &mut Page) {
-    p.std = mzdraw::conform::report(p.editor.doc()).counts_json();
+    let report = mzdraw::conform::report(p.editor.doc());
+    p.std = report.counts_json();
+    p.std_none = !p.editor.doc().atoms.is_empty() && report.checks.is_empty();
     live_check(p);
 }
 
@@ -349,7 +353,7 @@ pub fn strings() -> Vec<String> {
 }
 
 /// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, clip, say: {key, what}, error, check, std}` (`check` is
-/// the `check/1` document or null; `std` lists the drawing checks that have findings, `[{key, grade, n}]`, as `Editor::save("std")` reports them).
+/// the `check/1` document or null; `std` is `{none, lines}`: `lines` lists the drawing checks that have findings, `[{key, grade, n}]`, as `Editor::save("std")` reports them, and `none` is true when something is drawn and there are none).
 #[wasm_bindgen]
 pub fn state() -> String {
     with(|p| {
@@ -397,7 +401,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{},"std":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -411,6 +415,7 @@ pub fn state() -> String {
             q(&e.said.1),
             q(e.error),
             if p.check.is_empty() { "null" } else { &p.check },
+            p.std_none,
             if p.std.is_empty() { "[]" } else { &p.std },
         )
     })

@@ -139,14 +139,14 @@ function refresh() {
     return li;
   }));
   // the drawing checks: Rust names the checks that have findings, the page lists them (a line selects what it is about)
-  const std = st.std || [];
+  const std = st.std.lines;
   $("d2-std-list").replaceChildren(...std.map((/** @type {any} */ c) => {
     const li = document.createElement("li"), b = document.createElement("button"), g = document.createElement("span");
     g.className = "lvl"; g.textContent = t(`draw2.std.grade.${c.grade}`);
     b.type = "button"; b.dataset.key = c.key; b.dataset.grade = c.grade; b.append(g, " ", t(`draw2.${c.key}`, { n: c.n }));
     li.append(b); return li;
   }));
-  $("d2-std-note").textContent = std.length || !st.atoms ? "" : t("draw2.std.none");
+  $("d2-std-note").textContent = st.std.none ? t("draw2.std.none") : "";
   $("d2-summary").textContent = !st.atoms ? t("draw.check.empty") : ws.length ? t("draw.check.found", { n: ws.length }) : t("draw.check.ok");
   if (st.error) $("d2-live").textContent = I.err({ error_key: st.error, params: {} }).message;
   else if (st.say.key) $("d2-live").textContent = t(`draw2.say.${st.say.key.slice(10)}`, { what: st.say.what });

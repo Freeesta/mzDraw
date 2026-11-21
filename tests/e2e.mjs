@@ -62,6 +62,8 @@ async function context(browser, opts) {
 const state = pg => pg.evaluate(STATE);
 const tool = (pg, name) => pg.click(`[data-testid="d2-${name}"]`);
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
+/** a screenshot of one element at deviceScaleFactor 2 (the drawing checks panel, light, dark and tablet: docs/shots/) */
+const shotEl = async (pg, sel, name) => { if (shots) await pg.locator(sel).screenshot({ path: path.join(shots, name + ".png") }); };
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
 /** the drawing loop every pointer kind must manage: template, undo/redo, atom, sprouted bonds, the valence mistake, erase */
@@ -651,6 +653,9 @@ try {
     eq(report.checks.map(c => [c.key, c.grade, c.atoms.length, c.bonds.length]), [["std.stereo.notCentre", "warn", 1, 1]]);
     await pg.locator("#d2-std-list").scrollIntoViewIfNeeded();
     await shot(pg, "checks");
+    await shotEl(pg, "#d2-std-panel", "std-light");
+    await pg.emulateMedia({ colorScheme: "dark" }); await shotEl(pg, "#d2-std-panel", "std-dark");
+    await pg.emulateMedia({ colorScheme: "light" });
     const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
     await pg.focus("#d2-std-list button"); await pg.keyboard.press("Enter");
     await want(pg, { selected: 2 });                                      // the atom and the bond the finding is about
@@ -681,6 +686,7 @@ try {
     if (!(await pg.evaluate("document.querySelector('#d2-std').open"))) await pg.locator("#d2-std summary").tap();
     await pg.locator("#d2-std-list button").tap();
     await want(pg, { selected: 2 });
+    await shotEl(pg, "#d2-std-panel", "std-tablet");
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.std.selected', { n: 2 })"));
     assert(await pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), "the panel does not scroll the page sideways");
   });
