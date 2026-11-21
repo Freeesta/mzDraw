@@ -42,6 +42,7 @@ const REVERSED: &[(&str, &str)] = &[
     ("SO3H", "HO3S"),
     ("TMS", "TMS"),
     ("TBS", "TBS"),
+    ("GlcA", "GlcA"),
     // R groups and a bare count stay
     ("R", "R"),
     ("R1", "R1"),
@@ -78,7 +79,7 @@ fn a_label_is_reversed_by_units_and_each_unit_keeps_its_order() {
         );
     }
     // an abbreviation is one unit whatever its letters spell: Ac is not A-c, Boc is not B-o-c, Ph does not end in an H
-    for unit in ["Boc", "Ph", "Ac", "Me", "Ts", "Cbz", "Fmoc", "TMS"] {
+    for unit in ["Boc", "Ph", "Ac", "Me", "Ts", "Cbz", "Fmoc", "GlcA", "TMS"] {
         assert_eq!(arrange(unit, true).text, unit);
         assert_eq!(arrange(&format!("O{unit}"), true).text, format!("{unit}O"));
     }

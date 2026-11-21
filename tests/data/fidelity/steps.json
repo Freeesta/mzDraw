@@ -1,0 +1,2523 @@
+{
+ "format": "fidelity-steps/1",
+ "date": "2026-11-21",
+ "programs": {
+  "rdkit": "2026.09.2"
+ },
+ "success": {
+  "site_lists": "156/156",
+  "products": "110/110"
+ },
+ "results": [
+  {
+   "step": "hydroxylation",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [
+    1,
+    3,
+    4,
+    8,
+    10,
+    11,
+    13
+   ],
+   "rdkit": [
+    1,
+    3,
+    4,
+    8,
+    10,
+    11,
+    13
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CN(CO)CC(=O)OCc1ccncc1Cl",
+     "rdkit": [
+      "CN(CO)CC(=O)OCc1ccncc1Cl"
+     ],
+     "agree": true
+    },
+    {
+     "site": 3,
+     "ours": "CN(CO)CC(=O)OCc1ccncc1Cl",
+     "rdkit": [
+      "CN(CO)CC(=O)OCc1ccncc1Cl"
+     ],
+     "agree": true
+    },
+    {
+     "site": 4,
+     "ours": "CN(C)C(O)C(=O)OCc1ccncc1Cl",
+     "rdkit": [
+      "CN(C)C(O)C(=O)OCc1ccncc1Cl"
+     ],
+     "agree": true
+    },
+    {
+     "site": 8,
+     "ours": "CN(C)CC(=O)OC(O)c1ccncc1Cl",
+     "rdkit": [
+      "CN(C)CC(=O)OC(O)c1ccncc1Cl"
+     ],
+     "agree": true
+    },
+    {
+     "site": 10,
+     "ours": "CN(C)CC(=O)OCc1c(O)cncc1Cl",
+     "rdkit": [
+      "CN(C)CC(=O)OCc1c(O)cncc1Cl"
+     ],
+     "agree": true
+    },
+    {
+     "site": 11,
+     "ours": "CN(C)CC(=O)OCc1cc(O)ncc1Cl",
+     "rdkit": [
+      "CN(C)CC(=O)OCc1cc(O)ncc1Cl"
+     ],
+     "agree": true
+    },
+    {
+     "site": 13,
+     "ours": "CN(C)CC(=O)OCc1ccnc(O)c1Cl",
+     "rdkit": [
+      "CN(C)CC(=O)OCc1ccnc(O)c1Cl"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [
+    1,
+    4,
+    5,
+    7,
+    8,
+    10,
+    15
+   ],
+   "rdkit": [
+    1,
+    4,
+    5,
+    7,
+    8,
+    10,
+    15
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CNC(=O)c1cc(CCBr)ccc1OCO",
+     "rdkit": [
+      "CNC(=O)c1cc(CCBr)ccc1OCO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 4,
+     "ours": "CNC(=O)c1cc(CCBr)cc(O)c1OC",
+     "rdkit": [
+      "CNC(=O)c1cc(CCBr)cc(O)c1OC"
+     ],
+     "agree": true
+    },
+    {
+     "site": 5,
+     "ours": "CNC(=O)c1cc(CCBr)c(O)cc1OC",
+     "rdkit": [
+      "CNC(=O)c1cc(CCBr)c(O)cc1OC"
+     ],
+     "agree": true
+    },
+    {
+     "site": 7,
+     "ours": "CNC(=O)c1cc(C(O)CBr)ccc1OC",
+     "rdkit": [
+      "CNC(=O)c1cc(C(O)CBr)ccc1OC"
+     ],
+     "agree": true
+    },
+    {
+     "site": 8,
+     "ours": "CNC(=O)c1cc(CC(O)Br)ccc1OC",
+     "rdkit": [
+      "CNC(=O)c1cc(CC(O)Br)ccc1OC"
+     ],
+     "agree": true
+    },
+    {
+     "site": 10,
+     "ours": "CNC(=O)c1c(OC)ccc(CCBr)c1O",
+     "rdkit": [
+      "CNC(=O)c1c(OC)ccc(CCBr)c1O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 15,
+     "ours": "COc1ccc(CCBr)cc1C(=O)NCO",
+     "rdkit": [
+      "COc1ccc(CCBr)cc1C(=O)NCO"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "CCC(=O)O",
+   "ours": [
+    1,
+    2
+   ],
+   "rdkit": [
+    1,
+    2
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "O=C(O)CCO",
+     "rdkit": [
+      "O=C(O)CCO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 2,
+     "ours": "CC(O)C(=O)O",
+     "rdkit": [
+      "CC(O)C(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [
+    4,
+    5
+   ],
+   "rdkit": [
+    4,
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 4,
+     "ours": "NC(C(=O)O)C(O)C(=O)O",
+     "rdkit": [
+      "NC(C(=O)O)C(O)C(=O)O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 5,
+     "ours": "NC(O)(CC(=O)O)C(=O)O",
+     "rdkit": [
+      "NC(O)(CC(=O)O)C(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "CC=C",
+   "ours": [
+    1,
+    2,
+    3
+   ],
+   "rdkit": [
+    1,
+    2,
+    3
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "C=CCO",
+     "rdkit": [
+      "C=CCO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 2,
+     "ours": "C=C(C)O",
+     "rdkit": [
+      "C=C(C)O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 3,
+     "ours": "CC=CO",
+     "rdkit": [
+      "CC=CO"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "C=CC(=O)OC",
+   "ours": [
+    1,
+    2,
+    6
+   ],
+   "rdkit": [
+    1,
+    2,
+    6
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "COC(=O)C=CO",
+     "rdkit": [
+      "COC(=O)C=CO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 2,
+     "ours": "C=C(O)C(=O)OC",
+     "rdkit": [
+      "C=C(O)C(=O)OC"
+     ],
+     "agree": true
+    },
+    {
+     "site": 6,
+     "ours": "C=CC(=O)OCO",
+     "rdkit": [
+      "C=CC(=O)OCO"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "CCCC(O)CC=O",
+   "ours": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    7
+   ],
+   "rdkit": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    7
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "O=CCC(O)CCCO",
+     "rdkit": [
+      "O=CCC(O)CCCO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 2,
+     "ours": "CC(O)CC(O)CC=O",
+     "rdkit": [
+      "CC(O)CC(O)CC=O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 3,
+     "ours": "CCC(O)C(O)CC=O",
+     "rdkit": [
+      "CCC(O)C(O)CC=O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 4,
+     "ours": "CCCC(O)(O)CC=O",
+     "rdkit": [
+      "CCCC(O)(O)CC=O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 6,
+     "ours": "CCCC(O)C(O)C=O",
+     "rdkit": [
+      "CCCC(O)C(O)C=O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 7,
+     "ours": "CCCC(O)CC(=O)O",
+     "rdkit": [
+      "CCCC(O)CC(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [
+    1,
+    3,
+    4,
+    5,
+    8,
+    9,
+    10
+   ],
+   "rdkit": [
+    1,
+    3,
+    4,
+    5,
+    8,
+    9,
+    10
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CC(C)(C)c1cccn1CO",
+     "rdkit": [
+      "CC(C)(C)c1cccn1CO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 3,
+     "ours": "Cn1c(O)ccc1C(C)(C)C",
+     "rdkit": [
+      "Cn1c(O)ccc1C(C)(C)C"
+     ],
+     "agree": true
+    },
+    {
+     "site": 4,
+     "ours": "Cn1cc(O)cc1C(C)(C)C",
+     "rdkit": [
+      "Cn1cc(O)cc1C(C)(C)C"
+     ],
+     "agree": true
+    },
+    {
+     "site": 5,
+     "ours": "Cn1ccc(O)c1C(C)(C)C",
+     "rdkit": [
+      "Cn1ccc(O)c1C(C)(C)C"
+     ],
+     "agree": true
+    },
+    {
+     "site": 8,
+     "ours": "Cn1cccc1C(C)(C)CO",
+     "rdkit": [
+      "Cn1cccc1C(C)(C)CO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 9,
+     "ours": "Cn1cccc1C(C)(C)CO",
+     "rdkit": [
+      "Cn1cccc1C(C)(C)CO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 10,
+     "ours": "Cn1cccc1C(C)(C)CO",
+     "rdkit": [
+      "Cn1cccc1C(C)(C)CO"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "c1ccncc1CNC",
+   "ours": [
+    1,
+    2,
+    3,
+    5,
+    7,
+    9
+   ],
+   "rdkit": [
+    1,
+    2,
+    3,
+    5,
+    7,
+    9
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CNCc1cnccc1O",
+     "rdkit": [
+      "CNCc1cnccc1O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 2,
+     "ours": "CNCc1cncc(O)c1",
+     "rdkit": [
+      "CNCc1cncc(O)c1"
+     ],
+     "agree": true
+    },
+    {
+     "site": 3,
+     "ours": "CNCc1ccc(O)nc1",
+     "rdkit": [
+      "CNCc1ccc(O)nc1"
+     ],
+     "agree": true
+    },
+    {
+     "site": 5,
+     "ours": "CNCc1cccnc1O",
+     "rdkit": [
+      "CNCc1cccnc1O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 7,
+     "ours": "CNC(O)c1cccnc1",
+     "rdkit": [
+      "CNC(O)c1cccnc1"
+     ],
+     "agree": true
+    },
+    {
+     "site": 9,
+     "ours": "OCNCc1cccnc1",
+     "rdkit": [
+      "OCNCc1cccnc1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [
+    1,
+    5,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "rdkit": [
+    1,
+    5,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CN(C(=O)CO)c1ccccc1",
+     "rdkit": [
+      "CN(C(=O)CO)c1ccccc1"
+     ],
+     "agree": true
+    },
+    {
+     "site": 5,
+     "ours": "CC(=O)N(CO)c1ccccc1",
+     "rdkit": [
+      "CC(=O)N(CO)c1ccccc1"
+     ],
+     "agree": true
+    },
+    {
+     "site": 7,
+     "ours": "CC(=O)N(C)c1ccccc1O",
+     "rdkit": [
+      "CC(=O)N(C)c1ccccc1O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 8,
+     "ours": "CC(=O)N(C)c1cccc(O)c1",
+     "rdkit": [
+      "CC(=O)N(C)c1cccc(O)c1"
+     ],
+     "agree": true
+    },
+    {
+     "site": 9,
+     "ours": "CC(=O)N(C)c1ccc(O)cc1",
+     "rdkit": [
+      "CC(=O)N(C)c1ccc(O)cc1"
+     ],
+     "agree": true
+    },
+    {
+     "site": 10,
+     "ours": "CC(=O)N(C)c1cccc(O)c1",
+     "rdkit": [
+      "CC(=O)N(C)c1cccc(O)c1"
+     ],
+     "agree": true
+    },
+    {
+     "site": 11,
+     "ours": "CC(=O)N(C)c1ccccc1O",
+     "rdkit": [
+      "CC(=O)N(C)c1ccccc1O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [
+    1,
+    3,
+    4,
+    8
+   ],
+   "rdkit": [
+    1,
+    3,
+    4,
+    8
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CC(=O)NC(C)(C)CO",
+     "rdkit": [
+      "CC(=O)NC(C)(C)CO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 3,
+     "ours": "CC(=O)NC(C)(C)CO",
+     "rdkit": [
+      "CC(=O)NC(C)(C)CO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 4,
+     "ours": "CC(=O)NC(C)(C)CO",
+     "rdkit": [
+      "CC(=O)NC(C)(C)CO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 8,
+     "ours": "CC(C)(C)NC(=O)CO",
+     "rdkit": [
+      "CC(C)(C)NC(=O)CO"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydroxylation",
+   "parent": "C=C",
+   "ours": [
+    1,
+    2
+   ],
+   "rdkit": [
+    1,
+    2
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "C=CO",
+     "rdkit": [
+      "C=CO"
+     ],
+     "agree": true
+    },
+    {
+     "site": 2,
+     "ours": "C=CO",
+     "rdkit": [
+      "C=CO"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [
+    1,
+    3
+   ],
+   "rdkit": [
+    1,
+    3
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CNCC(=O)OCc1ccncc1Cl",
+     "rdkit": [
+      "CNCC(=O)OCc1ccncc1Cl"
+     ],
+     "agree": true
+    },
+    {
+     "site": 3,
+     "ours": "CNCC(=O)OCc1ccncc1Cl",
+     "rdkit": [
+      "CNCC(=O)OCc1ccncc1Cl"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [
+    15
+   ],
+   "rdkit": [
+    15
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 15,
+     "ours": "COc1ccc(CCBr)cc1C(N)=O",
+     "rdkit": [
+      "COc1ccc(CCBr)cc1C(N)=O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "CCC(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "C=CC(=O)OC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "CCCC(O)CC=O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [
+    1
+   ],
+   "rdkit": [
+    1
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CC(C)(C)c1ccc[nH]1",
+     "rdkit": [
+      "CC(C)(C)c1ccc[nH]1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "c1ccncc1CNC",
+   "ours": [
+    9
+   ],
+   "rdkit": [
+    9
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 9,
+     "ours": "NCc1cccnc1",
+     "rdkit": [
+      "NCc1cccnc1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CC(=O)Nc1ccccc1",
+     "rdkit": [
+      "CC(=O)Nc1ccccc1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-demethylation",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [
+    1
+   ],
+   "rdkit": [
+    1
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CNC(=O)c1cc(CCBr)ccc1O",
+     "rdkit": [
+      "CNC(=O)c1cc(CCBr)ccc1O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "CCC(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "C=CC(=O)OC",
+   "ours": [
+    6
+   ],
+   "rdkit": [
+    6
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 6,
+     "ours": "C=CC(=O)O",
+     "rdkit": [
+      "C=CC(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "CCCC(O)CC=O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "c1ccncc1CNC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "o-demethylation",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [
+    2,
+    12
+   ],
+   "rdkit": [
+    2,
+    12
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 2,
+     "ours": "C[N+](C)([O-])CC(=O)OCc1ccncc1Cl",
+     "rdkit": [
+      "C[N+](C)([O-])CC(=O)OCc1ccncc1Cl"
+     ],
+     "agree": true
+    },
+    {
+     "site": 12,
+     "ours": "CN(C)CC(=O)OCc1cc[n+]([O-])cc1Cl",
+     "rdkit": [
+      "CN(C)CC(=O)OCc1cc[n+]([O-])cc1Cl"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "CCC(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "C=CC(=O)OC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "CCCC(O)CC=O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "c1ccncc1CNC",
+   "ours": [
+    4
+   ],
+   "rdkit": [
+    4
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 4,
+     "ours": "CNCc1ccc[n+]([O-])c1",
+     "rdkit": [
+      "CNCc1ccc[n+]([O-])c1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [
+    4
+   ],
+   "rdkit": [
+    4
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 4,
+     "ours": "CC(=O)[N+](C)([O-])c1ccccc1",
+     "rdkit": [
+      "CC(=O)[N+](C)([O-])c1ccccc1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "n-oxidation",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [
+    24
+   ],
+   "rdkit": [
+    24
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 24,
+     "ours": "CNC(=O)c1cc(C=CBr)ccc1OC",
+     "rdkit": [
+      "CNC(=O)c1cc(C=CBr)ccc1OC"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "CCC(=O)O",
+   "ours": [
+    6
+   ],
+   "rdkit": [
+    6
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 6,
+     "ours": "C=CC(=O)O",
+     "rdkit": [
+      "C=CC(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [
+    13
+   ],
+   "rdkit": [
+    13
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 13,
+     "ours": "NC(=CC(=O)O)C(=O)O",
+     "rdkit": [
+      "NC(=CC(=O)O)C(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "CC=C",
+   "ours": [
+    4
+   ],
+   "rdkit": [
+    4
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 4,
+     "ours": "C=C=C",
+     "rdkit": [
+      "C=C=C"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "C=CC(=O)OC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "CCCC(O)CC=O",
+   "ours": [
+    9,
+    10,
+    11,
+    13,
+    14
+   ],
+   "rdkit": [
+    9,
+    10,
+    11,
+    13,
+    14
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 9,
+     "ours": "C=CCC(O)CC=O",
+     "rdkit": [
+      "C=CCC(O)CC=O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 10,
+     "ours": "CC=CC(O)CC=O",
+     "rdkit": [
+      "CC=CC(O)CC=O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 11,
+     "ours": "CCC=C(O)CC=O",
+     "rdkit": [
+      "CCC=C(O)CC=O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 13,
+     "ours": "CCCC(O)=CC=O",
+     "rdkit": [
+      "CCCC(O)=CC=O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 14,
+     "ours": "CCCC(O)C=C=O",
+     "rdkit": [
+      "CCCC(O)C=C=O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "c1ccncc1CNC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dehydrogenation",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "CCC(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "CC=C",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CC(C)O",
+     "rdkit": [
+      "CC(C)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydration",
+   "parent": "C=CC(=O)OC",
+   "ours": [
+    7
+   ],
+   "rdkit": [
+    7
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 7,
+     "ours": "COC(=O)C(C)O",
+     "rdkit": [
+      "COC(=O)C(C)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydration",
+   "parent": "CCCC(O)CC=O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "c1ccncc1CNC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydration",
+   "parent": "C=C",
+   "ours": [
+    3
+   ],
+   "rdkit": [
+    3
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 3,
+     "ours": "CCO",
+     "rdkit": [
+      "CCO"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "dechlorination",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [
+    15
+   ],
+   "rdkit": [
+    15
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 15,
+     "ours": "CN(C)CC(=O)OCc1ccncc1",
+     "rdkit": [
+      "CN(C)CC(=O)OCc1ccncc1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "dechlorination",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "CCC(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "C=CC(=O)OC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "CCCC(O)CC=O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "c1ccncc1CNC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "dechlorination",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [
+    9
+   ],
+   "rdkit": [
+    9
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 9,
+     "ours": "CCc1ccc(OC)c(C(=O)NC)c1",
+     "rdkit": [
+      "CCc1ccc(OC)c(C(=O)NC)c1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "debromination",
+   "parent": "CCC(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "C=CC(=O)OC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "CCCC(O)CC=O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "c1ccncc1CNC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "debromination",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [
+    21
+   ],
+   "rdkit": [
+    21
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 21,
+     "ours": "CN(C)CC(=O)O.OCc1ccncc1Cl",
+     "rdkit": [
+      "CN(C)CC(=O)O.OCc1ccncc1Cl"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [
+    29
+   ],
+   "rdkit": [
+    29
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 29,
+     "ours": "CN.COc1ccc(CCBr)cc1C(=O)O",
+     "rdkit": [
+      "CN.COc1ccc(CCBr)cc1C(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "CCC(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "C=CC(=O)OC",
+   "ours": [
+    10
+   ],
+   "rdkit": [
+    10
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 10,
+     "ours": "C=CC(=O)O.CO",
+     "rdkit": [
+      "C=CC(=O)O.CO"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "CCCC(O)CC=O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "c1ccncc1CNC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [
+    14
+   ],
+   "rdkit": [
+    14
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 14,
+     "ours": "CC(=O)O.CNc1ccccc1",
+     "rdkit": [
+      "CC(=O)O.CNc1ccccc1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [
+    13
+   ],
+   "rdkit": [
+    13
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 13,
+     "ours": "CC(=O)O.CC(C)(C)N",
+     "rdkit": [
+      "CC(=O)O.CC(C)(C)N"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "hydrolysis",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "acetylation",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "acetylation",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [
+    14
+   ],
+   "rdkit": [
+    14
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 14,
+     "ours": "COc1ccc(CCBr)cc1C(=O)N(C)C(C)=O",
+     "rdkit": [
+      "COc1ccc(CCBr)cc1C(=O)N(C)C(C)=O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "acetylation",
+   "parent": "CCC(=O)O",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CCC(=O)OC(C)=O",
+     "rdkit": [
+      "CCC(=O)OC(C)=O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "acetylation",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [
+    1,
+    6,
+    9
+   ],
+   "rdkit": [
+    1,
+    6,
+    9
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "CC(=O)OC(=O)CC(N)C(=O)O",
+     "rdkit": [
+      "CC(=O)OC(=O)CC(N)C(=O)O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 6,
+     "ours": "CC(=O)NC(CC(=O)O)C(=O)O",
+     "rdkit": [
+      "CC(=O)NC(CC(=O)O)C(=O)O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 9,
+     "ours": "CC(=O)OC(=O)C(N)CC(=O)O",
+     "rdkit": [
+      "CC(=O)OC(=O)C(N)CC(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "acetylation",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "acetylation",
+   "parent": "C=CC(=O)OC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "acetylation",
+   "parent": "CCCC(O)CC=O",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CCCC(CC=O)OC(C)=O",
+     "rdkit": [
+      "CCCC(CC=O)OC(C)=O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "acetylation",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "acetylation",
+   "parent": "c1ccncc1CNC",
+   "ours": [
+    8
+   ],
+   "rdkit": [
+    8
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 8,
+     "ours": "CC(=O)N(C)Cc1cccnc1",
+     "rdkit": [
+      "CC(=O)N(C)Cc1cccnc1"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "acetylation",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "acetylation",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CC(=O)N(C(C)=O)C(C)(C)C",
+     "rdkit": [
+      "CC(=O)N(C(C)=O)C(C)(C)C"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "acetylation",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "sulfation",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "sulfation",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "sulfation",
+   "parent": "CCC(=O)O",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CCC(=O)OS(=O)(=O)O",
+     "rdkit": [
+      "CCC(=O)OS(=O)(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "sulfation",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [
+    1,
+    9
+   ],
+   "rdkit": [
+    1,
+    9
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "NC(CC(=O)OS(=O)(=O)O)C(=O)O",
+     "rdkit": [
+      "NC(CC(=O)OS(=O)(=O)O)C(=O)O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 9,
+     "ours": "NC(CC(=O)O)C(=O)OS(=O)(=O)O",
+     "rdkit": [
+      "NC(CC(=O)O)C(=O)OS(=O)(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "sulfation",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "sulfation",
+   "parent": "C=CC(=O)OC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "sulfation",
+   "parent": "CCCC(O)CC=O",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CCCC(CC=O)OS(=O)(=O)O",
+     "rdkit": [
+      "CCCC(CC=O)OS(=O)(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "sulfation",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "sulfation",
+   "parent": "c1ccncc1CNC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "sulfation",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "sulfation",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "sulfation",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [
+    14
+   ],
+   "rdkit": [
+    14
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 14,
+     "ours": "COc1ccc(CCBr)cc1C(=O)N(C)C1OC(C(=O)O)C(O)C(O)C1O",
+     "rdkit": [
+      "COc1ccc(CCBr)cc1C(=O)N(C)C1OC(C(=O)O)C(O)C(O)C1O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "CCC(=O)O",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CCC(=O)OC1OC(C(=O)O)C(O)C(O)C1O",
+     "rdkit": [
+      "CCC(=O)OC1OC(C(=O)O)C(O)C(O)C1O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [
+    1,
+    6,
+    9
+   ],
+   "rdkit": [
+    1,
+    6,
+    9
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 1,
+     "ours": "NC(CC(=O)OC1OC(C(=O)O)C(O)C(O)C1O)C(=O)O",
+     "rdkit": [
+      "NC(CC(=O)OC1OC(C(=O)O)C(O)C(O)C1O)C(=O)O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 6,
+     "ours": "O=C(O)CC(NC1OC(C(=O)O)C(O)C(O)C1O)C(=O)O",
+     "rdkit": [
+      "O=C(O)CC(NC1OC(C(=O)O)C(O)C(O)C1O)C(=O)O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 9,
+     "ours": "NC(CC(=O)O)C(=O)OC1OC(C(=O)O)C(O)C(O)C1O",
+     "rdkit": [
+      "NC(CC(=O)O)C(=O)OC1OC(C(=O)O)C(O)C(O)C1O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "C=CC(=O)OC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "CCCC(O)CC=O",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CCCC(CC=O)OC1OC(C(=O)O)C(O)C(O)C1O",
+     "rdkit": [
+      "CCCC(CC=O)OC1OC(C(=O)O)C(O)C(O)C1O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "c1ccncc1CNC",
+   "ours": [
+    8
+   ],
+   "rdkit": [
+    8
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 8,
+     "ours": "CN(Cc1cccnc1)C1OC(C(=O)O)C(O)C(O)C1O",
+     "rdkit": [
+      "CN(Cc1cccnc1)C1OC(C(=O)O)C(O)C(O)C1O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [
+    5
+   ],
+   "rdkit": [
+    5
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 5,
+     "ours": "CC(=O)N(C1OC(C(=O)O)C(O)C(O)C1O)C(C)(C)C",
+     "rdkit": [
+      "CC(=O)N(C1OC(C(=O)O)C(O)C(O)C1O)C(C)(C)C"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "glucuronidation",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "CN(C)CC(=O)OCc1ccncc1Cl",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "COc1ccc(CCBr)cc1C(=O)NC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "CCC(=O)O",
+   "ours": [
+    3
+   ],
+   "rdkit": [
+    3
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 3,
+     "ours": "CC",
+     "rdkit": [
+      "CC"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "OC(=O)CC(N)C(=O)O",
+   "ours": [
+    2,
+    7
+   ],
+   "rdkit": [
+    2,
+    7
+   ],
+   "sites_agree": true,
+   "products": [
+    {
+     "site": 2,
+     "ours": "CC(N)C(=O)O",
+     "rdkit": [
+      "CC(N)C(=O)O"
+     ],
+     "agree": true
+    },
+    {
+     "site": 7,
+     "ours": "NCCC(=O)O",
+     "rdkit": [
+      "NCCC(=O)O"
+     ],
+     "agree": true
+    }
+   ]
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "CC=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "C=CC(=O)OC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "CCCC(O)CC=O",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "Cn1cccc1C(C)(C)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "c1ccncc1CNC",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "CC(=O)N(C)c1ccccc1",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "CC(C)(C)NC(=O)C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  },
+  {
+   "step": "decarboxylation",
+   "parent": "C=C",
+   "ours": [],
+   "rdkit": [],
+   "sites_agree": true,
+   "products": []
+  }
+ ]
+}
