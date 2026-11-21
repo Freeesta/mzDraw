@@ -94,7 +94,7 @@ fn an_invalid_request_is_an_error_whatever_the_fields() {
     for bad in [
         json!({"log":[{"op":"teleport"}],"report":true}),
         json!({"log":[],"report":true,"goal":{}}),
-        json!({"expect":[{"stereo":"kept"}]}),
+        json!({"expect":[{"stereo":"lost"}]}),
         json!({"expect":[{"std":"some"}]}),
         json!({"expect":[{"pieces":1,"smiles":"C"}]}),
         json!({"expect":[{"pieces":-1}]}),
