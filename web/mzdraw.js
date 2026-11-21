@@ -446,6 +446,7 @@ function panels() {
   $("d2-ex-cml").addEventListener("click", () => save("cml", "drawing.cml", "chemical/x-cml"));
   $("d2-ex-rxn").addEventListener("click", () => save("rxn", "drawing.rxn", "chemical/x-mdl-rxnfile"));
   $("d2-ex-png").addEventListener("click", savePng);
+  $("d2-ex-pdf").addEventListener("click", () => download(ed.save_pdf(), "drawing.pdf", "application/pdf"));
   $("d2-ex-svg").addEventListener("click", () => save("svg", "drawing.svg", "image/svg+xml"));
   $("d2-ex-mzdraw").addEventListener("click", () => save("mzdraw", "drawing.mzdraw.json", "application/json"));
 }

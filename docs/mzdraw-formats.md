@@ -50,7 +50,7 @@ Built in `crates/mzdraw` unless said; R = read, W = write. "Listed" = said in wo
 | CDX, XYZ, PDB | no | no | not built |
 | SVG | own only | yes | the saved SVG carries the document in a `metadata` element and a text alternative (`role="img"`, `title`, `desc`, `xml:lang="en"`; SVG 1.1 elements only); an SVG of another program is refused in words |
 | PNG | own only | yes | 300 dpi on white, drawn by the page from the module's SVG, finished by the module (`iTXt` document, `pHYs`); a PNG of another program is refused in words |
-| PDF | - | no | not started |
+| PDF | own only | yes | one page of the drawing's size in points, white ground, paths for lines and polygons, text as text in Helvetica (WinAnsi, a character outside it is `?`), RGB colours, stored streams, no date, `/ID` a hash of the content; the document (`mzdraw.json`) and its V3000 molfile (`mzdraw.mol`) are embedded files; a PDF of another program is refused in words (`error.draw2.pdfPlain`); `out: pdf` gives it as base64 |
 
 ## 2. Images that carry their molecule, clipboard
 - **SVG**: `<metadata>` holds `<mzdraw:doc xmlns:mzdraw="https://freeesta.github.io/mzlab/ns/mzdraw/1">` with the `mzdraw/1` JSON in CDATA, plus `<mzdraw:molfile>` with the V3000 molfile of each molecule for other programs. Opening an SVG reads the document; an SVG without it is refused ("not a structure file"), never traced. Idea from RDKit (`<rdkit:mol>` in metadata) and Open Babel (`-e`, CML in the SVG).

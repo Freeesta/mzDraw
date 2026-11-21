@@ -92,6 +92,15 @@ fn every_case_replays_to_the_recorded_bytes() {
             let file: Value = serde_json::from_str(&got).unwrap();
             assert!(file["layout"].is_object() && file["export"].is_object());
         }
+        // the PDF file as base64 (`out: pdf`): the same bytes on both sides, a PDF that opens again as the same drawing
+        for case in section_mut(fx, "pdf") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            assert!(got.starts_with("JVBERi0xLjc"), "{}: %PDF-1.7", case["name"]);
+        }
         if bless {
             std::fs::write(&*path, serde_json::to_string_pretty(&*fx).unwrap() + "\n").unwrap();
         }

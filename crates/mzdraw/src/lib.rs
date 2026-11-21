@@ -24,6 +24,7 @@ mod m;
 pub mod ops;
 pub mod outline;
 pub mod palettes;
+pub mod pdf;
 pub mod png;
 pub mod replay;
 pub mod rxn;

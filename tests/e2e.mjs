@@ -66,6 +66,31 @@ const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stri
 const shotEl = async (pg, sel, name) => { if (shots) await pg.locator(sel).screenshot({ path: path.join(shots, name + ".png") }); };
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
+/** the PDF round trip: acetic acid is drawn, the PDF is downloaded the way `get` says (keyboard or touch), it is a vector PDF with the
+ * text as text and the document inside, and Open a file brings back the same drawing; a PDF of another program is refused in words */
+async function pdfRoundTrip(pg, get) {
+  await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  await pg.fill("#d2-text", "CC(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3 });
+  const [p] = await Promise.all([pg.waitForEvent("download"), get()]);
+  eq(p.suggestedFilename(), "drawing.pdf");
+  const pdf = readFileSync(await p.path()), text = pdf.toString("latin1");
+  eq(text.slice(0, 8), "%PDF-1.7");
+  assert(text.endsWith("%%EOF\n") && text.includes("/BaseFont /Helvetica") && text.includes("(O) Tj") && text.includes("(H) Tj") && text.includes("mzdraw.json") && text.includes('"format":"mzdraw/1"'), "a vector PDF: text as text, the document inside");
+  assert(!text.includes("/Image") && !text.includes("/CreationDate"), "no picture and no date");
+  eq(pdf.toString("base64"), await pg.evaluate("(() => { const b = window.MZDRAW.save('pdf'); return b; })()"));
+  if (shots) writeFileSync(path.join(shots, "drawing.pdf"), pdf);
+  await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  await pg.setInputFiles("#d2-file", { name: "drawing.pdf", mimeType: "application/pdf", buffer: pdf }); await want(pg, { atoms: 4, bonds: 3 });
+  eq(await pg.evaluate("window.MZDRAW.save('smiles')"), "CC(=O)O");
+  eq(await pg.innerText("#d2-note"), "");
+  const plain = Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n");
+  await pg.setInputFiles("#d2-file", { name: "other.pdf", mimeType: "application/pdf", buffer: plain });
+  await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+  eq(await pg.innerText("#d2-note"), await pg.evaluate("I18N.t('error.draw2.pdfPlain')"));
+  eq((await state(pg)).atoms, 4);
+  return pdf;
+}
+
 /** the drawing loop every pointer kind must manage: template, undo/redo, atom, sprouted bonds, the valence mistake, erase */
 async function loop(pg, cx, cy, tap, name) {
   await tool(pg, "ring:6a"); await tap(cx, cy); await want(pg, { atoms: 6, bonds: 6, warnings: 0 });
@@ -611,6 +636,11 @@ try {
     // the help is on the page, closed until asked for
     assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 5, "the keyboard help");
   });
+
+  await step("PDF out by keyboard: a vector file with the text as text and the document inside, opened again with Open a file", async () => {
+    await pdfRoundTrip(pg, async () => { await pg.focus("#d2-ex-pdf"); await pg.keyboard.press("Enter"); });
+    await shot(pg, "pdf-download");
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
@@ -777,6 +807,12 @@ try {
     eq(await pg.evaluate("(a => a.scale + '/' + a.level)(JSON.parse(window.MZDRAW.state()).outline[0].ann)"), "charbonnet-2022/2c");
     assert((await pg.innerText("#d2-outline li:nth-of-type(1)")).endsWith(await pg.evaluate("I18N.t('draw2.outline.level', { level: '2c' })")), "the outline says the level");
     await shot(pg, "annotation-scale");
+  });
+
+  await step("PDF out by touch: the same file, downloaded with a tap and opened again", async () => {
+    await pg.locator("#d2-ex-pdf").scrollIntoViewIfNeeded();
+    const pdf = await pdfRoundTrip(pg, async () => { await pg.locator("#d2-ex-pdf").scrollIntoViewIfNeeded(); const b = await pg.locator("#d2-ex-pdf").boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); });
+    eq(pdf.subarray(0, 5).toString("latin1"), "%PDF-");
   });
 
   await step("drawing checks by touch: a tap on the line selects the atom and bond it is about", async () => {

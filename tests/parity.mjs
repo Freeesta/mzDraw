@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const wasm = createRequire(import.meta.url)(path.join(root, "target/pkg-node/mzdraw_wasm.js"));
 // the golden files: every *.json of tests/data/log/, sorted by name, each with some of the sections below (as crates/mzdraw/tests/common reads them)
 const logDir = path.join(root, "tests/data/log");
-const fx = { cases: [], contexts: [], refused: [], schemas: [], settings: [] };
+const fx = { cases: [], contexts: [], refused: [], schemas: [], settings: [], pdf: [] };
 for (const f of readdirSync(logDir).filter(f => f.endsWith(".json")).sort()) {
   const part = JSON.parse(readFileSync(path.join(logDir, f), "utf8"));
   for (const k of Object.keys(part)) {
@@ -59,6 +59,13 @@ for (const c of fx.settings) {
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
   const file = JSON.parse(c.out);
   check(a.stdout === c.out && file.layout && file.export, `${c.name}: the recorded settings`);
+}
+// the PDF file as base64 (`out: pdf`): the same bytes from the page and from the replay, and the recorded ones
+for (const c of fx.pdf) {
+  const request = JSON.stringify(c.request), a = site(request), b = native(request);
+  check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
+  check(a.stdout === b.stdout, `${c.name}: wasm == native`);
+  check(a.stdout === c.out && Buffer.from(c.out, "base64").subarray(0, 8).toString("latin1") === "%PDF-1.7", `${c.name}: the recorded bytes`);
 }
 for (const c of fx.refused) {
   const request = JSON.stringify(c.request), a = site(request), b = native(request);

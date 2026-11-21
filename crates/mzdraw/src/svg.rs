@@ -7,7 +7,7 @@ use crate::settings::Style;
 use mzlab_mol::fixed;
 
 /// File colours by colour index (ink, then the overlay colours that a file never uses, then N, O, S, halogens, P).
-const PALETTE: [&str; 10] = [
+pub(crate) const PALETTE: [&str; 10] = [
     "#000000", "#000000", "#000000", "#000000", "#000000", "#2040c0", "#c02020", "#8a6d00",
     "#1f7a1f", "#b05a00",
 ];
@@ -117,15 +117,10 @@ pub fn to_svg_styled(doc: &Document, style: &Style) -> String {
     drawn(doc, style).0
 }
 
-/// `to_svg_styled` with the width and the height of the drawing in points.
-pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
-    let Some((x0, y0, mut x1, y1)) = doc.bounds() else {
-        let (attrs, elements) = alternative(doc);
-        let empty = format!(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"{attrs}>\n{elements}</svg>\n"
-        );
-        return (empty, 1.0, 1.0);
-    };
+/// The display list of the whole drawing in a style, in points, with the width and the height of the page (`None` for an empty
+/// document). SVG and PDF are written from it.
+pub(crate) fn laid_out(doc: &Document, style: &Style) -> Option<(scene::Scene, f64, f64)> {
+    let (x0, y0, mut x1, y1) = doc.bounds()?;
     let scale = style.bond_length;
     let m = style.metrics(scale, false);
     // a text runs to the right of its anchor
@@ -140,7 +135,18 @@ pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
         oy: pad + y1 * scale,
     };
     let (w, h) = ((x1 - x0) * scale + 2.0 * pad, (y1 - y0) * scale + 2.0 * pad);
-    let sc = scene::build(doc, view, &Overlay::default(), m);
+    Some((scene::build(doc, view, &Overlay::default(), m), w, h))
+}
+
+/// `to_svg_styled` with the width and the height of the drawing in points.
+pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
+    let Some((sc, w, h)) = laid_out(doc, style) else {
+        let (attrs, elements) = alternative(doc);
+        let empty = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"{attrs}>\n{elements}</svg>\n"
+        );
+        return (empty, 1.0, 1.0);
+    };
     // the size as the file states it (two decimals)
     let size = ((w * 100.0).round() / 100.0, (h * 100.0).round() / 100.0);
     let (w, h) = (num(w as f32), num(h as f32));
