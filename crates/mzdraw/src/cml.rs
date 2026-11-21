@@ -292,8 +292,10 @@ impl Document {
     /// their narrow end. CML has no place for arrows, plus signs and texts: they are not written.
     pub fn to_cml(&self) -> String {
         let m = self.to_mol();
-        let mut out = String::from(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n",
+        // the namespace of our own terms (R-group labels, wavy bonds) is the slug of the name in use, at the address of the page
+        let (slug, url) = (crate::brand::SLUG, crate::brand::PAGES_URL);
+        let mut out = format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:{slug}=\"{url}\" convention=\"convention:molecular\">\n",
         );
         if !m.atoms.is_empty() {
             out += "<molecule id=\"m1\">\n<atomArray>\n";
@@ -305,7 +307,7 @@ impl Document {
             let drawn = self.atoms.get(i);
             let lab = drawn.map_or("", |d| d.lab.as_str());
             if let Some(Kind::R(_)) = label::kind(lab) {
-                out += &format!("<atom id=\"a{}\" elementType=\"R\" {place}><label dictRef=\"mzdraw:rgroup\" value=\"{lab}\"/></atom>\n", i + 1);
+                out += &format!("<atom id=\"a{}\" elementType=\"R\" {place}><label dictRef=\"{slug}:rgroup\" value=\"{lab}\"/></atom>\n", i + 1);
                 continue;
             }
             out += &format!("<atom id=\"a{}\" elementType=\"{}\" {place}", i + 1, a.el);
@@ -347,7 +349,7 @@ impl Document {
                     let mark = match s {
                         WEDGE_UP => format!("<bondStereo {refs}>W</bondStereo>"),
                         WEDGE_DOWN => format!("<bondStereo {refs}>H</bondStereo>"),
-                        _ => "<bondStereo dictRef=\"mzdraw:wavy\">other</bondStereo>".to_string(),
+                        _ => format!("<bondStereo dictRef=\"{slug}:wavy\">other</bondStereo>"),
                     };
                     out += &format!("<bond id=\"b{}\" {refs} order=\"S\">{mark}</bond>\n", k + 1);
                 }
