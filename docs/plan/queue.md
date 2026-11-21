@@ -129,6 +129,9 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | follow-up | source | status | note |
 |---|---|---|---|
 | tp-05b: gap rule `crossing` for the pathway layout | open PR #92 (`claude/tp-05b-gap-rule`, head `1434c811ca69f3044b2bc79a87cecd4486487781`) | RUNNING | no prompt file |
+| struct-props: an isotope-pattern line under the molecule | `docs/built/struct-props.md` Not built (`analysis/1` has the pattern) | QUEUED | no prompt file |
+| struct-props: values of a lasso part of a structure pinned on the canvas | `docs/built/struct-props.md` Not built | QUEUED | no prompt file |
+| struct-props: a dedicated values dialog | `docs/built/struct-props.md` Not built | QUEUED | no prompt file |
 | tp-07b: mass label modes on arrows (shift and adduct m/z) | open PR #91 (`claude/tp-07b-mass-labels`, head `ac21b9885a2b9ee67fbf58f8feaeabe9e326ec54`); built/tp-07-delta-labels.md, built/arch-web-17-values.md | RUNNING | no prompt file |
 | Five further stereo checks: `std.stereo.fischerCross`, `reentrant`, `ringBond`, `hiddenH`, `relLabel` | built/std-stereo.md | QUEUED | not defined in the study yet |
 | Geometry, label and export checks beyond arch-std-02, annotation and contrast checks, any automatic fix | built/std-stereo.md | QUEUED | partly the prompts arch-std-02, plan-25 |
