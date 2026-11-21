@@ -153,6 +153,8 @@ pub struct Editor {
     pub(crate) press: Option<Press>,
     /// What the last change did, as an i18n key with one parameter, for the screen reader line.
     pub said: (&'static str, String),
+    /// A report that stays visible until the next step (the stereo guard), as an i18n key with one parameter; empty when none.
+    pub notice: (&'static str, String),
     /// The last refused operation, an i18n key.
     pub error: &'static str,
     /// The fingers and the pen at work (pinch, palm rejection, long press).
@@ -188,6 +190,7 @@ impl Default for Editor {
             over: Overlay::default(),
             press: None,
             said: ("", String::new()),
+            notice: ("", String::new()),
             error: "",
             gesture: Default::default(),
             focus_from: None,
@@ -226,10 +229,12 @@ impl Editor {
 
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
     pub(crate) fn run(&mut self, ops: &[Op], say: &'static str, what: &str) -> u32 {
+        let guard = crate::stereo_guard::before(self.doc(), ops);
         let ops = self.following(ops);
         match self.session.run(&ops) {
             Ok(()) => {
                 self.said = (say, what.to_string());
+                self.say_stereo(guard);
                 self.error = "";
                 self.prune();
                 REPAINT | CHANGED
@@ -239,6 +244,29 @@ impl Editor {
                 REPAINT
             }
         }
+    }
+
+    /// The guard of the configuration: after a geometry step, when a piece that held a wedge now has another signature, the live
+    /// line says at which atoms (report only, the step stands).
+    pub(crate) fn say_stereo(&mut self, before: Option<crate::stereo_guard::Snapshot>) {
+        self.notice = ("", String::new());
+        if let Some(then) = before {
+            let atoms = crate::stereo_guard::changed(self.doc(), &then, false);
+            if !atoms.is_empty() {
+                let list: Vec<String> = atoms.iter().map(u32::to_string).collect();
+                self.said = ("draw2.say.stereoChanged", list.join(", "));
+                self.notice = self.said.clone();
+            }
+        }
+    }
+
+    /// Runs operations as one undo step with the stereo guard around them (what `run` does without the words of the live line): the
+    /// route of the editor commands.
+    pub(crate) fn run_guarded(&mut self, ops: &[Op]) -> Result<(), crate::ops::OpError> {
+        let guard = crate::stereo_guard::before(self.doc(), ops);
+        self.session.run(ops)?;
+        self.say_stereo(guard);
+        Ok(())
     }
 
     /// The operations of a command and, after them, the route operations of the anchored arrows whose structures they change
@@ -252,7 +280,7 @@ impl Editor {
     }
 
     /// Drops selection, hover and flags that point at things that no longer exist.
-    fn prune(&mut self) {
+    pub(crate) fn prune(&mut self) {
         let d = &self.session.doc;
         self.over.sel_atoms.retain(|&i| d.atom(i).is_some());
         self.over.sel_bonds.retain(|&i| d.bond(i).is_some());
@@ -283,6 +311,7 @@ impl Editor {
             return 0;
         }
         self.said = ("draw2.say.undo", String::new());
+        self.notice = ("", String::new());
         self.prune();
         REPAINT | CHANGED
     }
@@ -292,6 +321,7 @@ impl Editor {
             return 0;
         }
         self.said = ("draw2.say.redo", String::new());
+        self.notice = ("", String::new());
         self.prune();
         REPAINT | CHANGED
     }
@@ -418,7 +448,7 @@ impl Editor {
     }
 
     /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `trasf` (the record `trasf/1` of one structure before and one after the arrow, with its two `mol/1` records), `sdf` (one record per structure, with its data),
-    /// `svg` (in the style of the editor), `pdf` (base64 of the PDF file), `log` (the command log) `std` (the drawing checks, `conform::report`, read-only) or `loss:FORMAT` (what that format drops of the drawing, `loss/1`). The error is an i18n key.
+    /// `svg` (in the style of the editor), `pdf` (base64 of the PDF file), `log` (the command log), `std` (the drawing checks, `conform::report`, read-only) or `loss:FORMAT` (what that format drops of the drawing, `loss/1`). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
             k if crate::brand::is_doc_kind(k) => self.doc().to_json(),
@@ -499,6 +529,7 @@ impl Editor {
         };
         let placed = self.place(&new, dx, 0.0)?;
         self.said = ("draw2.say.imported", new.atoms.len().to_string());
+        self.notice = ("", String::new());
         Ok((info, placed))
     }
 
@@ -594,6 +625,7 @@ impl Editor {
         self.press = None;
         self.nudge = None;
         self.said = ("draw2.say.opened", self.doc().atoms.len().to_string());
+        self.notice = ("", String::new());
         self.error = "";
         Ok(())
     }

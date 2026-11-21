@@ -4,10 +4,16 @@
 //! the property test of `tests/loss.rs` writes random documents in every format, reads them back and holds the two to each other
 //! (what the round trip lost is in `loss`, and every item of `loss` is a real difference).
 //!
-//! The features the table cannot decide are the wedge mark, the radical in a SMILES (kept for some atoms and not for others), the plus signs of a reaction file (it makes its own between the structures) and the geometry (a SMILES has no coordinates, an SDF puts its records side by side again, a reaction file places the structures about its arrow; whether a drawing's own layout is the one they give depends on the drawing): the readers derive the marks again from the stereo of the record, so
-//! whether a drawn mark comes back depends on the chemistry of the centre. Those cells are `Carry::Probe`: `loss` writes the document,
-//! reads it back and compares the marks (the round trip itself is the answer, a limit stated in `docs/built/loss-manifest.md`). The answer
-//! is per kind: when some marks of a kind do not come back, the reader does not say which, so every occurrence of that kind is listed.
+//! The table cannot decide some cells: they depend on the drawing. The readers derive the wedge marks again from the stereo of the
+//! record, so whether a drawn mark comes back depends on the chemistry of the centre; a SMILES keeps the radical of some atoms and not of
+//! others; a reaction file makes its own plus signs between the structures; and the shape of the drawing is not kept by a SMILES (no
+//! coordinates), an SDF (records side by side again) or a reaction file (structures placed about the arrow), unless the layout they
+//! give is the one drawn. Those cells are `Carry::Probe`: `loss` writes the document, reads it back and compares (the round trip itself
+//! is the answer, a limit stated in `docs/built/loss-manifest.md`). The answer is per kind: when some of a kind do not come back, the
+//! reader does not say which, so every occurrence of that kind is listed.
+//!
+//! The shape (`geometry`) is compared only for those formats, and in bond lengths: a molfile, a V3000 file, KET and CDXML rescale a
+//! drawing to a bond length of 1 and CDXML rounds to a hundredth of a point, which is neither checked nor a loss here.
 
 use crate::doc::{Document, ObjKind};
 use crate::label::{self, Kind};
@@ -34,9 +40,28 @@ pub const FORMAT: &str = "loss/1";
 /// whole drawing (about a second in the worst case at this size, in a release build).
 pub const MAX_THINGS: usize = 50_000;
 
-/// The SMILES writer of `mzlab-mol` walks a chain by recursion and overflows a 1 MiB stack (the stack of the `.wasm`) between 2,000 and
-/// 4,000 atoms in a chain: `loss` for `smiles` refuses a drawing above this many atoms before it calls the writer.
-pub const MAX_SMILES_ATOMS: usize = 500;
+/// A round trip writes the atoms of the drawing and, for each abbreviation, the atoms it stands for (seven for `Boc`), and reads them all
+/// back; the stereo perception of `mzlab-mol` that follows is not linear. A drawing that would be written as more atoms than this is refused
+/// (`error.draw2.lossSize`) wherever a round trip is needed (about a second in a release build at this size).
+pub const MAX_WRITTEN_ATOMS: usize = 40_000;
+
+/// The number of atoms the writers make of a drawing: the atoms drawn, an abbreviation as its own atoms.
+fn written_atoms(d: &Document) -> usize {
+    let mut size: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    let mut total = d.atoms.len();
+    for a in &d.atoms {
+        if let Some(Kind::Group(smiles)) = label::kind(&a.lab) {
+            let n = *size.entry(smiles).or_insert_with(|| {
+                mzlab_mol::Mol::from_smiles(smiles).map_or(1, |m| m.atoms.len())
+            });
+            total += n.saturating_sub(1);
+        }
+    }
+    total
+}
+
+/// `loss` for `smiles` refuses a drawing above this many atoms before it calls the writer (see `formats::MAX_SMILES_ATOMS`).
+pub const MAX_SMILES_ATOMS: usize = crate::formats::MAX_SMILES_ATOMS;
 
 /// The shape of a drawing is compared by the distances between all its atoms, which grow with the square of the atom count: where the
 /// shape is part of the answer (SMILES, SDF, reaction file) a drawing above this many atoms is refused, and so is a file that reads
@@ -49,7 +74,7 @@ pub const MAX_BACK_ATOMS: usize = 3_000;
 /// What a writer does with a feature.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Carry {
-    /// Written and read back as it was.
+    /// Written and read back as it was (for `geometry`: the positions are written; the scale is not checked).
     Yes,
     /// Not written, or written in a form the reader does not turn back into the feature.
     No,
@@ -192,18 +217,38 @@ pub fn instances(d: &Document) -> Vec<Instance> {
 
 /// The distances between the atoms of a drawing, to two decimals, sorted: what does not change when the drawing is moved, turned over
 /// or written again. `None` for fewer than two atoms (nothing to lay out) and above `max` atoms.
-fn distances(d: &Document, max: usize) -> Option<Vec<i64>> {
+fn distances(d: &Document, max: usize, unit: f64) -> Option<Vec<i64>> {
     if d.atoms.len() < 2 || d.atoms.len() > max {
         return None;
     }
     let mut dist = Vec::with_capacity(d.atoms.len() * d.atoms.len() / 2);
     for (i, p) in d.atoms.iter().enumerate() {
         for q in &d.atoms[i + 1..] {
-            dist.push((crate::m::hypot(p.x - q.x, p.y - q.y) * 100.0).round() as i64);
+            dist.push((crate::m::hypot(p.x - q.x, p.y - q.y) / unit * 100.0).round() as i64);
         }
     }
     dist.sort_unstable();
     Some(dist)
+}
+
+/// The median length of the bonds of a drawing, or 1 when it has none (or they have no length): the unit of its scale. The readers of
+/// a molfile, a V3000 file, KET and CDXML rescale a drawing to a bond length of 1, so the shape is compared in bond lengths.
+fn unit_of(d: &Document) -> f64 {
+    let index = d.index_map();
+    let mut len: Vec<f64> = (d.bonds.iter())
+        .filter_map(|b| {
+            Some((
+                d.atoms.get(*index.get(&b.a)?)?,
+                d.atoms.get(*index.get(&b.b)?)?,
+            ))
+        })
+        .map(|(p, q)| crate::m::hypot(p.x - q.x, p.y - q.y))
+        .collect();
+    len.sort_by(f64::total_cmp);
+    len.get(len.len() / 2)
+        .copied()
+        .filter(|m| *m > 1e-6)
+        .unwrap_or(1.0)
 }
 
 /// Whether a drawing has a shape worth keeping: two atoms or more.
@@ -211,10 +256,14 @@ pub fn has_shape(d: &Document) -> bool {
     d.atoms.len() >= 2
 }
 
-/// Whether the shape of `a` is in `b`: every distance of `a` is a distance of `b` (a reader may add atoms, an abbreviation comes back
+/// Whether the shape of `a` is in `b`, in bond lengths (the median bond of each is the unit, so a change of scale is not a change of
+/// shape): every distance of `a` is a distance of `b` (a reader may add atoms, an abbreviation comes back
 /// as its atoms, but the atoms drawn stay where they were).
 fn shape_kept(a: &Document, b: &Document) -> bool {
-    let (Some(da), Some(db)) = (distances(a, MAX_SHAPE_ATOMS), distances(b, MAX_BACK_ATOMS)) else {
+    let (Some(da), Some(db)) = (
+        distances(a, MAX_SHAPE_ATOMS, unit_of(a)),
+        distances(b, MAX_BACK_ATOMS, unit_of(b)),
+    ) else {
         return true;
     };
     // the writers round to a hundredth of a point, which is about 0.0005 of a bond: a distance matches within 0.02 of a bond
@@ -233,6 +282,11 @@ fn shape_kept(a: &Document, b: &Document) -> bool {
 /// fewer of. Matched by value, never by id: a reader gives new ids and may put more things than were written (an abbreviation comes
 /// back as its atoms). It does not look at the table. `geometry` is named when the shape of the drawing differs.
 pub fn observed(a: &Document, b: &Document) -> Vec<&'static str> {
+    observed_with(a, b, true)
+}
+
+/// `observed`, with the shape compared only when `shape` (it is the one comparison that costs more than the size of the drawing).
+fn observed_with(a: &Document, b: &Document, shape: bool) -> Vec<&'static str> {
     let count = |d: &Document| {
         let mut m: BTreeMap<(&'static str, String), usize> = BTreeMap::new();
         for i in instances(d) {
@@ -247,7 +301,7 @@ pub fn observed(a: &Document, b: &Document) -> Vec<&'static str> {
             out.push(k.0);
         }
     }
-    if has_shape(a) && !shape_kept(a, b) {
+    if shape && has_shape(a) && !shape_kept(a, b) {
         out.push("geometry");
     }
     out.sort_unstable();
@@ -277,7 +331,7 @@ fn write(d: &Document, format: &str) -> Result<String, &'static str> {
 }
 
 /// What `format` drops or changes of this document, ordered by `what` then by the smallest id. An unknown format is
-/// `error.draw2.request`; a document above `MAX_THINGS` (or the limits of `MAX_SMILES_ATOMS`, `MAX_SHAPE_ATOMS`, `MAX_BACK_ATOMS`) is `error.draw2.lossSize`; a document the writer refuses gives the writer's
+/// `error.draw2.request`; a document above `MAX_THINGS` (or the limits of `MAX_SMILES_ATOMS`, `MAX_SHAPE_ATOMS`, `MAX_BACK_ATOMS`, `MAX_WRITTEN_ATOMS`) is `error.draw2.lossSize`; a document the writer refuses gives the writer's
 /// key (there is no file, so no loss to list).
 pub fn loss(d: &Document, format: &str) -> Result<Vec<Loss>, &'static str> {
     if !FORMATS.contains(&format) {
@@ -297,16 +351,21 @@ pub fn loss(d: &Document, format: &str) -> Result<Vec<Loss>, &'static str> {
     }
     let all = instances(d);
     // the cells that depend on the drawing: write it, read it back, see which kinds of mark do not return
-    let shape = has_shape(d);
     let probe = |what| carry(what, format) == Some(Carry::Probe);
-    let probed: Vec<&'static str> = if all.iter().any(|i| probe(i.what))
-        || (shape && probe("geometry"))
-    {
-        let back = crate::io::import(&write(d, format)?)?.0;
-        if back.atoms.len() > MAX_BACK_ATOMS && carry("geometry", format) == Some(Carry::Probe) {
+    // the shape is compared only where its cell says `drawing`; where it says `yes` it is not looked at (see `Carry`)
+    let shape = has_shape(d) && probe("geometry");
+    let probed: Vec<&'static str> = if all.iter().any(|i| probe(i.what)) || shape {
+        if written_atoms(d) > MAX_WRITTEN_ATOMS {
             return Err("error.draw2.lossSize");
         }
-        observed(d, &back)
+        // a file the reader refuses (its own bounds on elements and depth) is too large to check
+        let back = crate::io::import(&write(d, format)?)
+            .map_err(|_| "error.draw2.lossSize")?
+            .0;
+        if shape && back.atoms.len() > MAX_BACK_ATOMS {
+            return Err("error.draw2.lossSize");
+        }
+        observed_with(d, &back, shape)
     } else {
         Vec::new()
     };

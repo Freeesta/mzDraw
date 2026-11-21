@@ -398,12 +398,13 @@ fn chain(n: u32, wedges: bool) -> Document {
     d
 }
 
-/// The seconds a listing may take: a release build does the largest drawing in about a second; a debug build is slower.
+/// The seconds a listing may take: a release build does the largest drawing in about a second and must stay under two; a debug build
+/// is ten times slower.
 fn bound() -> u64 {
     if cfg!(debug_assertions) {
         40
     } else {
-        4
+        2
     }
 }
 
@@ -439,6 +440,119 @@ fn a_drawing_at_the_cap_with_wedges_is_listed_in_time_and_one_above_it_is_refuse
         );
         assert!(t.elapsed().as_secs() < 1, "{format}: refused at once");
     }
+}
+
+/// Abbreviations are written as their atoms (seven for `Boc`) and read back: a drawing of 25,000 of them would be 175,000 atoms through the
+/// stereo perception, so where a round trip is needed (wedge marks) it is refused at once; below the limit it is listed in time; and
+/// with no round trip needed (no mark) the cap on the drawing is all there is.
+#[test]
+fn abbreviations_are_counted_as_the_atoms_they_are_written_as() {
+    let labelled = |n: u32, wedges: bool| {
+        let mut d = chain(n, wedges);
+        for a in &mut d.atoms {
+            a.lab = "Boc".into();
+        }
+        d
+    };
+    let formats = ["molfile", "molfile-v3000", "ket", "cdxml", "cml"];
+    // 25,000 abbreviations with marks: 175,000 atoms to write and read
+    for format in formats {
+        let t = std::time::Instant::now();
+        assert_eq!(
+            loss(&labelled(25_000, true), format).unwrap_err(),
+            "error.draw2.lossSize",
+            "{format}"
+        );
+        assert!(t.elapsed().as_secs() < 1, "{format}: refused at once");
+    }
+    // 5,000 with marks: 35,000 atoms, listed in time
+    for format in formats {
+        let t = std::time::Instant::now();
+        let l = loss(&labelled(5_000, true), format).unwrap();
+        assert!(l.len() >= 5_000, "{format}: {}", l.len());
+        assert!(
+            t.elapsed().as_secs() < bound(),
+            "{format}: {:?}",
+            t.elapsed()
+        );
+    }
+    // 25,000 with no mark: nothing is written, the list is the abbreviations
+    for format in formats {
+        let t = std::time::Instant::now();
+        let l = loss(&labelled(25_000, false), format).unwrap();
+        assert_eq!(l.len(), 25_000, "{format}");
+        assert!(
+            t.elapsed().as_secs() < bound(),
+            "{format}: {:?}",
+            t.elapsed()
+        );
+    }
+}
+
+/// A change of scale is not a loss and is never listed, with or without a wedge mark in the drawing (the formats that rescale to a bond
+/// length of 1 are not compared for shape, and the ones that are compare in bond lengths).
+#[test]
+fn the_scale_of_a_drawing_gives_the_same_answer_with_and_without_a_wedge() {
+    let scaled = |wedge: u8| {
+        parse(&format!(
+            r#"{{"format":"mzdraw/1","next":9,"atoms":[{{"id":1,"el":"C","x":0.0,"y":0.0}},
+            {{"id":2,"el":"C","x":2.0,"y":0.0}},{{"id":3,"el":"O","x":3.0,"y":1.7321}}],
+            "bonds":[{{"id":4,"a":1,"b":2,"o":1}},{{"id":5,"a":2,"b":3,"o":1,"s":{wedge}}}]}}"#
+        ))
+    };
+    for format in ["molfile", "molfile-v3000", "ket", "cdxml", "cml", "sdf"] {
+        let plain = loss(&scaled(0), format).unwrap();
+        let marked = loss(&scaled(1), format).unwrap();
+        assert!(
+            plain.iter().all(|l| l.what != "geometry"),
+            "{format}: {plain:?}"
+        );
+        assert!(
+            marked.iter().all(|l| l.what != "geometry"),
+            "{format}: {marked:?}"
+        );
+        // the only difference the mark makes is the mark itself
+        let kinds: Vec<&str> = marked
+            .iter()
+            .map(|l| l.what)
+            .filter(|w| *w != "wedge.solid")
+            .collect();
+        assert_eq!(
+            kinds,
+            plain.iter().map(|l| l.what).collect::<Vec<_>>(),
+            "{format}"
+        );
+    }
+}
+
+/// A SMILES of a drawing above 500 atoms is refused by every way to one (`out`, `expect`; the page's copy and its menu entry call the same
+/// `Document::to_smiles`), before the recursive writer can overflow a 1 MiB stack.
+#[test]
+fn every_way_to_a_smiles_refuses_a_long_chain_with_a_key() {
+    let run = std::thread::Builder::new()
+        .stack_size(1 << 20)
+        .spawn(|| {
+            let ok = chain(500, false).to_smiles().is_ok();
+            let over = chain(501, false).to_smiles().unwrap_err();
+            let huge = chain(30_000, false);
+            let mut e = Editor::default();
+            e.session.doc = huge.clone();
+            let saved = e.save("smiles").unwrap_err();
+            let request = format!(
+                r#"{{"import":{},"expect":[{{"smiles":"C"}}]}}"#,
+                serde_json::Value::from(huge.to_json())
+            );
+            let verdict = mzdraw::replay::replay_at(&request, 0).unwrap();
+            (ok, over, saved, verdict.ok)
+        })
+        .unwrap();
+    let (ok, over, saved, verdict_ok) = run.join().unwrap();
+    assert!(ok);
+    assert_eq!(
+        (over, saved),
+        ("error.draw2.smilesSize", "error.draw2.smilesSize")
+    );
+    assert!(!verdict_ok);
 }
 
 /// The SMILES writer recurses along a chain: `loss` refuses above 500 atoms before it calls it, so a 1 MiB stack (the `.wasm`'s) is enough.
