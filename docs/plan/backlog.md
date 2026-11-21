@@ -8,7 +8,7 @@ This file has five inputs:
   - arch-std 01–14 on `main`;
   - arch-std second pass 15–22 on PR #45 (branch `claude/arch-std-2` at `0cad22a`);
   - arch-web on `main` (PR #38);
-  - arch-cd on PR #41 (branch `claude/arch-cd` at `ef4542d`; not final until the coordinator says so);
+  - arch-cd on PR #41 (branch `claude/arch-cd` at `cf29991`; not final until the coordinator says so);
 - the running work, as the coordinator listed it on 2026-11-21;
 - the code of `main` at `222612f`;
 - the engines of mzLab, read at the pinned commit `ccd4680` and at mzLab `main` `76a4703`.
@@ -126,7 +126,7 @@ The output is `velocity/1` JSON, with one row per task and tool. A test fails wh
 |---|---|---|
 | shortcuts section | arch-web-06 (never written), arch-std-06, arch-cd-17 | **arch-std-06 runs**, with arch-cd-17's additions (E1). |
 | keyboard move / rotate / nudge | arch-std-05 (built or running), arch-web-07, arch-cd-15 | **arch-std-05 owns the keys**: Alt+Arrow moves, Alt+[ ] rotates. arch-cd-15 keeps align, distribute and scale and drops its Alt keys (E2). arch-web-07 keeps lasso, piece selection, the band and bond/object focus, and does not bind Shift+Arrow (E3). |
-| context menu | arch-web-12, CTX-MENU (PR #37 merged; page PR waits), arch-cd-20 | **arch-web-12 is withdrawn.** Its long-press and Shift+F10 / Menu key notes go to the CTX-MENU page PR. arch-cd-20 (refine) runs after that page PR; its file is asked of arch-cd (E10). |
+| context menu | arch-web-12, CTX-MENU (PR #37 merged; page PR waits), arch-cd-20 | **arch-web-12 is withdrawn.** Its long-press and Shift+F10 / Menu key notes go to the CTX-MENU page PR. arch-cd-20 (refine) runs after that page PR (E10). |
 | clean-up | arch-std-15 (`atoms.xy`), arch-web-10 (`place`), arch-cd-01 | **arch-std-15 runs; ONE op: `atoms.xy`.** arch-web-10 is withdrawn. arch-cd-01's acceptance (isomeric SMILES unchanged, wedge meaning and E/Z kept) and arch-web-10's "clean the selection only" are added to std-15 (E4). |
 | text runs | arch-std-21, arch-web-14, arch-cd-07 | **arch-std-21 runs** (runs, `_`/`^` parser, Formula button, KET and CDXML). arch-web-14 is withdrawn. arch-cd-07's symbol picker stays as an addition (E15). |
 | export default, clipboard, copy as | arch-std-17, arch-web-21, arch-cd-16 | **arch-std-17 runs first**: background, the Download default, and the clipboard payload list decided in Rust. **arch-web-21 runs after it** (drop files, a "Copy as" chooser built on std-17's payload list). arch-cd-16 (paste on a free spot) runs after that. The key `Ctrl+Shift+K` is not taken by either (E7). |
@@ -216,7 +216,7 @@ Status: RUN = running now or waiting for merge, Q = queued, P = has a prompt, N 
 | 59 | arch-cd-15 | align, distribute, scale (+ E2) | P | S | std-15 | commands | no | geometry |
 | 60 | arch-web-21 | drop and copy as (+ E7) | P | S | std-17, CTX-MENU page | page clipboard | no | — |
 | 61 | arch-cd-18 + 19 | palette tear-off, named layouts | P | M | UI-2 PR 2 | `palettes.rs` + page | no | — |
-| 62 | arch-cd-20 | context-menu refine | P (file asked) | S | CTX-MENU page | `context.rs` | no | — |
+| 62 | arch-cd-20 | context-menu refine | P | S | CTX-MENU page | `context.rs` | no | — |
 | 63 | arch-cd-26 | history panel | P | S | — | editor + page | no | log |
 | 64 | arch-cd-04 | double-bond position, dashed on `k` | P | S | web-20 | document bonds | yes (`pos`) | CDXML |
 | 65 | arch-cd-16 | smart paste | P | S | web-21 | `editor_edit.rs` | no | — |
@@ -302,7 +302,7 @@ These are listed here, not rewritten. Each chat applies its edit when it starts.
 7. **E7 arch-web-21:** build "Copy as" on arch-std-17's payload list in Rust; "copy as KET" is in the chooser, with no `Ctrl+Shift+K`.
 8. **E8 arch-web-18:** reuse arch-std-08's label-unit tokenizer for composed labels; the op names are `abbr.expand` / `abbr.contract`.
 9. **E9 arch-web-20:** one field `k` with arch-cd-04's dashed kinds; V3000 types 9 and 10 from arch-cd-23. A dative bond's valence meaning is `mzlab-mol`'s: if it is missing at the pin, list the gap for COO 16.
-10. **E10 arch-cd:** add the missing `arch-cd-20` prompt file or drop it; arch-cd was asked on 2026-11-21.
+10. **E10 arch-cd:** done. `arch-cd-20-context-menu-refine.md` was added at `0733735` (PR #41 head `cf29991`), and arch-cd applied E2, E4 and E9 to its own prompts.
 11. **E11 every prompt that adds a `draw_edit/1` op or field:** add its row to the plan-01 table and get COO 16's agreement before the PR (the ones in section 8 are already agreed).
 12. **E12 every prompt whose feature calls an engine:** go through `glue.rs` (plan-04), never call `mzlab_feat` from `lib.rs` directly.
 13. **E13 every prompt:** hot files (`docs/mzdraw.md` Built state, `measured` in `tools/wasm-cap.toml`) conflict in every PR. Merge `origin/main` only on a real conflict, rerun, push. Do not edit the e2e step count, which is counted from the file now. Hand off at about 150k tokens with a pushed WIP branch and a one-line state note (replaces "200k").
