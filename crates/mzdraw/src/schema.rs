@@ -196,6 +196,29 @@ pub const OPS: &[OpSpec] = &[
         mzlab: false,
     },
     OpSpec {
+        name: "doc.labels",
+        fields: &[
+            nf(
+                "mode",
+                "string",
+                true,
+                "",
+                "the mass-label choice of the scheme (the document field `labels`): `delta`, `mass`, `delta+mass` or `name+delta`, what `pathway:label` writes; the empty text takes the choice away (the settings `pathway.label` and `pathway.adduct` apply again); any other word is `error.draw2.labels`, never a fallback",
+            ),
+            nf(
+                "adduct",
+                "string",
+                false,
+                "",
+                "one of the seven of `display.adducts`, only with `mass` or `delta+mass`: the m/z of the product is written after the label; empty or left out: none; any other value, or an adduct with another mode, is `error.draw2.labels`",
+            ),
+        ],
+        inverse: "SetMore",
+        since: crate::brand::FIRST_DOCUMENT_ID,
+        mzdraw: true,
+        mzlab: false,
+    },
+    OpSpec {
         name: "colour",
         fields: &[
             nf("atoms", "uint[]", false, "", "atom ids"),
@@ -417,6 +440,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("command", "tp:number", "object", "`args` `{\"force\":BOOL}` (optional, default false): sets `TP_ID` = `TP1`, `TP2`, ... on the products of the pathway (the structures an anchored arrow reaches) in the order of `pathway.number` (`layout`: by layer, then by position in the layer; `mz`; `rt`; a missing `MZ` or `RT` sorts last). A root keeps its name; a name that is not `TP<n>` is kept unless `force`, and does not use a number; one undo step, no change when nothing differs; a drawing with no anchored arrow is `error.draw2.schemeEmpty`"),
     r("command", "pathway:route", "object", "no `args`: routes every anchored arrow in one step; no operation when nothing moves"),
     r("set", "pathway.*", "string|number", "the pathway layout: `dir` (`right`|`down`), `col_gap` (2.5), `row_gap` (1), `max_angle` (40 degrees), `min_arrow` (1.2), `order` (`id`|`mz`|`rt`), `number` (`layout`|`mz`|`rt`: the order `tp:number` numbers the TPs in), `margin` (0.35), in bond lengths, and `derive` (`on`|`off`, default off: the page's \"Derive TP\" item and Shift+D; the command `tp:derive` is always available)"),
+    r("set", "pathway.adduct", "string", "the adduct whose m/z a mass label adds when the scheme has no choice of its own (`doc.labels`): `none` (default) or one of the seven of `display.adducts`; used only with `pathway.label` `mass` or `delta+mass`"),
     r("set", "pathway.label", "string", "what `pathway:label` writes: `delta` (default), `mass`, `delta+mass` or `name+delta`; `mass` and `delta+mass` need the engine of mzLab (`error.draw2.labelMass` without it: the plain core replay has none)"),
     r("request", "log", "json[]", "the command log, operations of `draw_edit/1`"),
     r("request", "out", "string", "the output wanted (`{slug}` by default): a format name, `log`, `std`, `lens`, `schema`, `settings`, `steps`, `sites` (with `args`), `tptable` or `tptable-csv`; `smiles` of a drawing with a connected piece above 500 atoms is `error.draw2.smilesSize`"),

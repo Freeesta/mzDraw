@@ -421,6 +421,15 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 let id = if r.next(6) == 0 { 9999 } else { atom(r) };
                 return vec![Op::AtomCap { id, lines }];
             }
+            // the mass-label choice: every word, an adduct with a mode that has none, a bad word (refused), cleared
+            if r.next(5) == 0 {
+                let modes = ["delta", "mass", "delta+mass", "name+delta", "", "bogus"];
+                let adducts = ["", "", "[M+H]+", "[M-H]-", "Na"];
+                return vec![Op::DocLabels {
+                    mode: modes[r.next(modes.len())].into(),
+                    adduct: adducts[r.next(adducts.len())].into(),
+                }];
+            }
             vec![Op::Colour {
                 atoms: (0..r.next(4)).map(|_| atom(r)).collect(),
                 bonds: (0..r.next(3)).map(|_| bond_id(r)).collect(),
@@ -1076,6 +1085,7 @@ fn the_patch_is_in_the_fixed_order() {
         Op::BondSet { .. } | Op::Colour { .. } => 7,
         Op::ObjSet { .. } => 8,
         Op::Move { .. } => 9,
+        Op::DocLabels { .. } => 10,
         other => panic!("not an operation of a diff: {other:?}"),
     };
     for (n, (a, b, _)) in pairs().into_iter().enumerate() {

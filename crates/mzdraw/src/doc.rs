@@ -337,7 +337,64 @@ pub fn round4(v: f64) -> f64 {
     }
 }
 
+/// The modes of the document field `labels` (the words of `pathway.label`).
+pub const LABEL_MODES: [&str; 4] = ["delta", "mass", "delta+mass", "name+delta"];
+
+/// The canonical `labels` choice: `mode` one of `LABEL_MODES` (empty: no choice, and then no adduct), `adduct` empty or a name of
+/// `values::ADDUCTS`, only with `mass` or `delta+mass`. `None` for anything else: nothing falls back silently.
+pub(crate) fn labels_canon(mode: &str, adduct: &str) -> Option<(String, String)> {
+    let (mode, adduct) = (mode.trim(), adduct.trim());
+    if mode.is_empty() {
+        return adduct.is_empty().then(|| (String::new(), String::new()));
+    }
+    if !LABEL_MODES.contains(&mode) {
+        return None;
+    }
+    if !adduct.is_empty()
+        && !(matches!(mode, "mass" | "delta+mass") && crate::values::ADDUCTS.contains(&adduct))
+    {
+        return None;
+    }
+    Some((mode.into(), adduct.into()))
+}
+
 impl Document {
+    /// The mass-label choice of this scheme (`mode`, `adduct`), empty strings for none. A field `labels` of another shape, or a
+    /// choice `labels_canon` refuses, is no choice (and is left alone and written back).
+    pub fn labels(&self) -> (String, String) {
+        let v: Option<Value> = (self.more.iter().find(|m| m.0 == "labels"))
+            .and_then(|m| serde_json::from_str(&m.1).ok());
+        let get = |k: &str| {
+            (v.as_ref().and_then(|v| v.get(k)))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string()
+        };
+        labels_canon(&get("mode"), &get("adduct")).unwrap_or_default()
+    }
+
+    /// Sets the choice (`labels_canon` text); the empty mode takes it away. The keys of `labels` this version does not know are kept.
+    pub(crate) fn set_labels(&mut self, mode: &str, adduct: &str) {
+        let mut obj = (self.more.iter().find(|m| m.0 == "labels"))
+            .and_then(|m| serde_json::from_str::<Value>(&m.1).ok())
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+        obj.remove("mode");
+        obj.remove("adduct");
+        if !mode.is_empty() {
+            obj.insert("mode".into(), mode.into());
+        }
+        if !adduct.is_empty() {
+            obj.insert("adduct".into(), adduct.into());
+        }
+        self.more.retain(|m| m.0 != "labels");
+        if !obj.is_empty() {
+            self.more
+                .push(("labels".into(), Value::Object(obj).to_string()));
+            crate::m::sort(&mut self.more);
+        }
+    }
+
     /// Compact JSON with a fixed field order: same document, same bytes. Written by hand: the known fields in their order
     /// (optional ones only when set), then the unknown ones.
     pub fn to_json(&self) -> String {

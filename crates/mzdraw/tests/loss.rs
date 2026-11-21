@@ -393,6 +393,7 @@ fn every_feature_the_document_can_hold_has_a_row_and_every_format_a_column() {
         "colour.object",
         "data",
         "geometry",
+        "labels",
         "object.arrow",
         "object.plus",
         "object.text",
@@ -412,7 +413,7 @@ fn every_feature_the_document_can_hold_has_a_row_and_every_format_a_column() {
             assert!(mzdraw::loss::carry(what, f).is_some(), "{what} {f}");
         }
     }
-    assert_eq!(mzdraw::loss::TABLE.len(), 27);
+    assert_eq!(mzdraw::loss::TABLE.len(), 28);
 }
 
 #[test]

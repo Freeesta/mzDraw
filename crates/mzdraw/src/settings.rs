@@ -42,6 +42,8 @@ pub struct Style {
     pub pathway_number: crate::tp_list::Number,
     /// `pathway.label`: what `pathway:label` writes on an arrow (`delta`, `mass`, `delta+mass`, `name+delta`).
     pub pathway_label: crate::steplabel::Mode,
+    /// `pathway.adduct`: the adduct whose m/z a mass label adds when the scheme has no choice of its own (empty: none, written `none`).
+    pub pathway_adduct: String,
     /// `pathway.derive`: whether the page offers "Derive TP" (menu item and Shift+D). Off by default: the kill test of tp-03 did not
     /// show the page route needs half the actions of copy-paste-and-edit. The command `tp:derive` is not gated.
     pub pathway_derive: bool,
@@ -221,6 +223,7 @@ fn known(key: &str) -> bool {
             | "pathway.dir"
             | "pathway.order"
             | "pathway.label"
+            | "pathway.adduct"
             | "pathway.derive"
             | "pathway.number"
     ) || FIELDS.iter().any(|f| f.key == key)
@@ -295,6 +298,7 @@ impl Default for Style {
             pathway_order: crate::pathway::Order::Id,
             pathway_number: crate::tp_list::Number::Layout,
             pathway_label: crate::steplabel::Mode::Delta,
+            pathway_adduct: String::new(),
             pathway_derive: false,
             mono: false,
             maps: true,
@@ -375,6 +379,7 @@ impl Style {
             pathway_order: crate::pathway::Order::Id,
             pathway_number: crate::tp_list::Number::Layout,
             pathway_label: crate::steplabel::Mode::Delta,
+            pathway_adduct: String::new(),
             pathway_derive: false,
             mono: true,
             maps: true,
@@ -473,6 +478,9 @@ impl Style {
                 self.pathway_order =
                     crate::pathway::Order::parse(v).ok_or("error.draw2.styleValue")?
             }
+            ("adduct", "none") => self.pathway_adduct.clear(),
+            ("adduct", v) if crate::values::ADDUCTS.contains(&v) => self.pathway_adduct = v.into(),
+            ("adduct", _) => return Err("error.draw2.styleValue"),
             ("label", v) => {
                 self.pathway_label =
                     crate::steplabel::Mode::parse(v).ok_or("error.draw2.styleValue")?
@@ -522,6 +530,11 @@ impl Style {
                 self.choice(name).map(Into::into)
             }
             "pathway.derive" => Some(on(self.pathway_derive)),
+            "pathway.adduct" => Some(if self.pathway_adduct.is_empty() {
+                "none".into()
+            } else {
+                self.pathway_adduct.clone()
+            }),
             _ => number(name.strip_prefix("style.").unwrap_or(name)),
         }
     }
@@ -626,7 +639,13 @@ impl Style {
             None => crate::steplabel::Mode::Delta,
             Some(v) => crate::steplabel::Mode::parse(v)?,
         };
+        let adduct = match g.s("pathway.adduct").ok()?.as_deref() {
+            None | Some("none") => String::new(),
+            Some(v) if crate::values::ADDUCTS.contains(&v) => v.to_string(),
+            Some(_) => return None,
+        };
         let mut s = Style {
+            pathway_adduct: adduct,
             pathway_number: number,
             mono: colour,
             maps,
@@ -693,6 +712,9 @@ impl Style {
         }
         if self.pathway_label != crate::steplabel::Mode::Delta {
             style.push(("pathway.label".to_string(), text(self.pathway_label.name())));
+        }
+        if !self.pathway_adduct.is_empty() {
+            style.push(("pathway.adduct".to_string(), text(&self.pathway_adduct)));
         }
         for f in &FIELDS {
             style.push((f.key.to_string(), num(f.of(self))));

@@ -57,6 +57,10 @@ pub enum Op {
     /// Replaces the lines kept under the molecule this atom holds the choice of (`props`: line keys in the order they are written);
     /// the empty list takes the choice away (the molecule follows `display.values` again).
     AtomCap { id: u32, lines: Vec<String> },
+    /// Sets the mass-label choice of the document (`labels` of `mzdraw/1`): `mode` is one of `steplabel::Mode` (`delta`, `mass`,
+    /// `delta+mass`, `name+delta`) and `adduct` one of `display.adducts`, only with `mass` or `delta+mass` (empty: none). An empty `mode`
+    /// takes the choice away: the style `pathway.label` and `pathway.adduct` apply again.
+    DocLabels { mode: String, adduct: String },
     /// Sets the explicit colour of atoms and bonds (`col` is `#rgb` or `#rrggbb`; the empty text is automatic and takes the colour
     /// away: the element colour or the mono ink shows again). The inverse restores each atom and bond as it was.
     Colour {
@@ -251,6 +255,13 @@ impl Op {
                 w.text("op", "atom.cap");
                 w.int("id", i64::from(*i));
                 w.raw("lines", &serde_json::json!(lines).to_string());
+            }
+            Op::DocLabels { mode, adduct } => {
+                w.text("op", "doc.labels");
+                w.text("mode", mode);
+                if !adduct.is_empty() {
+                    w.text("adduct", adduct);
+                }
             }
             Op::Colour {
                 atoms,
@@ -516,6 +527,10 @@ impl Op {
                     .collect::<Option<Vec<String>>>()
                     .ok_or(())?,
             },
+            "doc.labels" => Op::DocLabels {
+                mode: g.s("mode")?.ok_or(())?,
+                adduct: g.s("adduct")?.unwrap_or_default(),
+            },
             "colour" => Op::Colour {
                 atoms: g.ids("atoms")?,
                 bonds: g.ids("bonds")?,
@@ -617,6 +632,8 @@ pub(crate) enum Inv {
     PutObj(usize, Obj),
     SetObj(Obj),
     Next(u32),
+    /// The unknown fields of the document as they were (the `labels` field lives there).
+    SetMore(crate::doc::More),
 }
 
 impl Document {
@@ -659,6 +676,7 @@ impl Document {
                 }
             }
             Inv::Next(n) => self.next = n,
+            Inv::SetMore(m) => self.more = m,
         }
     }
 
@@ -897,6 +915,14 @@ impl Document {
                 inv.push(Inv::SetAtom(self.atoms[i].clone()));
                 crate::props::put(&mut self.atoms[i].more, &lines);
                 done.push(Op::AtomCap { id: *id, lines });
+            }
+            Op::DocLabels { mode, adduct } => {
+                let Some((mode, adduct)) = crate::doc::labels_canon(mode, adduct) else {
+                    return err("error.draw2.labels", 0);
+                };
+                inv.push(Inv::SetMore(self.more.clone()));
+                self.set_labels(&mode, &adduct);
+                done.push(Op::DocLabels { mode, adduct });
             }
             Op::Colour {
                 atoms,

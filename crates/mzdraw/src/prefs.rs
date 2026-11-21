@@ -43,6 +43,7 @@ const ONOFF: &[&str] = &["on", "off"];
 const OFFON: &[&str] = &["off", "on"];
 const VALUES: &[&str] = &["off", "formula", "mass", "mz"];
 const LABEL: &[&str] = &["delta", "mass", "delta+mass", "name+delta"];
+const ADDUCT_WORDS: &[&str] = &["none", "[M+H]+", "[M+NH4]+", "[M+Na]+", "[M+K]+", "[M-H]-", "[M+Cl]-", "[M+HCOO]-"];
 const LENS: &[&str] = &["off", "tint", "tint+ghost"];
 const DIR: &[&str] = &["right", "down"];
 const ORDER: &[&str] = &["id", "mz", "rt"];
@@ -64,7 +65,7 @@ const fn p(setting: &'static str, group: &'static str, label: &'static str, kind
 }
 
 /// The options, in the order of the panel. The numbers of the style come after this table (`all`), from `FIELDS`.
-const WORDS: [Pref; 16] = [
+const WORDS: [Pref; 17] = [
     p(
         "style.colour",
         "display",
@@ -100,6 +101,12 @@ const WORDS: [Pref; 16] = [
         "display",
         "draw2.prefs.pathway.label",
         Kind::Words(LABEL),
+    ),
+    p(
+        "pathway.adduct",
+        "display",
+        "draw2.prefs.pathway.adduct",
+        Kind::Words(ADDUCT_WORDS),
     ),
     p(
         "style.preset",

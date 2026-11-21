@@ -112,13 +112,30 @@ impl Editor {
         Ok(changed)
     }
 
+    /// The mode and the options a `pathway:label` runs with: an argument of the command first, then the choice kept in the document
+    /// (`labels`), then the styles `pathway.label` and `pathway.adduct` (the defaults of a scheme with no choice). A default adduct
+    /// is taken only by a mode that writes numbers.
+    pub(crate) fn label_choice(
+        &self,
+        opts: &crate::steplabel::Opts,
+    ) -> (crate::steplabel::Mode, crate::steplabel::Opts) {
+        let (dm, da) = self.doc().labels();
+        let mode = crate::steplabel::Mode::parse(&dm).unwrap_or(self.style.pathway_label);
+        let mut opts = opts.clone();
+        if opts.adduct.is_none() && mode.wants_mass() {
+            let adduct = if dm.is_empty() { self.style.pathway_adduct.clone() } else { da };
+            opts.adduct = Some(adduct).filter(|a| !a.is_empty());
+        }
+        (mode, opts)
+    }
+
     /// `pathway:label`: writes the computed label (`steplabel::plan`, the mode `pathway.label`) on every anchored arrow whose text is
     /// empty or its own, one undo step; none when nothing changes. The counts for the live line are kept in `said_params`.
     pub(crate) fn pathway_label(&mut self, opts: &crate::steplabel::Opts) -> Result<bool, OpError> {
         // a run that fails reports nothing from the run before
         self.label_notes.clear();
-        let plan =
-            crate::steplabel::plan(self.doc(), self.style.pathway_label, opts, self.measurer)?;
+        let (mode, opts) = self.label_choice(opts);
+        let plan = crate::steplabel::plan(self.doc(), mode, &opts, self.measurer)?;
         let changed = !plan.ops.is_empty();
         if changed {
             self.session.run(&plan.ops)?;

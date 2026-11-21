@@ -331,6 +331,11 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
             dy: f64::from_bits(key.1),
         });
     }
+    // the mass-label choice of the scheme
+    if a.labels() != b.labels() {
+        let (mode, adduct) = b.labels();
+        out.push(Op::DocLabels { mode, adduct });
+    }
     out
 }
 
@@ -539,6 +544,7 @@ pub(crate) fn touched(op: &Op) -> Vec<u32> {
             objects,
             ..
         } => atoms.iter().chain(bonds).chain(objects).copied().collect(),
+        Op::DocLabels { .. } => Vec::new(),
         Op::Rotate { atoms, .. } | Op::Flip { atoms, .. } => atoms.clone(),
         Op::Move { atoms, objects, .. } => atoms.iter().chain(objects).copied().collect(),
         Op::Remove {
