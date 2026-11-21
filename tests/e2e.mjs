@@ -2169,7 +2169,9 @@ try {
     await pg.click('[data-testid="d2-ctx-atom.element"]'); await pg.click('[data-testid="d2-ctx-atom.el.N"]'); await tpShown(false);
     const edited = JSON.parse(await tpDoc());
     eq(edited.atoms.filter(a => a.id <= 8).map(a => a.el), JSON.parse(derived).atoms.filter(a => a.id <= 8).map(a => a.el));
-    assert(edited.atoms.filter(a => a.id > 8).some(a => a.el === "N") || JSON.stringify(edited) !== derived, "an atom of the copy changed");
+    const nitrogens = ids => edited.atoms.filter(a => ids(a.id) && a.el === "N").length;
+    eq([nitrogens(i => i <= 8), nitrogens(i => i > 8)], [1, 2], "the copy has one more nitrogen, the parent is as it was");
+    eq(JSON.stringify(edited.atoms.filter(a => a.id <= 8)), JSON.stringify(JSON.parse(derived).atoms.filter(a => a.id <= 8)), "the parent atoms are unchanged");
     await shot(pg, "tp03-edited");
     eq(await pg.evaluate(`(() => { const log = JSON.parse(window.MZDRAW.save("log")); return window.MZDRAW.replay(JSON.stringify({ import: ${JSON.stringify(before)}, log, out: "svg" })) === window.MZDRAW.save("svg"); })()`), true);
     await pg.keyboard.press("Control+z"); eq(await tpDoc(), derived); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);

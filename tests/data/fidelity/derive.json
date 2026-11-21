@@ -16,6 +16,7 @@
    "expected": {
     "O": 1
    },
+   "reactant_is_the_parent_drawn": true,
    "scaffold_as_named": true,
    "ok": true
   },
@@ -31,6 +32,7 @@
     "C": -1,
     "H": -2
    },
+   "reactant_is_the_parent_drawn": true,
    "scaffold_as_named": true,
    "ok": true
   },
@@ -46,6 +48,7 @@
     "H": 2,
     "O": 1
    },
+   "reactant_is_the_parent_drawn": true,
    "scaffold_as_named": true,
    "ok": true
   }

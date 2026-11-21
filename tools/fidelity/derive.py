@@ -62,6 +62,11 @@ def main():
                      for x, y in [(b.GetBeginAtom().GetAtomMapNum(), b.GetEndAtom().GetAtomMapNum())]}
             return atoms, bonds
         (ra, rb), (pa, pb) = scaffold(r), scaffold(p)
+        # the reactant as RDKit reads it is the parent we drew: the map of an atom is its id, so the bonds by map are the bonds of lactam()
+        drawn = json.loads(lactam())
+        parent_bonds = {(min(b["a"], b["b"]), max(b["a"], b["b"]), b["o"]) for b in drawn["bonds"]}
+        parent_atoms = {a["id"]: a["el"] for a in drawn["atoms"]}
+        reactant_is_parent = rb == parent_bonds and ra == parent_atoms
         every = len(ra) == r.GetNumAtoms() and len(pa) == p.GetNumAtoms()
         norm = lambda bs: {(min(x, y), max(x, y), o) for x, y, o in bs}
         same_atoms = (every
@@ -70,10 +75,10 @@ def main():
                       and (rb - norm(cut)) | norm(made) == pb)
         got = counts(p); got.subtract(counts(r))
         got = {k: v for k, v in got.items() if v}
-        ok = same_atoms and got == delta
+        ok = same_atoms and reactant_is_parent and got == delta
         bad += not ok
         print(("ok   " if ok else "FAIL ") + name, got, file=sys.stderr)
-        results.append({"case": name, "reactant": rdMolDescriptors.CalcMolFormula(r), "product": rdMolDescriptors.CalcMolFormula(p), "delta": got, "expected": delta, "scaffold_as_named": same_atoms, "ok": ok})
+        results.append({"case": name, "reactant": rdMolDescriptors.CalcMolFormula(r), "product": rdMolDescriptors.CalcMolFormula(p), "delta": got, "expected": delta, "reactant_is_the_parent_drawn": reactant_is_parent, "scaffold_as_named": same_atoms, "ok": ok})
     ref = {"format": "fidelity-derive/1", "date": datetime.date.today().isoformat(), "programs": {"rdkit": rdBase.rdkitVersion}, "success": f"{len(results) - bad}/{len(results)}", "results": results}
     out = open(args.out, "w") if args.out else sys.stdout
     json.dump(ref, out, indent=1); out.write("\n")
