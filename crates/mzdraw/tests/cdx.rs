@@ -789,3 +789,73 @@ fn a_code_page_that_is_not_decoded_is_said() {
         assert_eq!(info.notes(), [("draw2.import.codePage", 1)], "{page}");
     }
 }
+
+/// A font table of `n` fonts (ids 0.., code page 1252, a one-letter name).
+fn fonts_of(n: u16) -> Vec<u8> {
+    let mut t = vec![1, 0];
+    t.extend(n.to_le_bytes());
+    for id in 0..n {
+        t.extend(id.to_le_bytes());
+        t.extend(1252u16.to_le_bytes());
+        t.extend([1, 0, b'F']);
+    }
+    t
+}
+
+#[test]
+fn a_hostile_font_table_or_many_runs_cost_little_and_a_damaged_table_is_refused() {
+    let file = |tables: &[Vec<u8>], runs: usize| {
+        let mut f = head();
+        f.extend([0x00, 0x80, 1, 0, 0, 0]);
+        for t in tables {
+            property(&mut f, 0x0100, t);
+        }
+        f.extend([0x01, 0x80, 2, 0, 0, 0]);
+        // texts of 6000 runs each over the fonts of the table, a run per font in turn
+        for k in 0..runs / 6000 {
+            f.extend([0x06, 0x80, 0, 0, 0, 0]);
+            property(&mut f, 0x0200, &[coord(1.0), coord(2.0)].concat());
+            let mut s = 6000u16.to_le_bytes().to_vec();
+            for r in 0..6000u16 {
+                s.extend([0, 0]);
+                s.extend(((k as u16).wrapping_add(r) % 4096).to_le_bytes());
+                s.extend([0, 0, 200, 0, 0, 0]);
+            }
+            s.push(b'x');
+            property(&mut f, 0x0700, &s);
+            f.extend([0, 0]);
+        }
+        f.extend([0; 6]);
+        f
+    };
+    // (the bound of 5 s is loose on purpose, for a slow machine: a linear scan of the fonts took 6.3 s on a file like
+    // this one in a release build, by the review; here the file reads in under a second in a debug build)
+    let t0 = std::time::Instant::now();
+    // the most the bound allows: 4096 fonts and 60 texts of 6000 runs (360 000 runs): read, and fast
+    let (d, _) = import_bytes(&file(&[fonts_of(4096)], 360_000)).unwrap();
+    assert_eq!(d.objects.len(), 60);
+    assert!(t0.elapsed().as_secs() < 5, "{:?}", t0.elapsed());
+    // 65 535 fonts, a second table, a table cut short or with a count its bytes do not hold: refused
+    let t1 = std::time::Instant::now();
+    let mut short = fonts_of(3);
+    short.truncate(short.len() - 2);
+    let mut over = fonts_of(3);
+    over[2] = 9;
+    for tables in [
+        vec![fonts_of(65535)],
+        vec![fonts_of(2), fonts_of(2)],
+        vec![short],
+        vec![over],
+    ] {
+        assert_eq!(
+            import_bytes(&file(&tables, 0)).unwrap_err(),
+            "error.draw2.cdx"
+        );
+    }
+    // and with the runs of the hostile probe over the 65 535 fonts, still refused at the table
+    assert_eq!(
+        import_bytes(&file(&[fonts_of(65535)], 360_000)).unwrap_err(),
+        "error.draw2.cdx"
+    );
+    assert!(t1.elapsed().as_secs() < 5, "{:?}", t1.elapsed());
+}

@@ -9,10 +9,13 @@
 //! unknown tag is kept as an element the CDXML mapping counts. Every length is checked against the file, the nesting and the
 //! number of objects are bounded, and a damaged or cut file is refused, never a panic.
 //!
-//! Not stated on the pages read, and so chosen here: a CDXString is decoded as UTF-8 when the font of its run has the code
-//! page 65001 (the page of the font table defers the list of code pages to a page that was not found), as Latin-1 otherwise;
-//! `ArrowHeadHead` and the other arrowhead properties are not read (the page of the property was not available, and the
-//! CDXML mapping takes the ends of an arrow from `Tail3D` and `Head3D` only).
+//! Not stated on the pages read, and so chosen here (all of it said in `docs/built/std-22-cdx-read.md`): a CDXString is decoded by
+//! the code page of the font of its run (the page of the font table defers the list of code pages to a page that was not found):
+//! UTF-8 for 65001, Windows 1252 for 1252, Latin-1 for 28591 and for a font with no page; any other page is read as Latin-1 and
+//! counted, so that the page can say so. Integer properties are read by the size of the field (1, 2 or 4 bytes), as the page of
+//! the numeric types asks readers to do, although the property pages give one size. A file whose document object is closed is
+//! complete: the extra end mark of the file is optional. `ArrowHeadHead` and the other arrowhead properties are not read (the
+//! page of the property was not available, and the CDXML mapping takes the ends of an arrow from `Tail3D` and `Head3D` only).
 
 use crate::xml::{Element, MAX_DEPTH, MAX_ELEMENTS};
 use mzlab_mol::fixed;
@@ -230,30 +233,43 @@ const CP1252: [char; 32] = [
     '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9d}', 'ž', 'Ÿ',
 ];
 
-/// What is gathered while reading: the code pages of the fonts of the font table (font id, code page).
+/// Most fonts a file may declare (the ids are 16 bits; real files hold a handful) and font tables it may carry.
+const MAX_FONTS: usize = 4096;
+
+/// What is gathered while reading: the code pages of the fonts of the font table, by font id.
 #[derive(Default)]
-struct Fonts(Vec<(u16, u16)>);
+struct Fonts {
+    pages: std::collections::BTreeMap<u16, u16>,
+    tables: usize,
+}
 
 impl Fonts {
-    /// The font table: platform, count, then per font its id, code page, name length and name.
-    fn table(&mut self, data: &[u8]) {
-        let n = u16_at(data, 2).unwrap_or(0);
+    /// The font table: platform, count, then per font its id, code page, name length and name. `None` (the file is refused) for a
+    /// second table, more fonts than `MAX_FONTS`, or a table that is cut short or holds fewer bytes than its count says.
+    fn table(&mut self, data: &[u8]) -> Option<()> {
+        self.tables += 1;
+        let n = usize::from(u16_at(data, 2)?);
+        if self.tables > 1 || n > MAX_FONTS {
+            return None;
+        }
         let mut at = 4;
         for _ in 0..n {
-            let (Some(id), Some(page), Some(len)) =
-                (u16_at(data, at), u16_at(data, at + 2), u16_at(data, at + 4))
-            else {
-                return;
-            };
-            self.0.push((id, page));
+            let (id, page, len) = (
+                u16_at(data, at)?,
+                u16_at(data, at + 2)?,
+                u16_at(data, at + 4)?,
+            );
             at += 6 + usize::from(len);
+            (at <= data.len()).then_some(())?;
+            self.pages.insert(id, page);
         }
+        Some(())
     }
 
     /// The text of a run of bytes in the font `id`, and whether its code page is one this reader cannot decode (UTF-8 65001,
     /// 1252, ISO 8859-1 28591 and an undefined page 0 are read; any other is read as Latin-1 and reported).
     fn decode(&self, id: u16, bytes: &[u8]) -> (String, bool) {
-        match self.0.iter().find(|f| f.0 == id).map(|f| f.1) {
+        match self.pages.get(&id).copied() {
             Some(65001) => (String::from_utf8_lossy(bytes).into_owned(), false),
             Some(1252) => (
                 bytes
@@ -456,7 +472,7 @@ pub(crate) fn tree(bytes: &[u8]) -> Option<Tree> {
             let top = open.last_mut()?;
             match tag {
                 // the font table gives the code pages of the fonts
-                0x0100 => fonts.table(data),
+                0x0100 => fonts.table(data)?,
                 0x0700 => {
                     // the cap is checked before any run is built
                     let (runs, odd) = text_runs(data, &fonts, MAX_ELEMENTS - count)?;
