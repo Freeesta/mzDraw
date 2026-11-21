@@ -21,8 +21,13 @@ fn data(name: &str) -> String {
     fs::read_to_string(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display()))
 }
 
-/// The same hash as `fnv1a` of `tools/fidelity/run.py`.
+/// The same hash as `fnv1a(mask(..))` of `tools/fidelity/run.py`: the writers put the product name in the headers of a file, so the
+/// name and the slug are masked, and renaming the product does not change a hash (only a change of a writer does).
 fn fnv1a(text: &str) -> String {
+    let text = text
+        .replace(mzdraw::brand::PAGES_URL, "\u{3}")
+        .replace(mzdraw::brand::NAME, "\u{1}")
+        .replace(mzdraw::brand::SLUG, "\u{2}");
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in text.bytes() {
         h = (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);

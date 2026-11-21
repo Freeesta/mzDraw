@@ -4,12 +4,12 @@
  "programs": {
   "rdkit": "2026.09.2"
  },
- "hash": "fnv1a-64 of the RXN text our writer gives",
+ "hash": "fnv1a-64 of the RXN text our writer gives, the product name and slug masked",
  "success": "20/20",
  "results": [
   {
    "reaction": "[CH3:1][C:2](=[O:3])[OH:4].[CH3:5][OH:6]>>[CH3:1][C:2](=[O:3])[O:6][CH3:5].[OH2:4]",
-   "hash": "2c80f5174a37bc11",
+   "hash": "0fb8acea057acba9",
    "rdkit_rxn": [
     [
      [
@@ -54,7 +54,7 @@
   },
   {
    "reaction": "[CH3:1][C:2](=[O:3])[OH:4].[NH2:5][CH3:6]>>[CH3:1][C:2](=[O:3])[NH:5][CH3:6].[OH2:4]",
-   "hash": "f5983629eb83a703",
+   "hash": "c6c851f3dfe477d5",
    "rdkit_rxn": [
     [
      [
@@ -99,7 +99,7 @@
   },
   {
    "reaction": "[CH3:1][CH2:2][Br:3].[OH-:4]>>[CH3:1][CH2:2][OH:4].[Br-:3]",
-   "hash": "5d617950c437d4c5",
+   "hash": "d9c006b2d0c50eeb",
    "rdkit_rxn": [
     [
      [
@@ -136,7 +136,7 @@
   },
   {
    "reaction": "[CH2:1]=[CH2:2].[OH2:3]>>[CH3:1][CH2:2][OH:3]",
-   "hash": "0d8ac9cca3d6a592",
+   "hash": "8451683db1af6c12",
    "rdkit_rxn": [
     [
      [
@@ -167,7 +167,7 @@
   },
   {
    "reaction": "[CH3:1][CH:2]=[O:3].[H][H]>>[CH3:1][CH2:2][OH:3]",
-   "hash": "5e2495274e155f09",
+   "hash": "ab7bd673b837c851",
    "rdkit_rxn": [
     [
      [
@@ -197,7 +197,7 @@
   },
   {
    "reaction": "[CH3:1][CH2:2][OH:3]>>[CH3:1][CH:2]=[O:3]",
-   "hash": "7fd182e7796501ea",
+   "hash": "4991a996027e0b86",
    "rdkit_rxn": [
     [
      [
@@ -226,7 +226,7 @@
   },
   {
    "reaction": "[c:1]1[cH:2][cH:3][cH:4][cH:5][cH:6]1.[Cl:7][Cl:8]>>[c:1]1([Cl:7])[cH:2][cH:3][cH:4][cH:5][cH:6]1.[Cl:8]",
-   "hash": "a69fcb63e32b7773",
+   "hash": "45a379777a46188d",
    "rdkit_rxn": [
     [
      [
@@ -279,7 +279,7 @@
   },
   {
    "reaction": "[CH3:1][C:2]#[N:3].[OH2:4]>>[CH3:1][C:2](=[O:4])[NH2:3]",
-   "hash": "215b76a3d70cc54b",
+   "hash": "67bd09d9accdeb2b",
    "rdkit_rxn": [
     [
      [
@@ -314,7 +314,7 @@
   },
   {
    "reaction": "[CH3:1][NH2:2].[CH3:3][I:4]>>[CH3:1][NH:2][CH3:3].[I:4]",
-   "hash": "4f1f19a067e3f865",
+   "hash": "ada9ad7e1e6a851b",
    "rdkit_rxn": [
     [
      [
@@ -351,7 +351,7 @@
   },
   {
    "reaction": "[CH3:1][C:2](=[O:3])[CH3:4].[CH3:5][OH:6]>>[CH3:1][C:2]([OH:3])([CH3:4])[O:6][CH3:5]",
-   "hash": "207522e9cd5f9b84",
+   "hash": "8589184db6a7c8d2",
    "rdkit_rxn": [
     [
      [
@@ -394,7 +394,7 @@
   },
   {
    "reaction": "[OH:1][CH2:2][CH2:3][OH:4]>>[O:1]1[CH2:2][CH2:3]1.[OH2:4]",
-   "hash": "77e0c664464091f4",
+   "hash": "8adf0b96ce8995f0",
    "rdkit_rxn": [
     [
      [
@@ -429,7 +429,7 @@
   },
   {
    "reaction": "[CH3:1][CH2:2][CH2:3][OH:4]>>[CH3:1][CH:2]=[CH2:3].[OH2:4]",
-   "hash": "5797f9d9d0270c12",
+   "hash": "012a369e306d62d4",
    "rdkit_rxn": [
     [
      [
@@ -464,7 +464,7 @@
   },
   {
    "reaction": "[N:1]#[C:2][CH3:3].[Mg:4]>>[N:1]#[C:2][CH3:3]",
-   "hash": "b2784f91cdc514f1",
+   "hash": "6ea2458cf333e8ab",
    "rdkit_rxn": [
     [
      [
@@ -497,7 +497,7 @@
   },
   {
    "reaction": "[CH3:1][S:2][CH3:3]>>[CH3:1][S:2](=[O:4])[CH3:3]",
-   "hash": "2673a746fa87ada9",
+   "hash": "a249cbfcaa51ddc5",
    "rdkit_rxn": [
     [
      [
@@ -528,7 +528,7 @@
   },
   {
    "reaction": "[Cl:1][CH2:2][CH2:3][Cl:4]>>[CH2:2]=[CH2:3].[Cl:1][Cl:4]",
-   "hash": "bbc4b3b2aeeb3418",
+   "hash": "9969719b93fdc608",
    "rdkit_rxn": [
     [
      [
@@ -563,7 +563,7 @@
   },
   {
    "reaction": "[CH3:1][C:2](=[O:3])[O:4][CH3:5].[OH2:6]>>[CH3:1][C:2](=[O:3])[OH:6].[CH3:5][OH:4]",
-   "hash": "1da1bb8d9a67d009",
+   "hash": "9fb1470b36f7fc4b",
    "rdkit_rxn": [
     [
      [
@@ -608,7 +608,7 @@
   },
   {
    "reaction": "[CH3:1][CH2:2][NH2:3].[CH3:4][C:5](=[O:6])[Cl:7]>>[CH3:1][CH2:2][NH:3][C:5](=[O:6])[CH3:4].[Cl:7]",
-   "hash": "fc38b05785b2f25f",
+   "hash": "3fbc870db392efe1",
    "rdkit_rxn": [
     [
      [
@@ -657,7 +657,7 @@
   },
   {
    "reaction": "[CH3:1][CH:2]([OH:3])[CH3:4]>>[CH3:1][C:2](=[O:3])[CH3:4]",
-   "hash": "7d40ac154db5fa6b",
+   "hash": "a8e2a24ea6f951ef",
    "rdkit_rxn": [
     [
      [
@@ -690,7 +690,7 @@
   },
   {
    "reaction": "[O:1]=[C:2]([OH:3])[CH2:4][CH2:5][CH3:6]>>[O:1]=[C:2]([O-:3])[CH2:4][CH2:5][CH3:6]",
-   "hash": "cf0531bc2a7be84a",
+   "hash": "340013d6d113e0ca",
    "rdkit_rxn": [
     [
      [
@@ -731,7 +731,7 @@
   },
   {
    "reaction": "[CH3:1][CH2:2][CH2:3][Br:4].[CH3:5][O-:6]>>[CH3:1][CH2:2][CH2:3][O:6][CH3:5].[Br-:4]",
-   "hash": "65af95b30d530ba0",
+   "hash": "62d51611a03f1ab6",
    "rdkit_rxn": [
     [
      [

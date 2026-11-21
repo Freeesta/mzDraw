@@ -19,6 +19,7 @@ import datetime
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -47,6 +48,14 @@ def fnv1a(text: str) -> str:
     for b in text.encode("utf-8"):
         h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
     return f"{h:016x}"
+
+
+def mask(text: str) -> str:
+    """Our file with the product name and slug masked (as `mask` of crates/mzdraw/tests/fidelity.rs): the writers put the name in the
+    headers, and a rename of the product must not change the hash, only a change of the writer does."""
+    toml = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "brand.toml")).read()
+    name, slug, url = (re.search(rf'^{k} = "([^"]*)"', toml, re.M).group(1) for k in ("name", "slug", "pages_url"))
+    return text.replace(url, "\x03").replace(name, "\x01").replace(slug, "\x02")
 
 
 def stable(text: str) -> str:
@@ -225,7 +234,7 @@ def forward(row, tmp):
         if text is None:
             entry[name] = {"hash": None, "error": err, "inchikey_in": entry["inchikey_in"], "inchikey_out_rdkit": None, "inchikey_out_obabel": None, "lost": ["write_error"]}
             continue
-        e = {"hash": fnv1a(text), "inchikey_in": entry["inchikey_in"]}
+        e = {"hash": fnv1a(mask(text)), "inchikey_in": entry["inchikey_in"]}
         lost = set()
         rd = None
         if name in RDKIT_READS:
@@ -306,7 +315,7 @@ def reaction(pair, tmp):
         return f"{a[0]}+{b[0]}", None
     flip = req.pop("flip")
     text, err = replay(req)
-    e = {"request": req, "hash": fnv1a(text) if text else None}
+    e = {"request": req, "hash": fnv1a(mask(text)) if text else None}
     want = [key_of(inchi_of(Chem.MolFromSmiles(x[2]))) for x in ((b, a) if flip else (a, b))]
     e["inchikey_in"] = want
     got = None
@@ -440,7 +449,7 @@ def main():
                 "openbabel": version([OBABEL, "-V"]),
                 "inchi-1": version([INCHI1, "-?"]) if INCHI1 else "not measured",
             },
-            "hash": "fnv1a-64 of the text our writer gives (a change of one byte changes it)",
+            "hash": "fnv1a-64 of the text our writer gives, the product name and slug masked (a change of one byte changes it)",
             "layers": "InChI layers that differ in `lost`: f formula, c connectivity, h hydrogens, q/p charge, b/t/m/s stereo, i/r isotopes",
             "summary": summarise(fwd, rev, rxn),
         }

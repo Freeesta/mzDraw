@@ -1,7 +1,7 @@
 %PDF-1.7
 %‚„œ”
 1 0 obj
-<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(zzzzzz.json) 6 0 R (zzzzzz.mol) 8 0 R] >> >> >>
+<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(legacy.json) 6 0 R (legacy.mol) 8 0 R] >> >> >>
 endobj
 2 0 obj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
@@ -23,16 +23,16 @@ BT /F1 12 Tf 0.753 0.125 0.125 rg 60 30 Td (O) Tj ET
 endstream
 endobj
 6 0 obj
-<< /Type /Filespec /F (zzzzzz.json) /UF (zzzzzz.json) /EF << /F 7 0 R >> >>
+<< /Type /Filespec /F (legacy.json) /UF (legacy.json) /EF << /F 7 0 R >> >>
 endobj
 7 0 obj
 << /Type /EmbeddedFile /Subtype /application#2Fjson /Params << /Size 145 >> /Length 145 >>
 stream
-{"format":"zzzzzz/1","next":4,"atoms":[{"id":1,"el":"C","x":0.0,"y":0.0},{"id":2,"el":"O","x":1.0,"y":0.0}],"bonds":[{"id":3,"a":1,"b":2,"o":2}]}
+{"format":"legacy/1","next":4,"atoms":[{"id":1,"el":"C","x":0.0,"y":0.0},{"id":2,"el":"O","x":1.0,"y":0.0}],"bonds":[{"id":3,"a":1,"b":2,"o":2}]}
 endstream
 endobj
 8 0 obj
-<< /Type /Filespec /F (zzzzzz.mol) /UF (zzzzzz.mol) /EF << /F 9 0 R >> >>
+<< /Type /Filespec /F (legacy.mol) /UF (legacy.mol) /EF << /F 9 0 R >> >>
 endobj
 9 0 obj
 << /Type /EmbeddedFile /Subtype /chemical#2Fx-mdl-molfile /Params << /Size 299 >> /Length 299 >>
