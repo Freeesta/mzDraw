@@ -13,13 +13,14 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 In:
 - An atom label written as a group (`CO2H`, `OMe`, `CF3`, `NH2`, `NO2`, `SO3H`, `OAc`, the abbreviations of `label.rs` and any label the user types) is drawn so that its attachment atom faces the bond: when the bonds leave to the right of the atom, the label is written reversed by chemical units (`HO2C`, `MeO`, `F3C`, `H2N`, `O2N`, `HO3S`, `AcO`), with the attachment symbol centred on the atom as today.
 - A reversal table for multi-letter units (an abbreviation stays one unit: `Boc`, `Ph`, `Ac`, `Me` are never split) and the rule for digits (a count stays after its symbol: `CO2H` → `HO2C`).
+- The bond aims at the centre of the attachment symbol (its first letter, or the last letter of a reversed label), and that symbol's centre stands where the bond would end without a label (GR-2.1.5); counts and charges stay right of their own symbol (GR-2.1.6).
 - The same rule in the SVG and the canvas (one code path in `scene.rs`).
 
 Out (do not do here):
 - Charges moved off a crowded corner (separate), abbreviation expansion, label typing UI.
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.1 labels (IUPAC 2008 `*`: confirm the rule on the HTML edition https://iupac.qmul.ac.uk/drawing/drawing.html if the host is open; the rule itself is common journal practice)).
+- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.1 labels (IUPAC 2008 GR-2.1.5 bond aiming and GR-2.1.6 label reversal, read on https://iupac.qmul.ac.uk/drawing/drawing.html)).
 - `crates/mzdraw/src/label.rs` (abbreviation table), `crates/mzdraw/src/scene.rs` (label layout, `Painter::clear`), `crates/mzdraw/tests/labels.rs`, `crates/mzdraw/tests/crowding.rs`.
 
 ## Rules (from `CLAUDE.md`, binding)
@@ -29,6 +30,8 @@ Out (do not do here):
 - Branch `claude/arch-std-08-label-reversal` from `origin/main`; never push to `main`, never rebase, never force-push; merge `main` only on a real conflict. Open the PR ready for review and never merge it: the coordinator merges.
 - UI changes come with screenshots at deviceScaleFactor 2 in the PR. Keep touch, pen and keyboard in the e2e tests.
 - Keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice, "Not built" said plainly). Size: update `measured` in `tools/wasm-cap.toml` when the module moves. The owner lifted the size limit for now, but `cap` is still the owner's: if the module passes it, send the numbers to the coordinator and raise `cap` only on its answer, with the reason in the PR.
+- Rule 15 of `CLAUDE.md`, in full: 15. CLI-native and agent-first. mzDraw is born usable through the CLI (`mzlab-cli mol draw`) by people and above all by AI agents, to draw canvases of every kind as fast, as safely and as reproducibly as possible. Every feature is first a Rust command with a machine-readable form (`draw_edit/1` JSON ops, `--json` with stable keys, distinct exit codes, data on stdout and diagnostics on stderr, a `--dry-run` / validate mode, batch input and stdin streaming, deterministic bytes, no browser in the path); the page is one client of that same command set. A feature without a CLI route and a test that replays it natively is incomplete.
+- From the CLI rules of the prompts: ids are stable, every operation reports the ids it created and removed, a batch of operations is atomic (all or nothing).
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product.
 
 ## Work
