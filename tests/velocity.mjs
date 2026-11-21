@@ -13,6 +13,7 @@
 //   ["click", x, y]       press and release (a tap with touch)                         1 action
 //   ["drag", x0, y0, x1, y1]   press, move, release                                    1 action
 //   ["key", K]            one key on the canvas ("Enter", "Shift+Enter", "o", "Ctrl+z")  1 action
+//   (a path may carry "set": ["section.key=value", ...]: settings applied before its first step, not counted as actions)
 //   ["type", TEXT]        text typed into the field the last key opened, committed with Enter   1 action
 // Times are wall-clock of the page (the harness adds a few ms per step); a snapshot of the drawing after every step is taken outside
 // the timed window, and the time of a path is the sum of the timed windows up to the first step after which the drawing is the target.
@@ -166,6 +167,8 @@ async function run(task, want, touch) {
   const times = [], smiles = [], objects = [];
   let extra = 0;
   try {
+    // settings a path needs before its first action (`"set": ["pathway.derive=on"]`): configuration, not an action, so it is not counted
+    for (const setting of task.set || []) await pg.evaluate(x => /** @type {any} */ (window).MZDRAW.set(x), setting);
     for (const step of task.steps) {
       const t0 = performance.now();
       extra += await play(pg, cdp, cx, cy, step, touch);

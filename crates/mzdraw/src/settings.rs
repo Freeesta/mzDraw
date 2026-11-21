@@ -40,6 +40,9 @@ pub struct Style {
     pub pathway_order: crate::pathway::Order,
     /// `pathway.label`: what `pathway:label` writes on an arrow (`delta`, `mass`, `delta+mass`, `name+delta`).
     pub pathway_label: crate::steplabel::Mode,
+    /// `pathway.derive`: whether the page offers "Derive TP" (menu item and Shift+D). Off by default: the kill test of tp-03 did not
+    /// show the page route needs half the actions of copy-paste-and-edit. The command `tp:derive` is not gated.
+    pub pathway_derive: bool,
     /// One ink for every element instead of the element colours.
     pub mono: bool,
     /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
@@ -200,7 +203,13 @@ pub const FIELDS: [Field; 13] = [
 fn known(key: &str) -> bool {
     matches!(
         key,
-        "preset" | "colour" | "maps" | "pathway.dir" | "pathway.order" | "pathway.label"
+        "preset"
+            | "colour"
+            | "maps"
+            | "pathway.dir"
+            | "pathway.order"
+            | "pathway.label"
+            | "pathway.derive"
     ) || FIELDS.iter().any(|f| f.key == key)
 }
 
@@ -259,6 +268,7 @@ impl Default for Style {
             pathway_down: false,
             pathway_order: crate::pathway::Order::Id,
             pathway_label: crate::steplabel::Mode::Delta,
+            pathway_derive: false,
             mono: false,
             maps: true,
             unknown: Unknown::default(),
@@ -305,6 +315,7 @@ impl Style {
             pathway_down: false,
             pathway_order: crate::pathway::Order::Id,
             pathway_label: crate::steplabel::Mode::Delta,
+            pathway_derive: false,
             mono: true,
             maps: true,
             unknown: Unknown::default(),
@@ -374,13 +385,16 @@ impl Style {
         Ok(())
     }
 
-    /// Sets one key of the section `pathway` from its text (`--set pathway.<key>=<value>`): `dir` is `right` or `down`, `order` is
+    /// Sets one key of the section `pathway` from its text (`--set pathway.<key>=<value>`): `dir` is `right` or `down`, `derive` is `on` or `off` (the page's "Derive TP"), `order` is
     /// `id`, `mz` or `rt` (and `reverse-id`, for tests), the numbers are the fields `pathway.<key>` of `FIELDS`.
     pub fn set_pathway(&mut self, key: &str, value: &str) -> Result<(), &'static str> {
         match (key, value.trim()) {
             ("dir", "right") => self.pathway_down = false,
             ("dir", "down") => self.pathway_down = true,
             ("dir", _) => return Err("error.draw2.styleValue"),
+            ("derive", "on") => self.pathway_derive = true,
+            ("derive", "off") => self.pathway_derive = false,
+            ("derive", _) => return Err("error.draw2.styleValue"),
             ("order", v) => {
                 self.pathway_order =
                     crate::pathway::Order::parse(v).ok_or("error.draw2.styleValue")?
@@ -467,6 +481,12 @@ impl Style {
             Some("down") => true,
             Some(_) => return None,
         };
+        let derive = match g.s("pathway.derive").ok()?.as_deref() {
+            None => base.pathway_derive,
+            Some("on") => true,
+            Some("off") => false,
+            Some(_) => return None,
+        };
         let order = match g.s("pathway.order").ok()? {
             None => crate::pathway::Order::Id,
             Some(v) => crate::pathway::Order::parse_public(&v)?,
@@ -481,6 +501,7 @@ impl Style {
             pathway_down: down,
             pathway_order: order,
             pathway_label: label,
+            pathway_derive: derive,
             unknown,
             ..base
         };
@@ -510,6 +531,9 @@ impl Style {
         }
         if self.pathway_down {
             style.push(("pathway.dir".to_string(), text("down")));
+        }
+        if self.pathway_derive {
+            style.push(("pathway.derive".to_string(), text("on")));
         }
         if !matches!(
             self.pathway_order,

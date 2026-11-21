@@ -33,9 +33,30 @@ impl Structures {
     /// The pieces of `doc` and the box of each.
     pub fn new(doc: &Document, style: &Style) -> Structures {
         let pieces = crate::layout::pieces(doc);
-        let boxes = pieces.iter().map(|p| piece_box(doc, p, style)).collect();
-        let of_atom = (pieces.iter().enumerate())
+        let of_atom: std::collections::HashMap<u32, usize> = (pieces.iter().enumerate())
             .flat_map(|(i, p)| p.iter().map(move |&a| (a, i)))
+            .collect();
+        // the ink of a label depends on the atom and its bonds only, so each box is computed on a document of its own structure: the
+        // cost of the lookups is that of the structure, not of the drawing (one pass puts the atoms and the bonds in their piece)
+        let mut subs: Vec<Document> = pieces
+            .iter()
+            .map(|_| Document {
+                next: doc.next,
+                ..Document::default()
+            })
+            .collect();
+        for a in &doc.atoms {
+            if let Some(&i) = of_atom.get(&a.id) {
+                subs[i].atoms.push(a.clone());
+            }
+        }
+        for b in &doc.bonds {
+            if let Some(&i) = of_atom.get(&b.a) {
+                subs[i].bonds.push(b.clone());
+            }
+        }
+        let boxes = (pieces.iter().zip(&subs))
+            .map(|(p, sub)| piece_box(sub, p, style))
             .collect();
         Structures {
             pieces,
