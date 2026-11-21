@@ -10,7 +10,10 @@ use serde_json::{json, Value};
 
 /// Whether a command tells, in the result document, whether it changed the drawing (`changed`): `scheme:orient`, `pathway:anchor` and `pathway:route` do.
 pub(crate) fn reports_change(name: &str) -> bool {
-    matches!(name, "scheme:orient" | "pathway:anchor" | "pathway:route")
+    matches!(
+        name,
+        "scheme:orient" | "pathway:anchor" | "pathway:route" | "pathway:label"
+    )
 }
 
 /// Whether `name` is a command of this editor.
@@ -24,6 +27,7 @@ pub(crate) fn known(name: &str) -> bool {
             | "pathway:anchor"
             | "pathway:route"
             | "pathway:tree"
+            | "pathway:label"
             | "scheme:orient"
             | "tp:derive"
             | "tp:import"
@@ -59,6 +63,9 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     }
     if name == "scheme:row" {
         return crate::scheme::Opts::parse(args).map(|_| ());
+    }
+    if name == "pathway:label" {
+        return crate::steplabel::Opts::parse(args).map(|_| ());
     }
     if name == "pathway:tree" {
         return (args.as_object().is_some_and(|o| o.is_empty()))
@@ -234,6 +241,10 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
         let ops = crate::scheme::row(e.doc(), &e.style, &opts).map_err(bad)?;
         let ops = e.following(&ops);
         return e.run_guarded(&ops);
+    }
+    if name == "pathway:label" {
+        let opts = crate::steplabel::Opts::parse(args).map_err(bad)?;
+        return e.pathway_label(&opts).map(|_| ());
     }
     if name == "pathway:tree" {
         let ops = crate::pathway::command(e.doc(), &e.style).map_err(|r| OpError {

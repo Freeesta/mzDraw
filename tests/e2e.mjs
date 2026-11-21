@@ -911,6 +911,46 @@ try {
     await pg.click("#d2-style-more summary");                                  // folded again, as it was found
   });
 
+  await step("pathway: the button Label arrows writes the formula differences by mouse, keyboard and the canvas menu; the SVG equals the golden; the person's text is kept and painted as typed; the minus is painted as U+2212 and stored as ASCII; one undo step (tp-07)", async () => {
+    const lg = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway-label.json"), "utf8"));
+    const g = lg.cases[0], PL = '[data-testid="d2-pathway-label"]';
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "pathway-label"); await frames(pg);                          // nothing anchored
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.labelNone', {})"));
+    await openDoc(pg, g.request.import, 13);
+    const before = await saved(pg);
+    await shot(pg, "tp-07-labels-before");
+    await tool(pg, "pathway-label"); await frames(pg);                          // mouse
+    eq(await saved(pg), g.out.mzdraw); eq(await saved(pg, "svg"), g.out.svg);
+    // the data keeps the ASCII minus (the document and its log), the painted text has the true one (U+2212), and the person's texts are painted as typed
+    const svg = await saved(pg, "svg");
+    assert(svg.includes(">\u2212O<") && !svg.includes(">-O<") && svg.includes(">+CH2<") && svg.includes(">hydroxylation (CYP)<"), "the labels are painted, the minus is the true one");
+    assert(JSON.parse(await saved(pg)).objects.some(o => o.text === "-O"), "the data holds the ASCII minus");
+    eq(await pg.innerText("#d2-live"), "Arrows labelled: 4 arrows, 2 kept with your text, none skipped.");
+    const log = JSON.parse(await saved(pg, "log")), native = JSON.parse(g.out.log);
+    assert(log.length > 0 && log.every(o => o.op === "obj.set"), "the log holds obj.set operations only");
+    eq(log, native.slice(native.length - log.length));
+    await tool(pg, "fit"); await frames(pg);
+    await shot(pg, "tp-07-labels-delta");
+    await tool(pg, "undo"); eq(await saved(pg), before);                        // one step
+    await reveal(pg, PL); await pg.focus(PL); await pg.keyboard.press("Enter"); await frames(pg);       // keyboard
+    eq(await saved(pg), g.out.mzdraw);
+    await tool(pg, "undo"); eq(await saved(pg), before);
+    await pg.evaluate("window.MZDRAW.pan(0, 500)"); await tool(pg, "select"); await frames(pg);          // an empty spot at the middle of the canvas
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await pg.keyboard.press("ContextMenu");   // the canvas menu
+    await until(pg, 'document.getElementById("d2-menu").hidden === false');
+    const item = '[data-testid="d2-ctx-pathway.label"]';
+    eq(await pg.innerText(item + " .n"), await pg.evaluate("I18N.t('draw2.ctx.pathway.label')"));
+    await pg.focus(item); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await saved(pg), g.out.mzdraw);
+    await tool(pg, "undo"); eq(await saved(pg), before);
+    // `pathway.label` offers no select: its other words always fail until the mass callback exists (the refusals are in the golden results)
+    await pg.click("#d2-style-more summary");
+    eq(await pg.locator('[id="d2-style-pathway.label"]').count(), 0);
+    await tool(pg, "clear");
+    await pg.click("#d2-style-more summary");
+  });
+
   await step("style: a preset or your own values change the screen and the saved SVG, in points, and not the document; the settings file is saved and opened", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0, style: "mzlab" });
     await pg.fill("#d2-text", "C[C@H](N)C(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 6 });
@@ -1398,6 +1438,28 @@ try {
     await reveal(pg, PT); await pg.tap(PT); await frames(pg);
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.schemeCycle')"));
     eq(await saved("mzdraw"), before);
+    await tool(pg, "clear");
+  });
+
+  await step("tablet with touch and a pen: the button Label arrows writes the labels by a tap and by a pen, keeps the person's text, and each press is undone (tp-07)", async () => {
+    const lg = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway-label.json"), "utf8")).cases[0];
+    const PL = '[data-testid="d2-pathway-label"]';
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.evaluate(t => /** @type {any} */ (window).MZDRAW.open(t), lg.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg);
+    const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await reveal(pg, PL); await pg.tap(PL); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), lg.out.mzdraw); eq(await pg.evaluate("window.MZDRAW.save('svg')"), lg.out.svg);
+    await shot(pg, "tp-07-labels-touch");
+    await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), before);
+    const cdp = await pg.context().newCDPSession(pg);
+    await reveal(pg, PL);
+    const b = await pg.locator(PL).boundingBox(), px = b.x + b.width / 2, py = b.y + b.height / 2;
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: px, y: py, pointerType: "pen", button: "none", buttons: 0 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: px, y: py, pointerType: "pen", button: "left", buttons: 1, clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: px, y: py, pointerType: "pen", button: "left", buttons: 0, clickCount: 1 });
+    await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), lg.out.mzdraw);
+    await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), before);
     await tool(pg, "clear");
   });
 
@@ -2219,16 +2281,19 @@ try {
     await tool(pg, "undo"); await want(pg, { atoms: 0, objects: 0 });                 // one import is one undo step
     await tool(pg, "redo"); await tp8Same("redo");
   });
-  await step("tp:import by touch (a touch layout): the CSV is opened with the file field; the page equals the golden; one undo step", async () => {
-    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));   // a fresh page: the ids start at 1 as in the golden
+  await step("tp:import by touch (a tablet): Open a file is tapped and the CSV chosen; the page equals the golden; one undo step", async () => {
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));   // a tablet page of its own: the ids start at 1 as in the golden
     await want(pg, { atoms: 0 });
-    await pg.setInputFiles("#d2-file", { name: "tps.csv", mimeType: "text/csv", buffer: Buffer.from(tp8Csv) });   // the file field of the page, as the button of a touch layout opens it
-    await until(pg, `${STATE}.atoms > 0`); await tool(pg, "fit"); await frames(pg);
+    const ob = await pg.locator('[data-testid="d2-open"]').boundingBox();
+    const [chooser] = await Promise.all([pg.waitForEvent("filechooser"), pg.touchscreen.tap(ob.x + ob.width / 2, ob.y + ob.height / 2)]);      // Open a file, by a tap
+    await chooser.setFiles({ name: "tps.csv", mimeType: "text/csv", buffer: Buffer.from(tp8Csv) });
+        await until(pg, `${STATE}.atoms > 0`); await tool(pg, "fit"); await frames(pg);
     await tp8Same("touch");
     await tool(pg, "undo"); await want(pg, { atoms: 0, objects: 0 });
   });
   await step("tp:import refuses a list with a bad SMILES, an unknown parent and a cycle in words, adds nothing, and the drawing before it stays", async () => {
-    await tool(pg, "clear"); await pg.fill("#d2-text", "CCO"); await pg.click("#d2-add"); await want(pg, { atoms: 3 });
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));   // the Add field is on the page of a desktop
+    await pg.fill("#d2-text", "CCO"); await pg.click("#d2-add"); await want(pg, { atoms: 3 });
     const before = await tp8Doc();
     await pg.fill("#d2-text", tp8Bad); await pg.focus("#d2-add"); await pg.keyboard.press("Enter");
     await until(pg, "document.querySelector('#d2-note').textContent.length > 0");

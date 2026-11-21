@@ -40,6 +40,8 @@ pub struct Style {
     pub pathway_order: crate::pathway::Order,
     /// `pathway.number`: the order `tp:number` numbers the transformation products in.
     pub pathway_number: crate::tp_list::Number,
+    /// `pathway.label`: what `pathway:label` writes on an arrow (`delta`, `mass`, `delta+mass`, `name+delta`).
+    pub pathway_label: crate::steplabel::Mode,
     /// `pathway.derive`: whether the page offers "Derive TP" (menu item and Shift+D). Off by default: the kill test of tp-03 did not
     /// show the page route needs half the actions of copy-paste-and-edit. The command `tp:derive` is not gated.
     pub pathway_derive: bool,
@@ -208,13 +210,14 @@ fn known(key: &str) -> bool {
             | "maps"
             | "pathway.dir"
             | "pathway.order"
+            | "pathway.label"
             | "pathway.derive"
             | "pathway.number"
     ) || FIELDS.iter().any(|f| f.key == key)
 }
 
 /// The keys of the settings that take a word: the key, the words (the first is the default) as `--set` and the settings file read
-/// them. `pathway.order` has `id`, `mz` and `rt` here; `reverse-id` is for the tests of the layout and is not offered.
+/// them (`pathway.label` is not offered here: only `delta` can run, and a select of words that always fail is not shown). `pathway.order` has `id`, `mz` and `rt` here; `reverse-id` is for the tests of the layout and is not offered.
 const CHOICES: &str = r#"{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"},{"key":"pathway.number","values":["layout","mz","rt"],"default":"layout"}"#;
 
 /// The schema of the settings file as JSON, for the surfaces that show or document it (the fields of the page, the help of the
@@ -268,6 +271,7 @@ impl Default for Style {
             pathway_down: false,
             pathway_order: crate::pathway::Order::Id,
             pathway_number: crate::tp_list::Number::Layout,
+            pathway_label: crate::steplabel::Mode::Delta,
             pathway_derive: false,
             mono: false,
             maps: true,
@@ -315,6 +319,7 @@ impl Style {
             pathway_down: false,
             pathway_order: crate::pathway::Order::Id,
             pathway_number: crate::tp_list::Number::Layout,
+            pathway_label: crate::steplabel::Mode::Delta,
             pathway_derive: false,
             mono: true,
             maps: true,
@@ -403,6 +408,10 @@ impl Style {
                 self.pathway_order =
                     crate::pathway::Order::parse(v).ok_or("error.draw2.styleValue")?
             }
+            ("label", v) => {
+                self.pathway_label =
+                    crate::steplabel::Mode::parse(v).ok_or("error.draw2.styleValue")?
+            }
             (k, _) => {
                 let full = format!("pathway.{k}");
                 if !FIELDS.iter().any(|f| f.key == full) {
@@ -420,6 +429,7 @@ impl Style {
             "pathway.dir" => Some(if self.pathway_down { "down" } else { "right" }),
             "pathway.order" => Some(self.pathway_order.name()),
             "pathway.number" => Some(self.pathway_number.name()),
+            "pathway.label" => Some(self.pathway_label.name()),
             _ => None,
         }
     }
@@ -495,12 +505,17 @@ impl Style {
             None => crate::tp_list::Number::Layout,
             Some(v) => crate::tp_list::Number::parse(&v)?,
         };
+        let label = match g.s("pathway.label").ok()?.as_deref() {
+            None => crate::steplabel::Mode::Delta,
+            Some(v) => crate::steplabel::Mode::parse(v)?,
+        };
         let mut s = Style {
             pathway_number: number,
             mono: colour,
             maps,
             pathway_down: down,
             pathway_order: order,
+            pathway_label: label,
             pathway_derive: derive,
             unknown,
             ..base
@@ -546,6 +561,9 @@ impl Style {
                 "pathway.number".to_string(),
                 text(self.pathway_number.name()),
             ));
+        }
+        if self.pathway_label != crate::steplabel::Mode::Delta {
+            style.push(("pathway.label".to_string(), text(self.pathway_label.name())));
         }
         for f in &FIELDS {
             style.push((f.key.to_string(), num(f.of(self))));

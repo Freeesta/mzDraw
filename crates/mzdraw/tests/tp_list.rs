@@ -175,10 +175,33 @@ fn every_kind_of_row_failure_has_its_key() {
     let key = |csv: &str| rows(csv)[0].1.clone();
     assert_eq!(key("smiles,mz\nCCO,abc\n"), "error.draw2.tpRowNumber");
     assert_eq!(key("smiles,mz\nCCO,-1\n"), "error.draw2.tpRowNumber");
-    assert_eq!(
-        key("smiles,adduct\nCCO,[M+X]+\n"),
-        "error.draw2.tpRowAdduct"
-    );
+    for bad in [
+        "M+H+",
+        "[M++H]+",
+        "[M+H]",
+        "[MH]+",
+        "[M+H]3",
+        "[M+H]123+",
+        "[M+H -H2O]+",
+        "[M+H-]+",
+    ] {
+        assert_eq!(
+            key(&format!("smiles,adduct\nCCO,{bad}\n")),
+            "error.draw2.tpRowAdduct",
+            "{bad}"
+        );
+    }
+    for good in [
+        "[M+H]+",
+        "[M+H-NH3]+",
+        "[M+2H]2+",
+        "[M-H]-",
+        "[M]+",
+        "[M+CH3COO]-",
+        "[M+H-H2O]+",
+    ] {
+        assert!(tp_list::adduct_ok(good), "{good}");
+    }
     assert_eq!(key("smiles,level\nCCO,2 b\n"), "error.draw2.tpRowLevel");
     assert_eq!(key("smiles,name\nCCO,A\nCCN,A\n"), "error.draw2.tpRowDup");
     assert_eq!(key("smiles,name\nCCO,A;B\n"), "error.draw2.tpRowName");
@@ -245,13 +268,13 @@ fn a_list_above_the_bounds_is_refused_by_its_size() {
         &Default::default(),
         &Input::Csv(&many),
     );
-    assert_eq!(e, Err(Failure::Key("error.draw2.tpSize", 0)));
+    assert_eq!(e, Err(Failure::Key("error.draw2.tpListSize", 0)));
     let big = format!("smiles,name\nC,{}\n", "x".repeat(1_000_001));
     let e = tp_list::import_ops(&Document::default(), &Default::default(), &Input::Csv(&big));
-    assert_eq!(e, Err(Failure::Key("error.draw2.tpSize", 0)));
+    assert_eq!(e, Err(Failure::Key("error.draw2.tpListSize", 0)));
     // 10,000 rows is allowed by the bound (no parent: no layout, the cost is the rows')
     let ten: String = std::iter::once("smiles\n".to_string())
-        .chain((0..10_000).map(|_| "CO\n".to_string()))
+        .chain((0..10_000).map(|_| "C\n".to_string()))
         .collect();
     let t = Instant::now();
     let ok = tp_list::import_ops(&Document::default(), &Default::default(), &Input::Csv(&ten));
@@ -459,4 +482,88 @@ fn more_than_a_thousand_linked_structures_are_refused_quickly_and_change_nothing
     assert_eq!(err.key, "error.draw2.schemeSize");
     assert!(e.doc().atoms.is_empty());
     assert!(t.elapsed().as_secs_f64() < 20.0);
+}
+
+fn refusal(csv: &str) -> (Failure, f64) {
+    let t = Instant::now();
+    let r = tp_list::import_ops(&Document::default(), &Default::default(), &Input::Csv(csv));
+    (r.expect_err("refused"), t.elapsed().as_secs_f64())
+}
+
+#[test]
+fn one_huge_row_is_refused_by_its_text_before_any_structure_is_built() {
+    // the reader is not linear in a row: 16,000 atoms took seconds, 900 KB did not finish. The size is read from the text, so
+    // the cost is the text's, in debug and in release, and it does not grow with the row
+    for n in [501usize, 16_000, 900_000] {
+        let (f, secs) = refusal(&format!("smiles\n{}\n", "C".repeat(n)));
+        assert_eq!(
+            f,
+            Failure::Rows(vec![(2, "error.draw2.tpRowSize".to_string())]),
+            "{n} atoms"
+        );
+        assert!(secs < 1.0, "{n} atoms took {secs:.3} s");
+    }
+    // the same for rings written as bracket atoms, two-letter elements and long text
+    let (f, _) = refusal(&format!("smiles\n{}\n", "[CH2]".repeat(600)));
+    assert_eq!(
+        f,
+        Failure::Rows(vec![(2, "error.draw2.tpRowSize".to_string())])
+    );
+    let (f, _) = refusal(&format!("smiles\n{}\n", "Cl".repeat(600)));
+    assert_eq!(
+        f,
+        Failure::Rows(vec![(2, "error.draw2.tpRowSize".to_string())])
+    );
+    let (f, _) = refusal(&format!("smiles\n{}\n", "C1".repeat(4000)));
+    assert_eq!(
+        f,
+        Failure::Rows(vec![(2, "error.draw2.tpRowSize".to_string())])
+    );
+}
+
+#[test]
+fn many_large_rows_are_refused_by_the_total_before_any_structure_is_built() {
+    // 3,000 rows of 400 atoms each pass the row cap and are 1.2 million atoms in all: refused on the count of the text
+    let row = "C".repeat(400);
+    let csv: String = std::iter::once("smiles\n".to_string())
+        .chain((0..3000).map(|_| format!("{row}\n")))
+        .collect();
+    let (f, secs) = refusal(&csv);
+    assert_eq!(f, Failure::Key("error.draw2.tpListSize", 0));
+    assert!(secs < 1.0, "took {secs:.3} s");
+    // and a list at the total is imported, in a time that does not grow past a second or two (30 rows of 500 atoms is 15,000)
+    let ok: String = std::iter::once("smiles\n".to_string())
+        .chain((0..30).map(|_| format!("{}\n", "C".repeat(500))))
+        .collect();
+    let t = Instant::now();
+    assert!(
+        tp_list::import_ops(&Document::default(), &Default::default(), &Input::Csv(&ok)).is_ok()
+    );
+    let secs = t.elapsed().as_secs_f64();
+    println!("15,000 atoms in 30 rows: {secs:.3} s");
+    if !cfg!(debug_assertions) {
+        assert!(secs < 2.0, "15,000 atoms took {secs:.3} s");
+    }
+    // one atom more than the total is refused
+    let over: String = std::iter::once("smiles\n".to_string())
+        .chain((0..30).map(|_| format!("{}\n", "C".repeat(500))))
+        .chain(std::iter::once("C\n".to_string()))
+        .collect();
+    let (f, _) = refusal(&over);
+    assert_eq!(f, Failure::Key("error.draw2.tpListSize", 0));
+}
+
+#[test]
+fn the_arrows_of_the_import_carry_the_formula_delta_of_their_two_structures() {
+    let e = import(TP12).unwrap_or_else(|b| panic!("{:?}", b.1));
+    let text: Vec<&str> = e
+        .doc()
+        .objects
+        .iter()
+        .filter(|o| o.from != 0)
+        .map(|o| o.text.as_str())
+        .collect();
+    assert_eq!(text.len(), 12);
+    assert!(text.iter().all(|t| !t.is_empty()), "{text:?}");
+    assert!(text.contains(&"+O"), "a hydroxylation is +O: {text:?}");
 }

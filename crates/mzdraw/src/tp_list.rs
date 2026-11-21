@@ -8,13 +8,13 @@
 //!
 //! **Data kept on the structure** (the SDF data of the structure, `atom.data`, on one atom of it; the names are a document
 //! convention that mzLab's CLI reads, listed in `FIELDS`, in this order): `TP_ID` (the shown name), `MZ` (observed m/z, as typed),
-//! `RT` (minutes, as typed), `ADDUCT` (one of `ADDUCTS`), `AREA` (optional, never drawn). The confidence level is the annotation
+//! `RT` (minutes, as typed), `ADDUCT` (a word of the form `[M+H]+`, `adduct_ok`), `AREA` (optional, never drawn). The confidence level is the annotation
 //! (`ann`), on the scale it belongs to.
 //!
 //! **Atomic.** Every row is checked first; when any fails nothing is built and the failing rows are returned, every one of them, in
 //! line order, each with its i18n key. Then one list of plain operations (`draw_edit/1`) is made on a copy of the drawing: the
-//! structures and the anchored arrows, `scheme:orient` on each parent -> product pair, the tree layout of `pathway:tree`, and the
-//! names of the rows that had none. The caller runs that list as one undo step, so a log of it replays to the same bytes.
+//! structures and the anchored arrows, `scheme:orient` on each parent -> product pair, the tree layout of `pathway:tree`, the labels
+//! of the arrows (`pathway:label`) and the names of the rows that had none. The caller runs that list as one undo step, so a log of it replays to the same bytes.
 //!
 //! **Numbering** (`number_ops`, the command `tp:number`): `TP1`, `TP2`, ... in the order of the setting `pathway.number` (`layout`:
 //! by layer, then by position in the layer; `mz`; `rt`). A root keeps its name; a name that is not `TP<n>` is kept unless `force`.
@@ -32,35 +32,49 @@ pub const COLUMNS: [&str; 8] = [
     "smiles", "name", "parent", "mz", "rt", "adduct", "level", "area",
 ];
 
-/// The adducts a row may name (the table of the m/z values of the editor): the key `ADDUCT` holds one of these words.
-pub const ADDUCTS: [&str; 14] = [
-    "[M+H]+",
-    "[M+Na]+",
-    "[M+K]+",
-    "[M+NH4]+",
-    "[M+H-H2O]+",
-    "[M+2H]2+",
-    "[M]+",
-    "[M-H]-",
-    "[M+Cl]-",
-    "[M+HCOO]-",
-    "[M+CH3COO]-",
-    "[M-H-H2O]-",
-    "[M-2H]2-",
-    "[M]-",
-];
+/// Whether a word has the form of an adduct, `[M<terms>]<n><+|->` (`[M+H]+`, `[M+H-H2O]+`, `[M+2H]2+`, `[M-H]-`, `[M]-`): at most 32 characters of letters, digits and signs, every sign followed by a letter or
+/// a digit, a charge of up to two digits and a sign after the bracket. It is a syntax check only: whether the adduct is a known one,
+/// and whether the m/z fits the structure, are not judged here (the table of adducts is chemistry and is not held by this crate).
+pub fn adduct_ok(a: &str) -> bool {
+    if a.len() > 32 || !a.starts_with("[M") {
+        return false;
+    }
+    let Some(close) = a.find(']') else {
+        return false;
+    };
+    let inner = &a.as_bytes()[2..close];
+    if !inner
+        .iter()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'+' | b'-'))
+    {
+        return false;
+    }
+    for (i, &c) in inner.iter().enumerate() {
+        let sign = matches!(c, b'+' | b'-');
+        if (i == 0 && !sign) || (sign && !inner.get(i + 1).is_some_and(u8::is_ascii_alphanumeric)) {
+            return false;
+        }
+    }
+    let tail = &a[close + 1..];
+    let digits = tail.bytes().take_while(u8::is_ascii_digit).count();
+    digits <= 2 && matches!(&tail[digits..], "+" | "-")
+}
 
 /// Rows and bytes of one list, the atoms of one row and of all rows.
 pub const MAX_ROWS: usize = 10_000;
 pub const MAX_BYTES: usize = 1_000_000;
 pub const MAX_ATOMS: usize = 500;
-pub const MAX_TOTAL_ATOMS: usize = 100_000;
+/// (The document finds an atom or a bond by scanning, so adding n atoms costs about n squared: 15,000 atoms import in under a second in
+/// release, 30,000 in five. The cap is that cost's, not a limit of the format.)
+pub const MAX_TOTAL_ATOMS: usize = 15_000;
+/// The longest SMILES of a row, in characters (500 atoms with their rings, branches and bonds fit well within it).
+pub const MAX_SMILES: usize = 5_000;
 
 /// The keys of a refused list (the rows have their own, `error.draw2.tpRow...`).
 pub const KEY_ROWS: &str = "error.draw2.tpRows";
 const KEY_EMPTY: &str = "error.draw2.tpEmpty";
 const KEY_HEADER: &str = "error.draw2.tpHeader";
-const KEY_SIZE: &str = "error.draw2.tpSize";
+const KEY_SIZE: &str = "error.draw2.tpListSize";
 const KEY_ARGS: &str = "error.draw2.request";
 
 const ROW_SHAPE: &str = "error.draw2.tpRowShape";
@@ -376,7 +390,7 @@ fn row_problem(row: &Row) -> Option<&'static str> {
     {
         return Some(ROW_NUMBER);
     }
-    if !row.adduct.is_empty() && !ADDUCTS.contains(&row.adduct.as_str()) {
+    if !row.adduct.is_empty() && !adduct_ok(&row.adduct) {
         return Some(ROW_ADDUCT);
     }
     if !row.level.is_empty() && level_ann(&row.level).is_none() {
@@ -385,10 +399,46 @@ fn row_problem(row: &Row) -> Option<&'static str> {
     None
 }
 
+/// An upper bound of the atoms a SMILES draws, counted in its text without reading it as a molecule: a bracket atom is one, so are
+/// `*`, a letter that starts an element (`Cl` and `Br` are one) and an aromatic `b c n o p s`. It lets a row that is too large be
+/// refused before any structure is built (the reader is not linear in a row, and a hostile row must not be slow).
+fn atoms_in(smiles: &str) -> usize {
+    let b = smiles.as_bytes();
+    let (mut n, mut i) = (0usize, 0usize);
+    while i < b.len() {
+        match b[i] {
+            b'[' => {
+                n += 1;
+                while i < b.len() && b[i] != b']' {
+                    i += 1;
+                }
+            }
+            b'*' => n += 1,
+            b'C' if b.get(i + 1) == Some(&b'l') => {
+                n += 1;
+                i += 1;
+            }
+            b'B' if b.get(i + 1) == Some(&b'r') => {
+                n += 1;
+                i += 1;
+            }
+            c if c.is_ascii_uppercase() || matches!(c, b'b' | b'c' | b'n' | b'o' | b'p' | b's') => {
+                n += 1
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    n
+}
+
 /// The structure of a row: the drawing of its SMILES (coordinates computed by the door a SMILES text takes), one connected piece
 /// of 1 to `MAX_ATOMS` atoms.
 fn structure(row: &Row) -> Result<Document, &'static str> {
     let s = &row.smiles;
+    if s.len() > MAX_SMILES || atoms_in(s) > MAX_ATOMS {
+        return Err(ROW_SIZE);
+    }
     if s.is_empty() || s.chars().any(char::is_whitespace) || s.starts_with(['{', '<']) {
         return Err(ROW_SMILES);
     }
@@ -620,6 +670,15 @@ pub fn import_ops(doc: &Document, style: &Style, input: &Input) -> Result<Vec<Op
             fail.insert(r.line, ROW_DUP);
         }
     }
+    // the atoms of the whole list, counted in the text before any structure is built
+    // (a row above the row cap is refused by itself below: it counts for the cap, not for its size)
+    let pre: usize = rows
+        .iter()
+        .map(|r| atoms_in(&r.smiles).min(MAX_ATOMS))
+        .sum();
+    if pre > MAX_TOTAL_ATOMS {
+        return Err(Failure::Key(KEY_SIZE, 0));
+    }
     let mut docs: Vec<Option<Document>> = Vec::with_capacity(rows.len());
     let mut total = 0usize;
     for r in &rows {
@@ -682,7 +741,7 @@ pub fn import_ops(doc: &Document, style: &Style, input: &Input) -> Result<Vec<Op
     }
     let mut next = base + 1;
     let mut arrows = 0usize;
-    for (i, r) in rows.iter().enumerate() {
+    for i in 0..rows.len() {
         let mut seen = BTreeSet::new();
         for &j in &links[i] {
             if !seen.insert(j) {
@@ -702,7 +761,6 @@ pub fn import_ops(doc: &Document, style: &Style, input: &Input) -> Result<Vec<Op
             next += 1;
             arrows += 1;
         }
-        let _ = r;
     }
     // on a copy, so that each step sees the drawing the steps before it made
     let mut scratch = doc.clone();
@@ -719,6 +777,15 @@ pub fn import_ops(doc: &Document, style: &Style, input: &Input) -> Result<Vec<Op
             crate::pathway::command(&scratch, style).map_err(|r| Failure::Key(r.key(), r.id()))?;
         scratch.apply(&tree).map_err(key)?;
         ops.extend(tree);
+        // the label of each arrow: the formula delta of the two structures (`pathway:label`, the mode `pathway.label`)
+        let labels = crate::steplabel::plan(
+            &scratch,
+            style.pathway_label,
+            &crate::steplabel::Opts::default(),
+        )
+        .map_err(key)?;
+        scratch.apply(&labels.ops).map_err(key)?;
+        ops.extend(labels.ops);
     }
     // the rows with no name: the smallest numbers that no structure has, in the order of `pathway.number` (the order of the rows
     // when there is no pathway)
