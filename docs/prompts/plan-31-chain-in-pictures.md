@@ -16,7 +16,8 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 In:
 - The SVG the editor saves carries `<metadata id="mzdraw-chain">` with `chain/1` (plan-30), next to the document's metadata. The PNG carries an `iTXt` chunk with its own keyword next to the document's.
 - **Empty or absent log**: no element and no chunk, so pictures saved without edits stay byte-identical. Goldens whose request has a non-empty log and saves an SVG or PNG move: bless them and list them.
-- **Open, then save**: when a picture that carries a chain is opened, the new session starts its own chain from the opened document (`h0` of plan-30). The carried head is kept as `parent` in the new `chain/1`, so the lineage is one hop back; nothing older is stored.
+- **Open, then save with an empty log**: the empty-log rule wins. No element is written and the carried head (the `parent`) is not kept, because nothing was edited and the picture's document is the opened one. Say so in the doc section.
+- **Open, edit, then save**: when a picture that carries a chain is opened and then edited, the new session starts its own chain from the opened document (`h0` of plan-30). The carried head is kept as `parent` in the new `chain/1`, so the lineage is one hop back; nothing older is stored.
 - **Clean export**: a setting `export.chain` (`on` by default, `off`), read through the settings table. The journal profiles of arch-std-16 set it to `off`, because a submitted figure carries no provenance metadata. With `off`, nothing is written.
 
 Out (do not do here):
@@ -53,7 +54,7 @@ No `draw_edit/1` op. One row for the setting `export.chain` in the settings tabl
 ## Tests to add
 - Empty log: the saved SVG and PNG are byte-identical to today's.
 - Non-empty log: the element's head equals plan-30's `out:chain`.
-- Open a picture that carries a chain, edit, save: the new `chain/1` has `parent` equal to the old head.
+- Open a picture that carries a chain, edit, save: the new `chain/1` has `parent` equal to the old head. Open it and save with no edit: no element, so the parent is not kept.
 - `export.chain=off`, and an arch-std-16 journal profile: no element.
 - **Fails without the change**: no element exists before the slice.
 

@@ -28,14 +28,14 @@ Out (do not do here):
 - Recording the head in mzLab's `prov/1` (COO 16's decision; ask once through the coordinator).
 
 ## CLI twin (rule 15)
-- `{"import":...,"log":[...],"out":"chain"}`; `{"log":[...],"expect":[{"chain":"HEX"}]}`. Native replay test with the page's bytes for the parity cases.
+- `{"import":...,"log":[...],"out":"chain"}`; `{"log":[...],"expect":[{"chain":"HEX"}]}`. The answer carries the request `id` (or the batch index `n`) as plan-20's second key (E26). Native replay test with the page's bytes for the parity cases.
 
 ## Context (read first)
 - `CLAUDE.md`, `docs/mzdraw.md` ("Leaving the repo", the dependency guard), `docs/plan/backlog.md` §10.
 - `ops.rs` (`Op::write`), `replay.rs`, `outcome.rs` (plan-20); `mzlab-mol` `Cargo.toml` and `codec.rs` at the pin.
 
 ## Agreement needed before the PR
-No `draw_edit/1` op. Rows in the `request` section of plan-01's table: the output `chain` and the `expect` arm `chain` (D13). The direct `sha2` dependency is decided (D25).
+No `draw_edit/1` op. Rows in the `request` section of plan-01's table: the output `chain` and the `expect` arm `chain` (D13). Nothing else to ask.
 
 ## Rules (from `CLAUDE.md`, binding)
 - English only everywhere. All logic is in Rust; `web/*.js` only forwards events and paints, and decides nothing. No new crate or npm package unless the PR states why.

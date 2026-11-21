@@ -16,7 +16,7 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 In:
 - A new module `crates/mzdraw/src/grant.rs`; request field `"grant":{...}`:
   - `atoms` (ids) or `select` (a plan-24 selector, after it merges): the scope (below);
-  - `ops`: the op names or op classes allowed. This PR adds a `class` column to plan-01's `OpSpec` table (D22): `geometry` = `move`, `rotate`, `flip`, `atoms.xy`; `atoms` = `atom.add`, `atom.set`, `atom.ann`, `atom.data`; `bonds` = `bond.add`, `bond.set`; `objects` = `obj.add`, `obj.set`; `structure` = `remove`, `ring`; each later op names its class in its row;
+  - `ops`: the op names or op classes allowed. This PR adds a `class` column to plan-01's `OpSpec` table (D22): classes over the ops `ops.rs` has today: `geometry` = `move`, `rotate`, `flip`; `atoms` = `atom.add`, `atom.set`, `atom.ann`, `atom.data`; `bonds` = `bond.add`, `bond.set`; `objects` = `obj.add`, `obj.set`; `structure` = `remove`, `ring`. Each later op names its class in its own row when it is added (E25): for example `atoms.xy` (arch-std-15) is `geometry`, `merge` (arch-web-09) is `structure`;
   - `max`: the most ops;
   - `each`: optional plan-20 `expect` arms checked after EVERY op (the fourth report's per-op contracts; no new op);
   - `settings`: `false` by default. Under a grant, the request fields that change anything outside the log (`style`, `set`) are refused (exit 2) unless `settings` is `true`. `import` is the document the grant is about.
@@ -36,7 +36,7 @@ Out (do not do here):
 - Grants stored in the document.
 
 ## CLI twin (rule 15)
-- `{"import":DOC,"grant":{"atoms":[3,4,5],"ops":["atoms","bonds"],"max":5},"log":[...]}`; exit 0, or 1 with `draw-result/1`. Native replay test.
+- `{"import":DOC,"grant":{"atoms":[3,4,5],"ops":["atoms","bonds"],"max":5},"log":[...]}`; exit 0, or 1 with `draw-result/1`. The answer carries the request `id` (or the batch index `n`) as plan-20's second key (E26). Native replay test.
 - Add feature `grant` to plan-19's runner (D21) with the adversarial set below.
 
 ## Context (read first)

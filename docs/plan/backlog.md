@@ -498,7 +498,7 @@ Same columns as §4 and §9.4.
 | 76 | plan-27 | goal → canonical patch (`goal`, `budget`) | N | M | plan-01, plan-20 (E21); kinds gated (plan-13, web-19/18, plan-24) | new `plan.rs` | request row (`goal`, `budget`; key `patch` and stage `plan` via E21) | RDKit canonical SMILES |
 | 77 | plan-28 | scope grant + per-op contracts | N | M | plan-20; plan-24 optional | new `grant.rs` + `touches` arms in `ops.rs` + `class` column in `schema.rs` | request row (`grant`, class column, stage `grant`) | property: bytes outside the scope unchanged; `touches` checked against real differences |
 | 78 | plan-29 | stereo tier: noted never assumed, `tierUndefined`, digest `centres` | N | S–M | std-12, std-19 (E20), plan-22, plan-23 | readers (`io.rs`), conform, `digest.rs` | request row (`expect` arm, digest key `centres`) | InChI stereo flags by RDKit (meaning not verified) |
-| 79 | plan-30 | hash chain of the log, `expect` arm `chain` | N | S | plan-20 | new `chain.rs` + one replay arm | request row (`out:chain`, arm `chain`); `sha2` direct dependency needs the coordinator (D25) | FIPS 180-4 examples; Python `hashlib` |
+| 79 | plan-30 | hash chain of the log, `expect` arm `chain` | N | S | plan-20 | new `chain.rs` + one replay arm | request row (`out:chain`, arm `chain`); `sha2` direct dependency decided YES (D25; reason and wasm cost in the PR, guard in `docs/mzdraw.md` updated) | FIPS 180-4 examples; Python `hashlib` |
 | 80 | plan-31 | chain head in saved SVG and PNG, `export.chain` | N | S | plan-30, std-16, std-17 | `svg.rs`, `png.rs`, settings table | request row (setting and output element) | head recomputed from the goldens |
 
 The page part of plan-28 (a proposal held under a grant) is not built in row 77. It becomes a follow-up row once plan-16 (wave 6) merges.
@@ -523,6 +523,8 @@ These are listed here, not rewritten. Each chat applies its edit when it starts 
     - `goal` joins `report`, `dry_run` and `expect` in making the answer an envelope;
     - the exit-2 list (invalid request) gains "an unsupported goal kind", "a malformed grant" and "`style`/`set` under a grant without `settings`".
 
+    It also gains the request `id` as its second key: see E26 (D27).
+
     There is no stage `verify`: the chain is checked with the `expect` arm `chain` (plan-30). If plan-20 has merged before these prompts run, each of plan-27 and plan-28 makes its own part of E21 in its PR.
 22. **E22 plan-19:** the `--arm` feature list gains `plan` (plan-27) and `grant` (plan-28). The adversarial set `tests/data/agent-suite/adversarial.json` comes with plan-28.
 23. **E23 plan-01:** the op table gains a `class` column (`geometry`, `atoms`, `bonds`, `objects`, `structure`). plan-28 adds it if plan-01 has merged; otherwise plan-01 includes it.
@@ -543,7 +545,7 @@ These are listed here, not rewritten. Each chat applies its edit when it starts 
 | D19 | stereo tier on import | Noted, never assumed: no reader sets a group from the chiral flag or for an uncollected centre; the import notes say what the file said. | COO-MZDRAW (review of #55) |
 | D20 | new request fields and stages for plan-27, -28, -30 | `patch`, stages `plan` and `grant` go into plan-20's key table (E21). The chain is an `expect` arm, not a field or a stage. | COO-MZDRAW (review of #55) |
 | D21 | agent-suite features | `plan` and `grant` join the `--arm` list (E22). | COO-MZDRAW |
-| D22 | op classes | A `class` column in plan-01's table (E23); `geometry` = `move`, `rotate`, `flip`, `atoms.xy`. | COO-MZDRAW |
+| D22 | op classes | A `class` column in plan-01's table (E23); `geometry` = `move`, `rotate`, `flip` today. Each later op names its class when it is added: `atoms.xy` (arch-std-15) `geometry`, `merge` (arch-web-09) `structure` (E25). | COO-MZDRAW |
 | D23 | `touches` | One arm per op, append-only; every later op-adding prompt adds it (E25). | COO-MZDRAW |
 | D24 | digest key for tiers | A new per-centre key `centres` (E24), not a change to the per-bond `stereo` entries. | COO-MZDRAW |
 | D25 | SHA-256 | `sha2` becomes a direct dependency of `mzdraw` (the version `mzlab-mol` already links, already in `Cargo.lock`), added to the dependency guard. plan-30 states the reason and measures the module. Never a second implementation; no request to COO 16. | COO-MZDRAW |

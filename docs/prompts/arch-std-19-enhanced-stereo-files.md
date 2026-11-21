@@ -13,6 +13,7 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 In:
 - Read the V3000 collections `MDLV30/STEABS`, `MDLV30/STERELn`, `MDLV30/STERACn` into the `stg` field of arch-std-12 (through what `mzlab-mol` already parses: it reads these groups for its record; do not write a second V3000 parser) and write them back; V2000 has only the chiral flag: written as absolute when every centre is `abs`, else the groups are listed as lost on write.
 - KET: the enhanced-stereo flags of the schema on atoms, read and written.
+- No group is ever assumed on read (D19, edit E20 of `docs/plan/backlog.md` §10.5). A V2000 chiral flag (0 or 1) and a V3000 wedged centre outside every collection leave the centre without a group (`undefined`). The import notes list those centres, the flag value and what CTfile 2026 says it means (flag on = absolute at every wedged centre; flag off = the drawn isomer and its enantiomer). The write rule above is unchanged.
 - The import note "enhanced-stereo groups not kept" disappears for what is now kept; anything still lost is listed.
 
 Out (do not do here):

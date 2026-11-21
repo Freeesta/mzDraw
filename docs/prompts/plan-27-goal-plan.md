@@ -30,7 +30,7 @@ Out (do not do here):
 - More than one goal per request (batch through mzLab's stdin streaming).
 
 ## CLI twin (rule 15)
-- `{"goal":{"draw":"c1ccccc1O"},"dry_run":true}` gives the patch; `{"goal":...}` applies it. Native replay test: replaying `patch` as a `log` gives the same bytes as the goal request.
+- `{"goal":{"draw":"c1ccccc1O"},"dry_run":true}` gives the patch; `{"goal":...}` applies it. Native replay test: replaying `patch` as a `log` gives the same bytes as the goal request. The answer carries the request `id` (or the batch index `n`) as plan-20's second key (E26).
 - Add feature `plan` to plan-19's runner (`--arm` list; D21).
 
 ## Context (read first)
