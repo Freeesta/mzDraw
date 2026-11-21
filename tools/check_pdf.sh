@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Independent check of the PDFs of the golden cases (tests/data/log/pdf.json) with programs that are not ours: `qpdf --check`
 # (structure and cross-reference table), `pdfinfo`, `pdfdetach` and `pdftotext` of poppler (one page, the embedded files, the text).
-# Chromium's own PDF viewer is not in headless Chromium, so it is not part of this check. A program that is
-# not installed is reported as "not measured", never as passed. Needs node (as the other tests do).
+# Chromium's own viewer is checked by tools/check_pdf_viewer.mjs. A program that is
+# not installed FAILS the check (a quiet skip would be a test that passes by not running); `--allow-missing` skips it, for a manual
+# run on a machine without them. CI installs qpdf and poppler-utils. Needs node (as the other tests do).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+allow=0; [ "${1:-}" = "--allow-missing" ] && allow=1
 dir=$(mktemp -d)
 trap 'rm -rf "$dir"' EXIT
 node -e '
@@ -14,7 +16,8 @@ f.pdf.forEach((c, i) => fs.writeFileSync(`${d}/case${i}.pdf`, Buffer.from(c.out,
 ' "$dir"
 fail=0
 for tool in qpdf pdfinfo pdfdetach pdftotext; do
-  command -v "$tool" >/dev/null || echo "$tool: not measured (not installed)"
+  command -v "$tool" >/dev/null && continue
+  if [ "$allow" = 1 ]; then echo "$tool: not measured (not installed, --allow-missing)"; else echo "FAIL $tool is not installed (--allow-missing skips it)"; fail=1; fi
 done
 for pdf in "$dir"/case*.pdf; do
   n=$(basename "$pdf")

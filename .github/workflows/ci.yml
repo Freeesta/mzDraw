@@ -38,10 +38,17 @@ jobs:
         run: |
           cargo build --locked -p mzdraw --example replay && cargo build --locked -p mzdraw-wasm --example replay_glue
           node tests/parity.mjs
+      - name: PDF checked by programs that are not ours (qpdf, poppler)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q qpdf poppler-utils
+          tools/check_pdf.sh
       - name: Playwright (Chromium)
         run: |
           npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" "playwright@$PLAYWRIGHT_VERSION"
           echo "NODE_PATH=$RUNNER_TEMP/pw/node_modules" >> "$GITHUB_ENV"
           "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps --only-shell chromium
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install chromium
       - name: e2e of the built page
         run: node tests/e2e.mjs
+      - name: Chromium's PDF viewer opens the PDFs
+        run: node tools/check_pdf_viewer.mjs

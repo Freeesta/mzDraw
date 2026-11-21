@@ -815,6 +815,16 @@ try {
     eq(pdf.subarray(0, 5).toString("latin1"), "%PDF-");
   });
 
+  await step("PDF out by pen: the button pressed with a pen gives the same file", async () => {
+    await pg.locator("#d2-ex-pdf").scrollIntoViewIfNeeded();
+    const cdp = await pg.context().newCDPSession(pg);
+    const pdf = await pdfRoundTrip(pg, async () => {
+      const b = await pg.locator("#d2-ex-pdf").boundingBox(), at = { x: b.x + b.width / 2, y: b.y + b.height / 2, button: "left", clickCount: 1, pointerType: "pen" };
+      await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...at }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
+    });
+    eq(pdf.subarray(0, 5).toString("latin1"), "%PDF-");
+  });
+
   await step("drawing checks by touch: a tap on the line selects the atom and bond it is about", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, std: 0 });
     await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });

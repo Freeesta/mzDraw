@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const wasm = createRequire(import.meta.url)(path.join(root, "target/pkg-node/mzdraw_wasm.js"));
 // the golden files: every *.json of tests/data/log/, sorted by name, each with some of the sections below (as crates/mzdraw/tests/common reads them)
 const logDir = path.join(root, "tests/data/log");
-const fx = { cases: [], contexts: [], refused: [], schemas: [], settings: [], pdf: [] };
+const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [] };
 for (const f of readdirSync(logDir).filter(f => f.endsWith(".json")).sort()) {
   const part = JSON.parse(readFileSync(path.join(logDir, f), "utf8"));
   for (const k of Object.keys(part)) {
@@ -66,6 +66,17 @@ for (const c of fx.pdf) {
   check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
   check(a.stdout === c.out && Buffer.from(c.out, "base64").subarray(0, 8).toString("latin1") === "%PDF-1.7", `${c.name}: the recorded bytes`);
+}
+// the verdict of a request that asks for one (`draw-result/1`): the same bytes on both sides, exit 0 when `ok` and 1 when not; a request number `n` of a batch is the `id` of an answer without one
+for (const c of fx.results) {
+  const request = JSON.stringify(c.request), n = c.n ?? 0;
+  const a = site(request), b = spawnSync(path.join(root, "target/debug/examples/replay"), { input: request, encoding: "utf8", env: { ...process.env, MZDRAW_REQUEST_N: String(n) } });
+  const want = JSON.parse(c.out);
+  check(a.status === 0 && b.status === (want.ok ? 0 : 1), `${c.name}: exit codes (wasm ${a.status}, native ${b.status})`);
+  check(want.format === "draw-result/1", `${c.name}: a draw-result/1 document`);
+  // the .wasm has no batch: its answer carries the id of the request or 0, so only a request with an id or n = 0 is held to the recorded bytes there
+  if (c.request.id !== undefined || n === 0) check(a.stdout === c.out, `${c.name}: wasm == the recorded bytes`);
+  check(b.stdout === c.out, `${c.name}: native == the recorded bytes`);
 }
 for (const c of fx.refused) {
   const request = JSON.stringify(c.request), a = site(request), b = native(request);
