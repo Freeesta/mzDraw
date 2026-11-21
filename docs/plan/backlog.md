@@ -547,8 +547,8 @@ These are listed here, not rewritten. Each chat applies its edit when it starts 
 | D23 | `touches` | One arm per op, append-only; every later op-adding prompt adds it (E25). | COO-MZDRAW |
 | D24 | digest key for tiers | A new per-centre key `centres` (E24), not a change to the per-bond `stereo` entries. | COO-MZDRAW |
 | D25 | SHA-256 | `sha2` becomes a direct dependency of `mzdraw` (the version `mzlab-mol` already links, already in `Cargo.lock`), added to the dependency guard. plan-30 states the reason and measures the module. Never a second implementation; no request to COO 16. | COO-MZDRAW |
+| D26 | rows of other ARCH chats | ARCH TP-DRAW (PR #54) adds its rows (tp-01..07) after #55 merges; PLAN-2 owns rows 76–80. | COO-MZDRAW |
 | D27 | request id in `draw-result/1` | `draw-result/1` carries the request's `id`, or its index `n` in the batch when it has none, so a batch or JSONL of requests maps line to line (E26). | COO 16 (decision 4), via COO-MZDRAW |
 | D28 | who owns the writers | mzDraw owns every writer (KET, CDXML, SVG, PNG, PDF); mzLab deletes its copies in the integration PR (refines D9). | COO 16, via COO-MZDRAW |
 | D29 | how mzLab links mzDraw | `mzlab-cli` depends on `mzdraw` as a git dependency with a pinned `rev`, and a `[patch]` section keeps one copy of `mzlab-mol` in its build. | COO 16, via COO-MZDRAW |
 | D30 | mzLab site | The site runs `mzdraw::replay` in mzDraw's own wasm module, under its guard of 4,000,000 B (`tools/wasm-cap.toml`). | COO 16, via COO-MZDRAW |
-| D26 | rows of other ARCH chats | ARCH TP-DRAW (PR #54) adds its rows (tp-01..07) after #55 merges; PLAN-2 owns rows 76–80. | COO-MZDRAW |
