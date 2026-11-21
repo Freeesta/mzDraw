@@ -232,6 +232,20 @@ pub const OPS: &[OpSpec] = &[
             f("x2", "number", false, BL, "default 0"),
             f("y2", "number", false, BL, "default 0"),
             f("text", "string", false, "", "default empty"),
+            f(
+                "from",
+                "uint",
+                false,
+                "",
+                "arrows: an atom of the structure the arrow leaves; 0 or absent is a free end",
+            ),
+            f(
+                "to",
+                "uint",
+                false,
+                "",
+                "arrows: an atom of the structure the arrow reaches; 0 or absent is a free end",
+            ),
         ],
         inverse: "DropObj, Next",
         since: "mzdraw/1",
@@ -245,6 +259,8 @@ pub const OPS: &[OpSpec] = &[
             f("text", "string", false, "", ""),
             f("x2", "number", false, BL, ""),
             f("y2", "number", false, BL, ""),
+            f("from", "uint", false, "", "an atom id; 0 frees the end"),
+            f("to", "uint", false, "", "an atom id; 0 frees the end"),
         ],
         inverse: "SetObj",
         since: "mzdraw/1",
@@ -277,6 +293,32 @@ pub const OPS: &[OpSpec] = &[
         since: "",
         mzdraw: false,
         mzlab: true,
+    },
+];
+
+/// One field of the request of `replay` (the route of `mzlab-cli mol draw`), next to the operations.
+pub struct RequestSpec {
+    pub key: &'static str,
+    pub ty: &'static str,
+    pub note: &'static str,
+}
+
+/// The request fields that do not belong to an operation: the commands of the editor, run after `log` and before `out`.
+pub const REQUEST: &[RequestSpec] = &[
+    RequestSpec {
+        key: "commands",
+        ty: "json[]",
+        note: "[{\"command\":NAME,\"args\":{...}}]: editor commands (move, rotate, flip); the route of the anchored arrows follows; a refused command stops the request; not with `command`",
+    },
+    RequestSpec {
+        key: "command",
+        ty: "string",
+        note: "one command, with `args`: the same as a `commands` list of length one; not with `commands`",
+    },
+    RequestSpec {
+        key: "args",
+        ty: "json",
+        note: "the fields of the operation of the same name as `command` (a rotate without x, y or a flip without at works about the centre of its atoms)",
     },
 ];
 
@@ -319,6 +361,18 @@ pub fn json() -> String {
             ));
         }
         out.push_str("]}");
+    }
+    out.push_str(r#"],"request":["#);
+    for (i, r) in REQUEST.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!(
+            r#"{{"key":{},"type":{},"note":{}}}"#,
+            q(r.key),
+            q(r.ty),
+            q(r.note)
+        ));
     }
     out.push_str("]}");
     out

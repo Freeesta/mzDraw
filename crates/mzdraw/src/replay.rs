@@ -15,6 +15,8 @@ struct Request {
     style: Option<String>,
     /// Settings applied after `style`, each `<section>.<key>=<value>` (`Editor::set`): the `--set` of the CLI.
     set: Vec<String>,
+    /// Editor commands run after `log` and before `out`: `(name, args)`. The singular `"command"` + `"args"` is a list of one.
+    commands: Vec<(String, serde_json::Value)>,
 }
 
 impl Request {
@@ -42,7 +44,24 @@ impl Request {
                 .ok_or(BAD)?,
         };
         v.is_object().then_some(()).ok_or(BAD)?;
+        let one = |c: &serde_json::Value, args: Option<&serde_json::Value>| {
+            let name = c.as_str().ok_or(BAD)?.to_string();
+            let args = args.cloned().unwrap_or_else(|| serde_json::json!({}));
+            Ok::<_, &'static str>((name, args))
+        };
+        let commands = match (v.get("command"), v.get("commands")) {
+            (Some(_), Some(_)) => return Err(BAD),
+            (Some(c), None) => vec![one(c, v.get("args"))?],
+            (None, Some(l)) => (l.as_array().ok_or(BAD)?.iter())
+                .map(|c| one(c.get("command").ok_or(BAD)?, c.get("args")))
+                .collect::<Result<_, _>>()?,
+            (None, None) => Vec::new(),
+        };
+        if v.get("args").is_some() && v.get("command").is_none() {
+            return Err(BAD);
+        }
         Ok(Request {
+            commands,
             import: text_of("import")?,
             log,
             out: text_of("out")?,
@@ -56,7 +75,7 @@ impl Request {
     }
 }
 
-/// Runs a request `{"import", "style", "set", "log", "out"}`; the error is an i18n key and the id it is about.
+/// Runs a request `{"import", "style", "set", "log", "commands", "out"}`; the error is an i18n key and the id it is about.
 pub fn replay(request: &str) -> Result<String, OpError> {
     let fail = |key| OpError { key, id: 0 };
     let r = Request::read(request).map_err(fail)?;
@@ -72,6 +91,9 @@ pub fn replay(request: &str) -> Result<String, OpError> {
     }
     for op in &r.log {
         e.session.run(std::slice::from_ref(op))?;
+    }
+    for (name, args) in &r.commands {
+        crate::commands::run(&mut e, name, args)?;
     }
     let out = r.out.as_deref().unwrap_or("mzdraw");
     // `context:<x>,<y>`: the context menu (JSON) of a right-click at that pixel of the default view, for the golden parity of the menu
