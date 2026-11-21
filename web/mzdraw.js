@@ -86,6 +86,17 @@ function dataFields(outline) {
   }));
 }
 
+/** the atom-to-atom map field: what is typed is given to the module, which picks the atom (the focused or the only selected one) and judges the number */
+function mapField() {
+  const input = /** @type {HTMLInputElement} */ ($("d2-map")), note = $("d2-map-note");
+  const apply = () => {
+    const f = after(ed.set_map(input.value)), st = JSON.parse(ed.state());
+    note.textContent = f & CHANGED ? t("draw2.map.done", { n: Number(input.value.trim()) }) : t(st.error || "error.draw2.map");
+  };
+  $("d2-map-set").addEventListener("click", apply);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(); } });
+}
+
 /** the annotation of each structure: level, identifier, evidence, note; what is typed is given to the module, which decides @param {any[]} outline */
 function annFields(outline) {
   const box = $("d2-ann"), active = document.activeElement;
@@ -371,7 +382,11 @@ function saveDefault() {
 /** downloads a text as a file @param {string} what @param {string} name @param {string} type */
 function save(what, name, type) {
   const note = $("d2-ex-note"); note.textContent = "";
-  try { download(ed.save(what), name, type); open("saveas", false); } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
+  try {
+    download(ed.save(what), name, type);
+    const lost = ed.maps_lost(what);   // the module says what the format cannot hold; nothing is dropped in silence
+    if (lost) { note.textContent = t("draw2.export.mapsLost", { n: lost }); $("d2-live").textContent = note.textContent; } else open("saveas", false);
+  } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
 /** @param {BlobPart} data @param {string} name @param {string} type */
@@ -497,6 +512,7 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
+  mapField();
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); layout(); refresh();

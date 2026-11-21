@@ -154,6 +154,7 @@ pub(crate) fn ring(doc: &Document, op: &Op) -> Result<Vec<Op>, OpError> {
             .map(|a| a.id);
         let id = f.fixed.get(i).copied().or(near).unwrap_or_else(|| {
             ops.push(Op::AtomAdd {
+                map: None,
                 id: Some(next),
                 el: "C".into(),
                 x: px,

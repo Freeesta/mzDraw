@@ -96,9 +96,9 @@ Generated from `schema::json()` (`"out":"schema"`); the test `crates/mzdraw/test
 
 | op | since | mzdraw | mzlab | inverse | fields (`key` type, `*` required, unit, bounds) |
 |---|---|---|---|---|---|
-| `atom.add` | mzdraw/1 | true | true | DropAtom, Next | `id` uint (from the document counter when absent)<br>`el` string* (an element symbol)<br>`x` number* (bond length)<br>`y` number* (bond length) |
+| `atom.add` | mzdraw/1 | true | true | DropAtom, Next | `id` uint (from the document counter when absent)<br>`el` string* (an element symbol)<br>`x` number* (bond length)<br>`y` number* (bond length)<br>`map` uint (atom-to-atom map number 1..=999; not read by mzLab) |
 | `bond.add` | mzdraw/1 | true | true | DropBond, Next | `id` uint (from the document counter when absent)<br>`a` uint*<br>`b` uint*<br>`o` uint (0..=255, default 1)<br>`s` uint (0..=255, default 0) |
-| `atom.set` | mzdraw/1 | true | true | SetAtom | `id` uint*<br>`el` string (an element symbol)<br>`chg` int (-128..=127)<br>`iso` uint (0..=65535)<br>`rad` uint (0..=255)<br>`h` uint (0..=255)<br>`lab` string (the empty text takes the label away) |
+| `atom.set` | mzdraw/1 | true | true | SetAtom | `id` uint*<br>`el` string (an element symbol)<br>`chg` int (-128..=127)<br>`iso` uint (0..=65535)<br>`rad` uint (0..=255)<br>`h` uint (0..=255)<br>`lab` string (the empty text takes the label away)<br>`map` uint (atom-to-atom map number 1..=999; 0 takes it away; not read by mzLab) |
 | `atom.data` | mzdraw/1 | true | false | SetAtom | `id` uint*<br>`data` string[][2]* (the empty list takes the data away) |
 | `atom.ann` | mzdraw/1 | true | false | SetAtom | `id` uint*<br>`ann` json[]* (the empty list takes the annotation away) |
 | `bond.set` | mzdraw/1 | true | true | SetBond | `id` uint*<br>`o` uint (0..=255)<br>`s` uint (0..=255)<br>`rev` bool (default false) |
@@ -119,6 +119,7 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 | request | `import_base64` | string | the bytes of a file to start from in base64 (a binary CDX, or a PNG or PDF saved by mzDraw), read after `import` |
 | request | `style` | string\|object | the style of the SVG: a preset name or a settings file |
 | request | `set` | string[] | settings applied after `style`, each `<section>.<key>=<value>` |
+| set | `display.maps` | on\|off | draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file) |
 | request | `log` | json[] | the command log, operations of `draw_edit/1` |
 | request | `out` | string | the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings` |
 | request | `commands` | object[] | editor commands `[{"command":NAME,"args":{...}}]` (move, rotate, flip), run after `log` and before `out`; the route of the anchored arrows follows; not with `command` |

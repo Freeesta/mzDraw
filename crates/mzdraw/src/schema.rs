@@ -21,6 +21,8 @@ pub struct FieldSpec {
     pub unit: &'static str,
     /// What the reader accepts besides the type (the range of the integer, the values of an enum), or `""`.
     pub bounds: &'static str,
+    /// The reader of mzLab accepts this field (false: a field of mzDraw that mzLab does not read yet).
+    pub mzlab: bool,
 }
 
 /// One operation of the log.
@@ -50,6 +52,21 @@ const fn f(
         required,
         unit,
         bounds,
+        mzlab: true,
+    }
+}
+
+/// A field that only mzDraw reads yet (`FieldSpec::mzlab` false).
+const fn nf(
+    key: &'static str,
+    ty: &'static str,
+    required: bool,
+    unit: &'static str,
+    bounds: &'static str,
+) -> FieldSpec {
+    FieldSpec {
+        mzlab: false,
+        ..f(key, ty, required, unit, bounds)
     }
 }
 
@@ -71,6 +88,7 @@ pub const OPS: &[OpSpec] = &[
             f("el", "string", true, "", "an element symbol"),
             f("x", "number", true, BL, ""),
             f("y", "number", true, BL, ""),
+            nf("map", "uint", false, "", "atom-to-atom map number 1..=999"),
         ],
         inverse: "DropAtom, Next",
         since: "mzdraw/1",
@@ -112,6 +130,13 @@ pub const OPS: &[OpSpec] = &[
                 false,
                 "",
                 "the empty text takes the label away",
+            ),
+            nf(
+                "map",
+                "uint",
+                false,
+                "",
+                "atom-to-atom map number 1..=999; 0 takes it away",
             ),
         ],
         inverse: "SetAtom",
@@ -327,6 +352,7 @@ pub const REQUEST: &[RequestSpec] = &[
     r("request", "import_base64", "string", "the bytes of a file to start from in base64 (a binary CDX, or a PNG or PDF saved by mzDraw), read after `import`"),
     r("request", "style", "string|object", "the style of the SVG: a preset name or a settings file"),
     r("request", "set", "string[]", "settings applied after `style`, each `<section>.<key>=<value>`"),
+    r("set", "display.maps", "on|off", "draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file)"),
     r("request", "log", "json[]", "the command log, operations of `draw_edit/1`"),
     r("request", "out", "string", "the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings`"),
     r("request", "commands", "object[]", "editor commands `[{\"command\":NAME,\"args\":{...}}]` (move, rotate, flip), run after `log` and before `out`; the route of the anchored arrows follows; not with `command`"),
@@ -373,12 +399,13 @@ pub fn json() -> String {
             }
             let opt = |s: &str| if s.is_empty() { "null".into() } else { q(s) };
             out.push_str(&format!(
-                r#"{{"key":{},"type":{},"required":{},"unit":{},"bounds":{}}}"#,
+                r#"{{"key":{},"type":{},"required":{},"unit":{},"bounds":{}{}}}"#,
                 q(fl.key),
                 q(fl.ty),
                 fl.required,
                 opt(fl.unit),
-                opt(fl.bounds)
+                opt(fl.bounds),
+                if fl.mzlab { "" } else { r#","mzlab":false"# }
             ));
         }
         out.push_str("]}");

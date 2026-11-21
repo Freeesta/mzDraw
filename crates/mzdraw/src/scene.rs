@@ -603,7 +603,29 @@ impl Painter<'_> {
             if has_label(self.doc, a) {
                 self.label(a);
             }
+            if a.map != 0 && self.m.maps {
+                self.map_number(a);
+            }
         }
+    }
+
+    /// The atom-to-atom map number at the lower right of the atom, in the small size.
+    fn map_number(&mut self, a: &Atom) {
+        let (x, y) = self.pos(a);
+        let (f, small) = (self.font, self.m.small);
+        let side = if has_label(self.doc, a) {
+            width(&a.el, f) / 2.0
+        } else {
+            0.0
+        };
+        self.text(
+            x + side + small * 0.15,
+            y + f * 0.62,
+            small,
+            colour::INK,
+            &a.map.to_string(),
+            1.0,
+        );
     }
 }
 

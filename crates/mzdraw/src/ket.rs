@@ -74,6 +74,9 @@ impl Document {
                     }
                 }
             }
+            if let Some(d) = drawn.filter(|d| d.map != 0) {
+                w.int("mapping", i64::from(d.map));
+            }
             w.raw("location", &location(x, y));
             atoms.push(w.0 + "}");
         }
@@ -178,6 +181,18 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
                         .filter(|v| (-999..=999).contains(v))
                         .unwrap_or(0)
                 };
+                // the atom-to-atom map of a reaction
+                let map = match a.get("mapping").filter(|v| !v.is_null()) {
+                    None => 0,
+                    Some(v) => match v.as_u64() {
+                        Some(m) if m <= u64::from(crate::doc::MAX_MAP) => m,
+                        // negative, above the limit or no whole number: counted, read as no map
+                        _ => {
+                            info.maps_left += 1;
+                            0
+                        }
+                    },
+                };
                 let label = a["label"].as_str().unwrap_or("A");
                 let plain = mzlab_mol::is_element(label);
                 let mut line = match a["type"].as_str() {
@@ -185,13 +200,13 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
                         let n = a["$refs"][0].as_str().and_then(|r| r.strip_prefix("rg-"));
                         let n = n.filter(|n| n.bytes().all(|b| b.is_ascii_digit()));
                         format!(
-                            "R# {x} {y} 0 0{}",
+                            "R# {x} {y} 0 {map}{}",
                             n.map_or(String::new(), |n| format!(" RGROUPS=(1 {n})"))
                         )
                     }
                     // an atom list, or a label that is no element, is a query atom
-                    Some(_) => format!("A {x} {y} 0 0"),
-                    None => format!("{} {x} {y} 0 0", if plain { label } else { "A" }),
+                    Some(_) => format!("A {x} {y} 0 {map}"),
+                    None => format!("{} {x} {y} 0 {map}", if plain { label } else { "A" }),
                 };
                 for (key, name) in [("charge", "CHG"), ("radical", "RAD"), ("isotope", "MASS")] {
                     if int(key) != 0 {

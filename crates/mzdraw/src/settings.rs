@@ -30,6 +30,8 @@ pub struct Style {
     pub pathway_margin: f64,
     /// One ink for every element instead of the element colours.
     pub mono: bool,
+    /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
+    pub maps: bool,
     /// What the settings file held that this version does not know, kept to be written back: the unknown keys of the file and of
     /// its `style` object. A file edited by a newer mzDraw survives a round through this one.
     pub unknown: Unknown,
@@ -152,7 +154,7 @@ pub const FIELDS: [Field; 9] = [
 
 /// Whether `key` is a key of the `style` object this version reads and writes.
 fn known(key: &str) -> bool {
-    key == "preset" || key == "colour" || FIELDS.iter().any(|f| f.key == key)
+    key == "preset" || key == "colour" || key == "maps" || FIELDS.iter().any(|f| f.key == key)
 }
 
 /// The schema of the settings file as JSON, for the surfaces that show or document it (the fields of the page, the help of the
@@ -175,7 +177,7 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"]}},"fields":[{}]}}"#,
         PRESETS.join("\",\""),
         fields.join(",")
     )
@@ -210,6 +212,7 @@ impl Default for Style {
             subscript_scale: 0.7,
             pathway_margin: 0.35,
             mono: false,
+            maps: true,
             unknown: Unknown::default(),
         }
     }
@@ -229,6 +232,8 @@ pub struct Metrics {
     pub font: f64,
     pub small: f64,
     pub mono: bool,
+    /// Whether the map numbers of the atoms are drawn.
+    pub maps: bool,
 }
 
 impl Style {
@@ -246,6 +251,7 @@ impl Style {
             subscript_scale: 0.7,
             pathway_margin: 0.35,
             mono: true,
+            maps: true,
             unknown: Unknown::default(),
         };
         match name {
@@ -302,6 +308,17 @@ impl Style {
         Ok(())
     }
 
+    /// Sets a display option from its text: `maps` is `on` or `off` (`display.maps`).
+    pub fn set_display(&mut self, key: &str, value: &str) -> Result<(), &'static str> {
+        match (key, value.trim()) {
+            ("maps", "on") => self.maps = true,
+            ("maps", "off") => self.maps = false,
+            ("maps", _) => return Err("error.draw2.styleValue"),
+            _ => return Err("error.draw2.styleKey"),
+        }
+        Ok(())
+    }
+
     /// A style from a preset name or from the text of a settings file (`{"format": "mzdraw-settings/1", "style": {...}}`; the
     /// field `preset` of `style` names the preset the other fields start from, default `mzlab`). The error is an i18n key.
     pub fn from_text(text: &str) -> Result<Style, &'static str> {
@@ -348,8 +365,15 @@ impl Style {
             Some("element") => false,
             Some(_) => return None,
         };
+        let maps = match g.s("maps").ok()?.as_deref() {
+            None => base.maps,
+            Some("on") => true,
+            Some("off") => false,
+            Some(_) => return None,
+        };
         let mut s = Style {
             mono: colour,
+            maps,
             unknown,
             ..base
         };
@@ -373,6 +397,10 @@ impl Style {
             "colour".to_string(),
             text(if self.mono { "mono" } else { "element" }),
         ));
+        // written only when off, so that a file that never mentions it keeps its bytes
+        if !self.maps {
+            style.push(("maps".to_string(), text("off")));
+        }
         for f in &FIELDS {
             style.push((f.key.to_string(), num(f.of(self))));
         }
@@ -400,6 +428,7 @@ impl Style {
             font,
             small: font * self.subscript_scale,
             mono: self.mono,
+            maps: self.maps,
         }
     }
 }
