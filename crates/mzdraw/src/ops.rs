@@ -21,6 +21,8 @@ pub enum Op {
         el: String,
         x: f64,
         y: f64,
+        /// The atom-to-atom map number, 1..=999 (absent: none).
+        map: Option<u16>,
     },
     BondAdd {
         id: Option<u32>,
@@ -39,6 +41,8 @@ pub enum Op {
         h: Option<u8>,
         /// A label (an abbreviation or an R group); the empty text takes the label away.
         lab: Option<String>,
+        /// The atom-to-atom map number, 1..=999; 0 takes it away.
+        map: Option<u16>,
     },
     /// Replaces the data kept on an atom (the data fields of its structure: name and value pairs, `doc::data_valid`); an empty
     /// list takes them away.
@@ -161,12 +165,19 @@ impl Op {
         };
         let id = |v: &Option<u32>| v.map(i64::from);
         match self {
-            Op::AtomAdd { id: i, el, x, y } => {
+            Op::AtomAdd {
+                id: i,
+                el,
+                x,
+                y,
+                map,
+            } => {
                 w.text("op", "atom.add");
                 int(&mut w, "id", id(i));
                 w.text("el", el);
                 w.num("x", *x);
                 w.num("y", *y);
+                int(&mut w, "map", map.map(i64::from));
             }
             Op::BondAdd { id: i, a, b, o, s } => {
                 w.text("op", "bond.add");
@@ -184,6 +195,7 @@ impl Op {
                 rad,
                 h,
                 lab,
+                map,
             } => {
                 w.text("op", "atom.set");
                 w.int("id", i64::from(*i));
@@ -197,6 +209,7 @@ impl Op {
                 if let Some(lab) = lab {
                     w.text("lab", lab);
                 }
+                int(&mut w, "map", map.map(i64::from));
             }
             Op::AtomData { id: i, data } => {
                 w.text("op", "atom.data");
@@ -416,6 +429,7 @@ impl Op {
                 el: g.s("el")?.ok_or(())?,
                 x: need(g.f("x")?)?,
                 y: need(g.f("y")?)?,
+                map: g.u("map")?,
             },
             "bond.add" => Op::BondAdd {
                 id: g.u("id")?,
@@ -432,6 +446,7 @@ impl Op {
                 rad: g.u("rad")?,
                 h: g.u("h")?,
                 lab: g.s("lab")?,
+                map: g.u("map")?,
             },
             "atom.data" => Op::AtomData {
                 id: g.u("id")?.ok_or(())?,
@@ -597,13 +612,16 @@ impl Document {
         &mut self,
         id: Option<u32>,
         el: &str,
-        x: f64,
-        y: f64,
+        (x, y): (f64, f64),
+        map: Option<u16>,
         done: &mut Vec<Op>,
         inv: &mut Vec<Inv>,
     ) -> Result<(), OpError> {
         if !mzlab_mol::is_element(el) {
             return err("error.draw2.element", id.unwrap_or(0));
+        }
+        if map.is_some_and(|m| m > crate::doc::MAX_MAP) {
+            return err("error.draw2.map", id.unwrap_or(0));
         }
         let id = self.take_id(id, inv)?;
         let (x, y, el) = (round4(x), round4(y), el.to_string());
@@ -615,6 +633,7 @@ impl Document {
             chg: 0,
             iso: 0,
             rad: 0,
+            map: map.unwrap_or(0),
             h: None,
             lab: String::new(),
             more: Vec::new(),
@@ -625,6 +644,7 @@ impl Document {
             el,
             x,
             y,
+            map: map.filter(|&m| m != 0),
         });
         Ok(())
     }
@@ -677,6 +697,7 @@ impl Document {
             rad,
             h,
             lab,
+            map,
         } = op
         else {
             return Ok(());
@@ -686,6 +707,9 @@ impl Document {
         };
         if el.as_ref().is_some_and(|e| !mzlab_mol::is_element(e)) {
             return err("error.draw2.element", *id);
+        }
+        if map.is_some_and(|m| m > crate::doc::MAX_MAP) {
+            return err("error.draw2.map", *id);
         }
         if lab
             .as_ref()
@@ -707,6 +731,7 @@ impl Document {
         a.iso = iso.unwrap_or(a.iso);
         a.rad = rad.unwrap_or(a.rad).min(3);
         a.h = h.or(a.h);
+        a.map = map.unwrap_or(a.map);
         Ok(())
     }
 
@@ -718,7 +743,9 @@ impl Document {
         inv: &mut Vec<Inv>,
     ) -> Result<(), OpError> {
         match op {
-            Op::AtomAdd { id, el, x, y } => self.add_atom(*id, el, *x, *y, done, inv)?,
+            Op::AtomAdd { id, el, x, y, map } => {
+                self.add_atom(*id, el, (*x, *y), *map, done, inv)?
+            }
             Op::BondAdd { id, a, b, o, s } => self.add_bond(*id, *a, *b, (*o, *s), done, inv)?,
             Op::AtomSet { .. } => {
                 self.set_atom(op, inv)?;

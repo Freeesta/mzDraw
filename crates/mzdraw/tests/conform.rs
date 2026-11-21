@@ -26,6 +26,7 @@ fn draw(atoms: &[(&str, f64, f64)], bonds: &[(u32, u32, u8, u8)]) -> Document {
                 rad: 0,
                 h: None,
                 lab: String::new(),
+                map: 0,
                 more: Vec::new(),
             })
             .collect(),

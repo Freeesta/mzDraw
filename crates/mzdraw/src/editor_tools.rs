@@ -255,6 +255,7 @@ impl Editor {
                 Hit::Atom(a) => {
                     let now = self.session.doc.atom(a).map_or(0, |x| x.chg);
                     let set = Op::AtomSet {
+                        map: None,
                         id: a,
                         el: None,
                         chg: Some(now + c),
@@ -347,6 +348,7 @@ impl Editor {
             Hit::Atom(a) if p.moved => self.sprout(a, el, (1, 0), px, py, p.kind),
             Hit::Atom(a) => {
                 let set = Op::AtomSet {
+                    map: None,
                     id: a,
                     el: Some(el.into()),
                     chg: None,
@@ -362,6 +364,7 @@ impl Editor {
                 let (x, y) = self.view.to_doc(px, py);
                 self.run(
                     &[Op::AtomAdd {
+                        map: None,
                         id: None,
                         el: el.into(),
                         x,
@@ -377,6 +380,7 @@ impl Editor {
     /// The label tool: on an atom it sets the label, on an empty spot it adds a labelled atom.
     fn label_release(&mut self, p: &Press, label: &str, px: f64, py: f64) -> u32 {
         let set = |id| Op::AtomSet {
+            map: None,
             id,
             el: None,
             chg: None,
@@ -392,6 +396,7 @@ impl Editor {
                 let (x, y) = self.view.to_doc(px, py);
                 let id = self.session.doc.next;
                 let add = Op::AtomAdd {
+                    map: None,
                     id: Some(id),
                     el: "C".into(),
                     x,
@@ -439,6 +444,7 @@ impl Editor {
                 let id = d.next;
                 vec![
                     Op::AtomAdd {
+                        map: None,
                         id: Some(id),
                         el: el.into(),
                         x: to.0,
@@ -501,12 +507,14 @@ impl Editor {
                 let (cx, sy) = (m::cos(PI / 6.0), m::sin(PI / 6.0));
                 let ops = [
                     Op::AtomAdd {
+                        map: None,
                         id: Some(id),
                         el: "C".into(),
                         x,
                         y,
                     },
                     Op::AtomAdd {
+                        map: None,
                         id: Some(id + 1),
                         el: "C".into(),
                         x: x + cx,
@@ -703,6 +711,7 @@ impl Editor {
         let f = match self.over.focus.or(self.over.hover_atom) {
             Some(a) => {
                 let set = Op::AtomSet {
+                    map: None,
                     id: a,
                     el: Some(el.into()),
                     chg: None,

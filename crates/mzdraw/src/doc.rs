@@ -82,6 +82,8 @@ pub struct Atom {
     /// A label drawn instead of the element: an abbreviation of `label::ABBREVIATIONS` (expanded to its atoms at export) or an
     /// R-group placeholder. Empty for a plain atom.
     pub lab: String,
+    /// The atom-to-atom map number of a reaction, 1..=999; 0 for none (`MAX_MAP`).
+    pub map: u16,
     /// Fields of the atom this version does not know, kept to be written back (see `More`).
     pub more: More,
 }
@@ -90,6 +92,9 @@ pub struct Atom {
 /// structure, as its field `data` (`[["name", "value"], ...]`), so they follow that atom through every edit and every undo; the
 /// data of a structure is the data of its atoms in pool order.
 pub type Data = Vec<(String, String)>;
+
+/// The largest atom-to-atom map number (the three digits of the molfile field).
+pub const MAX_MAP: u16 = 999;
 
 /// Fields one atom can carry, and the longest name and value, in characters.
 pub const MAX_DATA: (usize, usize, usize) = (100, 80, 10_000);
@@ -330,6 +335,9 @@ impl Document {
                 if !a.lab.is_empty() {
                     w.text("lab", &a.lab);
                 }
+                if a.map != 0 {
+                    w.int("map", a.map as i64);
+                }
                 w.more(&a.more);
                 w.0 + "}"
             })
@@ -437,9 +445,10 @@ impl Document {
                     rad: a.u("rad")?.unwrap_or(0),
                     h: a.u("h")?,
                     lab: a.s("lab")?.unwrap_or_default(),
+                    map: a.u("map")?.unwrap_or(0),
                     more: more_of(
                         a.0,
-                        &["id", "el", "x", "y", "chg", "iso", "rad", "h", "lab"],
+                        &["id", "el", "x", "y", "chg", "iso", "rad", "h", "lab", "map"],
                     ),
                 })
             })?,
@@ -495,6 +504,7 @@ impl Document {
             && pairs.windows(2).all(|w| w[0] != w[1])
             && self.atoms.iter().all(|a| {
                 mzlab_mol::is_element(&a.el)
+                    && a.map <= MAX_MAP
                     && (a.lab.is_empty() || crate::label::kind(&a.lab).is_some())
             })
             && self.bonds.iter().all(|b| {

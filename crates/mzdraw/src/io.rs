@@ -37,6 +37,10 @@ pub struct Imported {
     pub other: usize,
     /// Enhanced-stereo groups "and" / "or": the centres are drawn with their wedges, the grouping is not kept.
     pub stereo_groups: usize,
+    /// Fields that should hold an atom-to-atom map and hold no whole number 1..=999 (negative, above 999, not a number): read as no map.
+    pub maps_left: usize,
+    /// Structures with one map number on more than one atom: kept as read.
+    pub maps_duplicate: usize,
     /// Binary CDX: text runs of a font whose code page is not decoded (read as Latin-1, so some characters may be wrong).
     pub code_page_runs: usize,
     /// Binary CDX: properties of tags the SDK pages read do not list (styles, colours, widths), skipped by their length. Counted,
@@ -60,6 +64,8 @@ impl Imported {
             ("draw2.import.stereoGroups", self.stereo_groups),
             ("draw2.import.other", self.other),
             ("draw2.import.dataLeft", self.data_left),
+            ("draw2.import.mapsLeft", self.maps_left),
+            ("draw2.import.mapsDuplicate", self.maps_duplicate),
             ("draw2.import.codePage", self.code_page_runs),
         ]
         .into_iter()
@@ -175,6 +181,7 @@ impl Document {
                 rad: a.rad,
                 h: None,
                 lab: String::new(),
+                map: 0,
                 more: Vec::new(),
             });
         }
@@ -320,7 +327,7 @@ impl Document {
             return self.v3000(m, r_as_query);
         }
         let text = self.mark_wedges(m.to_molfile(crate::NAME), m.atoms.len());
-        self.mark_r_groups(text, r_as_query)
+        self.mark_maps(self.mark_r_groups(text, r_as_query))
     }
 
     /// Writes the R groups on the atom lines of a V2000 molfile of this document (the stand-in element becomes `R#`, or `A` for
@@ -501,7 +508,8 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     }
     let (clean, labels) = formats::r_atoms(&all);
     let m = Mol::from_smiles(&clean).map_err(|_| "error.draw2.smiles")?;
-    let (d, placeholder) = labelled(&m, labels, &mut info);
+    let (mut d, placeholder) = labelled(&m, labels, &mut info);
+    d.set_maps(crate::maps::of_smiles(&all), &mut info);
     info.placeholder = placeholder;
     Ok((d, info))
 }
@@ -514,7 +522,9 @@ pub(crate) fn record_of(
 ) -> Result<(Document, bool), &'static str> {
     let (clean, labels) = formats::prepare(record, info);
     let m = Mol::from_molfile(&clean).map_err(|_| "error.draw2.molfile")?;
-    Ok(labelled(&m, labels, info))
+    let (mut d, placeholder) = labelled(&m, labels, info);
+    d.set_maps(crate::maps::of_molfile(&clean), info);
+    Ok((d, placeholder))
 }
 
 /// A file may hold what a document does not (a coordinate far outside the bound): it is refused with `key`, not half kept.

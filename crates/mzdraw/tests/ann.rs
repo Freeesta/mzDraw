@@ -107,6 +107,7 @@ fn an_entry_holds_its_fields_and_keeps_what_it_does_not_know() {
 fn the_operation_sets_the_annotation_and_undoes_to_the_same_bytes() {
     let mut s = Session::default();
     s.run(&[Op::AtomAdd {
+        map: None,
         id: None,
         el: "C".into(),
         x: 0.0,

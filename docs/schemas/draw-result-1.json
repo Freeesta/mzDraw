@@ -4,7 +4,7 @@
   "title": "draw-result/1: the verdict of a replay request (mzdraw::outcome)",
   "description": "Checked by crates/mzdraw/tests/outcome.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text, also inside failed, created, removed and each expect item), the required keys, the types and the stage values are asserted by hand; the other constraints here are documentation.",
   "type": "object",
-  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "failed", "expect"],
+  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed", "expect"],
   "required": ["format", "id", "ok", "created", "removed"],
   "additionalProperties": false,
   "$defs": {
@@ -28,6 +28,18 @@
     "out": { "type": "string", "description": "what Editor::save(out) wrote; only when ok and not a dry run" },
     "created": { "$ref": "#/$defs/ids", "description": "ids after minus before, ascending, empty lists left out" },
     "removed": { "$ref": "#/$defs/ids", "description": "ids before minus after, ascending, empty lists left out" },
+    "lost": {
+      "type": "array",
+      "minItems": 1,
+      "description": "what the output format cannot hold: one item per kind, only when something is lost (atom maps in CDXML and CML); the file is still written",
+      "items": {
+        "type": "object",
+        "x-key-order": ["key", "n"],
+        "required": ["key", "n"],
+        "additionalProperties": false,
+        "properties": { "key": { "type": "string", "description": "the i18n key, draw2.export.mapsLost for atom maps" }, "n": { "type": "integer", "minimum": 1 } }
+      }
+    },
     "failed": {
       "type": "object",
       "x-key-order": ["stage", "op", "key", "id", "candidates", "rows"],

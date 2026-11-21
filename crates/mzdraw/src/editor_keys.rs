@@ -72,6 +72,7 @@ impl Editor {
                 let now = self.doc().atom(a).map_or(0, |x| x.chg);
                 let chg = now + if key == "+" { 1 } else { -1 };
                 let set = Op::AtomSet {
+                    map: None,
                     id: a,
                     el: None,
                     chg: Some(chg),
@@ -171,6 +172,7 @@ impl Editor {
                 None => (0.0, 0.0),
             };
             let add = Op::AtomAdd {
+                map: None,
                 id: Some(id),
                 el: "C".into(),
                 x,
@@ -186,6 +188,7 @@ impl Editor {
         let ang = build::sprout_angle(self.doc(), a.id);
         let ops = [
             Op::AtomAdd {
+                map: None,
                 id: Some(id),
                 el: "C".into(),
                 x: a.x + m::cos(ang),

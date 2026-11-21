@@ -5,6 +5,7 @@ use mzdraw::{Axis, Document, ObjKind, Op, Session};
 
 fn add(el: &str, x: f64, y: f64) -> Op {
     Op::AtomAdd {
+        map: None,
         id: None,
         el: el.into(),
         x,
@@ -79,6 +80,7 @@ fn refused_operations_change_nothing() {
         ),
         (
             vec![Op::AtomAdd {
+                map: None,
                 id: Some(2),
                 el: "C".into(),
                 x: 0.0,
@@ -113,6 +115,7 @@ fn refused_operations_change_nothing() {
 fn set_move_and_remove() {
     let mut s = ethanol();
     s.run(&[Op::AtomSet {
+        map: None,
         id: 3,
         el: Some("N".into()),
         chg: Some(1),
@@ -164,6 +167,7 @@ fn hydrogens_follow_the_valence_rules() {
     assert_eq!((h(&s, 2), h(&s, 3)), (1, 0));
     s.run(&[
         Op::AtomSet {
+            map: None,
             id: 3,
             el: None,
             chg: Some(-1),
@@ -249,10 +253,16 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
     match r.next(16) {
         0 | 1 => {
             let (x, y) = xy(r);
-            vec![add(els[r.next(els.len())], x, y)]
+            let mut a = add(els[r.next(els.len())], x, y);
+            if let Op::AtomAdd { map, .. } = &mut a {
+                *map = [None, None, Some(3), Some(1000)][r.next(4)];
+            }
+            vec![a]
         }
         2 => vec![bond(atom(r), atom(r), 1 + r.next(3) as u8)],
         3 => vec![Op::AtomSet {
+            // atom-to-atom maps: set, changed, taken away (0) and refused (above 999)
+            map: [None, Some(0), Some(1), Some(7), Some(999), Some(1000)][r.next(6)],
             id: atom(r),
             el: Some(els[r.next(els.len())].into()),
             chg: Some(r.next(5) as i8 - 2),
@@ -374,6 +384,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             at: xy(r).0,
         }],
         13 => vec![Op::AtomSet {
+            map: None,
             id: atom(r),
             el: None,
             chg: None,
@@ -781,6 +792,7 @@ fn hostile_input_is_refused_without_a_panic() {
             to: 0,
         },
         Op::AtomAdd {
+            map: None,
             id: Some(u32::MAX),
             el: "C".into(),
             x: 0.0,
@@ -853,6 +865,7 @@ fn unknown_fields_of_a_document_survive_reading_editing_and_writing() {
         },
         set_order(3, 2),
         Op::AtomSet {
+            map: None,
             id: 1,
             el: Some("N".into()),
             chg: None,

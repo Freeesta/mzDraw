@@ -339,10 +339,12 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
         out: None,
         created: after.minus(&before),
         removed: before.minus(&after),
+        lost: Vec::new(),
         failed,
         expect,
     };
     if outcome.ok() {
+        outcome.lost = e.lost_on_save(r.out.as_deref().unwrap_or("mzdraw"));
         let text = written.map_err(fail)?;
         outcome.out = (!r.dry_run).then_some(text);
     }

@@ -39,7 +39,11 @@
           <input id="d2-style-file" type="file" hidden accept=".json"></div></details></details></div>
   <div class="pal side" data-pal="data"><details id="d2-data-more"><summary data-i18n="draw2.data">Data of the structures</summary>
         <div id="d2-data"></div>
-        <p id="d2-data-note" role="status"></p></details></div>
+        <p id="d2-data-note" role="status"></p>
+      <div class="row d2-map"><label for="d2-map" data-i18n="draw2.map">Atom map</label>
+        <input id="d2-map" type="number" min="0" max="999" step="1" inputmode="numeric" title="Atom-to-atom map number of the focused or selected atom (0 takes it away)" data-i18n-title="draw2.map.title">
+        <button id="d2-map-set" type="button" data-i18n="draw2.map.set" title="Give the number to the focused or selected atom" data-i18n-title="draw2.map.set.title">Set</button></div>
+      <p id="d2-map-note" role="status"></p></details></div>
   <div class="pal side" data-pal="annotation"><details id="d2-ann-more"><summary data-i18n="draw2.ann">Annotation of the structures</summary>
         <p class="hint" data-i18n="draw2.ann.hint">How sure the identification is, on the scale of Schymanski et al. 2014 (1 confirmed structure, 2a library match, 2b diagnostic evidence, 3 tentative candidates, 4 formula, 5 exact mass), and on what evidence: one per line, as kind: reference.</p>
         <p class="hint" id="d2-ann-kinds"></p>

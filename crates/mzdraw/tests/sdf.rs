@@ -145,12 +145,14 @@ fn data_is_set_by_an_operation_with_an_exact_inverse() {
     let mut s = Session::default();
     s.run(&[
         Op::AtomAdd {
+            map: None,
             id: None,
             el: "C".into(),
             x: 0.0,
             y: 0.0,
         },
         Op::AtomAdd {
+            map: None,
             id: None,
             el: "O".into(),
             x: 1.0,
@@ -206,6 +208,7 @@ fn data_is_set_by_an_operation_with_an_exact_inverse() {
     }])
     .unwrap();
     s.run(&[Op::AtomSet {
+        map: None,
         id: 1,
         el: Some("N".into()),
         chg: None,

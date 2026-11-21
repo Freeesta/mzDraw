@@ -15,6 +15,7 @@ fn root() -> PathBuf {
 fn full_ops() -> Vec<Op> {
     vec![
         Op::AtomAdd {
+            map: Some(3),
             id: Some(9),
             el: "C".into(),
             x: 1.5,
@@ -28,6 +29,7 @@ fn full_ops() -> Vec<Op> {
             s: 1,
         },
         Op::AtomSet {
+            map: Some(4),
             id: 1,
             el: Some("N".into()),
             chg: Some(-1),
@@ -240,10 +242,13 @@ fn markdown() -> String {
     for o in v["ops"].as_array().unwrap() {
         let fields: Vec<String> = (o["fields"].as_array().unwrap().iter())
             .map(|f| {
-                let extra: Vec<&str> = ["unit", "bounds"]
+                let mut extra: Vec<&str> = ["unit", "bounds"]
                     .iter()
                     .filter_map(|k| f[k].as_str())
                     .collect();
+                if f["mzlab"] == false {
+                    extra.push("not read by mzLab");
+                }
                 format!(
                     "`{}` {}{}{}",
                     f["key"].as_str().unwrap(),
