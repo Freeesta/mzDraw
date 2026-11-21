@@ -266,14 +266,23 @@ fn every_key_the_engine_can_refuse_with_has_a_text_in_the_catalog() {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/lang/mzdraw.js"),
     )
     .unwrap();
+    // The engine keys: every `error.grafo.*`, `error.sel.*` and `error.label.*` constant of the pinned mzlab-feat sources that the `sel` path
+    // reads (chem/graph.rs, chem/sel.rs, chem/labels.rs, chem/smiles.rs), found with
+    //   grep -ho '"error\.\(grafo\|sel\|label\)\.[A-Za-z.]*"' graph.rs graph_record.rs sel.rs labels.rs smiles.rs structures.rs
+    // in the cargo git checkout of rev ccd4680 (11 keys), then ours. Some cannot be reached from a molfile (`mixture`, `smiles`): they are
+    // kept so that a later pin that reaches them still shows words. REDO THE GREP WHEN THE PIN MOVES and add what is new.
     for key in [
-        "error.grafo.element",
-        "error.grafo.tooBig",
-        "error.grafo.molfile",
         "error.grafo.delta",
         "error.grafo.delta.neg",
-        "error.sel.request",
+        "error.grafo.element",
+        "error.grafo.mixture",
+        "error.grafo.molfile",
+        "error.grafo.smiles",
+        "error.grafo.tooBig",
+        "error.label.element",
+        "error.label.isotope",
         "error.label.request",
+        "error.sel.request",
         "error.draw2.valuesOpen",
         "error.draw2.valuesSize",
         "error.draw2.valuesAlone",
