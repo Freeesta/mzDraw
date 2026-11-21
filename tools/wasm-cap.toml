@@ -3,7 +3,10 @@
 # decision: send the measured numbers and a proposal first, never raise it in a PR on your own.
 # 2026-11-20: the owner lifted the size limit for now. `cap` is a generous guard (4000000) that only catches a runaway; revisit
 # before the first release.
+# 2026-11-21: measured 568004 (group label reversal, +2668 B on 565336).
 # 2026-11-20: raised from 512000 to 540000 by the owner's decision, for the 2D layout of mzlab-mol (the module measured 536722 B
 # with it linked, 500659 B without).
 cap = 4000000
-measured = 536722
+# 2026-11-21: 584638 B with the drawing checks std/1 (stereo family, +16634 B over 568004 B).
+# 2026-11-21: 589976 B with drag-free editing (keys, Move here; +5338 B over 584638 B).
+measured = 589976

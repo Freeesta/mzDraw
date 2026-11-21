@@ -62,6 +62,8 @@ async function context(browser, opts) {
 const state = pg => pg.evaluate(STATE);
 const tool = (pg, name) => pg.click(`[data-testid="d2-${name}"]`);
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
+/** a screenshot of one element at deviceScaleFactor 2 (the drawing checks panel, light, dark and tablet: docs/shots/) */
+const shotEl = async (pg, sel, name) => { if (shots) await pg.locator(sel).screenshot({ path: path.join(shots, name + ".png") }); };
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
 /** the drawing loop every pointer kind must manage: template, undo/redo, atom, sprouted bonds, the valence mistake, erase */
@@ -85,7 +87,7 @@ try {
   let { ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
 
   await step("the page loads the module and starts empty on the single-bond tool", async () => {
-    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
+    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, std: 0, selected: 0 });
     eq(await pg.evaluate("window.MZDRAW.version()"), "mzdraw/1");
     eq(await pg.innerText("#d2-summary"), await pg.evaluate("I18N.t('draw.check.empty')"));
     assert(await pg.locator("#d2-tools button").count() >= 26, "the toolbar");
@@ -154,6 +156,7 @@ try {
     const ket = JSON.parse(got.ket);
     assert(ket.root.nodes[0].$ref === "mol0" && ket.mol0.type === "molecule" && ket.mol0.atoms.length === 4 && ket.mol0.bonds.length === 3, "a KET file");
     assert(got.svg.startsWith("<svg") && got.svg.includes("<line") && got.svg.replaceAll("OH", "O").includes(">O<"), "an SVG with lines and labels");
+    assert(got.svg.includes('role="img"') && /<title id="t-[0-9a-f]{8}">C2H4O2<\/title>/.test(got.svg) && got.svg.includes('xml:lang="en"'), "the SVG has a text alternative: the formula as its title");
     // pictures that open again: the SVG and the PNG carry the document; a PNG is 300 dpi of the SVG, drawn by the browser
     const [p] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-ex-png")]);
     eq(p.suggestedFilename(), "drawing.png");
@@ -429,6 +432,28 @@ try {
     await shot(pg, "labels");
   });
 
+  await step("labels: a group on the left of its bond is written reversed (CO2H as HO2C), by keyboard and by pointer; the bond on its other side keeps it as written", async () => {
+    const labs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms.map(a => a.lab || "");
+    const drawn = () => pg.evaluate("Array.from(window.MZDRAW.strings())");       // the display list the canvas paints
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await pg.keyboard.press("l");                             // the label by keyboard: L, the text, Enter
+    await pg.keyboard.type("CO2H"); await pg.keyboard.press("Enter"); await want(pg, { tool: "label:CO2H" });
+    await pg.mouse.click(cx, cy);     // the first atom: its bond leaves to the right
+    eq(await labs(), ["CO2H", ""]);
+    eq((await drawn()).filter(t => ["HO", "2", "C", "CO", "H"].includes(t)), ["HO", "2", "C"]);
+    const svg = await pg.evaluate("window.MZDRAW.save('svg')");
+    assert(svg.indexOf(">HO<") > 0 && svg.indexOf(">HO<") < svg.indexOf(">2<") && svg.indexOf(">2<") < svg.indexOf(">C<") && !svg.includes(">CO<"), "the SVG says HO2C, as the canvas does");
+    await shot(pg, "label-reversal");
+    // the same group on the atom the bond leaves to the left: as written
+    await tool(pg, "undo"); eq(await labs(), ["", ""]);
+    await pg.fill("#d2-label", "CO2H"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:CO2H" });
+    await pg.mouse.click(cx + 35, cy - 20);                   // the second atom: its bond leaves to the left
+    eq(await labs(), ["", "CO2H"]);
+    eq((await drawn()).filter(t => ["HO", "2", "C", "CO", "H"].includes(t)), ["CO", "2", "H"]);
+    await shot(pg, "label-written");
+  });
+
   await step("a reaction: arrow by click and by drag, plus, text typed and set on the arrow, selected, moved, copied, erased", async () => {
     const objs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).objects || [];
     await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0 });
@@ -571,7 +596,56 @@ try {
     await key("Shift+Tab");
     assert(await pg.evaluate("document.activeElement === document.querySelector('#d2-canvas')"), "and Shift+Tab comes back");
     // the help is on the page, closed until asked for
-    assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 4, "the keyboard help");
+    assert(!(await pg.evaluate("document.querySelector('#d2-keys').open")) && await pg.locator("#d2-keys li").count() === 5, "the keyboard help");
+  });
+  await ctx.close();
+
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  await step("no dragging needed (WCAG 2.5.7): a selection is moved and turned by keys, and brought to a click by Move here with the mouse and with a finger", async () => {
+    const atoms = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms;
+    const centre = async () => { const a = await atoms(), xs = a.map(p => p.x), ys = a.map(p => p.y); return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]; };
+    const live = () => pg.innerText("#d2-live"), say = (key, what) => pg.evaluate(`I18N.t(${JSON.stringify(key)}, { what: ${JSON.stringify(what)} })`);
+    const near = (a, b, tol, what) => assert(a.every((v, i) => Math.abs(v - b[i]) < tol), `${what}: ${JSON.stringify(a)} vs ${JSON.stringify(b)}`);
+    await tool(pg, "clear"); await tool(pg, "ring:6a"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 6, bonds: 6 });
+    await tool(pg, "select"); await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 18 - 6 });
+    const c0 = await centre(), key = k => pg.keyboard.press(k);
+    // Alt+Arrow: 0.1 bond length per press, three presses in a row are one undo step
+    for (let n = 0; n < 3; n++) await key("Alt+ArrowRight");
+    near(await centre(), [c0[0] + 0.3, c0[1]], 2e-4, "three small steps right");
+    eq(await live(), await say("draw2.announce.moved", "right 0.3"));
+    await key("Alt+Shift+ArrowUp"); near(await centre(), [c0[0] + 0.3, c0[1] + 1], 2e-4, "one bond length up, joined to the steps before");
+    await key("Control+z"); near(await centre(), c0, 1e-9, "presses in a row, whatever their size, are one undo step");
+    // Alt+[ and Alt+]: 15 degrees about the centre, 24 presses come back; the announcement says the amount
+    const d0 = JSON.stringify(await atoms());
+    await key("Alt+["); eq(await live(), await say("draw2.announce.rotated", "15 counter-clockwise"));
+    await key("Alt+]"); await key("Alt+]"); eq(await live(), await say("draw2.announce.rotated", "15 clockwise"));
+    await key("Alt+["); near((await atoms()).flatMap(p => [p.x, p.y]), JSON.parse(d0).flatMap(p => [p.x, p.y]), 5e-4, "left, right, right, left is the start");
+    for (let n = 0; n < 24; n++) await key("Alt+[");
+    near((await atoms()).flatMap(p => [p.x, p.y]), JSON.parse(d0).flatMap(p => [p.x, p.y]), 3e-3, "24 turns of 15 degrees are a full turn");
+    // without a selection the keys do nothing and the browser does not go back
+    await key("Escape"); await key("Alt+ArrowLeft"); eq((await state(pg)).selected, 0);
+    // Move here: a real toggle button (and the key M); a click on an empty spot brings the selection there, one undo step
+    const toggle = '[data-testid="d2-move-here"]';
+    assert((await pg.evaluate(`document.querySelector('${toggle}').tagName`)) === "BUTTON", "a real button");
+    eq(await pg.getAttribute(toggle, "aria-pressed"), "false");
+    await pg.keyboard.press("Control+a"); await want(pg, { selected: 12 });
+    await pg.click(toggle); eq(await pg.getAttribute(toggle, "aria-pressed"), "true");
+    const before = JSON.stringify(await atoms()), c1 = await centre();
+    await pg.mouse.click(cx + 200, cy + 100); await want(pg, { selected: 12 });
+    const c2 = await centre(), k = (c2[0] - c1[0]) / 200;                       // document units per pixel
+    assert(k > 0 && Math.abs((c1[1] - c2[1]) / 100 - k) < 1e-3 * k + 1e-4, "right and down on the screen is right and down in the document");
+    const ring = (await atoms()).length; eq(ring, 6);
+    await shot(pg, "move-here");
+    await pg.keyboard.press("Control+z"); eq(JSON.stringify(await atoms()), before);
+    await pg.keyboard.press("Control+Shift+z");
+    // a finger does the same
+    await pg.touchscreen.tap(cx - 300, cy - 150); await want(pg, { selected: 12 });
+    const c3 = await centre();
+    near([(c3[0] - c2[0]) / -500, (c3[1] - c2[1]) / 250], [k, k], 1e-3 * k + 1e-4, "a finger brings the selection to the tap");
+    eq(await live(), await say("draw2.say.moved", "6"));
+    // M turns the mode off: a click on an empty spot clears the selection again
+    await key("m"); eq(await pg.getAttribute(toggle, "aria-pressed"), "false");
+    await pg.mouse.click(cx + 300, cy + 200); await want(pg, { selected: 0 });
   });
   await ctx.close();
 
@@ -586,7 +660,7 @@ try {
     await until(pg, "Number(document.documentElement.dataset.d2Saved || 0) >= 1");       // one second after the last change
     const doc = await pg.evaluate("window.MZDRAW.save('mzdraw')");
     await pg.reload(); await ready();
-    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, selected: 0 });
+    eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, std: 0, selected: 0 });
     assert(await pg.isVisible("#d2-restore"), "the saved drawing is offered");
     eq(await pg.innerText("#d2-restore-text"), await pg.evaluate("I18N.t('draw2.restore.found.objects', { atoms: 6, bonds: 5, objects: 1 })"));
     // while the offer waits nothing is written: a stray drawing does not replace the saved one
@@ -636,6 +710,30 @@ try {
     eq((await state(pg)).style, "slides");
     await pg.selectOption("#d2-style", "mzlab"); await until(pg, "Number(document.documentElement.dataset.d2Style || 0) >= 1");
   });
+  await step("drawing checks: a wedge drawn onto a CH2 gives one line; Enter on it selects its atom and bond; the drawing is not changed", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, std: 0 });
+    await pg.click("#d2-std summary");                                   // the panel is closed until it is opened
+    eq(await pg.innerText("#d2-std-note"), "");                           // nothing drawn, nothing said
+    await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1, std: 0 });
+    eq(await pg.innerText("#d2-std-note"), await pg.evaluate("I18N.t('draw2.std.none')"));
+    await tool(pg, "bond:up"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 3, bonds: 2, std: 1 });      // a wedge starts on the first atom, which is now a CH2
+    eq(await pg.locator("#d2-std-list li").count(), 1);
+    eq(await pg.locator("#d2-std-list button").getAttribute("data-key"), "std.stereo.notCentre");
+    eq(await pg.innerText("#d2-std-list button"), (await pg.evaluate("I18N.t('draw2.std.grade.warn')")) + " " + (await pg.evaluate("I18N.t('draw2.std.stereo.notCentre', { n: 1 })")));
+    const report = JSON.parse(await pg.evaluate("window.MZDRAW.save('std')"));
+    eq(report.checks.map(c => [c.key, c.grade, c.atoms.length, c.bonds.length]), [["std.stereo.notCentre", "warn", 1, 1]]);
+    await pg.locator("#d2-std-list").scrollIntoViewIfNeeded();
+    await shot(pg, "checks");
+    await shotEl(pg, "#d2-std-panel", "std-light");
+    await pg.emulateMedia({ colorScheme: "dark" }); await shotEl(pg, "#d2-std-panel", "std-dark");
+    await pg.emulateMedia({ colorScheme: "light" });
+    const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await pg.focus("#d2-std-list button"); await pg.keyboard.press("Enter");
+    await want(pg, { selected: 2 });                                      // the atom and the bond the finding is about
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), before);       // a selection is no change and no history step
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await want(pg, { selected: 0 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 2, bonds: 1, std: 0 });      // the line goes with the wedge
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
@@ -650,6 +748,29 @@ try {
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
+  });
+
+  await step("drawing checks by touch: a tap on the line selects the atom and bond it is about", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, std: 0 });
+    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "bond:up"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 3, bonds: 2, std: 1 });
+    if (!(await pg.evaluate("document.querySelector('#d2-std').open"))) await pg.locator("#d2-std summary").tap();
+    await pg.locator("#d2-std-list button").tap();
+    await want(pg, { selected: 2 });
+    await shotEl(pg, "#d2-std-panel", "std-tablet");
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.std.selected', { n: 2 })"));
+    assert(await pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), "the panel does not scroll the page sideways");
+  });
+
+  await step("tablet with touch: a group label on the left of its bond is written reversed", async () => {
+    const drawn = () => pg.evaluate("Array.from(window.MZDRAW.strings())");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await pg.fill("#d2-label", "CO2H"); await pg.press("#d2-label", "Enter"); await want(pg, { tool: "label:CO2H" });
+    await pg.touchscreen.tap(cx, cy);
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms.map(a => a.lab || ""), ["CO2H", ""]);
+    eq((await drawn()).filter(t => ["HO", "2", "C", "CO", "H"].includes(t)), ["HO", "2", "C"]);
+    await shot(pg, "label-reversal-touch");
   });
 
   await step("two fingers pan and zoom without drawing; a long press selects; a cancelled touch commits nothing; a pen draws and its eraser end erases", async () => {
@@ -710,4 +831,6 @@ try {
 for (const s of steps) console.log(" ", s[1] === "ok" ? "ok  " : "FAIL", s[0], s[1] === "ok" ? "" : s[1]);
 for (const e of errs) console.log("  page:", e.join(" "));
 console.log(`e2e ${base}: ${steps.filter(s => s[1] === "ok").length}/${steps.length} steps ok, ${errs.length} page errors`);
-process.exit(steps.length === 16 && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);
+// the steps this file declares: one that does not run is a failure, and a PR that adds a step needs no edit here
+const declared = (readFileSync(fileURLToPath(import.meta.url), "utf8").match(/await step\(/g) || []).length;
+process.exit(steps.length === declared && !errs.length && steps.every(s => s[1] === "ok") ? 0 : 1);

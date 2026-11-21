@@ -23,6 +23,8 @@ pub const FOCUS: u32 = 64;
 /// Modifier bits of an event.
 pub const SHIFT: u32 = 1;
 pub const CTRL: u32 = 2;
+/// Bit 4 of a pointer event is the eraser end of a pen; bit 8 is Alt (Option) on a key.
+pub const ALT: u32 = 8;
 
 /// Pointer kinds: mouse, pen, finger. A finger needs a wider reach.
 pub const MOUSE: u32 = 0;
@@ -149,6 +151,12 @@ pub struct Editor {
     /// The editor's own clipboard: an `mzdraw/1` document of what was copied, and how many times it was pasted since.
     pub(crate) clip: String,
     pub(crate) pasted: u32,
+    /// The last nudge or turn by keys, to join the next press to it as one undo step.
+    pub(crate) nudge: Option<crate::editor_nudge::Nudge>,
+    /// The "move here" mode: with a selection, a click on an empty spot brings the selection there.
+    pub move_here: bool,
+    /// The open context menu and what the page was asked to do after its last item (`context`).
+    pub(crate) ctx: crate::context::Context,
 }
 
 impl Default for Editor {
@@ -170,6 +178,9 @@ impl Default for Editor {
             style: Style::default(),
             clip: String::new(),
             pasted: 0,
+            nudge: None,
+            move_here: false,
+            ctx: Default::default(),
         }
     }
 }
@@ -323,6 +334,10 @@ impl Editor {
 
     /// Zooms by `factor` keeping the point under the pointer still (scale 8-240 px per bond).
     pub fn zoom(&mut self, px: f64, py: f64, factor: f64) -> u32 {
+        // a number that is not finite (or a factor that is not positive) would poison the view for good
+        if ![px, py, factor].iter().all(|v| v.is_finite()) || factor <= 0.0 {
+            return 0;
+        }
         let (x, y) = self.view.to_doc(px, py);
         self.view.scale = (self.view.scale * factor).clamp(8.0, 240.0);
         self.view.ox = px - x * self.view.scale;
@@ -358,7 +373,7 @@ impl Editor {
     }
 
     /// The drawing as a text: `mzdraw` (the document), `molfile` (V2000, V3000 when it has to be), `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn` (a drawing with one arrow), `sdf` (one record per structure, with its data),
-    /// `svg` (in the style of the editor) or `log` (the command log). The error is an i18n key.
+    /// `svg` (in the style of the editor), `log` (the command log) or `std` (the drawing checks, `conform::report`, read-only). The error is an i18n key.
     pub fn save(&self, kind: &str) -> Result<String, &'static str> {
         Ok(match kind {
             "mzdraw" => self.doc().to_json(),
@@ -372,6 +387,7 @@ impl Editor {
             "sdf" => self.doc().to_sdf(),
             "svg" => self.svg(),
             "log" => self.session.log_json(),
+            "std" => crate::conform::report(self.doc()).to_json(),
             _ => return Err("error.draw2.request"),
         })
     }
@@ -496,6 +512,7 @@ impl Editor {
         self.session = Session::new(doc);
         self.over = Overlay::default();
         self.press = None;
+        self.nudge = None;
         self.said = ("draw2.say.opened", self.doc().atoms.len().to_string());
         self.error = "";
         Ok(())

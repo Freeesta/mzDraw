@@ -1,11 +1,11 @@
 //! Golden replay: every case of `tests/data/mzdraw_log.json` (a start text, a command log) gives the recorded document, molfile (V2000 and
-//! V3000), SMILES, SDF, SVG and log byte for byte, and every refused request its key. The `.wasm` is held to the same file by `tests/parity.mjs`.
+//! V3000), SMILES, SDF, SVG, log and drawing checks (`std`) byte for byte, and every refused request its key. The `.wasm` is held to the same file by `tests/parity.mjs`.
 //! `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` rewrites the recorded outputs after a wanted change.
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-const OUTS: [&str; 10] = [
+const OUTS: [&str; 11] = [
     "mzdraw",
     "molfile",
     "molfile-v3000",
@@ -16,6 +16,7 @@ const OUTS: [&str; 10] = [
     "sdf",
     "svg",
     "log",
+    "std",
 ];
 
 fn fixture() -> PathBuf {
@@ -53,6 +54,16 @@ fn every_case_replays_to_the_recorded_bytes() {
                 assert!(case["out"].get("rxn").is_none(), "{}", case["name"]);
             }
         }
+    }
+    // the context menu of a right-click on each kind of target, as the `.wasm` gives it (tests/parity.mjs)
+    for case in fx["contexts"].as_array_mut().unwrap() {
+        let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+        if bless {
+            case["out"] = json!(got);
+        }
+        assert_eq!(case["out"], json!(got), "{}", case["name"]);
+        let menu: Value = serde_json::from_str(&got).unwrap();
+        assert!(menu["target"].is_string() && menu["items"].is_array());
     }
     if bless {
         std::fs::write(fixture(), serde_json::to_string_pretty(&fx).unwrap() + "\n").unwrap();
