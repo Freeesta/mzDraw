@@ -791,6 +791,28 @@ try {
     await tool(pg, "undo"); await want(pg, { objects: 4 });
   });
 
+  await step("text runs: a text with subscripts and a superscript is typed by keyboard and placed by mouse, a two-line text by the same field, one undo step each, the page draws them as runs", async () => {
+    const objs = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).objects || [];
+    await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0 }); await tool(pg, "fit");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("t");
+    await pg.keyboard.type("CH_3CO_2H, ^{13}C"); await pg.keyboard.press("Enter"); await want(pg, { tool: "text:CH_3CO_2H, ^{13}C" });
+    await pg.mouse.click(cx, cy); await want(pg, { objects: 1 });
+    let o = (await objs())[0];
+    eq(o.runs.map(r => r.t), ["CH", "3", "CO", "2", "H, ", "13", "C"]);
+    eq([o.runs.filter(r => r.sub).length, o.runs.filter(r => r.sup).length, o.text], [2, 1, "CH3CO2H, 13C"]);
+    const svg = await pg.evaluate("window.MZDRAW.save('svg')");
+    const fontOf = t => Number(new RegExp(`font-size="([0-9.]+)"[^>]*>${t}</text>`).exec(svg)?.[1]);
+    assert(fontOf("3") < fontOf("CH") && fontOf("13") < fontOf("CH"), "scripts are drawn smaller than the text");
+    await shot(pg, "text-runs");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("t");
+    await pg.keyboard.type("Pd(OAc)_2\\n80 °C"); await pg.keyboard.press("Enter");
+    await pg.mouse.click(cx, cy + 100); await want(pg, { objects: 2 });
+    o = (await objs())[1];
+    eq([o.text, o.runs.some(r => r.br)], ["Pd(OAc)2\n80 °C", true]);
+    await tool(pg, "undo"); await want(pg, { objects: 1 });
+    await tool(pg, "undo"); await want(pg, { objects: 0 });
+  });
+
   await step("scheme row: a messy scheme is laid out on one line by the button, with the keyboard (select all, Enter on the button) and with the mouse; one undo step, the SVG equals the golden, a second press says it is done", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
     // the drawing is opened with its ids (as a saved file is), so the bytes can be the golden ones
@@ -1438,6 +1460,27 @@ try {
     await reveal(pg, PT); await pg.tap(PT); await frames(pg);
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.schemeCycle')"));
     eq(await saved("mzdraw"), before);
+    await tool(pg, "clear");
+  });
+
+  await step("tablet with touch and a pen: a text with a subscript is placed by a tap and by a pen, as runs", async () => {
+    await pg.reload(); await until(pg, "document.documentElement.dataset.d2Ready === '1'");
+    await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0 });
+    const saved = what => pg.evaluate(`window.MZDRAW.save(${JSON.stringify(what)})`);
+    const objs = async () => JSON.parse(await saved("mzdraw")).objects || [];
+    await reveal(pg, "#d2-text-tool"); await pg.fill("#d2-text-tool", "H_2O"); await pg.press("#d2-text-tool", "Enter");
+    const b = await pg.locator("#d2-canvas").boundingBox();
+    await pg.tap("#d2-canvas", { position: { x: b.width / 2, y: b.height / 3 } }); await want(pg, { objects: 1 });
+    eq((await objs())[0].runs, [{ t: "H" }, { t: "2", sub: true }, { t: "O" }]);
+    // a pen: the same text on another spot
+    const cdp = await pg.context().newCDPSession(pg);
+    const px = b.x + b.width / 2, py = b.y + 2 * b.height / 3;
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: px, y: py, pointerType: "pen", button: "none", buttons: 0 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: px, y: py, pointerType: "pen", button: "left", buttons: 1, clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: px, y: py, pointerType: "pen", button: "left", buttons: 0, clickCount: 1 });
+    await frames(pg); await want(pg, { objects: 2 });
+    eq((await objs())[1].runs.length, 3);
+    await shot(pg, "text-runs-touch");
     await tool(pg, "clear");
   });
 

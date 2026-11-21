@@ -257,6 +257,7 @@ fn pathway_route_puts_every_anchored_arrow_back_and_is_idempotent() {
         .run(&[mzdraw::Op::ObjSet {
             id: 10,
             text: None,
+            runs: None,
             x2: Some(9.0),
             y2: Some(3.0),
             from: None,

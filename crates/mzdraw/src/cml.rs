@@ -71,7 +71,8 @@ impl Read {
                 }
                 "arrow" => {
                     let p = ["x1", "y1", "x2", "y2"].map(|k| number(c.attr(k)));
-                    self.objects.push((ObjKind::Arrow, p, String::new()));
+                    self.objects
+                        .push((ObjKind::Arrow, p, String::new(), Vec::new()));
                 }
                 "MReactionSign" if !points.is_empty() => {
                     let n = points.len() as f64;
@@ -79,7 +80,7 @@ impl Read {
                         .iter()
                         .fold((0.0, 0.0), |s, p| (s.0 + p.0 / n, s.1 + p.1 / n));
                     self.objects
-                        .push((ObjKind::Plus, [x, y, 0.0, 0.0], String::new()));
+                        .push((ObjKind::Plus, [x, y, 0.0, 0.0], String::new(), Vec::new()));
                 }
                 "MTextBox" if !points.is_empty() => {
                     let field = child(c, "Field").map_or("", |f| f.text.as_str());
@@ -96,14 +97,22 @@ impl Read {
                     }
                     let top = points.iter().map(|p| p.1).fold(f64::MIN, f64::max);
                     let left = points.iter().map(|p| p.0).fold(f64::MAX, f64::min);
-                    self.objects
-                        .push((ObjKind::Text, [left, top - 0.5, 0.0, 0.0], text));
+                    self.objects.push((
+                        ObjKind::Text,
+                        [left, top - 0.5, 0.0, 0.0],
+                        text,
+                        Vec::new(),
+                    ));
                 }
                 // a polyline with a head is an arrow from its first point to its last
                 "MPolyline" if points.len() >= 2 && c.attr("headLength").is_some() => {
                     let (a, b) = (points[0], points[points.len() - 1]);
-                    self.objects
-                        .push((ObjKind::Arrow, [a.0, a.1, b.0, b.1], String::new()));
+                    self.objects.push((
+                        ObjKind::Arrow,
+                        [a.0, a.1, b.0, b.1],
+                        String::new(),
+                        Vec::new(),
+                    ));
                 }
                 name if name.starts_with('M') && name != "MHead" || name == "Rgroup" => {
                     self.other += 1

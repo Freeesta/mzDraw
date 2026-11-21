@@ -41,6 +41,7 @@ pub mod png;
 pub mod proposal;
 pub mod replay;
 pub mod route;
+pub mod runs;
 pub mod rxn;
 pub mod scene;
 pub mod schema;
@@ -59,6 +60,7 @@ pub mod xml;
 pub use doc::{Atom, Bond, Document, Obj, ObjKind, FORMAT};
 pub use editor::Editor;
 pub use ops::{Axis, Op, OpError, Session};
+pub use runs::Run;
 pub use settings::Style;
 
 /// The product name, from the one place that holds it (`brand`).

@@ -25,6 +25,7 @@ fn obj(t: ObjKind, x: f64, y: f64, x2: f64, y2: f64, text: &str) -> Op {
         x2,
         y2,
         text: text.into(),
+        runs: Vec::new(),
         from: 0,
         to: 0,
     }
@@ -48,6 +49,7 @@ fn objects_are_added_set_moved_removed_and_undone() {
     let set = |id, text: Option<&str>, x2| Op::ObjSet {
         id,
         text: text.map(str::to_string),
+        runs: None,
         x2,
         y2: None,
         from: None,

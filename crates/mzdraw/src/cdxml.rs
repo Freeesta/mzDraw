@@ -43,6 +43,9 @@ struct Read {
     groups: Vec<(usize, String)>,
     far: (f64, usize, bool),
     other: usize,
+    /// The font table (id, family name) and the color table (`#rrggbb`, index 2 on) of the file.
+    fonts: Vec<(String, String)>,
+    colors: Vec<String>,
 }
 
 /// The numbers of an attribute such as `p="72 144"`, y turned up (CDXML counts y downwards).
@@ -59,7 +62,69 @@ fn label_of(e: &Element) -> String {
     runs.concat()
 }
 
+/// The size of a run the file does not state, and the one the writer gives a text, in points.
+const TEXT_SIZE: f64 = 10.0;
+
 impl Read {
+    /// The runs of a `t` object: each `s` with its `face` (bold 1, italic 2, underline 4, subscript 32, superscript 64, both: the
+    /// formula face, which lowers the digits after a symbol), `size`, `font` and `color`; a new line in a run is a line break.
+    /// Empty for a text with no style and no line break (it is the plain text).
+    fn runs_of(&self, e: &Element) -> Vec<crate::runs::Run> {
+        let mut out = Vec::new();
+        for s in e.each("s") {
+            let face: u32 = s.attr("face").and_then(|f| f.parse().ok()).unwrap_or(0);
+            let size = s
+                .attr("size")
+                .and_then(|v| v.parse::<f64>().ok())
+                .filter(|v| v.is_finite() && *v > 0.0)
+                .map_or(0.0, |v| v / TEXT_SIZE);
+            let font = s
+                .attr("font")
+                .and_then(|id| self.fonts.iter().find(|f| f.0 == id));
+            let color = s
+                .attr("color")
+                .and_then(|c| c.parse::<usize>().ok())
+                .filter(|c| *c >= 2)
+                .and_then(|c| self.colors.get(c - 2));
+            let style = crate::runs::Run {
+                sub: face & 96 == 32,
+                sup: face & 96 == 64,
+                b: face & 1 != 0,
+                i: face & 2 != 0,
+                u: face & 4 != 0,
+                font: font
+                    .filter(|f| f.1 != "Arial")
+                    .map(|f| f.1.clone())
+                    .unwrap_or_default(),
+                sz: if (size - 1.0).abs() < 1e-9 { 0.0 } else { size },
+                color: color.cloned().unwrap_or_default(),
+                ..crate::runs::Run::default()
+            };
+            let lowered = face & 96 == 96;
+            let mut piece = Vec::new();
+            for (k, line) in s.text.split('\n').enumerate() {
+                if k > 0 {
+                    piece.push(crate::runs::Run::line());
+                }
+                piece.push(crate::runs::Run {
+                    t: line.into(),
+                    ..style.clone()
+                });
+            }
+            out.extend(if lowered {
+                crate::runs::formula(&piece)
+            } else {
+                piece
+            });
+        }
+        let out = crate::runs::canon(out);
+        if out.iter().any(|r| r.br || r.styled()) {
+            out
+        } else {
+            Vec::new()
+        }
+    }
+
     fn walk(&mut self, e: &Element, depth: usize) {
         for c in &e.children {
             match c.name.as_str() {
@@ -74,10 +139,33 @@ impl Read {
                     // a fragment may hold texts and graphics of its own; the fragments inside its nodes are their expansions
                     self.walk(c, depth + 1);
                 }
+                "fonttable" => {
+                    for f in c.each("font") {
+                        if let (Some(id), Some(name)) = (f.attr("id"), f.attr("name")) {
+                            self.fonts.push((id.into(), name.into()));
+                        }
+                    }
+                }
+                "colortable" => {
+                    for k in c.each("color") {
+                        let part = |n: &str| {
+                            let v = k.attr(n).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+                            (v.clamp(0.0, 1.0) * 255.0).round() as u32
+                        };
+                        let rgb = part("r") << 16 | part("g") << 8 | part("b");
+                        self.colors.push(format!("#{rgb:06x}"));
+                    }
+                }
                 "t" => match numbers(c, "p").or_else(|| numbers(c, "BoundingBox")) {
                     Some(p) => {
+                        let (text, runs) = (label_of(c), self.runs_of(c));
+                        let text = if runs.is_empty() {
+                            text
+                        } else {
+                            crate::runs::plain(&runs)
+                        };
                         self.objects
-                            .push((ObjKind::Text, [p[0], -p[1], 0.0, 0.0], label_of(c)))
+                            .push((ObjKind::Text, [p[0], -p[1], 0.0, 0.0], text, runs))
                     }
                     None => self.other += 1,
                 },
@@ -86,6 +174,7 @@ impl Read {
                         ObjKind::Arrow,
                         [t[0], -t[1], h[0], -h[1]],
                         String::new(),
+                        Vec::new(),
                     )),
                     _ => self.other += 1,
                 },
@@ -104,6 +193,7 @@ impl Read {
                                 ObjKind::Arrow,
                                 [b[2], -b[3], b[0], -b[1]],
                                 String::new(),
+                                Vec::new(),
                             ));
                         }
                         (Some(b), (Some("Symbol"), _, Some("Plus"))) => {
@@ -111,6 +201,7 @@ impl Read {
                                 ObjKind::Plus,
                                 [b[0], -b[1], 0.0, 0.0],
                                 String::new(),
+                                Vec::new(),
                             ));
                         }
                         _ => self.other += 1,
@@ -265,14 +356,87 @@ impl Document {
                 fixed((y1 - y + 1.0) * BOND, 2)
             )
         };
+        // the font table (Arial is 3) and the color table (index 2 on) of the formatted texts
+        let (mut fonts, mut colors): (Vec<&str>, Vec<&str>) = (Vec::new(), Vec::new());
+        for r in self.objects.iter().flat_map(|o| &o.runs) {
+            if !r.font.is_empty() && r.font != "Arial" && !fonts.contains(&r.font.as_str()) {
+                fonts.push(&r.font);
+            }
+            if !r.color.is_empty() && !colors.contains(&r.color.as_str()) {
+                colors.push(&r.color);
+            }
+        }
         let run = |s: &str| {
             format!(
                 "<s font=\"3\" size=\"10\" face=\"0\">{}</s>",
                 xml::escape(s)
             )
         };
+        // the `s` objects of the runs of a text (a line break is a new line in the text of a run)
+        let styled = |runs: &[crate::runs::Run]| -> String {
+            runs.iter()
+                .map(|r| {
+                    let font = match fonts.iter().position(|f| *f == r.font) {
+                        _ if r.font.is_empty() || r.font == "Arial" => 3,
+                        Some(k) => 4 + k,
+                        None => 3,
+                    };
+                    let face = u32::from(r.b)
+                        | u32::from(r.i) << 1
+                        | u32::from(r.u) << 2
+                        | u32::from(r.sub) << 5
+                        | u32::from(r.sup) << 6;
+                    let size = fixed(TEXT_SIZE * if r.sz == 0.0 { 1.0 } else { r.sz }, 2);
+                    let color = match colors.iter().position(|c| *c == r.color) {
+                        Some(k) => format!(" color=\"{}\"", 2 + k),
+                        None => String::new(),
+                    };
+                    let text = if r.br { "\n" } else { r.t.as_str() };
+                    format!(
+                        "<s font=\"{font}\" size=\"{size}\" face=\"{face}\"{color}>{}</s>",
+                        xml::escape(text)
+                    )
+                })
+                .collect()
+        };
+        let body = |o: &crate::doc::Obj| {
+            if o.runs.is_empty() {
+                run(&o.text)
+            } else {
+                styled(&o.runs)
+            }
+        };
+        let mut table =
+            String::from("<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/>");
+        for (k, f) in fonts.iter().enumerate() {
+            table += &format!(
+                "<font id=\"{}\" charset=\"iso-8859-1\" name=\"{}\"/>",
+                4 + k,
+                xml::escape(f)
+            );
+        }
+        table += "</fonttable>";
+        if !colors.is_empty() {
+            table += "<colortable>";
+            for c in &colors {
+                let part = |i: usize| {
+                    fixed(
+                        f64::from(u8::from_str_radix(&c[1 + 2 * i..3 + 2 * i], 16).unwrap_or(0))
+                            / 255.0,
+                        3,
+                    )
+                };
+                table += &format!(
+                    "<color r=\"{}\" g=\"{}\" b=\"{}\"/>",
+                    part(0),
+                    part(1),
+                    part(2)
+                );
+            }
+            table += "</colortable>";
+        }
         let mut out = format!(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"{}\" BondLength=\"{}\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n",
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"{}\" BondLength=\"{}\">\n{table}\n<page>\n",
             crate::NAME,
             // as an integer: an `f64` given to the formatter of the standard library costs 22 kB of module
             BOND as u32
@@ -360,8 +524,7 @@ impl Document {
                     out += &format!("<graphic id=\"{old}\" SupersededBy=\"{new}\" BoundingBox=\"{head} {tail}\" GraphicType=\"Line\" ArrowType=\"FullHead\"/>\n<arrow id=\"{new}\" Head3D=\"{head} 0\" Tail3D=\"{tail} 0\" ArrowheadHead=\"Full\"/>\n");
                     if !o.text.is_empty() {
                         let above = pt((o.x + o.x2) / 2.0, (o.y + o.y2) / 2.0 + 0.5);
-                        out +=
-                            &format!("<t id=\"{}\" p=\"{above}\">{}</t>\n", next(), run(&o.text));
+                        out += &format!("<t id=\"{}\" p=\"{above}\">{}</t>\n", next(), body(o));
                     }
                 }
                 ObjKind::Plus => {
@@ -373,7 +536,7 @@ impl Document {
                         "<t id=\"{}\" p=\"{}\">{}</t>\n",
                         next(),
                         pt(o.x, o.y),
-                        run(&o.text)
+                        body(o)
                     )
                 }
             }

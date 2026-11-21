@@ -97,6 +97,8 @@ pub enum Op {
         x2: f64,
         y2: f64,
         text: String,
+        /// The formatted text (`runs.rs`); when not empty it is the text and `text` is ignored.
+        runs: Vec<crate::runs::Run>,
         /// Arrows: an atom of the structure the arrow leaves and of the one it reaches (0: a free end).
         from: u32,
         to: u32,
@@ -105,6 +107,8 @@ pub enum Op {
     ObjSet {
         id: u32,
         text: Option<String>,
+        /// Sets the formatted text; `text` is then the text of the runs, and both together are refused. An empty list leaves no text.
+        runs: Option<Vec<crate::runs::Run>>,
         x2: Option<f64>,
         y2: Option<f64>,
         from: Option<u32>,
@@ -282,6 +286,7 @@ impl Op {
                 x2,
                 y2,
                 text,
+                runs,
                 from,
                 to,
             } => {
@@ -298,6 +303,9 @@ impl Op {
                 if !text.is_empty() {
                     w.text("text", text);
                 }
+                if !runs.is_empty() {
+                    w.raw("runs", &crate::runs::to_json(runs));
+                }
                 for (k, v) in [("from", *from), ("to", *to)] {
                     if v != 0 {
                         w.int(k, i64::from(v));
@@ -307,6 +315,7 @@ impl Op {
             Op::ObjSet {
                 id: i,
                 text,
+                runs,
                 x2,
                 y2,
                 from,
@@ -316,6 +325,9 @@ impl Op {
                 w.int("id", i64::from(*i));
                 if let Some(text) = text {
                     w.text("text", text);
+                }
+                if let Some(runs) = runs {
+                    w.raw("runs", &crate::runs::to_json(runs));
                 }
                 for (k, v) in [("x2", x2), ("y2", y2)] {
                     if let Some(v) = v {
@@ -388,6 +400,9 @@ impl Fields<'_> {
     }
     pub(crate) fn b(&self, k: &str) -> Result<bool, ()> {
         Ok(self.opt(k, serde_json::Value::as_bool)?.unwrap_or(false))
+    }
+    pub(crate) fn runs(&self, k: &str) -> Result<Option<Vec<crate::runs::Run>>, ()> {
+        self.opt(k, |v| crate::runs::from_value(v).ok())
     }
     pub(crate) fn ids(&self, k: &str) -> Result<Vec<u32>, ()> {
         let list = self.opt(k, |v| {
@@ -505,12 +520,14 @@ impl Op {
                 x2: g.f("x2")?.unwrap_or(0.0),
                 y2: g.f("y2")?.unwrap_or(0.0),
                 text: g.s("text")?.unwrap_or_default(),
+                runs: g.runs("runs")?.unwrap_or_default(),
                 from: g.u("from")?.unwrap_or(0),
                 to: g.u("to")?.unwrap_or(0),
             },
             "obj.set" => Op::ObjSet {
                 id: g.u("id")?.ok_or(())?,
                 text: g.s("text")?,
+                runs: g.runs("runs")?,
                 x2: g.f("x2")?,
                 y2: g.f("y2")?,
                 from: g.u("from")?,
@@ -979,9 +996,11 @@ impl Document {
                 x2,
                 y2,
                 text,
+                runs,
                 from,
                 to,
             } => {
+                let runs = crate::runs::canon(runs.clone());
                 let mut o = Obj {
                     id: id.unwrap_or(self.next),
                     t: *t,
@@ -989,7 +1008,12 @@ impl Document {
                     y: round4(*y),
                     x2: round4(*x2),
                     y2: round4(*y2),
-                    text: text.clone(),
+                    text: if runs.is_empty() {
+                        text.clone()
+                    } else {
+                        crate::runs::plain(&runs)
+                    },
+                    runs,
                     from: *from,
                     to: *to,
                     more: Vec::new(),
@@ -1006,7 +1030,12 @@ impl Document {
                     y: o.y,
                     x2: o.x2,
                     y2: o.y2,
-                    text: o.text.clone(),
+                    text: if o.runs.is_empty() {
+                        o.text.clone()
+                    } else {
+                        String::new()
+                    },
+                    runs: o.runs.clone(),
                     from: o.from,
                     to: o.to,
                 });
@@ -1015,6 +1044,7 @@ impl Document {
             Op::ObjSet {
                 id,
                 text,
+                runs,
                 x2,
                 y2,
                 from,
@@ -1024,7 +1054,18 @@ impl Document {
                     return err("error.draw2.noObject", *id);
                 };
                 let mut o = self.objects[i].clone();
-                o.text = text.clone().unwrap_or(o.text);
+                let runs = runs.clone().map(crate::runs::canon);
+                if runs.is_some() && text.is_some() {
+                    return err("error.draw2.object", *id);
+                }
+                if let Some(r) = &runs {
+                    o.text = crate::runs::plain(r);
+                    o.runs = r.clone();
+                } else if let Some(t) = text {
+                    // a plain text takes the formatting away
+                    o.text = t.clone();
+                    o.runs = Vec::new();
+                }
                 o.x2 = x2.map_or(o.x2, round4);
                 o.y2 = y2.map_or(o.y2, round4);
                 o.from = from.unwrap_or(o.from);
@@ -1036,6 +1077,7 @@ impl Document {
                 done.push(Op::ObjSet {
                     id: *id,
                     text: text.clone(),
+                    runs,
                     x2: x2.map(round4),
                     y2: y2.map(round4),
                     from: *from,

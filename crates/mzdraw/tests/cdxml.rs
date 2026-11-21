@@ -253,19 +253,28 @@ fn a_foreign_cdxml_opens_with_what_is_out_of_scope_listed() {
             ("draw2.import.other", 3)
         ]
     );
-    // objects: the arrow points from the plus side to the second fragment; the caption is one text per line, runs joined
+    // objects: the arrow points from the plus side to the second fragment; the caption is one formatted text (its style runs
+    // and its line break are kept as runs of one object, text-runs slice)
     let kinds: Vec<ObjKind> = d.objects.iter().map(|o| o.t).collect();
-    assert_eq!(
-        kinds,
-        [ObjKind::Arrow, ObjKind::Plus, ObjKind::Text, ObjKind::Text]
-    );
+    assert_eq!(kinds, [ObjKind::Arrow, ObjKind::Plus, ObjKind::Text]);
     let arrow = &d.objects[0];
     assert!(arrow.x < arrow.x2 && d.atoms[7].x < arrow.x && arrow.x2 < d.atoms[11].x);
+    let caption = &d.objects[2];
+    assert_eq!(caption.text, "H2O, <heat>\nsecond line");
+    use mzdraw::Run;
     assert_eq!(
-        (d.objects[2].text.as_str(), d.objects[3].text.as_str()),
-        ("H2O, <heat>", "second line")
+        caption.runs,
+        [
+            Run {
+                b: true,
+                ..Run::plain("H")
+            },
+            Run::sub("2"),
+            Run::plain("O, <heat>"),
+            Run::line(),
+            Run::plain("second line"),
+        ]
     );
-    assert!(d.objects[3].y < d.objects[2].y);
     // y is turned: the ammonium, drawn above the ring in the file (smaller y), is above it in the drawing
     assert!(d.atoms[6].y > d.atoms[0].y);
     // one bond length of the file (14.4 pt) is one unit here

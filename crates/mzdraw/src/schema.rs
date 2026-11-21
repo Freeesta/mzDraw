@@ -258,6 +258,13 @@ pub const OPS: &[OpSpec] = &[
             f("y2", "number", false, BL, "default 0"),
             f("text", "string", false, "", "default empty"),
             f(
+                "runs",
+                "array",
+                false,
+                "",
+                "the formatted text: a list of runs {t, br, sub, sup, b, i, u, font, sz, color} (see docs/built/text-runs.md); when not empty it is the text and `text` is ignored",
+            ),
+            f(
                 "from",
                 "uint",
                 false,
@@ -282,6 +289,13 @@ pub const OPS: &[OpSpec] = &[
         fields: &[
             f("id", "uint", true, "", ""),
             f("text", "string", false, "", ""),
+            f(
+                "runs",
+                "array",
+                false,
+                "",
+                "the formatted text, as for obj.add; `text` and `runs` together are refused (error.draw2.object); an empty list leaves no text; a plain `text` takes the runs away",
+            ),
             f("x2", "number", false, BL, ""),
             f("y2", "number", false, BL, ""),
             f("from", "uint", false, "", "an atom id; 0 frees the end"),

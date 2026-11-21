@@ -218,6 +218,7 @@ pub fn route_between(o: &crate::doc::Obj, a: Rect, b: Rect, margin: f64) -> Vec<
         ops.push(Op::ObjSet {
             id,
             text: None,
+            runs: None,
             x2: Some(hx),
             y2: Some(hy),
             from: None,
@@ -334,6 +335,7 @@ pub fn anchor_in(
         ops.push(Op::ObjSet {
             id,
             text: None,
+            runs: None,
             x2: None,
             y2: None,
             from: Some(now[0]),

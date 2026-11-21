@@ -77,6 +77,7 @@ fn object(d: &mut Document, t: ObjKind, p: [f64; 4]) {
         x2,
         y2,
         text: String::new(),
+        runs: Vec::new(),
         from: 0,
         to: 0,
         more: Vec::new(),

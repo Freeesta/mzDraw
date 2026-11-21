@@ -340,7 +340,7 @@ pub(crate) fn r_atoms(smiles: &str) -> (String, Vec<(usize, String)>) {
 }
 
 /// An object of a file on its way into a document: its kind, x, y, x2, y2 in the units of the file, and its text.
-pub(crate) type Placed = (ObjKind, [f64; 4], String);
+pub(crate) type Placed = (ObjKind, [f64; 4], String, Vec<crate::runs::Run>);
 
 /// The drawing of a file that holds atoms, bonds and objects on one canvas (KET, CDXML). `atoms` and `bonds` are the bodies of
 /// V3000 lines (symbol, x, y, z, map and properties; order, atoms and `CFG`): they become one record for the strict reader of
@@ -378,10 +378,18 @@ pub(crate) fn assemble(
             k = if far.2 { a.y } else { a.x } / far.0;
         }
     }
-    for (t, p, text) in objects {
+    for (t, p, text, runs) in objects {
         let [x, y, x2, y2] = p.map(|c| crate::doc::round4(c * k));
-        // a document text is one line: a text of several lines becomes one text per line, each under the one before
-        let lines: Vec<&str> = if t == ObjKind::Text {
+        // a formatted text keeps its runs and its lines in one object; a plain text of several lines becomes one text per line,
+        // each under the one before (a plain text is one line)
+        let runs = if crate::runs::valid(&runs) {
+            runs
+        } else {
+            Vec::new()
+        };
+        let lines: Vec<&str> = if !runs.is_empty() {
+            vec![""]
+        } else if t == ObjKind::Text {
             text.lines().filter(|l| !l.trim().is_empty()).collect()
         } else {
             vec![""]
@@ -395,7 +403,12 @@ pub(crate) fn assemble(
                 y: crate::doc::round4(y - 0.6 * i as f64),
                 x2,
                 y2,
-                text: line.chars().take(200).collect(),
+                text: if runs.is_empty() {
+                    line.chars().take(200).collect()
+                } else {
+                    crate::runs::plain(&runs)
+                },
+                runs: runs.clone(),
                 from: 0,
                 to: 0,
                 more: Vec::new(),

@@ -216,6 +216,7 @@ impl Editor {
                     x2,
                     y2,
                     text: String::new(),
+                    runs: Vec::new(),
                     from,
                     to,
                 };
@@ -251,18 +252,22 @@ impl Editor {
                     x2: 0.0,
                     y2: 0.0,
                     text: String::new(),
+                    runs: Vec::new(),
                     from: 0,
                     to: 0,
                 };
                 self.run(&[add], "draw2.say.plus", "")
             }
             Tool::Text(text) => {
+                // `_x`, `^x` and new lines of the field are read in Rust: the same runs on the page, in the replay and in the CLI
+                let (plain, runs) = crate::runs::typed(&text);
                 let op = match p.hit {
                     // on a text or an arrow the tool sets its text
                     Hit::Obj(id) if self.doc().object(id).is_some_and(|o| o.t != ObjKind::Plus) => {
                         Op::ObjSet {
                             id,
-                            text: Some(text.clone()),
+                            text: runs.is_empty().then(|| plain.clone()),
+                            runs: (!runs.is_empty()).then(|| runs.clone()),
                             x2: None,
                             y2: None,
                             from: None,
@@ -278,7 +283,8 @@ impl Editor {
                             y,
                             x2: 0.0,
                             y2: 0.0,
-                            text: text.clone(),
+                            text: plain.clone(),
+                            runs: runs.clone(),
                             from: 0,
                             to: 0,
                         }

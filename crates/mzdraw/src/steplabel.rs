@@ -355,6 +355,7 @@ pub fn plan(doc: &Document, mode: Mode, opts: &Opts) -> Result<Plan, OpError> {
             out.ops.push(Op::ObjSet {
                 id,
                 text: Some(text),
+                runs: None,
                 x2: None,
                 y2: None,
                 from: None,

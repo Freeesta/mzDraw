@@ -212,6 +212,7 @@ fn anchors_are_set_changed_and_cleared_and_each_step_undoes_exactly() {
         s.run(&[Op::ObjSet {
             id: 7,
             text: None,
+            runs: None,
             x2: None,
             y2: None,
             from,
@@ -223,6 +224,7 @@ fn anchors_are_set_changed_and_cleared_and_each_step_undoes_exactly() {
         s.run(&[Op::ObjSet {
             id: 7,
             text: None,
+            runs: None,
             x2: None,
             y2: None,
             from,
@@ -242,6 +244,7 @@ fn anchors_are_set_changed_and_cleared_and_each_step_undoes_exactly() {
         x2: 0.0,
         y2: 0.0,
         text: "a".into(),
+        runs: Vec::new(),
         from: 1,
         to: 0,
     };
