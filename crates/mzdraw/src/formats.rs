@@ -200,10 +200,6 @@ fn stand_in(symbol: &str, info: &mut Imported) -> Option<String> {
 /// the stand-in element and come back as (atom index, label); query bonds become single bonds; S-groups are counted. What was
 /// changed is counted in `info`. A text that is not a molfile comes back as it is (the reader says what is wrong).
 pub(crate) fn prepare(record: &str, info: &mut Imported) -> (String, Vec<(usize, String)>) {
-    // what is left of the `$$$$` line of the record before
-    let record = (record.strip_prefix("\r\n"))
-        .or(record.strip_prefix('\n'))
-        .unwrap_or(record);
     let mut lines: Vec<String> = record.lines().map(str::to_string).collect();
     let mut labels: Vec<(usize, String)> = Vec::new();
     let number = |labels: &mut Vec<(usize, String)>, atom: usize, n: &str| {

@@ -413,3 +413,152 @@ fn the_record_is_in_a_report_and_absent_from_a_dry_run() {
     assert_eq!(dry["ok"], true);
     assert!(dry.get("out").is_none(), "nothing is written by a dry run");
 }
+
+#[test]
+fn a_file_is_a_transformation_by_its_first_line_not_by_a_mention() {
+    // a KET file that says `trasf/1` somewhere on a later line is read as KET
+    let ket = "{\n  \"root\": {\"nodes\": []},\n  \"note\": \"trasf/1\"\n}";
+    let e = import(ket).err();
+    assert!(
+        !matches!(e, Some(k) if k.starts_with("error.draw2.trasf")),
+        "{e:?}"
+    );
+    // a document that mentions it too
+    let doc = format!(
+        "{{\"format\":\"mzdraw/1\",\"next\":1,\"atoms\":[],\"bonds\":[],\"note\":\"trasf/1\"}}\n{}",
+        "{}"
+    );
+    assert!(!matches!(import(&doc), Err(k) if k.starts_with("error.draw2.trasf")));
+}
+
+#[test]
+fn an_empty_title_line_is_not_lost() {
+    // RDKit and others write an empty title: the molfile and the reaction file are read as with a title
+    let blank = |t: &str| t.replace("synthetic\n  mzdraw", "\n  mzdraw");
+    let with = hydroxylation();
+    let without = blank(&with);
+    assert_ne!(with, without);
+    let (a, b) = (doc(&with), doc(&without));
+    assert_eq!(
+        (a.atoms.len(), a.bonds.len()),
+        (b.atoms.len(), b.bonds.len())
+    );
+    assert_eq!(a.to_trasf().unwrap(), b.to_trasf().unwrap());
+    let one = mol(&[("C", 0), ("O", 0)], &[(1, 2, 1)]).replace("$MOL\nsynthetic", "\n");
+    let one = one.trim_start_matches('\n').to_string();
+    assert!(one.starts_with("\n  mzdraw") || one.starts_with("  mzdraw"));
+    // the molfile alone, with its empty first line kept (a text may not be trimmed)
+    let text = format!("\n  mzdraw\n\n{}", one.split_once("\n\n").unwrap().1);
+    assert_eq!(import(&text).unwrap().0.atoms.len(), 2);
+}
+
+#[test]
+fn a_map_with_more_pairs_than_a_map_number_can_count_is_refused_not_overflowed() {
+    use mzlab_mol::{Atom, Bond};
+    let n = 1000u32;
+    let atoms: Vec<Atom> = (0..n)
+        .map(|i| Atom {
+            el: "C".into(),
+            iso: 0,
+            chg: 0,
+            rad: 0,
+            h: if i == 0 || i == n - 1 { 3 } else { 2 },
+        })
+        .collect();
+    let bonds: Vec<Bond> = (0..n - 1)
+        .map(|i| Bond {
+            a: i,
+            b: i + 1,
+            o: 1,
+        })
+        .collect();
+    let m = Mol::new(atoms, bonds, Vec::new(), Vec::new());
+    let t = Transformation {
+        format: "trasf/1".into(),
+        parent: m.core_hash_hex(),
+        product: Some(m.core_hash_hex()),
+        delta: String::new(),
+        rule: String::new(),
+        rule_set: String::new(),
+        rule_version: String::new(),
+        map: (0..n).map(|i| (i, Some(i))).collect(),
+        added: Vec::new(),
+        centre: Vec::new(),
+        sites: Vec::new(),
+        region: None,
+        stereo_rule: None,
+        level: None,
+        evidence: Vec::new(),
+    };
+    t.validate_against(&m, Some(&m)).expect("a valid record");
+    let file = format!("{}\n{}\n{}\n", t.to_json(), m.to_json(), m.to_json());
+    assert_eq!(import(&file).unwrap_err(), "error.draw2.trasf");
+}
+
+#[test]
+fn two_structures_after_the_arrow_are_refused() {
+    let two = rxn(
+        &[(&[("C", 1), ("O", 2)], &[(1, 2, 1)])],
+        &[(&[("C", 1)], &[]), (&[("O", 2)], &[])],
+    );
+    assert_eq!(key(&doc(&two)), "error.draw2.trasfShape");
+    // a structure moved away from the others: still the shape error
+    let mut d = doc(&two);
+    let last = d.atoms.last().map(|a| a.id).unwrap();
+    d.atoms
+        .iter_mut()
+        .filter(|a| a.id == last)
+        .for_each(|a| a.x += 50.0);
+    let e = d.to_trasf().unwrap_err();
+    assert_eq!(e.key, "error.draw2.trasfShape");
+}
+
+#[test]
+fn a_file_that_starts_with_the_records_is_a_transformation_too() {
+    let file = doc(&hydrolysis()).to_trasf().unwrap();
+    let l: Vec<&str> = file.lines().collect();
+    let records_first = format!("{}\n{}\n{}\n", l[1], l[2], l[0]);
+    let (d, info) = import(&records_first).unwrap();
+    assert_eq!(info.format, "trasf");
+    assert_eq!(d.to_trasf().unwrap().lines().next(), file.lines().next());
+}
+
+/// A molfile of two atoms: `head` is everything before the counts line.
+fn molfile(head: &str) -> String {
+    let body = mol(&[("C", 0), ("O", 0)], &[(1, 2, 1)]);
+    let counts = body.split_once("\n\n").unwrap().1;
+    format!("{head}{counts}")
+}
+
+#[test]
+fn molfile_headers_with_an_empty_title_an_extra_blank_line_and_crlf() {
+    let atoms = |t: &str| import(t).map(|r| r.0.atoms.len());
+    // the title and the program line, as written
+    assert_eq!(atoms(&molfile("title\n  mzdraw\n\n")), Ok(2));
+    // an empty title line
+    assert_eq!(atoms(&molfile("\n  mzdraw\n\n")), Ok(2));
+    // one blank line too many before a title: the counts line is one line late, the blank line is dropped
+    assert_eq!(atoms(&molfile("\ntitle\n  mzdraw\n\n")), Ok(2));
+    // the same before an empty title (the counts line is the only thing that tells the lines apart)
+    assert_eq!(atoms(&molfile("\n\n  mzdraw\n\n")), Ok(2));
+    // two blank lines too many: the counts line is two lines late, refused rather than guessed
+    assert!(atoms(&molfile("\n\ntitle\n  mzdraw\n\n")).is_err());
+    // CRLF line ends, with and without the empty title
+    assert_eq!(
+        atoms(&molfile("title\n  mzdraw\n\n").replace('\n', "\r\n")),
+        Ok(2)
+    );
+    assert_eq!(
+        atoms(&molfile("\n  mzdraw\n\n").replace('\n', "\r\n")),
+        Ok(2)
+    );
+    // an SDF: the second record has an empty title, the third a title; every record is read
+    let sdf = format!(
+        "{}$$$$\n{}$$$$\n{}$$$$\n",
+        molfile("a\n  mzdraw\n\n"),
+        molfile("\n  mzdraw\n\n"),
+        molfile("c\n  mzdraw\n\n")
+    );
+    assert_eq!(atoms(&sdf), Ok(6));
+    assert_eq!(atoms(&sdf.replace('\n', "\r\n")), Ok(6));
+}

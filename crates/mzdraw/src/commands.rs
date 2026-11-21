@@ -11,7 +11,13 @@ use serde_json::{json, Value};
 pub(crate) fn known(name: &str) -> bool {
     matches!(
         name,
-        "move" | "rotate" | "flip" | "scheme:row" | "pathway:anchor" | "pathway:route"
+        "move"
+            | "rotate"
+            | "flip"
+            | "scheme:row"
+            | "pathway:anchor"
+            | "pathway:route"
+            | "pathway:tree"
     )
 }
 
@@ -22,11 +28,16 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     if !known(name) {
         return Err("error.draw2.command");
     }
-    if name.starts_with("pathway:") {
+    if name == "pathway:anchor" || name == "pathway:route" {
         return pathway_args(name, args).map(|_| ());
     }
     if name == "scheme:row" {
         return crate::scheme::Opts::parse(args).map(|_| ());
+    }
+    if name == "pathway:tree" {
+        return (args.as_object().is_some_and(|o| o.is_empty()))
+            .then_some(())
+            .ok_or("error.draw2.request");
     }
     let mut v = args.clone();
     let obj = v.as_object_mut().ok_or("error.draw2.request")?;
@@ -67,7 +78,7 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     if !known(name) {
         return Err(bad("error.draw2.command"));
     }
-    if name.starts_with("pathway:") {
+    if name == "pathway:anchor" || name == "pathway:route" {
         let id = pathway_args(name, args).map_err(bad)?;
         return match id {
             Some(arrow) => e.pathway_anchor(arrow).map(|_| ()),
@@ -78,6 +89,13 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
         let opts = crate::scheme::Opts::parse(args).map_err(bad)?;
         let ops = crate::scheme::row(e.doc(), &e.style, &opts).map_err(bad)?;
         let ops = e.following(&ops);
+        return e.session.run(&ops);
+    }
+    if name == "pathway:tree" {
+        let ops = crate::pathway::command(e.doc(), &e.style).map_err(|r| OpError {
+            key: r.key(),
+            id: r.id(),
+        })?;
         return e.session.run(&ops);
     }
     let mut v = args.clone();

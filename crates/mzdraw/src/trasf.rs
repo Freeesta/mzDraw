@@ -14,6 +14,7 @@
 use crate::doc::{Document, ObjKind};
 use crate::io::Imported;
 use mzlab_mol::{delta, Mol, Transformation, TRANSFORMATION_FORMAT};
+use std::collections::HashMap;
 
 /// Not one arrow with one structure before it and one after it.
 pub const SHAPE: &str = "error.draw2.trasfShape";
@@ -89,22 +90,14 @@ fn formula_delta(parent: &Mol, product: &Mol) -> String {
     delta::print(&d)
 }
 
-/// `(atom index, other end, order)` of every bond of an atom.
-fn bonds_of(m: &Mol, i: u32) -> Vec<(u32, u8)> {
-    let mut v: Vec<(u32, u8)> = m
-        .bonds
-        .iter()
-        .filter_map(|b| {
-            if b.a == i {
-                Some((b.b, b.o))
-            } else if b.b == i {
-                Some((b.a, b.o))
-            } else {
-                None
-            }
-        })
-        .collect();
-    v.sort_unstable();
+/// `(other end, order)` of every bond of every atom, each list sorted.
+fn adjacency(m: &Mol) -> Vec<Vec<(u32, u8)>> {
+    let mut v: Vec<Vec<(u32, u8)>> = vec![Vec::new(); m.atoms.len()];
+    for b in &m.bonds {
+        v[b.a as usize].push((b.b, b.o));
+        v[b.b as usize].push((b.a, b.o));
+    }
+    v.iter_mut().for_each(|l| l.sort_unstable());
     v
 }
 
@@ -125,30 +118,29 @@ impl Document {
             return fail(SHAPE, Vec::new());
         };
         let (dx, dy) = (arrow.x2 - arrow.x, arrow.y2 - arrow.y);
-        let (mut before, mut after) = (Vec::new(), Vec::new());
+        let xy: HashMap<u32, (f64, f64)> = self.atoms.iter().map(|a| (a.id, (a.x, a.y))).collect();
+        let (mut before, mut after): (Vec<Vec<u32>>, Vec<Vec<u32>>) = (Vec::new(), Vec::new());
         for ids in crate::layout::pieces(self) {
-            let piece = self.part(&ids);
-            let n = piece.atoms.len() as f64;
-            let (cx, cy) = piece
-                .atoms
-                .iter()
-                .fold((0.0, 0.0), |c, a| (c.0 + a.x / n, c.1 + a.y / n));
+            let n = ids.len() as f64;
+            let (cx, cy) = (ids.iter())
+                .filter_map(|i| xy.get(i))
+                .fold((0.0, 0.0), |c, a| (c.0 + a.0 / n, c.1 + a.1 / n));
             let t = ((cx - arrow.x) * dx + (cy - arrow.y) * dy) / (dx * dx + dy * dy);
-            if t < 0.0 {
-                before.push(piece);
+            // a third structure, or a second on one side, ends it: the other pieces are not looked at
+            let side = if t < 0.0 {
+                &mut before
             } else if t > 1.0 {
-                after.push(piece);
+                &mut after
             } else {
                 return fail(SHAPE, ids);
+            };
+            side.push(ids);
+            if side.len() > 1 {
+                return fail(SHAPE, Vec::new());
             }
         }
-        match (
-            before.pop(),
-            after.pop(),
-            before.is_empty(),
-            after.is_empty(),
-        ) {
-            (Some(p), Some(q), true, true) => Ok((p, q, arrow.text.clone())),
+        match (before.pop(), after.pop()) {
+            (Some(p), Some(q)) => Ok((self.part(&p), self.part(&q), arrow.text.clone())),
             _ => fail(SHAPE, Vec::new()),
         }
     }
@@ -179,21 +171,19 @@ impl Document {
         let added: Vec<u32> = (0..nq as u32).filter(|&b| !hit[b as usize]).collect();
         // the centre: the mapped atoms whose element, charge, hydrogens or bonds are not the same in the product
         let image = |a: u32| map[a as usize].1;
+        let (pa, qa) = (adjacency(&pm), adjacency(&qm));
         let centre: Vec<u32> = (0..np as u32)
             .filter(|&a| {
                 let Some(b) = image(a) else { return false };
-                let (x, y) = (&pm.atoms[a as usize], &qm.atoms[b as usize]);
-                if x != y {
+                if pm.atoms[a as usize] != qm.atoms[b as usize] {
                     return true;
                 }
-                let theirs = bonds_of(&qm, b);
-                let mine: Vec<(u32, u8)> = bonds_of(&pm, a)
-                    .into_iter()
-                    .filter_map(|(n, o)| image(n).map(|m| (m, o)))
+                let mut mine: Vec<(u32, u8)> = pa[a as usize]
+                    .iter()
+                    .filter_map(|&(n, o)| image(n).map(|m| (m, o)))
                     .collect();
-                let mut mine = mine;
                 mine.sort_unstable();
-                mine != theirs
+                mine != qa[b as usize]
             })
             .collect();
         let record = Transformation {
@@ -239,11 +229,17 @@ impl Document {
                 .collect()
         };
         let (mp, mq) = (numbers(p), numbers(q));
+        // a number once per side, on both sides
+        let count = |side: &[(u16, usize)]| {
+            let mut c: HashMap<u16, usize> = HashMap::new();
+            side.iter().for_each(|x| *c.entry(x.0).or_default() += 1);
+            c
+        };
+        let (cp, cq) = (count(&mp), count(&mq));
         let mut bad: Vec<u32> = Vec::new();
-        for (side, other, d) in [(&mp, &mq, p), (&mq, &mp, q)] {
+        for (side, mine, other, d) in [(&mp, &cp, &cq, p), (&mq, &cq, &cp, q)] {
             for &(n, i) in side {
-                let twice = side.iter().filter(|x| x.0 == n).count() > 1;
-                if twice || !other.iter().any(|x| x.0 == n) {
+                if mine[&n] > 1 || !other.contains_key(&n) {
                     bad.push(d.atoms[i].id);
                 }
             }
@@ -251,9 +247,10 @@ impl Document {
         if !bad.is_empty() {
             return fail(MAP, bad);
         }
+        let in_q: HashMap<u16, usize> = mq.iter().copied().collect();
         let pairs: Vec<(usize, usize)> = mp
             .iter()
-            .filter_map(|&(n, i)| mq.iter().find(|x| x.0 == n).map(|x| (i, x.1)))
+            .filter_map(|&(n, i)| in_q.get(&n).map(|&j| (i, j)))
             .collect();
         // the smaller structure must be covered; nothing mapped at all names every atom
         let smaller = p.atoms.len().min(q.atoms.len());
@@ -308,7 +305,9 @@ pub(crate) fn from_trasf(text: &str, info: &mut Imported) -> Result<Document, &'
     let product = find(t.product.as_deref().ok_or(READ)?).ok_or(READ)?;
     t.validate_against(parent, Some(product))
         .map_err(|_| READ)?;
-    if t.map.len() > crate::doc::MAX_MAP as usize {
+    // more pairs than a map number can count: refused before anything is built
+    let pairs = t.map.iter().filter(|m| m.1.is_some()).count();
+    if pairs > crate::doc::MAX_MAP as usize {
         return Err(READ);
     }
     let name = crate::NAME;
@@ -318,16 +317,20 @@ pub(crate) fn from_trasf(text: &str, info: &mut Imported) -> Result<Document, &'
         product.to_molfile(name)
     );
     let mut d = crate::rxn::from_rxn(&text, info)?;
-    let np = parent.atoms.len();
-    if d.atoms.len() != np + product.atoms.len() {
+    let (np, nq) = (parent.atoms.len(), product.atoms.len());
+    if d.atoms.len() != np + nq {
         return Err(READ);
     }
     let mut n = 0u16;
     for &(a, b) in &t.map {
         let Some(b) = b else { continue };
-        n += 1;
-        d.atoms[a as usize].map = n;
-        d.atoms[np + b as usize].map = n;
+        if a as usize >= np || b as usize >= nq {
+            return Err(READ);
+        }
+        n = n.checked_add(1).ok_or(READ)?;
+        for i in [a as usize, np + b as usize] {
+            d.atoms.get_mut(i).ok_or(READ)?.map = n;
+        }
     }
     if let Some(arrow) = d.objects.iter_mut().find(|o| o.t == ObjKind::Arrow) {
         arrow.text = t.rule.clone();
