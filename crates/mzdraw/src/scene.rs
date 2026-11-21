@@ -556,7 +556,7 @@ impl Painter<'_> {
                         my - ux * off,
                         f * 0.85,
                         colour::INK,
-                        &o.text,
+                        &crate::steplabel::display(&o.text),
                         0.0,
                     );
                 }
