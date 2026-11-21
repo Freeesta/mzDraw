@@ -1,0 +1,444 @@
+{
+  "contexts": [
+    {
+      "name": "right-click on an atom",
+      "out": "{\"items\":[{\"children\":[{\"checked\":false,\"enabled\":true,\"id\":\"atom.el.C\",\"key\":\"C\",\"label\":\"C\"},{\"checked\":true,\"enabled\":true,\"id\":\"atom.el.N\",\"key\":\"N\",\"label\":\"N\"},{\"checked\":false,\"enabled\":true,\"id\":\"atom.el.O\",\"key\":\"O\",\"label\":\"O\"},{\"checked\":false,\"enabled\":true,\"id\":\"atom.el.S\",\"key\":\"S\",\"label\":\"S\"},{\"checked\":false,\"enabled\":true,\"id\":\"atom.el.P\",\"key\":\"P\",\"label\":\"P\"},{\"checked\":false,\"enabled\":true,\"id\":\"atom.el.F\",\"key\":\"F\",\"label\":\"F\"},{\"checked\":false,\"enabled\":true,\"id\":\"atom.el.Cl\",\"key\":\"Shift+C\",\"label\":\"Cl\"},{\"checked\":false,\"enabled\":true,\"id\":\"atom.el.Br\",\"key\":\"Shift+B\",\"label\":\"Br\"},{\"checked\":false,\"enabled\":true,\"id\":\"atom.el.I\",\"key\":\"I\",\"label\":\"I\"},{\"enabled\":true,\"id\":\"atom.el.more\",\"label\":\"More...\"}],\"enabled\":true,\"id\":\"atom.element\",\"label\":\"Element\"},{\"enabled\":true,\"id\":\"atom.chg.plus\",\"key\":\"+\",\"label\":\"Charge +\"},{\"enabled\":true,\"id\":\"atom.chg.minus\",\"key\":\"-\",\"label\":\"Charge -\"},{\"enabled\":true,\"id\":\"atom.label\",\"key\":\"L\",\"label\":\"Label or abbreviation...\"},{\"enabled\":true,\"id\":\"atom.data\",\"label\":\"Data...\"},{\"enabled\":true,\"id\":\"atom.ann\",\"label\":\"Annotation...\"},{\"enabled\":true,\"id\":\"edit.copy\",\"key\":\"Ctrl+C\",\"label\":\"Copy\"},{\"enabled\":true,\"id\":\"edit.cut\",\"key\":\"Ctrl+X\",\"label\":\"Cut\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"},{\"enabled\":true,\"id\":\"atom.connected\",\"label\":\"Select connected\"}],\"target\":\"atom\"}",
+      "request": {
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context:304,180"
+      }
+    },
+    {
+      "name": "right-click on a bond",
+      "out": "{\"items\":[{\"checked\":true,\"enabled\":true,\"id\":\"bond.o.1\",\"key\":\"1\",\"label\":\"Single\"},{\"checked\":false,\"enabled\":true,\"id\":\"bond.o.2\",\"key\":\"2\",\"label\":\"Double\"},{\"checked\":false,\"enabled\":true,\"id\":\"bond.o.3\",\"key\":\"3\",\"label\":\"Triple\"},{\"checked\":false,\"enabled\":true,\"id\":\"bond.s.up\",\"key\":\"W\",\"label\":\"Wedge\"},{\"checked\":false,\"enabled\":true,\"id\":\"bond.s.down\",\"key\":\"Shift+W\",\"label\":\"Hash\"},{\"checked\":false,\"enabled\":true,\"id\":\"bond.s.wavy\",\"key\":\"Y\",\"label\":\"Wavy\"},{\"enabled\":false,\"id\":\"bond.reverse\",\"label\":\"Reverse direction\"},{\"enabled\":true,\"id\":\"bond.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"bond\"}",
+      "request": {
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context:165.36,200"
+      }
+    },
+    {
+      "name": "right-click on empty canvas",
+      "out": "{\"items\":[{\"enabled\":false,\"id\":\"edit.paste\",\"key\":\"Ctrl+V\",\"label\":\"Paste\"},{\"enabled\":true,\"id\":\"edit.all\",\"key\":\"Ctrl+A\",\"label\":\"Select all\"},{\"enabled\":true,\"id\":\"canvas.add\",\"label\":\"Add structure from text...\"},{\"enabled\":true,\"id\":\"edit.undo\",\"key\":\"Ctrl+Z\",\"label\":\"Undo\"},{\"enabled\":false,\"id\":\"edit.redo\",\"key\":\"Ctrl+Shift+Z\",\"label\":\"Redo\"},{\"enabled\":true,\"id\":\"canvas.fit\",\"label\":\"Fit\"},{\"enabled\":true,\"id\":\"canvas.zoom.in\",\"label\":\"Zoom in\"},{\"enabled\":true,\"id\":\"canvas.zoom.out\",\"label\":\"Zoom out\"},{\"enabled\":true,\"id\":\"canvas.save\",\"label\":\"Save image\"},{\"enabled\":true,\"id\":\"canvas.clear\",\"label\":\"Clear all\"}],\"target\":\"canvas\"}",
+      "request": {
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 2.6,
+            "y": 0.5
+          },
+          {
+            "a": 2,
+            "b": 13,
+            "op": "bond.add"
+          },
+          {
+            "chg": 1,
+            "id": 13,
+            "op": "atom.set"
+          },
+          {
+            "bond": 8,
+            "n": 5,
+            "op": "ring"
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": -2.5,
+            "y": 0.3333333
+          },
+          {
+            "a": 5,
+            "b": 22,
+            "o": 2,
+            "op": "bond.add"
+          },
+          {
+            "atoms": [
+              22
+            ],
+            "dx": 0.12345678,
+            "dy": -0.2,
+            "op": "move"
+          },
+          {
+            "id": 23,
+            "o": 1,
+            "op": "bond.set"
+          },
+          {
+            "atom": 13,
+            "n": 6,
+            "op": "ring"
+          },
+          {
+            "atoms": [
+              1
+            ],
+            "op": "remove"
+          }
+        ],
+        "out": "context:400,40"
+      }
+    },
+    {
+      "name": "right-click on an arrow",
+      "out": "{\"items\":[{\"enabled\":true,\"id\":\"obj.edit\",\"label\":\"Edit\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"object\"}",
+      "request": {
+        "import": "CC=O",
+        "log": [
+          {
+            "op": "obj.add",
+            "t": "arrow",
+            "x": 3,
+            "x2": 5.5,
+            "y": 0.5,
+            "y2": 0.5
+          },
+          {
+            "id": 6,
+            "op": "obj.set",
+            "text": "NaBH4, MeOH"
+          },
+          {
+            "op": "obj.add",
+            "t": "plus",
+            "x": -1,
+            "y": 0.5
+          },
+          {
+            "op": "obj.add",
+            "t": "text",
+            "text": "0 °C, 1 h",
+            "x": 3,
+            "y": -0.4
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": 6.5,
+            "y": 0.5
+          },
+          {
+            "atoms": [
+              9
+            ],
+            "dx": 0.25,
+            "dy": -0.125,
+            "objects": [
+              7,
+              8
+            ],
+            "op": "move"
+          },
+          {
+            "op": "obj.add",
+            "t": "plus",
+            "x": 9,
+            "y": 9
+          },
+          {
+            "objects": [
+              10
+            ],
+            "op": "remove"
+          },
+          {
+            "id": 6,
+            "op": "obj.set",
+            "x2": 5.75
+          }
+        ],
+        "out": "context:376,180"
+      }
+    },
+    {
+      "name": "right-click on a plus sign",
+      "out": "{\"items\":[{\"enabled\":false,\"id\":\"obj.edit\",\"label\":\"Edit\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"object\"}",
+      "request": {
+        "import": "CC=O",
+        "log": [
+          {
+            "op": "obj.add",
+            "t": "arrow",
+            "x": 3,
+            "x2": 5.5,
+            "y": 0.5,
+            "y2": 0.5
+          },
+          {
+            "id": 6,
+            "op": "obj.set",
+            "text": "NaBH4, MeOH"
+          },
+          {
+            "op": "obj.add",
+            "t": "plus",
+            "x": -1,
+            "y": 0.5
+          },
+          {
+            "op": "obj.add",
+            "t": "text",
+            "text": "0 °C, 1 h",
+            "x": 3,
+            "y": -0.4
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": 6.5,
+            "y": 0.5
+          },
+          {
+            "atoms": [
+              9
+            ],
+            "dx": 0.25,
+            "dy": -0.125,
+            "objects": [
+              7,
+              8
+            ],
+            "op": "move"
+          },
+          {
+            "op": "obj.add",
+            "t": "plus",
+            "x": 9,
+            "y": 9
+          },
+          {
+            "objects": [
+              10
+            ],
+            "op": "remove"
+          },
+          {
+            "id": 6,
+            "op": "obj.set",
+            "x2": 5.75
+          }
+        ],
+        "out": "context:170,185"
+      }
+    },
+    {
+      "name": "right-click on a text",
+      "out": "{\"items\":[{\"enabled\":true,\"id\":\"obj.edit\",\"label\":\"Edit\"},{\"enabled\":true,\"id\":\"edit.delete\",\"key\":\"Del\",\"label\":\"Delete\"}],\"target\":\"object\"}",
+      "request": {
+        "import": "CC=O",
+        "log": [
+          {
+            "op": "obj.add",
+            "t": "arrow",
+            "x": 3,
+            "x2": 5.5,
+            "y": 0.5,
+            "y2": 0.5
+          },
+          {
+            "id": 6,
+            "op": "obj.set",
+            "text": "NaBH4, MeOH"
+          },
+          {
+            "op": "obj.add",
+            "t": "plus",
+            "x": -1,
+            "y": 0.5
+          },
+          {
+            "op": "obj.add",
+            "t": "text",
+            "text": "0 °C, 1 h",
+            "x": 3,
+            "y": -0.4
+          },
+          {
+            "el": "O",
+            "op": "atom.add",
+            "x": 6.5,
+            "y": 0.5
+          },
+          {
+            "atoms": [
+              9
+            ],
+            "dx": 0.25,
+            "dy": -0.125,
+            "objects": [
+              7,
+              8
+            ],
+            "op": "move"
+          },
+          {
+            "op": "obj.add",
+            "t": "plus",
+            "x": 9,
+            "y": 9
+          },
+          {
+            "objects": [
+              10
+            ],
+            "op": "remove"
+          },
+          {
+            "id": 6,
+            "op": "obj.set",
+            "x2": 5.75
+          }
+        ],
+        "out": "context:332,221"
+      }
+    },
+    {
+      "name": "right-click on an empty document",
+      "out": "{\"items\":[{\"enabled\":false,\"id\":\"edit.paste\",\"key\":\"Ctrl+V\",\"label\":\"Paste\"},{\"enabled\":false,\"id\":\"edit.all\",\"key\":\"Ctrl+A\",\"label\":\"Select all\"},{\"enabled\":true,\"id\":\"canvas.add\",\"label\":\"Add structure from text...\"},{\"enabled\":false,\"id\":\"edit.undo\",\"key\":\"Ctrl+Z\",\"label\":\"Undo\"},{\"enabled\":false,\"id\":\"edit.redo\",\"key\":\"Ctrl+Shift+Z\",\"label\":\"Redo\"},{\"enabled\":true,\"id\":\"canvas.fit\",\"label\":\"Fit\"},{\"enabled\":true,\"id\":\"canvas.zoom.in\",\"label\":\"Zoom in\"},{\"enabled\":true,\"id\":\"canvas.zoom.out\",\"label\":\"Zoom out\"},{\"enabled\":false,\"id\":\"canvas.clear\",\"label\":\"Clear all\"}],\"notice\":\"draw2.ctx.empty\",\"target\":\"canvas\"}",
+      "request": {
+        "log": [],
+        "out": "context:40,40"
+      }
+    }
+  ]
+}

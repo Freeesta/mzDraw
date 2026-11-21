@@ -1,16 +1,25 @@
-// Golden parity: the editor module (.wasm, target/pkg-node) replays every command log of tests/data/mzdraw_log.json to the same bytes as
+// Golden parity: the editor module (.wasm, target/pkg-node) replays every command log of the files of tests/data/log/ (one per area, read in the order of their names) to the same bytes as
 // the native crate (its example `replay`) and as the recorded outputs (held natively by crates/mzdraw/tests/replay.rs too), the context menu of a right-click on each kind of target (`contexts`) and the settings file after `set` of the layout and export defaults (`settings`); a refused
 // request is the same keyed JSON error on both sides.
 // Run after tools/build_site.sh and `cargo build -p mzdraw --example replay`:  node tests/parity.mjs
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const wasm = createRequire(import.meta.url)(path.join(root, "target/pkg-node/mzdraw_wasm.js"));
-const fx = JSON.parse(readFileSync(path.join(root, "tests/data/mzdraw_log.json"), "utf8"));
+// the golden files: every *.json of tests/data/log/, sorted by name, each with some of the sections below (as crates/mzdraw/tests/common reads them)
+const logDir = path.join(root, "tests/data/log");
+const fx = { cases: [], contexts: [], refused: [], schemas: [], settings: [] };
+for (const f of readdirSync(logDir).filter(f => f.endsWith(".json")).sort()) {
+  const part = JSON.parse(readFileSync(path.join(logDir, f), "utf8"));
+  for (const k of Object.keys(part)) {
+    if (!(k in fx)) throw new Error(`${f}: unknown section ${k}`);
+    fx[k].push(...part[k]);
+  }
+}
 const native = request => spawnSync(path.join(root, "target/debug/examples/replay"), { input: request, encoding: "utf8" });
 const site = request => { try { return { status: 0, stdout: wasm.replay(request), stderr: "" }; } catch (e) { return { status: 1, stdout: "", stderr: String(e) }; } };
 

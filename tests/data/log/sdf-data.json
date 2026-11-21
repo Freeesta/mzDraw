@@ -1,0 +1,91 @@
+{
+  "cases": [
+    {
+      "name": "the data of two SDF records, one set by a command",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 45.00\"/>\n<n id=\"3\" p=\"55.98 30.00\"/>\n<n id=\"4\" p=\"81.96 45.00\" Element=\"8\" NumHydrogens=\"1\"><t><s font=\"3\" size=\"10\" face=\"0\">OH</s></t></n>\n<n id=\"5\" p=\"141.96 105.00\"/>\n<n id=\"6\" p=\"167.94 90.00\"/>\n<n id=\"7\" p=\"167.94 60.00\" Element=\"8\" NumHydrogens=\"0\"><t><s font=\"3\" size=\"10\" face=\"0\">O</s></t></n>\n<n id=\"8\" p=\"193.92 105.00\"/>\n<b id=\"9\" B=\"2\" E=\"3\"/>\n<b id=\"10\" B=\"3\" E=\"4\"/>\n<b id=\"11\" B=\"5\" E=\"6\"/>\n<b id=\"12\" B=\"6\" E=\"7\" Order=\"2\"/>\n<b id=\"13\" B=\"6\" E=\"8\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"O\" x2=\"1.7320\" y2=\"0.0000\"/>\n<atom id=\"a4\" elementType=\"C\" x2=\"3.7320\" y2=\"-2.0000\"/>\n<atom id=\"a5\" elementType=\"C\" x2=\"4.5980\" y2=\"-1.5000\"/>\n<atom id=\"a6\" elementType=\"O\" x2=\"4.5980\" y2=\"-0.5000\"/>\n<atom id=\"a7\" elementType=\"C\" x2=\"5.4641\" y2=\"-2.0000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"S\"/>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n<bond id=\"b3\" atomRefs2=\"a4 a5\" order=\"S\"/>\n<bond id=\"b4\" atomRefs2=\"a5 a6\" order=\"D\"/>\n<bond id=\"b5\" atomRefs2=\"a5 a7\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"O\",\"location\":[1.732,0.0,0]},{\"label\":\"C\",\"location\":[3.732,-2.0,0]},{\"label\":\"C\",\"location\":[4.598,-1.5,0]},{\"label\":\"O\",\"location\":[4.598,-0.5,0]},{\"label\":\"C\",\"location\":[5.4641,-2.0,0]}],\"bonds\":[{\"type\":1,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]},{\"type\":1,\"atoms\":[3,4]},{\"type\":2,\"atoms\":[4,5]},{\"type\":1,\"atoms\":[4,6]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.data\",\"id\":1,\"data\":[[\"name\",\"ethanol (synthetic)\"],[\"note\",\"line one\\nline two\"]]},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"O\",\"x\":1.732,\"y\":0.0},{\"op\":\"atom.add\",\"id\":6,\"el\":\"C\",\"x\":3.732,\"y\":-2.0},{\"op\":\"atom.add\",\"id\":7,\"el\":\"C\",\"x\":4.598,\"y\":-1.5},{\"op\":\"atom.add\",\"id\":8,\"el\":\"O\",\"x\":4.598,\"y\":-0.5},{\"op\":\"atom.add\",\"id\":9,\"el\":\"C\",\"x\":5.4641,\"y\":-2.0},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"bond.add\",\"id\":10,\"a\":6,\"b\":7,\"o\":1},{\"op\":\"bond.add\",\"id\":11,\"a\":7,\"b\":8,\"o\":2},{\"op\":\"bond.add\",\"id\":12,\"a\":7,\"b\":9,\"o\":1},{\"op\":\"atom.data\",\"id\":6,\"data\":[[\"name\",\"acetone (synthetic)\"],[\"purity\",\"99.5 %\"]]},{\"op\":\"atom.data\",\"id\":1,\"data\":[[\"name\",\"ethanol, absolute\"],[\"note\",\"line one\\nline two\"]]}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  7  5  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7320    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    3.7320   -2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    4.5980   -1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    4.5980   -0.5000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    5.4641   -2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\n  4  5  1  0  0  0  0\n  5  6  2  0  0  0  0\n  5  7  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 7 5 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0\nM  V30 2 C 0.866000 0.500000 0.000000 0\nM  V30 3 O 1.732000 0.000000 0.000000 0\nM  V30 4 C 3.732000 -2.000000 0.000000 0\nM  V30 5 C 4.598000 -1.500000 0.000000 0\nM  V30 6 O 4.598000 -0.500000 0.000000 0\nM  V30 7 C 5.464100 -2.000000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 1 2\nM  V30 2 1 2 3\nM  V30 3 1 4 5\nM  V30 4 2 5 6\nM  V30 5 1 5 7\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":13,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0,\"data\":[[\"name\",\"ethanol, absolute\"],[\"note\",\"line one\\nline two\"]]},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"O\",\"x\":1.732,\"y\":0.0},{\"id\":6,\"el\":\"C\",\"x\":3.732,\"y\":-2.0,\"data\":[[\"name\",\"acetone (synthetic)\"],[\"purity\",\"99.5 %\"]]},{\"id\":7,\"el\":\"C\",\"x\":4.598,\"y\":-1.5},{\"id\":8,\"el\":\"O\",\"x\":4.598,\"y\":-0.5},{\"id\":9,\"el\":\"C\",\"x\":5.4641,\"y\":-2.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"id\":10,\"a\":6,\"b\":7,\"o\":1},{\"id\":11,\"a\":7,\"b\":8,\"o\":2},{\"id\":12,\"a\":7,\"b\":9,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7320    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\nM  END\n>  <name>\nethanol, absolute\n\n>  <note>\nline one\nline two\n\n$$$$\nmzDraw\n  mzLab             2D\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    3.7320   -2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    4.5980   -1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    4.5980   -0.5000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    5.4641   -2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  2  0  0  0  0\n  2  4  1  0  0  0  0\nM  END\n>  <name>\nacetone (synthetic)\n\n>  <purity>\n99.5 %\n\n$$$$\n",
+        "smiles": "CCO.CC(=O)C",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"232.32pt\" height=\"143.4pt\" viewBox=\"0 0 232.32 143.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-db67720a d-db67720a\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":13,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0,\"data\":[[\"name\",\"ethanol, absolute\"],[\"note\",\"line one\\nline two\"]]},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"O\",\"x\":1.732,\"y\":0.0},{\"id\":6,\"el\":\"C\",\"x\":3.732,\"y\":-2.0,\"data\":[[\"name\",\"acetone (synthetic)\"],[\"purity\",\"99.5 %\"]]},{\"id\":7,\"el\":\"C\",\"x\":4.598,\"y\":-1.5},{\"id\":8,\"el\":\"O\",\"x\":4.598,\"y\":-0.5},{\"id\":9,\"el\":\"C\",\"x\":5.4641,\"y\":-2.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"id\":10,\"a\":6,\"b\":7,\"o\":1},{\"id\":11,\"a\":7,\"b\":8,\"o\":2},{\"id\":12,\"a\":7,\"b\":9,\"o\":1}]}</metadata>\n<title id=\"t-db67720a\">C2H6O and C3H6O</title>\n<desc id=\"d-db67720a\">C2H6O and C3H6O.</desc>\n<line x1=\"34.2\" y1=\"49.2\" x2=\"60.18\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"34.2\" x2=\"79.72\" y2=\"45.48\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"146.16\" y1=\"109.2\" x2=\"172.14\" y2=\"94.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"174.09\" y1=\"94.2\" x2=\"174.09\" y2=\"71.64\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"170.19\" y1=\"94.2\" x2=\"170.19\" y2=\"71.64\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"172.14\" y1=\"94.2\" x2=\"198.12\" y2=\"109.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"86.16\" y=\"49.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"90.36\" y=\"49.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"172.14\" y=\"64.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n</svg>\n"
+      },
+      "request": {
+        "import": "ethanol\n  synthetic\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.2990    0.7500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    2.5981    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n>  <name>\nethanol (synthetic)\n\n>  <note>\nline one\nline two\n\n$$$$\nacetone\n  synthetic\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000   -3.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.2990   -2.2500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.2990   -0.7500    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    2.5981   -3.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  2  0\n  2  4  1  0\nM  END\n$$$$\n",
+        "log": [
+          {
+            "data": [
+              [
+                "name",
+                "acetone (synthetic)"
+              ],
+              [
+                "purity",
+                "99.5 %"
+              ]
+            ],
+            "id": 6,
+            "op": "atom.data"
+          },
+          {
+            "data": [
+              [
+                "name",
+                "ethanol, absolute"
+              ],
+              [
+                "note",
+                "line one\nline two"
+              ]
+            ],
+            "id": 1,
+            "op": "atom.data"
+          }
+        ]
+      }
+    }
+  ],
+  "refused": [
+    {
+      "error_key": "error.draw2.data",
+      "request": {
+        "import": "CCO",
+        "log": [
+          {
+            "data": [
+              [
+                "a<b",
+                "v"
+              ]
+            ],
+            "id": 1,
+            "op": "atom.data"
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.data",
+      "request": {
+        "import": "CCO",
+        "log": [
+          {
+            "data": [
+              [
+                "a",
+                "one\n\ntwo"
+              ]
+            ],
+            "id": 1,
+            "op": "atom.data"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -256,10 +256,9 @@ Two chats never write the same zone at the same time.
 | **new modules of §9–§10** | each its own zone: `outcome.rs` (plan-20), `stereo_guard.rs` (plan-21), `loss.rs` (plan-22), `digest.rs` (plan-23), `select.rs` (plan-24), `plan.rs` (plan-27), `grant.rs` (plan-28), `chain.rs` (plan-30); `tools/agent-suite` (plan-19) |
 
 Append-only lines any chat may add next to another chat (merge = keep both, then rerun):
-- the Built state bullets of `docs/mzdraw.md`;
-- `measured` in `tools/wasm-cap.toml`;
+- your own file `docs/built/<slice>.md` (the Built state is one file per slice; there is no `measured` figure to edit: the build prints the size);
 - keys in `web/lang/mzdraw.js`;
-- cases in `tests/data/mzdraw_log.json`;
+- cases in the file of their area under `tests/data/log/` (one file per area, `MZDRAW_BLESS=1` rewrites them);
 - `mod` lines;
 - one match arm in `Op::from_value` / `Op::write` / `Editor::save` / `glue::run`;
 - one row in the plan-01 table.
@@ -315,7 +314,7 @@ These are listed here, not rewritten. Each chat applies its edit when it starts.
 10. **E10 arch-cd:** done. `arch-cd-20-context-menu-refine.md` exists on `claude/arch-cd` (added at `0733735`; PR #41 head `87520eb`), and arch-cd applied E2, E4 and E9 to its own prompts.
 11. **E11 every prompt that adds a `draw_edit/1` op or field:** add its row to the plan-01 table and get COO 16's agreement before the PR (the ones in section 8 are already agreed).
 12. **E12 every prompt whose feature calls an engine:** go through `glue.rs` (plan-04), never call `mzlab_feat` from `lib.rs` directly.
-13. **E13 every prompt:** hot files (`docs/mzdraw.md` Built state, `measured` in `tools/wasm-cap.toml`) conflict in every PR. Merge `origin/main` only on a real conflict, rerun, push. Do not edit the e2e step count, which is counted from the file now. Hand off at about 150k tokens with a pushed WIP branch and a one-line state note (replaces "200k").
+13. **E13 every prompt:** the hot files are gone (Built state is one file per slice in `docs/built/`, `measured` is removed from `tools/wasm-cap.toml`, the golden cases are one file per area in `tests/data/log/`). Merge `origin/main` only on a real conflict, rerun, push. Do not edit the e2e step count, which is counted from the file now. Hand off at about 150k tokens with a pushed WIP branch and a one-line state note (replaces "200k").
 14. **E14 arch-std-15, -16, -17, -18: name the CLI route** (coordinator's review of PR #45). Each must state its replay request and its `mzlab-cli mol draw` route, and add a native replay test in `crates/mzdraw/tests/replay.rs` that gives the page's bytes:
     - std-15: `{"command":"clean"}`, with `"select":[ids]` for a part;
     - std-16: `"set":["export.profile=elsevier","export.width=single"]` with `"out":"std"` and `"out":"svg"`;
