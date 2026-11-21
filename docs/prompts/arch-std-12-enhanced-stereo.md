@@ -13,13 +13,13 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 In:
 - The document keeps enhanced-stereo groups per structure: `abs`, `and<n>`, `or<n>` (n ≥ 1) on stereocentres, and the chiral flag; one new operation with an exact inverse: `{"op":"stereo.group","atoms":[...],"g":"and1"}` (`"g":""` removes the atoms from any group; the inverse stores each atom's previous group).
 - Read from molfile V3000 (`MDLV30/STEABS`, `STERELn`, `STERACn` collections) and V2000 chiral flag, CXSMILES (the enhanced-stereo fields of the extension block) and KET; written to V3000, CXSMILES only if CXSMILES is written (else listed as lost), KET. The import note "enhanced-stereo groups not kept" goes away for what is now kept.
-- Drawn: `&1`, `or1` next to each centre and "abs" / "and enantiomer" text under the structure as the style says (`stereo_labels` on/off).
+- Drawn as the style says, key `stereo_labels`: `words` (default; IUPAC ST-6: "and enantiomer" under a structure whose centres are all in one `and` group, nothing for `abs`; never "rac" or "rel", which ST-6.5 does not accept), `groups` (`&1`, `or1` next to each centre: the CTfile / CXSMILES convention, which IUPAC does not cover, ST-0.8), `off`.
 
 Out (do not do here):
 - Recomputing InChI with enhanced stereo (outside the wasm), stereo perception (the record decides which atoms are centres).
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2 (InChI v2026.1 reads the V3000 collections), §2.4 molfile and CXSMILES rows).
+- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2 (ST-6 absolute and relative; InChI v2026.1 reads the V3000 collections), §2.4 molfile and CXSMILES rows).
 - Chemaxon CXSMILES page (https://docs.chemaxon.com/latest/formats_chemaxon-extended-smiles-and-smarts-cxsmiles-and-cxsmarts.html), "Enhanced stereochemical representation"; the CTfile V3000 collections (BIOVIA CTfile Formats; if you cannot read it, say so and implement from the files `mzlab-mol` already reads).
 - `crates/mzdraw/src/io.rs` (import notes), `crates/mzdraw/src/ket.rs`, `crates/mzdraw/src/ops.rs`.
 

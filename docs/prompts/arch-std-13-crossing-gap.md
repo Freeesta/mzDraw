@@ -11,14 +11,14 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- A style key `crossing_gap` (pt, 0 = off, default 0 so files do not move; `slides` and `acs-1996` stay 0 unless the owner decides): where two bonds without a shared atom cross, the bond with the higher id (the one drawn later) is the front one and the other is cut by `crossing_gap` on each side of the crossing point, in the canvas and the SVG.
+- A style key `crossing_gap` (pt, 0 = off, default 0 so files do not move; `slides` and `acs-1996` stay 0 unless the owner decides; when on, at least twice the line width, IUPAC ST-3.1, so the setter refuses a smaller non-zero value): where two bonds without a shared atom cross, the bond with the higher id (the one drawn later) is the front one and the other is cut by `crossing_gap` on each side of the crossing point, in the canvas and the SVG.
 - The crossing test shares its geometry with `std.geom.crossing` of arch-std-02 (one function).
 
 Out (do not do here):
 - Choosing the front bond by depth or wedges; moving atoms to remove crossings.
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.1 geometry (IUPAC 2008 `*`)).
+- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.1 crossings (IUPAC 2006 ST-3.1, read)).
 - `crates/mzdraw/src/scene.rs`, `crates/mzdraw/src/conform.rs` (arch-std-02).
 
 ## Rules (from `CLAUDE.md`, binding)

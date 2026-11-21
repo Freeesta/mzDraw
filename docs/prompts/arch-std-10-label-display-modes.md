@@ -11,8 +11,9 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- New optional style keys in `mzdraw-settings/1` (through `settings::FIELDS` or a sibling table for enumerations, read by `Style::set`): `carbon_labels` = `none` (default, today) | `terminal` (CH3, CH2 at chain ends) | `all`; `hydrogens` = `hetero` (default, today: H on heteroatoms) | `all` (on every labelled atom) | `none` (no implicit H written; charges and isotopes stay); `hash_style` = `wedge` (default) | `lines` (parallel lines of equal length).
+- New optional style keys in `mzdraw-settings/1` (through `settings::FIELDS` or a sibling table for enumerations, read by `Style::set`): `carbon_labels` = `none` (default, today) | `terminal` (CH3, CH2 at chain ends) | `all`; `hydrogens` = `hetero` (default, today: H on heteroatoms) | `all` (also on every labelled carbon); there is no `none`, because a label without H means an atom without H (IUPAC GR-2.1.1); `hash_style` = `wedge` (default) | `lines` (parallel lines of equal length).
 - The canvas and the SVG follow them through one code path; the presets keep their look (`acs-1996` stays as it is).
+- IUPAC 2008 limits the choices: carbon is always labelled when isolated or between collinear bonds (GR-2.1.2) whatever `carbon_labels` says; `lines` hashing keeps 2-4 bond widths between hashes and at least 3 hashes per bond (GR-1.3), and ST-0.3 allows it only towards terminal atoms: the stereo report of arch-std-01 warns otherwise.
 
 Out (do not do here):
 - Explicit hydrogen atoms as atoms (the record decides), aromatic circles.

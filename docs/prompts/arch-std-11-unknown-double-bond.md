@@ -11,7 +11,7 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 
 ## Scope
 In:
-- A double bond may carry the mark "either" (`s: 3` on a bond of order 2 in the document and in `bond.set`/`bond.add`; today `s` is for single bonds only). How it is drawn is the style's, key `either_double`: `wavy` (default: one single bond at one end of the double bond, the one with the lowest id, is drawn wavy) or `crossed` (the two lines of the double bond cross).
+- A double bond may carry the mark "either" (`s: 3` on a bond of order 2 in the document and in `bond.set`/`bond.add`; today `s` is for single bonds only). How it is drawn is the style's, key `either_double`: `wavy` (default: one single bond at one end of the double bond, the one with the lowest id, is drawn wavy) or `crossed` (the two lines of the double bond cross; offered only because other software reads it, and the stereo report gives `std.stereo.crossedDouble`, info, when it is used).
 - Molfile V2000 out: bond stereo `3` on the double bond; V3000: `CFG=2`; SMILES: no `/` `\` for that bond; KET: the schema's double-bond stereo value; read back from all of them.
 - The stereo check of arch-std-01 does not report `std.stereo.undefined` for a bond marked "either".
 
@@ -19,7 +19,7 @@ Out (do not do here):
 - E/Z labels. A double bond in a ring of fewer than 8 atoms cannot be E/Z (our rule): the mark is refused there with a new key `error.draw2.eitherRing`.
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2 unknown E/Z (IUPAC 2006 `*`: confirm the preferred depiction on https://iupac.qmul.ac.uk/drawing/stereo.html if the host is open), §2.4 molfile row).
+- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.2 unknown E/Z (IUPAC 2006 ST-4.4, read: linear or wavy preferred, the crossed double bond not acceptable except where software requires it), §2.4 molfile row).
 - `crates/mzdraw/src/doc.rs` (wedge marks), `crates/mzdraw/src/ops.rs` (`BondSet`), `crates/mzdraw/src/scene.rs`, `crates/mzdraw/src/ket.rs`, the molfile marks code.
 
 ## Rules (from `CLAUDE.md`, binding)

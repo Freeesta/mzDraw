@@ -13,13 +13,14 @@ DEV chat of mzDraw (Rust molecule editor compiled to wasm, `Freeesta/mzDraw`). Y
 In:
 - An atom label written as a group (`CO2H`, `OMe`, `CF3`, `NH2`, `NO2`, `SO3H`, `OAc`, the abbreviations of `label.rs` and any label the user types) is drawn so that its attachment atom faces the bond: when the bonds leave to the right of the atom, the label is written reversed by chemical units (`HO2C`, `MeO`, `F3C`, `H2N`, `O2N`, `HO3S`, `AcO`), with the attachment symbol centred on the atom as today.
 - A reversal table for multi-letter units (an abbreviation stays one unit: `Boc`, `Ph`, `Ac`, `Me` are never split) and the rule for digits (a count stays after its symbol: `CO2H` → `HO2C`).
+- The bond aims at the centre of the attachment symbol (its first letter, or the last letter of a reversed label), and that symbol's centre stands where the bond would end without a label (GR-2.1.5); counts and charges stay right of their own symbol (GR-2.1.6).
 - The same rule in the SVG and the canvas (one code path in `scene.rs`).
 
 Out (do not do here):
 - Charges moved off a crowded corner (separate), abbreviation expansion, label typing UI.
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.1 labels (IUPAC 2008 `*`: confirm the rule on the HTML edition https://iupac.qmul.ac.uk/drawing/drawing.html if the host is open; the rule itself is common journal practice)).
+- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.1 labels (IUPAC 2008 GR-2.1.5 bond aiming and GR-2.1.6 label reversal, read on https://iupac.qmul.ac.uk/drawing/drawing.html)).
 - `crates/mzdraw/src/label.rs` (abbreviation table), `crates/mzdraw/src/scene.rs` (label layout, `Painter::clear`), `crates/mzdraw/tests/labels.rs`, `crates/mzdraw/tests/crowding.rs`.
 
 ## Rules (from `CLAUDE.md`, binding)
