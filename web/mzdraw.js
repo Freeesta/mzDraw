@@ -163,6 +163,7 @@ function refresh() {
   if (!st.outline.length) { const li = document.createElement("li"); li.textContent = t("draw2.outline.empty"); $("d2-outline").append(li); }
   dataFields(st.outline); annFields(st.outline);
   { const lens = /** @type {HTMLSelectElement | null} */ (document.getElementById("d2-style-display.lens")); if (lens && lens.value !== st.lens) lens.value = st.lens; }
+  $("d2-lens-note").textContent = st.lensNote ? t(st.lensNote.key, { n: st.lensNote.n }) : "";
   $("d2-focus").textContent = st.focus ? focusText(st.focus) : "";
   for (const [id, kind] of [["d2-element", "atom:"], ["d2-label", "label:"], ["d2-text-tool", "text:"]]) {
     const input = /** @type {HTMLInputElement} */ ($(id)), on = st.tool.startsWith(kind);

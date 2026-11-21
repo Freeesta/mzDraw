@@ -434,10 +434,12 @@ fn overvalent(
 // ---------------------------------------------------------------------------------------------------------------------------
 // The diff lens (tp-04): what changed from the parent, computed from the atom maps of the pathway.
 
-/// The most atoms a structure may have to be compared by the lens, and the most atoms (both ends, summed over the arrows) one
-/// request compares: a hostile size is refused with `error.draw2.lensSize`, never slow.
+/// The most atoms a structure may have to be compared by the lens, the most atoms (both ends, summed over the arrows) one request
+/// compares (an arrow past either is skipped, `over cap`), and the most atoms a drawing may have for the lens at all (above it the
+/// whole answer is `error.draw2.lensSize`): a hostile size is refused, never slow.
 pub const MAX_LENS_ATOMS: usize = 5_000;
 pub const MAX_LENS_WORK: usize = 2_000_000;
+pub const MAX_LENS_DOC: usize = 6_000;
 
 const LENS_SIZE: &str = "error.draw2.lensSize";
 
@@ -459,9 +461,11 @@ pub struct Lens {
     pub cleaved: Vec<(u32, u32)>,
     /// The maps of P that T lacks.
     pub lost: Vec<u16>,
-    /// The Hill formula of P (with its net charge, as the outline writes it) and the signed element counts from P to T (`delta`).
+    /// The Hill formula of P (with its net charge, as the outline writes it) and the signed element counts from P to T (`delta`,
+    /// empty for equal formulas). `delta` is `None` where `steplabel::pair_delta` has no honest text (a free-text label, or equal
+    /// counts with a different net charge): the same rule as `pathway:label`, one implementation.
     pub from: String,
-    pub delta: String,
+    pub delta: Option<String>,
     /// The first atom (pool order) of T: the `anchor` the outline names that structure by.
     pub anchor: u32,
 }
@@ -474,11 +478,20 @@ pub struct Unmapped {
     pub atoms: Vec<u32>,
 }
 
-/// The lens of every anchored arrow of a drawing: the lenses by arrow id, and the pairs that cannot be compared (never a partial
-/// lens: such an arrow has no entry in `lenses`).
+/// An anchored arrow the lens did not compare, and why: `no maps` (neither structure has a map), `unmapped` (a partly mapped pair,
+/// also the finding `std.tp.unmapped`) or `over cap` (a structure above `MAX_LENS_ATOMS`, or `MAX_LENS_WORK` already spent).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Skipped {
+    pub arrow: u32,
+    pub why: &'static str,
+}
+
+/// The lens of every anchored arrow of a drawing: the lenses by arrow id, the arrows left out with the reason (nothing is dropped
+/// in silence), and the pairs that cannot be compared (never a partial lens: such an arrow has no entry in `lenses`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Lenses {
     pub lenses: Vec<Lens>,
+    pub skipped: Vec<Skipped>,
     pub unmapped: Vec<Unmapped>,
 }
 
@@ -502,12 +515,12 @@ struct Ctx<'a> {
     pos: HashMap<u32, usize>,
     hydrogens: Vec<u32>,
     bonds_of: Vec<Vec<usize>>,
-    /// Per piece: the element counts of the record (abbreviations expanded, as the outline counts) and its net charge.
-    counts: Vec<(std::collections::BTreeMap<String, i64>, i32)>,
+    /// The element counts of the structures the arrows end in (`steplabel::Formulas`, shared with `pathway:label`).
+    formulas: crate::steplabel::Formulas,
 }
 
 impl<'a> Ctx<'a> {
-    fn new(doc: &'a Document) -> Ctx<'a> {
+    fn new(doc: &'a Document, wanted: &[u32]) -> Ctx<'a> {
         let pieces = crate::layout::pieces(doc);
         let mut piece_of = HashMap::with_capacity(doc.atoms.len());
         for (k, p) in pieces.iter().enumerate() {
@@ -524,51 +537,6 @@ impl<'a> Ctx<'a> {
                 bonds_of[k].push(i);
             }
         }
-        // the element counts of each piece, on the record like the outline (union of the record atoms along the record's bonds)
-        let m = doc.to_mol();
-        let mut root: Vec<usize> = (0..m.atoms.len()).collect();
-        fn find(p: &mut [usize], mut i: usize) -> usize {
-            while p[i] != i {
-                p[i] = p[p[i]];
-                i = p[i];
-            }
-            i
-        }
-        for b in &m.bonds {
-            let (a, z) = (find(&mut root, b.a as usize), find(&mut root, b.b as usize));
-            root[a.max(z)] = a.min(z);
-        }
-        let mut by_root: HashMap<usize, (std::collections::BTreeMap<String, i64>, i32)> =
-            HashMap::new();
-        for i in 0..m.atoms.len() {
-            let r = find(&mut root, i);
-            let e = by_root.entry(r).or_default();
-            let is_r = matches!(
-                doc.atoms.get(i).map(|a| crate::label::kind(&a.lab)),
-                Some(Some(crate::label::Kind::R(_)))
-            );
-            if is_r {
-                *e.0.entry("R".to_string()).or_insert(0) += 1;
-            } else {
-                *e.0.entry(m.atoms[i].el.clone()).or_insert(0) += 1;
-                if m.atoms[i].h > 0 {
-                    *e.0.entry("H".to_string()).or_insert(0) += m.atoms[i].h as i64;
-                }
-                e.1 += m.atoms[i].chg as i32;
-            }
-        }
-        let counts = pieces
-            .iter()
-            .map(|p| {
-                let first = pos.get(&p[0]).copied().unwrap_or(0);
-                if first < m.atoms.len() {
-                    let r = find(&mut root, first);
-                    by_root.get(&r).cloned().unwrap_or_default()
-                } else {
-                    Default::default()
-                }
-            })
-            .collect();
         Ctx {
             doc,
             pieces,
@@ -576,7 +544,7 @@ impl<'a> Ctx<'a> {
             pos,
             hydrogens: doc.all_hydrogens(),
             bonds_of,
-            counts,
+            formulas: crate::steplabel::Formulas::new(doc, wanted),
         }
     }
 
@@ -690,20 +658,24 @@ impl<'a> Ctx<'a> {
         l.cleaved.sort_unstable();
         l.cleaved.dedup();
         l.lost.sort_unstable();
-        // the formula of P and the change of the counts from P to T
-        let (pc, tc) = (&self.counts[p], &self.counts[t]);
-        let mut delta: mzlab_mol::delta::Counts = Vec::new();
-        for el in pc.0.keys().chain(tc.0.keys()) {
-            let n = tc.0.get(el).copied().unwrap_or(0) - pc.0.get(el).copied().unwrap_or(0);
-            if n != 0 && !delta.iter().any(|d| &d.0 == el) {
-                delta.push((el.clone(), n));
-            }
-        }
-        delta.sort();
-        l.delta = mzlab_mol::delta::print(&delta);
+        // the formula of P and the change of the counts from P to T: the counts `pathway:label` uses
         l.anchor = self.pieces[t][0];
-        let mut f: Vec<(String, u32)> = pc.0.iter().map(|(k, &v)| (k.clone(), v as u32)).collect();
-        l.from = crate::outline::hill(&mut f, pc.1);
+        let (Some(rp), Some(rt)) = (
+            self.formulas.root_of(arrow.from),
+            self.formulas.root_of(arrow.to),
+        ) else {
+            return Ok(l);
+        };
+        let (pa, ta) = (&self.formulas.acc[&rp], &self.formulas.acc[&rt]);
+        l.delta = crate::steplabel::pair_delta(pa, ta);
+        if l.delta.is_some() {
+            let mut f: Vec<(String, u32)> = pa
+                .counts
+                .iter()
+                .map(|(k, v)| (k.clone(), *v as u32))
+                .collect();
+            l.from = crate::outline::hill(&mut f, pa.charge as i32);
+        }
         Ok(l)
     }
 }
@@ -713,7 +685,7 @@ pub fn lens(doc: &Document, arrow: u32) -> Result<Lens, NoLens> {
     let Some(o) = doc.objects.iter().find(|o| o.id == arrow) else {
         return Err(NoLens::NotAnchored);
     };
-    Ctx::new(doc).lens(o)
+    Ctx::new(doc, &[o.from, o.to]).lens(o)
 }
 
 /// The lens of every anchored arrow, arrows by id; a pair that cannot be compared is listed in `unmapped`, not drawn. A structure
@@ -724,27 +696,42 @@ pub fn lenses(doc: &Document) -> Result<Lenses, &'static str> {
         .filter(|o| o.t == ObjKind::Arrow && o.from != 0 && o.to != 0)
         .collect();
     let mut out = Lenses::default();
+    if doc.atoms.len() > MAX_LENS_DOC {
+        return Err(LENS_SIZE);
+    }
     if arrows.is_empty() {
         return Ok(out);
     }
     arrows.sort_by_key(|o| o.id);
-    let cx = Ctx::new(doc);
+    let wanted: Vec<u32> = arrows.iter().flat_map(|o| [o.from, o.to]).collect();
+    let cx = Ctx::new(doc, &wanted);
     let mut work = 0usize;
     for o in arrows {
-        if let (Some(&p), Some(&t)) = (cx.piece_of.get(&o.from), cx.piece_of.get(&o.to)) {
-            work += cx.pieces[p].len() + cx.pieces[t].len();
-            if work > MAX_LENS_WORK {
-                return Err(LENS_SIZE);
-            }
-        }
-        match cx.lens(o) {
+        let sizes = match (cx.piece_of.get(&o.from), cx.piece_of.get(&o.to)) {
+            (Some(&p), Some(&t)) if p != t => Some(cx.pieces[p].len() + cx.pieces[t].len()),
+            _ => None,
+        };
+        let spent = sizes.is_some_and(|n| {
+            work += n;
+            work > MAX_LENS_WORK
+        });
+        let why = |why| out_skip(o.id, why);
+        match if spent { Err(NoLens::Size) } else { cx.lens(o) } {
             Ok(l) => out.lenses.push(l),
-            Err(NoLens::NotAnchored | NoLens::NoMaps) => {}
-            Err(NoLens::Unmapped(atoms)) => out.unmapped.push(Unmapped { arrow: o.id, atoms }),
-            Err(NoLens::Size) => return Err(LENS_SIZE),
+            Err(NoLens::NotAnchored) => {}
+            Err(NoLens::NoMaps) => out.skipped.push(why("no maps")),
+            Err(NoLens::Size) => out.skipped.push(why("over cap")),
+            Err(NoLens::Unmapped(atoms)) => {
+                out.skipped.push(why("unmapped"));
+                out.unmapped.push(Unmapped { arrow: o.id, atoms });
+            }
         }
     }
     Ok(out)
+}
+
+fn out_skip(arrow: u32, why: &'static str) -> Skipped {
+    Skipped { arrow, why }
 }
 
 impl Lenses {
@@ -769,11 +756,20 @@ impl Lenses {
                     list(&l.changed_bonds),
                     cleaved.join(","),
                     lost.join(","),
-                    serde_json::Value::from(l.delta.as_str())
+                    l.delta
+                        .as_deref()
+                        .map_or("null".to_string(), |d| serde_json::Value::from(d).to_string())
                 )
             })
             .collect();
-        format!(r#"{{"format":"lens/1","arrows":[{}]}}"#, arrows.join(","))
+        let skipped: Vec<String> = (self.skipped.iter())
+            .map(|k| format!(r#"{{"arrow":{},"why":"{}"}}"#, k.arrow, k.why))
+            .collect();
+        format!(
+            r#"{{"format":"lens/1","arrows":[{}],"skipped":[{}]}}"#,
+            arrows.join(","),
+            skipped.join(",")
+        )
     }
 
     /// The `std/1` findings of the pairs the lens refuses: `std.tp.unmapped`, one per arrow (the arrow, and the atoms of its two
@@ -786,5 +782,62 @@ impl Lenses {
                 f
             })
             .collect()
+    }
+}
+
+/// What the page needs of the lens when it is on, from one pass: the words of each product by its anchor (the first atom of the
+/// structure, as the outline names it) in a table, and the note when the lens is not showing everything.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LensState {
+    lines: HashMap<u32, Line>,
+    /// The i18n key of the note the page shows, and the number it is about: `draw2.notice.lensSize` (the drawing is over the cap),
+    /// `draw2.notice.lensSkipped` (arrows left out).
+    pub note: Option<(&'static str, usize)>,
+}
+
+/// The outline words of one product: the formula it comes from, the change, the bonds cleaved.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Line {
+    pub from: String,
+    pub delta: String,
+    pub cleaved: usize,
+}
+
+impl LensState {
+    /// The lens of a drawing for the page: one pass. Not called when the lens is off.
+    pub fn of(doc: &Document) -> LensState {
+        match lenses(doc) {
+            Err(_) => LensState {
+                note: Some(("draw2.notice.lensSize", doc.atoms.len())),
+                ..LensState::default()
+            },
+            Ok(l) => LensState::from_lenses(&l),
+        }
+    }
+
+    /// The table of the words of each product, from the lenses of a drawing.
+    pub fn from_lenses(l: &Lenses) -> LensState {
+        let mut st = LensState::default();
+        for x in &l.lenses {
+            if let Some(d) = &x.delta {
+                st.lines.insert(
+                    x.anchor,
+                    Line {
+                        from: x.from.clone(),
+                        delta: d.clone(),
+                        cleaved: x.cleaved.len(),
+                    },
+                );
+            }
+        }
+        if !l.skipped.is_empty() {
+            st.note = Some(("draw2.notice.lensSkipped", l.skipped.len()));
+        }
+        st
+    }
+
+    /// The words of the product whose first atom is `anchor`.
+    pub fn line(&self, anchor: u32) -> Option<&Line> {
+        self.lines.get(&anchor)
     }
 }

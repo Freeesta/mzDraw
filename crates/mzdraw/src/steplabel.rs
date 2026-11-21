@@ -176,11 +176,11 @@ pub fn display(text: &str) -> Cow<'_, str> {
 /// The Hill counts of one structure and its net charge, as the outline counts them (every atom of the record, so an abbreviation counts
 /// as the atoms it stands for; an R group is the element `R`).
 #[derive(Default, Clone)]
-struct Acc {
-    counts: Vec<(String, i64)>,
-    charge: i64,
+pub(crate) struct Acc {
+    pub(crate) counts: Vec<(String, i64)>,
+    pub(crate) charge: i64,
     /// An atom with a free-text label (neither a table abbreviation nor an R group): the record has no atoms for it, only a stand-in.
-    free_text: bool,
+    pub(crate) free_text: bool,
 }
 
 fn bump(c: &mut Vec<(String, i64)>, el: &str, n: i64) {
@@ -194,7 +194,7 @@ fn bump(c: &mut Vec<(String, i64)>, el: &str, n: i64) {
 }
 
 /// The text of the delta `to - from`, in the canonical spelling; empty for equal formulas.
-fn delta_text(from: &[(String, i64)], to: &[(String, i64)]) -> String {
+pub(crate) fn delta_text(from: &[(String, i64)], to: &[(String, i64)]) -> String {
     let mut sum: Vec<(String, i64)> = Vec::new();
     for (el, n) in to {
         bump(&mut sum, el, *n);
@@ -216,6 +216,81 @@ fn root(p: &mut [usize], mut i: usize) -> usize {
         i = p[i];
     }
     i
+}
+
+/// The structures of a drawing as the record sees them, and the counts of the ones asked for, in one linear pass: the record
+/// (`Document::to_mol`, with the atoms abbreviations expand to) is built once, its structures are the connected pieces of its bonds
+/// (union-find), and the counts of a structure are summed once however many arrows end in it. Shared by `pathway:label` and the diff
+/// lens (`tp::lenses`), so the formula of a structure is counted in one place.
+pub(crate) struct Formulas {
+    index: HashMap<u32, usize>,
+    /// The root (record index of the first atom) of the structure of each record atom.
+    roots: Vec<usize>,
+    pub(crate) acc: HashMap<usize, Acc>,
+}
+
+impl Formulas {
+    /// The counts of the structures that hold the atoms `wanted` (atom ids that no atom carries are ignored).
+    pub(crate) fn new(doc: &Document, wanted: &[u32]) -> Formulas {
+        let index: HashMap<u32, usize> = doc
+            .atoms
+            .iter()
+            .enumerate()
+            .map(|(i, a)| (a.id, i))
+            .collect();
+        let mol = doc.to_mol();
+        let n = mol.atoms.len();
+        let mut up: Vec<usize> = (0..n).collect();
+        for b in &mol.bonds {
+            let (x, z) = (root(&mut up, b.a as usize), root(&mut up, b.b as usize));
+            up[x.max(z)] = x.min(z);
+        }
+        let roots: Vec<usize> = (0..n).map(|i| root(&mut up, i)).collect();
+        let mut acc: HashMap<usize, Acc> = HashMap::new();
+        for w in wanted {
+            if let Some(&i) = index.get(w) {
+                acc.entry(roots[i]).or_default();
+            }
+        }
+        for (i, &r) in roots.iter().enumerate() {
+            let Some(a) = acc.get_mut(&r) else {
+                continue;
+            };
+            let kind = doc
+                .atoms
+                .get(i)
+                .map(|x| (x.lab.is_empty(), label::kind(&x.lab)));
+            if matches!(kind, Some((false, None))) {
+                a.free_text = true;
+            } else if matches!(kind, Some((_, Some(label::Kind::R(_))))) {
+                bump(&mut a.counts, "R", 1);
+            } else {
+                let m = &mol.atoms[i];
+                bump(&mut a.counts, &m.el, 1);
+                bump(&mut a.counts, "H", i64::from(m.h));
+                a.charge += i64::from(m.chg);
+            }
+        }
+        Formulas { index, roots, acc }
+    }
+
+    /// The root of the structure that holds the atom `id`.
+    pub(crate) fn root_of(&self, id: u32) -> Option<usize> {
+        self.index
+            .get(&id)
+            .and_then(|&i| self.roots.get(i).copied())
+    }
+}
+
+/// The delta `to - from` as `pathway:label` writes it, or `None` where it has no honest text: a structure with a free-text label (the
+/// record has only a stand-in for it), or two structures with the same counts and a different net charge (a delta has no charges).
+/// `Some("")` is an isomer.
+pub(crate) fn pair_delta(from: &Acc, to: &Acc) -> Option<String> {
+    if from.free_text || to.free_text {
+        return None;
+    }
+    let d = delta_text(&from.counts, &to.counts);
+    (!d.is_empty() || from.charge == to.charge).then_some(d)
 }
 
 /// The label of every anchored arrow whose text may be rewritten, as `obj.set` operations of `text`, in one linear pass: the record
@@ -247,65 +322,22 @@ pub fn plan(doc: &Document, mode: Mode, opts: &Opts) -> Result<Plan, OpError> {
     if arrows.is_empty() {
         return Ok(out);
     }
-    let index: HashMap<u32, usize> = doc
-        .atoms
-        .iter()
-        .enumerate()
-        .map(|(i, a)| (a.id, i))
-        .collect();
-    let mol = doc.to_mol();
-    let n = mol.atoms.len();
-    let mut up: Vec<usize> = (0..n).collect();
-    for b in &mol.bonds {
-        let (x, z) = (root(&mut up, b.a as usize), root(&mut up, b.b as usize));
-        up[x.max(z)] = x.min(z);
-    }
-    // the two ends of each arrow as roots of structures; the roots that are needed
+    let ends_of: Vec<u32> = arrows.iter().flat_map(|a| [a.1, a.2]).collect();
+    let fm = Formulas::new(doc, &ends_of);
     let mut ends: Vec<(u32, usize, usize, &str)> = Vec::new();
-    let mut acc: HashMap<usize, Acc> = HashMap::new();
     for &(id, from, to, text) in &arrows {
-        let (Some(&f), Some(&t)) = (index.get(&from), index.get(&to)) else {
-            continue;
-        };
-        let (rf, rt) = (root(&mut up, f), root(&mut up, t));
-        if rf == rt {
-            continue;
-        }
-        acc.entry(rf).or_default();
-        acc.entry(rt).or_default();
-        ends.push((id, rf, rt, text));
-    }
-    for i in 0..n {
-        let r = root(&mut up, i);
-        let Some(a) = acc.get_mut(&r) else {
-            continue;
-        };
-        let kind = doc
-            .atoms
-            .get(i)
-            .map(|x| (x.lab.is_empty(), label::kind(&x.lab)));
-        if matches!(kind, Some((false, None))) {
-            a.free_text = true;
-        } else if matches!(kind, Some((_, Some(label::Kind::R(_))))) {
-            bump(&mut a.counts, "R", 1);
-        } else {
-            let m = &mol.atoms[i];
-            bump(&mut a.counts, &m.el, 1);
-            bump(&mut a.counts, "H", i64::from(m.h));
-            a.charge += i64::from(m.chg);
+        if let (Some(rf), Some(rt)) = (fm.root_of(from), fm.root_of(to))
+            && rf != rt
+        {
+            ends.push((id, rf, rt, text));
         }
     }
+    let acc = &fm.acc;
     for (id, rf, rt, now) in ends {
-        let (a, b) = (&acc[&rf], &acc[&rt]);
-        if a.free_text || b.free_text {
+        let Some(d) = pair_delta(&acc[&rf], &acc[&rt]) else {
             out.skipped += 1;
             continue;
-        }
-        let d = delta_text(&a.counts, &b.counts);
-        if d.is_empty() && a.charge != b.charge {
-            out.skipped += 1;
-            continue;
-        }
+        };
         let text = if d.is_empty() { opts.isomer.clone() } else { d };
         if now == text {
             out.labelled += 1;

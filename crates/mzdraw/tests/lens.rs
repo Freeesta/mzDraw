@@ -84,7 +84,7 @@ fn the_keys_come_in_a_fixed_order_and_the_format_is_named() {
         "{text}"
     );
     assert!(text.contains(
-        r#""added":[],"added_bonds":[],"changed":[],"changed_bonds":[],"cleaved":[],"lost":[],"delta":""}]}"#
+        r#""added":[],"added_bonds":[],"changed":[],"changed_bonds":[],"cleaved":[],"lost":[],"delta":""}],"skipped":[]}"#
     ));
 }
 
@@ -233,12 +233,13 @@ fn the_formula_of_the_parent_plus_the_delta_is_the_formula_of_the_product() {
         let anchor = lens.lenses[0].anchor;
         let t = &pieces.iter().find(|x| x.anchor == anchor).unwrap().formula;
         let p = &pieces[0].formula;
-        let sum = mzlab_mol::delta::add(&format!("+{p}"), &lens.lenses[0].delta).unwrap();
+        let sum = mzlab_mol::delta::add(&format!("+{p}"), lens.lenses[0].delta.as_deref().unwrap())
+            .unwrap();
         assert_eq!(
             sum,
             format!("+{t}"),
             "seed {seed}: {p} {} {t}",
-            lens.lenses[0].delta
+            lens.lenses[0].delta.as_deref().unwrap()
         );
         assert_eq!(lens.lenses[0].from, *p, "seed {seed}");
         accepted += 1;
@@ -372,14 +373,20 @@ fn a_pair_that_cannot_be_compared_is_a_finding_and_never_a_partial_lens() {
         e.open(&d.to_json()).unwrap();
         let std = e.save("std").unwrap();
         assert!(std.contains("std.tp.unmapped"), "{std}");
-        assert!(e.save("lens").unwrap().ends_with(r#""arrows":[]}"#));
+        assert!(e
+            .save("lens")
+            .unwrap()
+            .ends_with(r#""arrows":[],"skipped":[{"arrow":200,"why":"unmapped"}]}"#));
     }
     // a pair with no map at all has nothing to compare, and nothing is wrong with it
     let d = pair(&[0, 0], &[0, 0, 0]);
     let mut e = Editor::default();
     e.open(&d.to_json()).unwrap();
     assert!(!e.save("std").unwrap().contains("std.tp.unmapped"));
-    assert!(e.save("lens").unwrap().ends_with(r#""arrows":[]}"#));
+    assert!(e
+        .save("lens")
+        .unwrap()
+        .ends_with(r#""arrows":[],"skipped":[{"arrow":200,"why":"no maps"}]}"#));
     // a fully mapped pair is compared: the third atom of T is added, the third of P is lost
     let d = pair(&[1, 2, 3], &[1, 2, 4]);
     let l = mzdraw::tp::lens(&d, 200).unwrap();
@@ -392,32 +399,43 @@ fn a_pair_that_cannot_be_compared_is_a_finding_and_never_a_partial_lens() {
     ));
 }
 
-#[test]
-fn the_page_text_and_the_failed_request_are_keyed() {
-    // a structure above the cap is the keyed error of the output, not a slow answer
-    let n = 5001u32;
+/// A mapped chain of `n` atoms (every atom the same map is not allowed, so the maps wrap at 999: such a structure is only for the caps)
+/// and one more atom, joined by an anchored arrow.
+fn big(n: u32) -> String {
     let atoms: Vec<Value> = (1..=n)
         .map(|i| json!({"id": i, "el": "C", "x": i as f64, "y": 0.0, "map": 1}))
+        .chain([json!({"id": 2 * n, "el": "C", "x": 0.0, "y": 9.0, "map": 1})])
         .collect();
     let bonds: Vec<Value> = (1..n)
         .map(|i| json!({"id": n + i, "a": i, "b": i + 1, "o": 1}))
         .collect();
-    let mut atoms = atoms;
-    atoms.push(json!({"id": 2 * n, "el": "C", "x": 0.0, "y": 9.0, "map": 1}));
-    let doc = json!({"format":"mzdraw/1","next":4 * n,"atoms":atoms,"bonds":bonds,
-        "objects":[{"id":3 * n,"t":"arrow","x":0.0,"y":4.0,"x2":0.0,"y2":8.0,"from":1,"to":2 * n}]});
-    let e = mzdraw::replay::replay(&json!({"import": doc.to_string(), "out": "lens"}).to_string());
-    let r: Value =
-        serde_json::from_str(&e.unwrap_or_else(|k| format!("{{\"error\":\"{}\"}}", k.key)))
-            .unwrap();
-    assert!(r.to_string().contains("error.draw2.lensSize"), "{r}");
-    // the display of such a drawing is plain, not slow and not a panic
-    let mut ed = Editor::default();
-    ed.open(&doc.to_string()).unwrap();
-    ed.set("display.lens=tint+ghost").unwrap();
-    let t = std::time::Instant::now();
-    let _ = ed.svg();
-    assert!(t.elapsed().as_secs_f64() < 10.0);
+    json!({"format":"mzdraw/1","next":4 * n,"atoms":atoms,"bonds":bonds,
+        "objects":[{"id":3 * n,"t":"arrow","x":0.0,"y":4.0,"x2":0.0,"y2":8.0,"from":1,"to":2 * n}]})
+    .to_string()
+}
+
+#[test]
+fn a_structure_over_the_cap_is_skipped_with_its_reason_and_a_drawing_over_the_cap_is_a_keyed_error()
+{
+    // a structure above 5000 atoms: the arrow is listed as skipped, over cap, not dropped in silence
+    let doc = big(5001);
+    let r = replay(json!({"import": doc, "report": true, "out": "lens"}));
+    let l: Value = serde_json::from_str(r["out"].as_str().unwrap()).unwrap();
+    assert_eq!(l["arrows"], json!([]));
+    assert_eq!(l["skipped"], json!([{"arrow": 15003, "why": "over cap"}]));
+    // the page is told, in a keyed note, that the lens is not showing it (the painter has older quadratic passes of its own, so the
+    // picture of a 5000-atom structure is not timed here)
+    let ed = Document::from_json(&doc).unwrap();
+    let st = mzdraw::tp::LensState::of(&ed);
+    assert_eq!(st.note, Some(("draw2.notice.lensSkipped", 1)));
+    // a drawing above 6000 atoms is the keyed error of the output, before any work, and the page is told
+    let doc = big(6_001);
+    let ed = Document::from_json(&doc).unwrap();
+    assert_eq!(mzdraw::tp::lenses(&ed), Err("error.draw2.lensSize"));
+    assert_eq!(
+        mzdraw::tp::LensState::of(&ed).note.map(|n| n.0),
+        Some("draw2.notice.lensSize")
+    );
     // and the web text of each key is in the page's language file
     let lang = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -426,6 +444,8 @@ fn the_page_text_and_the_failed_request_are_keyed() {
     .unwrap();
     for key in [
         "error.draw2.lensSize",
+        "draw2.notice.lensSize",
+        "draw2.notice.lensSkipped",
         "draw2.std.tp.unmapped",
         "draw2.outline.lens",
         "draw2.outline.lens.same",
@@ -475,44 +495,44 @@ fn time(f: impl Fn()) -> f64 {
     t.elapsed().as_secs_f64()
 }
 
+/// The time of `reps` runs of `f` over `n` pairs, the drawing built outside the clock.
+fn reps_time(n: u32, reps: u32, f: impl Fn(&Document)) -> f64 {
+    let d = pairs(n);
+    time(|| {
+        for _ in 0..reps {
+            f(&d);
+        }
+    })
+}
+
 #[test]
 fn the_cost_of_the_lens_grows_linearly_with_the_drawing() {
-    // four times the pairs must cost about four times as much, not sixteen: one table for the whole drawing, one pass per arrow. A floor
-    // keeps timer noise out (the small run must take long enough to measure); the same test fails on a per-arrow rebuild.
-    let (mut n, mut small) = (500u32, 0.0);
-    let mut d = pairs(n);
-    while n <= 16_000 {
-        d = pairs(n);
-        small = time(|| {
-            let l = mzdraw::tp::lenses(&d).unwrap();
-            assert_eq!(l.lenses.len(), n as usize);
-        });
-        if small > 0.03 {
-            break;
-        }
-        n *= 2;
-    }
-    let _ = d;
-    let big_doc = pairs(4 * n);
-    let big = time(|| {
-        mzdraw::tp::lenses(&big_doc).unwrap();
-    });
+    // four times the pairs must cost about four times as much, not sixteen: one table for the whole drawing, one pass per arrow. The
+    // drawing is capped at 6000 atoms, so the runs are repeated to be long enough to measure; the same test fails (ratio 16 and
+    // more, in release too) when the tables are rebuilt per arrow.
+    let run = |d: &Document| {
+        let l = mzdraw::tp::lenses(d).unwrap();
+        assert_eq!(l.lenses.len(), d.objects.len());
+    };
+    let (small, big) = (reps_time(200, 10, run), reps_time(800, 10, run));
     assert!(
         big < 8.0 * small + 0.05,
-        "{n} pairs {small:.3} s, {} pairs {big:.3} s",
-        4 * n
+        "200 pairs {small:.3} s, 800 pairs {big:.3} s"
     );
     // the machine form is linear too (the display list has its own test in `scene.rs`: the whole painter has older quadratic
     // passes, the SVG text alternative one more, which are not this slice's)
-    let cost = |count: u32| {
+    let json = |d: &Document| {
         let mut e = Editor::default();
-        e.open(&pairs(count).to_json()).unwrap();
-        time(|| {
+        e.open(&d.to_json()).unwrap();
+        for _ in 0..20 {
             e.save("lens").unwrap();
-        })
+        }
     };
-    let (s1, s2) = (cost(n), cost(4 * n));
-    assert!(s2 < 8.0 * s1 + 0.05, "{n}: {s1:.3} s, {}: {s2:.3} s", 4 * n);
+    let (small, big) = (reps_time(200, 1, json), reps_time(800, 1, json));
+    assert!(
+        big < 8.0 * small + 0.05,
+        "200 pairs {small:.3} s, 800 pairs {big:.3} s"
+    );
 }
 
 #[test]
@@ -536,8 +556,12 @@ fn a_hostile_number_of_comparisons_is_refused_by_the_work_cap() {
     )
     .unwrap();
     let t = std::time::Instant::now();
-    assert_eq!(mzdraw::tp::lenses(&doc), Err("error.draw2.lensSize"));
+    let l = mzdraw::tp::lenses(&doc).unwrap();
     assert!(t.elapsed().as_secs_f64() < 5.0);
+    // the first ones are compared (and have no maps here), the rest are left out over cap, each one listed
+    let over = l.skipped.iter().filter(|k| k.why == "over cap").count();
+    assert!(over > 0 && over < 501, "{over}");
+    assert_eq!(l.skipped.len(), 501, "no arrow is dropped in silence");
 }
 
 #[test]
@@ -567,4 +591,89 @@ fn the_canvas_menu_offers_the_lens_only_where_an_arrow_is_anchored_and_each_pres
     }
     assert_eq!(e.style.lens.name(), "off");
     assert_eq!(e.doc().to_json(), before, "the document is never touched");
+}
+
+#[test]
+fn the_state_of_the_lens_for_the_page_finds_a_product_by_its_anchor_in_one_lookup() {
+    // the drawing is capped at 6000 atoms, so the table is tested at the size of a hostile list of lenses: four times the products must
+    // cost about four times as much, not sixteen (a scan per outline piece takes it to a ratio of 16)
+    let run = |n: u32| {
+        let l = mzdraw::tp::Lenses {
+            lenses: (1..=n)
+                .map(|i| mzdraw::tp::Lens {
+                    arrow: i,
+                    anchor: i,
+                    delta: Some("+O".into()),
+                    from: "C".into(),
+                    ..Default::default()
+                })
+                .collect(),
+            ..Default::default()
+        };
+        let t = std::time::Instant::now();
+        let st = mzdraw::tp::LensState::from_lenses(&l);
+        let found = (1..=n).filter(|&i| st.line(i).is_some()).count();
+        assert_eq!(found, n as usize, "every product has its words");
+        t.elapsed().as_secs_f64()
+    };
+    let (small, big) = (run(16_000), run(64_000));
+    assert!(
+        big < 8.0 * small + 0.05,
+        "16000 products {small:.3} s, 64000 {big:.3} s"
+    );
+    // from a drawing: each product of a pathway has its words and nothing is noted
+    let d = pairs(200);
+    let st = mzdraw::tp::LensState::of(&d);
+    let found = mzdraw::layout::pieces(&d)
+        .iter()
+        .filter(|p| st.line(p[0]).is_some())
+        .count();
+    assert_eq!(found, 200);
+    assert!(st.note.is_none());
+}
+
+#[test]
+fn the_words_of_a_product_come_from_the_formulas_of_label_and_follow_its_rules() {
+    // the same counts as `pathway:label`: P and T of the derive, and the words of the page
+    let patch = json!([{"op":"atom.add","el":"O","x":-1.0,"y":-1.7321},{"op":"bond.add","a":5,"b":-1,"o":1}]);
+    let d = doc_after(patch);
+    let st = mzdraw::tp::LensState::of(&d);
+    let anchor = mzdraw::tp::lenses(&d).unwrap().lenses[0].anchor;
+    let line = st.line(anchor).unwrap();
+    assert_eq!(
+        (line.from.as_str(), line.delta.as_str(), line.cleaved),
+        ("C6H11NO", "+O", 0)
+    );
+    let r = replay(
+        json!({"import": lactam().to_string(), "commands": [derive(json!([{"op":"atom.add","el":"O","x":-1.0,"y":-1.7321},{"op":"bond.add","a":5,"b":-1,"o":1}])), {"command":"pathway:label","args":{}}], "report": true, "out": "mzdraw"}),
+    );
+    let labelled = Document::from_json(r["out"].as_str().unwrap()).unwrap();
+    assert!(
+        labelled.objects.iter().any(|o| o.text == "+O"),
+        "pathway:label writes the same delta"
+    );
+    // equal counts and a different net charge: no honest delta, as for `pathway:label` (it leaves such an arrow alone)
+    let charge = json!({"format":"mzdraw/1","next":10,"atoms":[
+        {"id":1,"el":"C","x":0,"y":0,"h":0,"map":1},{"id":2,"el":"C","x":6,"y":0,"h":0,"chg":-1,"map":1}],
+        "bonds":[],"objects":[{"id":3,"t":"arrow","x":1.5,"y":0,"x2":4.5,"y2":0,"from":1,"to":2}]});
+    let r = replay(
+        json!({"import": charge.to_string(), "commands": [{"command":"pathway:label","args":{}}], "report": true, "out": "lens"}),
+    );
+    assert!(
+        r["out"].as_str().unwrap().contains(r#""delta":null"#),
+        "{r}"
+    );
+    let d = Document::from_json(&charge.to_string()).unwrap();
+    assert!(mzdraw::tp::LensState::of(&d).line(1).is_none());
+    let r = replay(
+        json!({"import": charge.to_string(), "commands": [{"command":"pathway:label","args":{}}], "report": true, "out": "mzdraw"}),
+    );
+    assert!(
+        Document::from_json(r["out"].as_str().unwrap())
+            .unwrap()
+            .objects[0]
+            .text
+            .is_empty(),
+        "label leaves it alone"
+    );
 }

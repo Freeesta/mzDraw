@@ -185,6 +185,8 @@ I18N.add("en", {
   "draw2.style.choice.display.lens.tint": "Tint what changed",
   "draw2.style.choice.display.lens.tint+ghost": "Tint and ghost the cleaved bonds",
   "draw2.say.lens": "Diff lens: {what}.",
+  "draw2.notice.lensSize": "This drawing is too large for the diff lens, so it is not shown.",
+  "draw2.notice.lensSkipped": "{n, plural, one {# arrow is left out of the diff lens: its structures have no atom maps, are only partly mapped, or are too large.} other {# arrows are left out of the diff lens: their structures have no atom maps, are only partly mapped, or are too large.}}",
   "draw2.keys.lens": "Shift+L: the diff lens on the products of anchored arrows, off, tint, then tint and ghost.",
   "draw2.style.choice.pathway.order.id": "Order drawn",
   "draw2.style.choice.pathway.order.mz": "m/z",

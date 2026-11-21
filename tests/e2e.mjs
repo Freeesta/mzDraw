@@ -2294,8 +2294,10 @@ try {
     await pg.keyboard.press("l"); await frames(pg); await pg.keyboard.press("Escape");
     eq((await lensState()).lens, "off");
   });
-  await step("diff lens in words: each product has a line in the outline, from its parent's formula to the delta; the Style panel sets the mode and follows the key", async () => {
+  await step("diff lens in words: with the lens on, each product has a line in the outline, from its parent's formula to the delta; the Style panel sets the mode and follows the key", async () => {
     await lensOpen();
+    eq((await lensState()).outline.every(o => o.lens === null), true, "no lens words while the lens is off");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Shift+L"); await frames(pg);
     const st = await lensState();
     eq(st.outline.map(o => o.lens === null), [true, false, false, false, false, false].slice(0, st.outline.length).map((x, i) => i === 0 ? true : x));
     const lines = await pg.locator("#d2-outline li").allInnerTexts();
@@ -2307,10 +2309,18 @@ try {
     // the Style panel: a choice among the words of the module; the key moves it too
     const sel = pg.locator('[id="d2-style-display.lens"]');
     await setOpen(pg, "#d2-style-more", true);
-    eq(await sel.inputValue(), "off");
+    eq(await sel.inputValue(), "tint");
+    eq(await pg.innerText("#d2-lens-note"), "", "nothing is skipped in a fully mapped drawing");
     await sel.selectOption("tint+ghost"); await frames(pg); await lensAt("tint+ghost", "panel");
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Shift+L"); await frames(pg); await lensAt("off", "key after the panel");
     eq(await sel.inputValue(), "off", "the panel follows the key");
+    // a drawing without maps: the lens is skipped for each arrow and the page says so in words, never nothing
+    const plain = JSON.parse(lensGold[0].out.mzdraw); for (const x of plain.atoms) delete x.map;
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), JSON.stringify(plain)); await frames(pg);
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Shift+L"); await frames(pg);
+    eq((await lensState()).lens, "tint");
+    eq(await pg.innerText("#d2-lens-note"), await pg.evaluate("I18N.t('draw2.notice.lensSkipped', { n: 3 })"));
+    eq((await lensInk()).accent, 0, "nothing is tinted without maps");
   });
   await step("diff lens by touch (long press on the canvas, tap on the item) and by pen (barrel button, then the item): the page equals the golden of each mode", async () => {
     const cdp = await ctx.newCDPSession(pg);
