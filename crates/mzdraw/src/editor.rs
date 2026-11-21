@@ -551,16 +551,21 @@ impl Editor {
 
     /// Annotates the structure the atom `anchor` belongs to, as one undo step: a new entry (`ann::entry`: the level, an
     /// identifier, the evidence as lines `kind: ref`, a note; decided by the chemist) is added after the entries the structure
-    /// has, and the whole annotation is kept on `anchor`. An empty `level` takes the annotation of the structure away. An entry
+    /// has, and the whole annotation is kept on `anchor`. The `scale` the level is read on (`ann::SCALES`; empty: the default) is
+    /// written with the entry. An empty `level` takes the annotation of the structure away. An entry
     /// that is not of its shape is refused (`error.draw2.ann` in `error`) and changes nothing.
     pub fn annotate(
         &mut self,
         anchor: u32,
+        scale: &str,
         level: &str,
         identifier: &str,
         evidence: &str,
         note: &str,
     ) -> u32 {
+        let scale = Some(scale.trim())
+            .filter(|s| !s.is_empty())
+            .unwrap_or(crate::ann::SCALE);
         let piece = crate::layout::pieces(self.doc())
             .into_iter()
             .find(|p| p.contains(&anchor))
@@ -571,7 +576,7 @@ impl Editor {
             .filter(|a| !a.1.is_empty())
             .collect();
         let level = level.trim();
-        let new = crate::ann::entry(level, identifier, evidence, note, "chemist");
+        let new = crate::ann::entry(scale, level, identifier, evidence, note, "chemist");
         let list = if level.is_empty() {
             "[]".to_string()
         } else {

@@ -182,13 +182,14 @@ fn the_editor_annotates_a_structure_as_a_history_in_one_undo_step() {
     let at = anchors(&e);
     assert_eq!(at.len(), 2);
     let before = e.save("mzdraw").unwrap();
-    e.annotate(at[1], "3", "", "formula\nexact-mass: 78.04695", "");
+    e.annotate(at[1], "", "3", "", "formula\nexact-mass: 78.04695", "");
     assert_eq!(
         (e.error, e.said.0, e.said.1.as_str()),
         ("", "draw2.say.ann", "3")
     );
     e.annotate(
         at[1],
+        "",
         " 2a ",
         " benzene (synthetic) ",
         "ms2-library: LIB:0002\n\n  rt-standard  ",
@@ -217,7 +218,7 @@ fn the_editor_annotates_a_structure_as_a_history_in_one_undo_step() {
         .map(|a| a.id)
         .find(|&i| i > at[1])
         .unwrap();
-    e.annotate(other, "1", "", "", "");
+    e.annotate(other, "", "1", "", "", "");
     assert_eq!(e.doc().atom(at[1]).unwrap().ann(), "");
     let pieces = mzdraw::outline::pieces(e.doc());
     assert_eq!(
@@ -236,18 +237,18 @@ fn the_editor_annotates_a_structure_as_a_history_in_one_undo_step() {
         ("2a", "a b: c", at[1]),
         ("2a", "", 9999),
     ] {
-        e.annotate(anchor, level, "", evidence, "");
+        e.annotate(anchor, "", level, "", evidence, "");
         assert_eq!(e.error, "error.draw2.ann");
         assert_eq!(e.save("mzdraw").unwrap(), held);
     }
     // an empty level takes the annotation away; undo to the start gives the first bytes
-    e.annotate(at[1], "", "", "", "");
+    e.annotate(at[1], "", "", "", "", "");
     assert_eq!(e.error, "");
     assert_eq!(mzdraw::outline::pieces(e.doc())[1].ann, None);
     while e.undo() > 0 && e.save("mzdraw").unwrap() != before {}
     assert_eq!(e.save("mzdraw").unwrap(), before);
     // copy and paste carries the annotation with the structure
-    e.annotate(at[0], "4", "", "formula", "");
+    e.annotate(at[0], "", "4", "", "formula", "");
     e.select_all();
     e.copy();
     e.paste(None);
@@ -266,9 +267,10 @@ fn an_sdf_carries_the_annotation_and_reads_it_back() {
     let mut e = editor("CCO.CC(C)=O");
     let at = anchors(&e);
     e.set_data(at[0], vec![("name".into(), "ethanol (synthetic)".into())]);
-    e.annotate(at[0], "3", "", "formula", "");
+    e.annotate(at[0], "", "3", "", "formula", "");
     e.annotate(
         at[0],
+        "",
         "2b",
         "ethanol",
         "diagnostic-fragment: m/z 31.0178\nrt-standard",
@@ -350,7 +352,7 @@ fn the_level_is_drawn_under_its_structure() {
     let at = anchors(&e);
     let plain = e.save("svg").unwrap();
     assert!(!plain.contains(">L"));
-    e.annotate(at[1], "2b", "", "", "");
+    e.annotate(at[1], "", "2b", "", "", "");
     let svg = e.save("svg").unwrap();
     assert_eq!(svg.matches(">L2b</text>").count(), 1);
     // nothing else of the picture moves: the same lines, the same size
@@ -358,10 +360,62 @@ fn the_level_is_drawn_under_its_structure() {
     assert_eq!(head(&svg), head(&plain));
     assert_eq!(svg.matches("<line").count(), plain.matches("<line").count());
     // a level of another scale is drawn as it is written
-    e.annotate(at[0], "3a", "", "", "");
+    e.annotate(at[0], "", "3a", "", "", "");
     let svg = e.save("svg").unwrap();
     assert!(svg.contains(">L3a</text>") && svg.contains(">L2b</text>"));
     // the picture opens again with its annotations
     let (d, _) = import(&svg).unwrap();
     assert_eq!(d.to_json(), e.save("mzdraw").unwrap());
+}
+
+#[test]
+fn the_table_lists_both_scales_and_an_entry_is_written_with_its_scale() {
+    let names: Vec<&str> = ann::SCALES.iter().map(|s| s.0).collect();
+    assert_eq!(names, ["schymanski-2014", "charbonnet-2022"]);
+    assert_eq!(ann::levels_of("schymanski-2014"), Some(&LEVELS[..]));
+    assert_eq!(
+        ann::levels_of("charbonnet-2022").unwrap(),
+        ["1a", "1b", "2a", "2b", "2c", "3a", "3b", "3c", "3d", "4", "5a", "5b"]
+    );
+    assert_eq!(ann::levels_of("other"), None);
+    let mut e = editor("CCO");
+    let at = anchors(&e);
+    e.annotate(at[0], "charbonnet-2022", "3b", "", "formula", "");
+    assert_eq!(e.error, "");
+    let now = mzdraw::outline::pieces(e.doc())[0].ann.clone().unwrap();
+    assert_eq!(
+        (now.scale.as_str(), now.level.as_str(), now.known),
+        ("charbonnet-2022", "3b", true)
+    );
+    assert!(e
+        .doc()
+        .atom(at[0])
+        .unwrap()
+        .ann()
+        .contains(r#""scale":"charbonnet-2022""#));
+    assert!(e.save("svg").unwrap().contains(">L3b</text>"));
+    // a level of the other scale stays allowed and is said not to be of the chosen scale
+    e.annotate(at[0], "charbonnet-2022", "3", "", "", "");
+    assert!(
+        !mzdraw::outline::pieces(e.doc())[0]
+            .ann
+            .as_ref()
+            .unwrap()
+            .known
+    );
+    // an empty scale is the default one
+    e.annotate(at[0], "", "2a", "", "", "");
+    let now = mzdraw::outline::pieces(e.doc())[0].ann.clone().unwrap();
+    assert_eq!((now.scale.as_str(), now.known), ("schymanski-2014", true));
+    // the SDF out and back keeps the scale of every entry
+    e.annotate(at[0], "charbonnet-2022", "5a", "", "", "");
+    let sdf = e.save("sdf").unwrap();
+    let mut back = Editor::default();
+    back.import(&sdf).unwrap();
+    assert_eq!(back.save("mzdraw").unwrap(), e.save("mzdraw").unwrap());
+    let now = mzdraw::outline::pieces(back.doc())[0].ann.clone().unwrap();
+    assert_eq!(
+        (now.scale.as_str(), now.level.as_str(), now.known),
+        ("charbonnet-2022", "5a", true)
+    );
 }

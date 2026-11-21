@@ -80,21 +80,32 @@ function annFields(outline) {
   $("d2-ann-kinds").textContent = t("draw2.ann.kinds", { list: schema.kinds.join(", ") });
   box.replaceChildren(...outline.map((s, i) => {
     const set = document.createElement("fieldset"), legend = document.createElement("legend"), apply = document.createElement("button");
-    const level = document.createElement("select"), id = document.createElement("input"), evidence = document.createElement("textarea"), note = document.createElement("textarea");
-    const a = s.ann || { level: "", known: true, identifier: "", evidence: "", note: "", entries: 0 };
+    const scale = document.createElement("select"), level = document.createElement("select"), id = document.createElement("input"), evidence = document.createElement("textarea"), note = document.createElement("textarea");
+    const a = s.ann || { scale: schema.scale, level: "", known: true, identifier: "", evidence: "", note: "", entries: 0 };
     legend.textContent = t("draw2.data.piece", { n: i + 1, formula: s.formula });
-    // a level of another scale is kept and shown as it is written
-    for (const l of ["", ...schema.levels, ...(a.known ? [] : [a.level])]) level.append(new Option(l ? t("draw2.ann.level.n", { level: l }) : t("draw2.ann.level.none"), l));
+    // the scales are those of the module (and the scale of a file, as it is written); the levels follow the scale, and a level
+    // not of the scale (as read from a file) is kept and offered as "of the file"
+    const scales = schema.scales.map((/** @type {any} */ x) => x.name);
+    for (const n of [...scales, ...(scales.includes(a.scale) ? [] : [a.scale])]) scale.append(new Option(scales.includes(n) ? t(`draw2.ann.scale.${n}`) : t("draw2.ann.scale.file", { scale: n }), n));
+    scale.value = a.scale;
+    const fill = () => {
+      const own = (schema.scales.find((/** @type {any} */ x) => x.name === scale.value) || { levels: [] }).levels, keep = level.value === undefined || !level.options.length ? a.level : level.value;
+      const extra = keep && keep === a.level && !own.includes(keep) ? [keep] : [];
+      level.replaceChildren(...["", ...own, ...extra].map((l) => new Option(!l ? t("draw2.ann.level.none") : own.includes(l) ? t("draw2.ann.level.m", { level: l, meaning: t(`draw2.ann.level.${scale.value}.${l}`) }) : t("draw2.ann.level.file", { level: l }), l)));
+      level.value = own.includes(keep) || extra.length ? keep : "";
+    };
+    scale.addEventListener("change", fill);
+    fill();
     level.value = a.level; id.type = "text"; id.value = a.identifier; id.maxLength = 200; evidence.value = a.evidence; note.value = a.note;
     evidence.rows = 2; note.rows = 1;
     const field = (/** @type {string} */ key, /** @type {HTMLElement} */ el) => { const l = document.createElement("label"); l.className = "d2-annf"; l.append(t(key), el); return l; };
     apply.type = "button"; apply.textContent = t("draw2.data.apply");
     apply.addEventListener("click", () => {
-      const f = after(ed.annotate(s.anchor, level.value, id.value, evidence.value.replace(/\r/g, ""), note.value.replace(/\r/g, ""))), st = JSON.parse(ed.state());
+      const f = after(ed.annotate(s.anchor, scale.value, level.value, id.value, evidence.value.replace(/\r/g, ""), note.value.replace(/\r/g, ""))), st = JSON.parse(ed.state());
       $("d2-ann-note").textContent = f & CHANGED ? t(level.value ? "draw2.ann.done" : "draw2.ann.gone", { level: level.value }) : t(st.error || "error.draw2.ann");
     });
     const history = document.createElement("p"); history.className = "hint"; history.textContent = a.entries > 1 ? t("draw2.ann.history", { n: a.entries }) : "";
-    set.append(legend, field("draw2.ann.level", level), field("draw2.ann.identifier", id), field("draw2.ann.evidence", evidence), field("draw2.ann.note", note), apply, history);
+    set.append(legend, field("draw2.ann.scale", scale), field("draw2.ann.level", level), field("draw2.ann.identifier", id), field("draw2.ann.evidence", evidence), field("draw2.ann.note", note), apply, history);
     return set;
   }));
 }

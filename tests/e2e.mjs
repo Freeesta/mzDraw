@@ -258,12 +258,13 @@ try {
     await pg.click("#d2-data-more summary");
     // the annotation of a structure: a confidence level of the scale, an identifier, evidence; drawn, saved, read back, undone
     await pg.click("#d2-ann-more summary");
-    const af = "#d2-ann fieldset:nth-of-type(1)";
-    eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) select option')].map(o => o.value)"), ["", "1", "2a", "2b", "3", "4", "5"]);
+    const af = "#d2-ann fieldset:nth-of-type(1)", lv = `${af} .d2-annf:nth-of-type(2) select`, sc = `${af} .d2-annf:nth-of-type(1) select`;
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) .d2-annf:nth-of-type(2) select option')].map(o => o.value)"), ["", "1", "2a", "2b", "3", "4", "5"]);
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) .d2-annf:nth-of-type(1) select option')].map(o => o.value)"), ["schymanski-2014", "charbonnet-2022"]);
     eq(await pg.innerText("#d2-ann-kinds"), await pg.evaluate("I18N.t('draw2.ann.kinds', { list: JSON.parse(window.MZDRAW.ann_schema()).kinds.join(', ') })"));
-    await pg.selectOption(`${af} select`, "2b");
+    await pg.selectOption(lv, "2b");
     await pg.fill(`${af} input`, "ethanol (synthetic)");
-    await pg.focus(`${af} .d2-annf:nth-of-type(3) textarea`); await pg.keyboard.type("diagnostic-fragment: m/z 31.0178"); await pg.keyboard.press("Enter"); await pg.keyboard.type("rt-standard");   // by keyboard
+    await pg.focus(`${af} .d2-annf:nth-of-type(4) textarea`); await pg.keyboard.type("diagnostic-fragment: m/z 31.0178"); await pg.keyboard.press("Enter"); await pg.keyboard.type("rt-standard");   // by keyboard
     await pg.click(`${af} button`);
     await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.done', { level: '2b' })");
     const levels = () => pg.evaluate("JSON.parse(window.MZDRAW.state()).outline.map(s => s.ann && [s.ann.level, s.ann.identifier, s.ann.evidence, s.ann.entries])");
@@ -275,10 +276,10 @@ try {
     assert(annSdf.includes(">  <MZLAB_LEVEL>\n2b\n\n>  <MZLAB_IDENTIFIER>\nethanol (synthetic)\n\n>  <MZLAB_EVIDENCE>\ndiagnostic-fragment: m/z 31.0178\nrt-standard\n\n>  <MZLAB_ANN>\n[{"), "the annotation is in the SDF");
     assert((await pg.evaluate("window.MZDRAW.save('svg')")).includes(">L2b</text>"), "and in the picture");
     // a level that is not one word is refused in words and nothing changes; a second entry is a history; undo goes back one entry
-    await pg.fill(`${af} .d2-annf:nth-of-type(3) textarea`, "a b: c"); await pg.click(`${af} button`);
+    await pg.fill(`${af} .d2-annf:nth-of-type(4) textarea`, "a b: c"); await pg.click(`${af} button`);
     await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('error.draw2.ann')");
     eq(await pg.evaluate("window.MZDRAW.save('sdf')"), annSdf);
-    await pg.fill(`${af} .d2-annf:nth-of-type(3) textarea`, "rt-standard: synthetic standard"); await pg.selectOption(`${af} select`, "1"); await pg.click(`${af} button`);
+    await pg.fill(`${af} .d2-annf:nth-of-type(4) textarea`, "rt-standard: synthetic standard"); await pg.selectOption(lv, "1"); await pg.click(`${af} button`);
     await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.done', { level: '1' })");
     eq((await levels())[0], ["1", "ethanol (synthetic)", "rt-standard: synthetic standard", 2]);
     eq(await pg.innerText(`${af} p.hint`), await pg.evaluate("I18N.t('draw2.ann.history', { n: 2 })"));
@@ -289,9 +290,21 @@ try {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", annSdf.replace("<MZLAB_LEVEL>\n2b", "<MZLAB_LEVEL>\n3a").replace(/>  <MZLAB_ANN>\n.*\n\n/, "")); await pg.click("#d2-add"); await want(pg, { atoms: 6, bonds: 4 });
     eq((await levels())[0], ["3a", "ethanol (synthetic)", "diagnostic-fragment: m/z 31.0178\nrt-standard", 1]);
-    eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) select option')].map(o => o.value)"), ["", "1", "2a", "2b", "3", "4", "5", "3a"]);
-    eq(await pg.inputValue(`${af} select`), "3a");
-    await pg.selectOption(`${af} select`, ""); await pg.click(`${af} button`);
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) .d2-annf:nth-of-type(2) select option')].map(o => o.value)"), ["", "1", "2a", "2b", "3", "4", "5", "3a"]);
+    eq(await pg.inputValue(lv), "3a");
+    // the PFAS scale, chosen with the keyboard: the level list follows the scale, the entry says its scale
+    await pg.focus(sc); await pg.keyboard.press("ArrowDown");
+    eq(await pg.inputValue(sc), "charbonnet-2022");
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) .d2-annf:nth-of-type(2) select option')].map(o => o.value)"), ["", "1a", "1b", "2a", "2b", "2c", "3a", "3b", "3c", "3d", "4", "5a", "5b"]);
+    await pg.focus(lv); await pg.keyboard.press("Home"); for (let k = 0; k < 5; k++) await pg.keyboard.press("ArrowDown");
+    eq(await pg.inputValue(lv), "2c");
+    await pg.click(`${af} button`);
+    await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.done', { level: '2c' })");
+    eq(await pg.evaluate("(a => a.scale + '/' + a.known)(JSON.parse(window.MZDRAW.state()).outline[0].ann)"), "charbonnet-2022/true");
+    assert((await pg.innerText("#d2-outline li:nth-of-type(1)")).endsWith(await pg.evaluate("I18N.t('draw2.outline.level', { level: '2c' })")), "the PFAS level is said in the list of what is drawn");
+    assert((await pg.evaluate("window.MZDRAW.strings()")).includes("L2c"), "and painted");
+    assert((await pg.evaluate("window.MZDRAW.save('sdf')")).includes('"scale":"charbonnet-2022"'), "the scale is in the SDF");
+    await pg.selectOption(lv, ""); await pg.click(`${af} button`);
     await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.gone', { level: '' })");
     eq(await levels(), [null, null]);
     await pg.click("#d2-ann-more summary");
@@ -650,6 +663,22 @@ try {
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
+  });
+
+  await step("tablet with touch: the PFAS scale and level 2c of the annotation, set by tapping", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:down"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    const tapOn = async sel => { const b = await pg.locator(sel).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+    if (!(await pg.evaluate("document.querySelector('#d2-ann-more').open"))) { await pg.locator("#d2-ann-more summary").scrollIntoViewIfNeeded(); await tapOn("#d2-ann-more summary"); }
+    const af = "#d2-ann fieldset:nth-of-type(1)";
+    await pg.selectOption(`${af} .d2-annf:nth-of-type(1) select`, "charbonnet-2022");   // the native picker of a select is the system's: the choice is made on the element
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) .d2-annf:nth-of-type(2) select option')].map(o => o.value)"), ["", "1a", "1b", "2a", "2b", "2c", "3a", "3b", "3c", "3d", "4", "5a", "5b"]);
+    await pg.selectOption(`${af} .d2-annf:nth-of-type(2) select`, "2c");
+    await pg.locator(`${af} button`).scrollIntoViewIfNeeded(); await tapOn(`${af} button`);
+    await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.done', { level: '2c' })");
+    eq(await pg.evaluate("(a => a.scale + '/' + a.level)(JSON.parse(window.MZDRAW.state()).outline[0].ann)"), "charbonnet-2022/2c");
+    assert((await pg.innerText("#d2-outline li:nth-of-type(1)")).endsWith(await pg.evaluate("I18N.t('draw2.outline.level', { level: '2c' })")), "the outline says the level");
+    await shot(pg, "annotation-scale");
   });
 
   await step("two fingers pan and zoom without drawing; a long press selects; a cancelled touch commits nothing; a pen draws and its eraser end erases", async () => {

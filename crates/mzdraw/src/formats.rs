@@ -422,6 +422,7 @@ pub(crate) fn sdf_data(record: &str) -> (crate::doc::Data, String, usize) {
     let part = |p: &Option<String>| p.clone().unwrap_or_default();
     let ann = (whole.as_deref().and_then(crate::ann::canon)).or_else(|| {
         crate::ann::entry(
+            crate::ann::SCALE,
             &level.clone()?,
             &part(&identifier),
             &part(&evidence),

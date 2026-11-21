@@ -274,22 +274,38 @@ pub fn set_data(anchor: u32, json: &str) -> u32 {
     })
 }
 
-/// Annotates the structure of the atom `anchor` with a new entry: a confidence level (`ann_schema` lists those of the scale;
+/// Annotates the structure of the atom `anchor` with a new entry: a scale (`ann_schema` lists them; empty: the default) and a
+/// confidence level (`ann_schema` lists those of each scale;
 /// an empty one takes the annotation away), an identifier, the evidence as lines `kind: reference`, a note. An entry that is not
 /// of its shape changes nothing (`error` in `state`).
 #[wasm_bindgen]
-pub fn annotate(anchor: u32, level: &str, identifier: &str, evidence: &str, note: &str) -> u32 {
-    with(|p| p.editor.annotate(anchor, level, identifier, evidence, note))
+pub fn annotate(
+    anchor: u32,
+    scale: &str,
+    level: &str,
+    identifier: &str,
+    evidence: &str,
+    note: &str,
+) -> u32 {
+    with(|p| {
+        p.editor
+            .annotate(anchor, scale, level, identifier, evidence, note)
+    })
 }
 
-/// What an annotation can say, for a surface that builds its fields: `{"scale", "levels": [...], "kinds": [...]}`.
+/// What an annotation can say, for a surface that builds its fields: `{"scale", "levels": [...], "scales": [{"name",
+/// "levels"}], "kinds": [...]}` (`scale` and `levels` are the default scale and its levels).
 #[wasm_bindgen]
 pub fn ann_schema() -> String {
     let list = |l: &[&str]| format!(r#"["{}"]"#, l.join(r#"",""#));
     format!(
-        r#"{{"scale":"{}","levels":{},"kinds":{}}}"#,
+        r#"{{"scale":"{}","levels":{},"scales":[{}],"kinds":{}}}"#,
         mzdraw::ann::SCALE,
         list(&mzdraw::ann::LEVELS),
+        (mzdraw::ann::SCALES.iter())
+            .map(|s| format!(r#"{{"name":"{}","levels":{}}}"#, s.0, list(s.1)))
+            .collect::<Vec<_>>()
+            .join(","),
         list(&mzdraw::ann::KINDS)
     )
 }
@@ -350,7 +366,8 @@ pub fn state() -> String {
                     .collect();
                 let ann = s.ann.map_or("null".to_string(), |a| {
                     format!(
-                        r#"{{"level":{},"known":{},"identifier":{},"evidence":{},"note":{},"entries":{}}}"#,
+                        r#"{{"scale":{},"level":{},"known":{},"identifier":{},"evidence":{},"note":{},"entries":{}}}"#,
+                        q(&a.scale),
                         q(&a.level),
                         a.known,
                         q(&a.identifier),
