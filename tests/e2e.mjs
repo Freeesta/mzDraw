@@ -2228,7 +2228,7 @@ try {
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
   await step("proposal keys: Enter, Delete and Alt+[ act on the DRAWING until a hunk has the keyboard (and end the proposal, said at once); Ctrl+Delete rejects all; Escape ends the review", async () => {
     const { a, patch } = await proposalSetup(pg);
-    const stale = await pg.evaluate("I18N.t('draw2.say.proposalStale')"), live = () => pg.innerText("#d2-live");
+    const stale = await pg.evaluate("I18N.t('draw2.say.proposalStale')"), live = async () => (await pg.innerText("#d2-status")).trim().replace(/^.*?(The proposal)/s, "$1");
     const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
     // Enter grows a bond from the focused atom: the drawing, not the proposal
     await propose(pg, patch); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await pg.keyboard.press("Enter");

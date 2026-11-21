@@ -345,6 +345,8 @@ impl Editor {
             self.proposal = None;
             self.eat = None;
             self.said = ("draw2.say.proposalStale", String::new());
+            // kept beside the counts until the next step: a focus announcement of the same key press must not hide it
+            self.notice = self.said.clone();
             return PROPOSAL | REPAINT;
         }
         0
