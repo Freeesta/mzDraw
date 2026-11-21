@@ -686,7 +686,9 @@ impl Editor {
             return f | HANDLED;
         }
         // the step field open: its keys are its own, the rest is typed into it (the page lets the browser type)
-        if self.step_field.is_some() && !ctrl {
+        // (on a layout where `[` and `]` are typed with AltGr the page sends Ctrl and Alt together: those two keys are the field's too)
+        let altgr = ctrl && mods & ALT != 0 && matches!(lower.as_str(), "[" | "]" | "{" | "}");
+        if self.step_field.is_some() && (!ctrl || altgr) {
             return self.step_key(&lower).map_or(0, |f| f | HANDLED);
         }
         if self.live_proposal().is_some()

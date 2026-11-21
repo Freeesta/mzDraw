@@ -204,3 +204,26 @@ fn the_field_needs_an_atom() {
     assert_eq!(e.step_open(None) & STEP, 0);
     assert_eq!(field(&mut e)["open"], false);
 }
+
+#[test]
+fn opening_again_resets_the_text_and_altgr_brackets_walk_the_sites() {
+    let mut e = trimethylamine();
+    e.step_open(Some(1));
+    e.step_text("+O");
+    assert_eq!(field(&mut e)["text"], "+O");
+    // "Apply step..." chosen while the field is open: a fresh field, and the page reads the text from here
+    e.step_open(Some(1));
+    let f = field(&mut e);
+    assert_eq!(f["text"], "");
+    assert_eq!(f["rows"].as_array().unwrap().len(), tp::STEPS.len());
+    // AltGr arrives as Ctrl and Alt together: `[` and `]` still walk the sites, and the drawing is not turned
+    e.step_text("hydroxylation");
+    let doc = e.doc().to_json();
+    assert_ne!(e.key("]", mzdraw::editor::CTRL | ALT) & STEP, 0);
+    assert_eq!(field(&mut e)["site"], 1);
+    assert_ne!(e.key("[", mzdraw::editor::CTRL | ALT) & STEP, 0);
+    assert_eq!(field(&mut e)["site"], 0);
+    assert_eq!(e.doc().to_json(), doc);
+    // another Ctrl+Alt key is not the field's
+    assert_eq!(e.key("q", mzdraw::editor::CTRL | ALT), 0);
+}

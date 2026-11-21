@@ -267,7 +267,8 @@ function stepField() {
   const s = JSON.parse(ed.step_field()), was = !box.hidden;
   box.hidden = !s.open;
   if (!s.open) { if (was) cv.focus({ preventScroll: true }); return; }
-  if (!was) { input.value = s.text; input.focus(); }
+  if (input.value !== s.text) input.value = s.text;       // the text is the module's: a field opened again starts empty
+  if (!was) input.focus();
   list.replaceChildren(...s.rows.map((/** @type {any} */ r, /** @type {number} */ i) => {
     const li = document.createElement("li"), name = document.createElement("span"), delta = document.createElement("span");
     li.setAttribute("role", "option"); li.setAttribute("aria-selected", String(i === s.pick)); li.dataset.i = String(i); li.id = `d2-step-row-${i}`;
@@ -287,7 +288,7 @@ function stepEvents() {
   input.addEventListener("input", () => after(ed.step_text(input.value)));
   // every key goes to the module, which says which are the field's (`[` `]` Enter Escape, the arrows); the others are typed
   input.addEventListener("keydown", e => {
-    if (e.ctrlKey || e.metaKey || e.isComposing) return;
+    if (((e.ctrlKey && !e.altKey) || e.metaKey) || e.isComposing) return;       // Ctrl with Alt is AltGr: the module decides
     const f = ed.key(e.key, mods(e), e.timeStamp);
     if (after(f) & HANDLED) e.preventDefault();
   });

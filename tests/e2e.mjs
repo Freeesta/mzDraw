@@ -2262,7 +2262,7 @@ try {
     await tpShown(false); await frames(pg); await tpSame("pen");
     await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
   });
-  // tp-11: the step field (Shift+T, or "Apply step..." in the context menu): type a step, pick a site, derive. The rings and the ghost
+  // tp-11: the step field (the item "Apply step..." of the context menu; no key of its own): type a step, pick a site, derive. The rings and the ghost
   // are an overlay; the page equals the goldens of tests/data/log/step-field.json after the keyboard, the touch and the pen way
   const stGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/step-field.json"), "utf8")).cases;
   const stField = async () => JSON.parse(await pg.evaluate("window.MZDRAW.step_field()"));
@@ -2301,6 +2301,10 @@ try {
     await pg.keyboard.press("Escape"); await until(pg, `document.getElementById("d2-step").hidden`); eq(await tpDoc(), before);
     // Alt+[ and Alt+] still turn the selection with the field open
     await stMenuKey(); await pg.keyboard.press("Alt+["); eq((await stField()).open, true);
+    // "Apply step..." chosen again while the field is open: a fresh field, the input shows the module's (empty) text and the list is whole
+    await pg.keyboard.type("+O"); await frames(pg); eq(await pg.inputValue("#d2-step-text"), "+O");
+    await pg.mouse.click(...(await stRings())[0], { button: "right" }); await tpShown(); await pg.click('[data-testid="d2-ctx-tp.step"]'); await tpShown(false); await frames(pg);
+    eq(await pg.inputValue("#d2-step-text"), ""); eq((await stField()).rows.length, 13); eq(await pg.locator("#d2-step-list li").count(), 13);
     await pg.keyboard.press("Escape");
   });
   await step("step field by touch: long press the structure, Apply step..., tap the second ring, tap Derive; the page equals the golden, one undo", async () => {

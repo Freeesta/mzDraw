@@ -188,6 +188,8 @@ pub struct Editor {
     pub eat: Option<u32>,
     /// The open step field (tp-11): the typed text, the rows it selects, the sites of the chosen row (`editor_step`).
     pub(crate) step_field: Option<crate::editor_step::StepField>,
+    /// The element masses the mass filter of the step field uses, solved once from the engine's own numbers (`values::element_masses`).
+    pub(crate) step_masses: Option<std::collections::BTreeMap<String, f64>>,
     /// The engine that gives masses (`values`): none in the core, set by the bridge. Without it no mass is ever shown.
     pub measurer: Option<crate::values::Measurer>,
     /// The calculated values of the structures as `refresh_values` last found them, and of the selection with the atoms it was for.
@@ -310,6 +312,7 @@ impl Default for Editor {
             proposal: None,
             eat: None,
             step_field: None,
+            step_masses: None,
         }
     }
 }

@@ -53,10 +53,14 @@ impl Editor {
             self.error = "error.draw2.tpNone";
             return REPAINT;
         };
-        let masses = self
-            .measurer
-            .and_then(crate::values::element_masses)
-            .filter(|m| !m.is_empty());
+        // seven engine calls the first time, then kept: the masses are the engine's, so they do not change in a session
+        if self.step_masses.is_none() {
+            self.step_masses = self
+                .measurer
+                .and_then(crate::values::element_masses)
+                .filter(|m| !m.is_empty());
+        }
+        let masses = self.step_masses.clone();
         self.error = "";
         self.step_field = Some(StepField {
             text: String::new(),
