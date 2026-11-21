@@ -700,8 +700,13 @@ try {
     await key("m"); eq(await pg.getAttribute(toggle, "aria-pressed"), "false");
     await pg.mouse.click(cx + 300, cy + 200); await want(pg, { selected: 0 });
   });
+  await ctx.close();
+  // the desktop palettes in a context with a mouse and keyboard only (a touch screen gets the 44 px handles, tested on the tablet)
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
   await step("palettes: docked on the four edges, floating and snapped by mouse, moved by keyboard, collapsed, hidden and reset from the Palettes menu, kept in the settings; tooltips name built keys only", async () => {
     await pg.setViewportSize({ width: 1280, height: 720 }); await frames(pg);
+    await tool(pg, "ring:6a"); await pg.mouse.click(cx - 150, cy - 60); await want(pg, { atoms: 6, bonds: 6 }); await tool(pg, "select");
+    await pg.mouse.move(cx, cy); await frames(pg);
     const home = await rects(pg);
     eq(Object.keys(home).length, 16);
     eq([home.tools.dock, home.tools.orient, home.file.dock, home.file.orient, home.structure.dock], ["left", "v", "top", "h", "right"]);
@@ -711,6 +716,15 @@ try {
     eq(titles.filter(([, title, name]) => !title || !name).map(([id]) => id), []);
     eq(titles.flatMap(([id, title]) => [...title.matchAll(/\(([^)]*)\)/g)].flatMap(m => m[1].split(/,\s*|\s+/)).filter(k => !BUILT.has(k)).map(k => [id, k])), []);
     await shot(pg, "palettes-desktop");
+    // every handle says what it is and what its keys do
+    const grip = await pg.evaluate(`(g => [g.getAttribute("aria-label"), g.getAttribute("aria-description")])(document.querySelector('[data-testid="d2-grip-edit"]'))`);
+    eq(grip, [await pg.evaluate("I18N.t('draw2.pal.grip.name', { name: I18N.t('draw2.pal.edit') })"), await pg.evaluate("I18N.t('draw2.pal.grip.keys')")]);
+    assert(/Enter/.test(grip[1]) && /Escape/.test(grip[1]), "the handle names its keys");
+    // a click on a handle with a little jitter is a click: nothing moves, nothing is stored
+    const stored = await pg.evaluate("Number(document.documentElement.dataset.d2Style || 0)");
+    { const [gx, gy] = await center(pg, '[data-testid="d2-grip-edit"]'); await pg.mouse.move(gx, gy); await pg.mouse.down(); await pg.mouse.move(gx + 1, gy + 1); await pg.mouse.up(); await frames(pg); }
+    eq(await rects(pg), home);
+    eq(await pg.evaluate("Number(document.documentElement.dataset.d2Style || 0)"), stored);
     /** drags a palette by its handle with the mouse to a page point; `hint`: the edge it says it will dock on before it is let go */
     const drag = async (id, x, y, hint) => {
       const [gx, gy] = await center(pg, `[data-testid="d2-grip-${id}"]`);
@@ -720,10 +734,16 @@ try {
       return [gx, gy];
     };
     // floating: the palette follows the pointer
-    const [ex, ey] = await drag("edit", 760, 395, "");
+    // a spot for its top edge that is farther than the snap distance from every line a palette would snap to
+    const [, gy0] = await center(pg, '[data-testid="d2-grip-edit"]');
+    const lines = Object.entries(home).filter(([id, q]) => q && id !== "edit").flatMap(([, q]) => [q.y + q.h, q.y - home.edit.h, q.y, q.y + q.h - home.edit.h]).concat([0, 720 - home.edit.h]);
+    let top = 100, room = -1;
+    for (let t = 100; t < 600; t++) { const d = Math.min(...lines.map(l => Math.abs(t - l))); if (d > room) { room = d; top = t; } }
+    assert(room > 16, "a free spot to drop the palette on");
+    const [ex, ey] = await drag("edit", 300, top + (gy0 - home.edit.y), "");
     let r = await rects(pg);
     eq(r.edit.dock, "float");
-    assert(Math.abs(r.edit.x - (760 - (ex - home.edit.x))) <= 1 && Math.abs(r.edit.y - (395 - (ey - home.edit.y))) <= 1, "the palette follows the pointer");
+    assert(Math.abs(r.edit.x - (300 - (ex - home.edit.x))) <= 1 && Math.abs(r.edit.y - top) <= 1, "the palette follows the pointer");
     // docked on the bottom as a row, on the right as a column
     await drag("view", 640, 719, "bottom");
     await drag("history", 1279, 300, "right");
@@ -743,6 +763,8 @@ try {
     await pg.emulateMedia({ colorScheme: "dark" }); await frames(pg); await shot(pg, "palettes-moved-dark"); await pg.emulateMedia({ colorScheme: "light" });
     // the layout is in the settings file the module writes, and the page keeps it
     await until(pg, "Number(document.documentElement.dataset.d2Style || 0) >= 1");
+    // and after a reload the palettes are where they were left
+    { const left = await rects(pg); await pg.reload(); await until(pg, "document.documentElement.dataset.d2Ready === '1'"); await frames(pg); eq(await rects(pg), left); }
     const layout = JSON.parse(await pg.evaluate("window.MZDRAW.style()")).layout;
     // (docking a palette in a column numbers that column again: its neighbours are written too)
     const ids = layout.palettes.map(p => p.id);
@@ -770,6 +792,11 @@ try {
     assert(await pg.isDisabled('[data-testid="d2-menu-orient-tools"]') && await pg.isEnabled('[data-testid="d2-menu-orient-edit"]'), "only a floating palette turns");
     const was = (await rects(pg)).edit.orient;       // a floating palette keeps the orientation of its edge: the edit row
     await pg.click('[data-testid="d2-menu-orient-edit"]'); await frames(pg); eq([was, (await rects(pg)).edit.orient], ["h", "v"]);
+    // the key \ with the focus on a handle (not the canvas) hides every palette too; the Palettes button brings them back
+    await pg.focus('[data-testid="d2-grip-tools"]'); await pg.keyboard.press("\\"); await frames(pg);
+    eq(Object.values(await rects(pg)).filter(Boolean), []);
+    await pg.click("#d2-show-all"); await frames(pg);
+    assert(await pg.isHidden("#d2-show-all") && (await rects(pg)).tools, "the palettes are back");
     // the key \ on the canvas: every palette hidden, the whole page is canvas; the Palettes button brings them back
     await pg.focus("#d2-canvas"); await pg.keyboard.press("\\"); await frames(pg);
     eq(Object.values(await rects(pg)).filter(Boolean), []);
@@ -988,7 +1015,12 @@ try {
     // the menu by tapping: a side palette hidden on a tablet is shown, and hidden again
     await pg.tap('[data-testid="d2-palettes"]'); await pg.tap('[data-testid="d2-menu-hidden-check"]'); await frames(pg);
     assert((await rects(pg)).check, "a side palette shown from the menu");
+    // the boxes of the menu are 44 px on a touch screen
+    eq(await pg.evaluate("[...document.querySelectorAll('.menu input')].filter(i => Math.min(i.offsetWidth, i.offsetHeight) < 44).length"), 0);
+    await shot(pg, "palettes-tablet-menu");
+    await pg.tap('[data-testid="d2-palettes"]'); await pg.mouse.move(1, 1); await frames(pg);       // the menu closed: the palette shown is not covered
     await shot(pg, "palettes-tablet-side");
+    await pg.tap('[data-testid="d2-palettes"]'); await frames(pg);
     await pg.tap('[data-testid="d2-menu-hidden-check"]'); await frames(pg);
     eq((await rects(pg)).check, null);
     await pg.tap('[data-testid="d2-palettes"]'); eq(await pg.getAttribute('[data-testid="d2-palettes"]', "aria-expanded"), "false");

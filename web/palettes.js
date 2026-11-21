@@ -34,7 +34,7 @@ const pals = {};
 /** the flyouts by name (a palette id, `saveas`, `palettes`): the button that opens it, the flyout, the palette it belongs to @type {Record<string, {btn: HTMLElement, fly: HTMLElement, pal: string}>} */
 const flys = {};
 /** the last layout the module gave @type {any} */ let last = null;
-/** the palette held by the pointer @type {{id: string, moved: boolean} | null} */ let held = null;
+/** the palette whose handle the pointer is on (the module decides whether that is a click or a drag) @type {string | null} */ let held = null;
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 
 /** the name of a command in the i18n keys @param {string} c */
@@ -113,21 +113,20 @@ export function open(name, show, focus = false) {
 function grip(id) {
   const g = document.createElement("button"), t = ctx.t, name = t(`draw2.pal.${id}`);
   g.type = "button"; g.className = "grip"; g.dataset.testid = P + "grip-" + id;
-  g.title = t("draw2.pal.grip.title", { name }); g.setAttribute("aria-label", g.title);
+  g.title = t("draw2.pal.grip.title", { name }); g.setAttribute("aria-label", t("draw2.pal.grip.name", { name }));
+  g.setAttribute("aria-description", t("draw2.pal.grip.keys"));
   g.addEventListener("pointerdown", e => {
     if (e.button) return;
     e.preventDefault();
     try { g.setPointerCapture(e.pointerId); } catch { /* a pointer already gone cannot be captured */ }
-    held = { id, moved: false }; g.focus({ preventScroll: true });
+    held = id; g.focus({ preventScroll: true });
     ed().palette("press", id, e.clientX, e.clientY, false);
   });
-  g.addEventListener("pointermove", e => { if (held?.id !== id) return; held.moved = true; after(ed().palette("drag", id, e.clientX, e.clientY, false), false); });
-  g.addEventListener("pointerup", e => {
-    if (held?.id !== id) return;
-    const moved = held.moved; held = null;
-    after(moved ? ed().palette("release", id, e.clientX, e.clientY, false) : ed().palette("cancel", id, 0, 0, false), moved);
-  });
-  g.addEventListener("pointercancel", () => { if (held?.id === id) { held = null; after(ed().palette("cancel", id, 0, 0, false), false); } });
+  // every move, release and cancel goes to the module: it applies the drag threshold (a click with a little jitter moves
+  // nothing) and answers whether the layout changed
+  g.addEventListener("pointermove", e => { if (held === id) after(ed().palette("drag", id, e.clientX, e.clientY, false), false); });
+  g.addEventListener("pointerup", e => { if (held === id) { held = null; after(ed().palette("release", id, e.clientX, e.clientY, false), true); } });
+  g.addEventListener("pointercancel", () => { if (held === id) { held = null; after(ed().palette("cancel", id, 0, 0, false), true); } });
   g.addEventListener("keydown", e => {
     const f = ed().palette("key:" + e.key, id, 0, 0, e.shiftKey);
     if (f) { e.preventDefault(); after(f, true); g.focus({ preventScroll: true }); ctx.say(t("draw2.pal.moved", { name })); }
@@ -160,6 +159,8 @@ function palette(id) {
   pals[id] = p;
   const fly = flyout(id, head, id);
   if (spec.grid) fly.classList.add("grid");
+  // a click on the head of a collapsed tool palette runs the kind last used (what the head shows); another click, or any other
+  // palette, opens the flyout. This is the page's reading of its own face, not a decision about the drawing: the tool is the module's.
   head.addEventListener("click", e => {
     const now = JSON.parse(ed().state()).tool;
     if (p.collapsed && spec.tool && now !== p.last && fly.hidden) { ctx.run(p.last); if (e.detail) ctx.focusCanvas(); }
@@ -228,11 +229,10 @@ export function layout() {
   a = JSON.parse(ed().palettes(w, h, JSON.stringify(measure())));
   last = a;
   for (const r of a.palettes) { shape(r); const el = pals[r.id]?.el; if (el) { el.style.left = r.x + "px"; el.style.top = r.y + "px"; } }
-  // the edge a held palette is flush with: it docks there when it is let go
-  const p = held && a.palettes.find((/** @type {any} */ r) => r.id === held?.id), hint = $(P + "dock-hint");
-  const edge = !p || p.dock !== "float" ? "" : p.x <= 0 ? "left" : p.y <= 0 ? "top" : p.x + p.w >= w ? "right" : p.y + p.h >= h ? "bottom" : "";
-  hint.hidden = !edge; hint.dataset.edge = edge;
-  for (const q of Object.values(pals)) q.el.classList.toggle("moving", q.id === held?.id);
+  // the module says which palette is being dragged and the edge it docks on if it is let go now; the page paints both
+  const hint = $(P + "dock-hint");
+  hint.hidden = !a.hint_edge; hint.dataset.edge = a.hint_edge;
+  for (const q of Object.values(pals)) q.el.classList.toggle("moving", q.id === a.held);
   $(P + "show-all").hidden = !a.all_hidden;
   menuState(a);
   for (const [n, f] of Object.entries(flys)) if (!f.fly.hidden) open(n, true);
@@ -293,7 +293,7 @@ function menuState(a) {
     const r = a.palettes.find((/** @type {any} */ x) => x.id === c.dataset.pal);
     if (!r) continue;
     c.checked = c.dataset.act === "hidden" ? !r.hidden : c.dataset.act === "collapsed" ? r.collapsed : r.horizontal;
-    c.disabled = c.dataset.act === "orient" && r.dock !== "float";
+    c.disabled = c.dataset.act === "orient" && !r.can_turn;
   }
 }
 

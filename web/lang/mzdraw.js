@@ -359,6 +359,8 @@ I18N.add("en", {
   "draw2.pal.view.head": "Zoom and fit",
   "draw2.pal.view.more": "View",
   "draw2.pal.grip.title": "Move the {name} palette: drag it, or use the arrow keys; Enter docks or floats it, Escape puts it back, a double click collapses it",
+  "draw2.pal.grip.name": "Move the {name} palette",
+  "draw2.pal.grip.keys": "Drag it with a pointer, or use the arrow keys (8 pixels, 32 with Shift). Enter docks it on the nearest edge or floats it where it is; Escape puts it back; a double click collapses it. The backslash key hides every palette.",
   "draw2.pal.moved": "{name} palette moved.",
   "draw2.fly.tools": "Select and erase",
   "draw2.fly.bonds": "Bonds",

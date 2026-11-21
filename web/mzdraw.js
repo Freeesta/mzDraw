@@ -331,6 +331,14 @@ function events() {
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
     if (f & (ASK_LABEL | ASK_TEXT)) { open(f & ASK_LABEL ? "charges" : "objects", true); const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
   });
+  // the key that hides every palette also works from a palette button or a handle (the canvas forwards its own keys above); the
+  // module decides what the key does, a text field keeps its own keys
+  document.addEventListener("keydown", e => {
+    const n = e.target;
+    if (e.key !== "\\" || e.defaultPrevented || n === cv || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (n instanceof HTMLElement && (n.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(n.tagName))) return;
+    if (after(ed.key(e.key, mods(e), e.timeStamp)) & HANDLED) e.preventDefault();
+  });
   addEventListener("resize", () => layout());
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
 }
