@@ -3106,6 +3106,33 @@ try {
     eq(await tp8Doc(), before);                                                       // nothing was added
     eq(JSON.parse(await pg.evaluate("window.MZDRAW.state()")).notice.what, "3, 4, 5, 6", "the lines of the failing rows");
   });
+  // tp-import-equal: a list of eight equal molecules (a parent and seven equal products) is imported at once, by mouse, by keyboard and by touch:
+  // the page finishes within the wait of the step and holds the golden of tests/data/log/tp-import.json (the last case), one undo step
+  const tpe = tp8.cases[tp8.cases.length - 1], tpeCsv = tpe.request.commands[0].args.csv;
+  const tpeSame = async what => { eq(await tp8Doc(), tpe.out.mzdraw, what + ": document"); eq(await tp8Svg(), tpe.out.svg, what + ": picture"); };
+  await step("tp:import of eight equal molecules by mouse (the Add button clicked) and by keyboard (Enter): the page answers and equals the golden, one undo step", async () => {
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));   // ids start at 1 as in the golden
+    await pg.fill("#d2-text", tpeCsv); await pg.click("#d2-add");                     // mouse
+    await want(pg, { atoms: 48 }); await tool(pg, "fit"); await frames(pg);
+    await tpeSame("mouse");
+    await tool(pg, "undo"); await want(pg, { atoms: 0, objects: 0 });
+    await tool(pg, "clear"); await tool(pg, "redo"); await want(pg, { atoms: 48 });
+    await tool(pg, "undo"); await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", tpeCsv); await pg.focus("#d2-add"); await pg.keyboard.press("Enter");     // keyboard
+    await want(pg, { atoms: 48 }); await tool(pg, "fit"); await frames(pg);
+    await tpeSame("keyboard");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await until(pg, `${STATE}.selected >= 48`);                           // the page still answers: select all, then the live check
+    await tool(pg, "undo"); await want(pg, { atoms: 0 });
+  });
+  await step("tp:import of eight equal molecules by touch (a tablet): Open a file is tapped and the CSV chosen; the page equals the golden", async () => {
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+    const ob = await pg.locator('[data-testid="d2-open"]').boundingBox();
+    const [chooser] = await Promise.all([pg.waitForEvent("filechooser"), pg.touchscreen.tap(ob.x + ob.width / 2, ob.y + ob.height / 2)]);
+    await chooser.setFiles({ name: "equal.csv", mimeType: "text/csv", buffer: Buffer.from(tpeCsv) });
+    await want(pg, { atoms: 48 }); await tool(pg, "fit"); await frames(pg);
+    await tpeSame("touch");
+    await shot(pg, "tp-import-equal");
+  });
   await ctx.close();
 
   // tp-09: the TP table of the pathway, written by the Save list (JSON and CSV): the download is the bytes of `save` and of the golden of
