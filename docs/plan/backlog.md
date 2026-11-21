@@ -251,8 +251,6 @@ Two chats never write the same zone at the same time.
 | **conform** | `conform.rs` |
 | **label** | `label.rs` |
 | **layout** | `layout.rs` (`scheme.rs` is its own zone) |
-| **tp** | `crates/mzdraw/src/tp.rs` (tp-03, tp-04, tp-10, in that order) |
-| **pathway** | `crates/mzdraw/src/pathway.rs` (tp-05, then tp-07 for the label room) |
 | **tools** | `tools/<own dir>`, a new `tests/*.mjs` |
 | **new module** | one new file in `crates/mzdraw/src` |
 
