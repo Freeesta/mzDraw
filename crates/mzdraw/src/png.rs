@@ -7,8 +7,19 @@ use crate::doc::Document;
 use crate::settings::Style;
 
 const SIGNATURE: &[u8] = &[137, 80, 78, 71, 13, 10, 26, 10];
-/// Keyword, its end, no compression (flag and method), no language, no translated keyword.
-const HEAD: &[u8] = b"mzdraw\0\0\0\0\0";
+/// The start of the data of an `iTXt` chunk that carries the document: the keyword (the slug of the name in use or of an earlier
+/// one) and the five bytes of an uncompressed text with no language (the NUL after the keyword, two flags, two empty strings).
+fn head(slug: &str) -> Vec<u8> {
+    [slug.as_bytes(), &[0; 5]].concat()
+}
+
+/// The length of the head of a chunk that carries a document written under the name in use or an earlier one; `None` for any other.
+fn carries(data: &[u8]) -> Option<usize> {
+    crate::brand::slugs()
+        .map(head)
+        .find(|h| data.starts_with(h))
+        .map(|h| h.len())
+}
 /// The longest side of a PNG the page is asked to draw, in pixels.
 pub const MAX_SIDE: f64 = 8192.0;
 /// Pixels per inch of a saved PNG (less for a drawing that would pass `MAX_SIDE`).
@@ -87,11 +98,11 @@ pub fn finish(png: &[u8], doc: &Document, density: u32) -> Option<Vec<u8>> {
             chunk(
                 &mut out,
                 b"iTXt",
-                &[HEAD, doc.to_json().as_bytes()].concat(),
+                &[&head(crate::brand::SLUG)[..], doc.to_json().as_bytes()].concat(),
             );
         }
         // a document the file already carries is replaced
-        if !(kind == b"iTXt" && data.starts_with(HEAD)) {
+        if !(kind == b"iTXt" && carries(data).is_some()) {
             chunk(&mut out, kind.try_into().ok()?, data);
         }
         // the resolution goes before the pixels: right after the header
@@ -106,13 +117,51 @@ pub fn finish(png: &[u8], doc: &Document, density: u32) -> Option<Vec<u8>> {
 /// The document a PNG carries: `None` when the bytes are not a PNG or carry none, else the document or the key of what is wrong.
 pub fn carried(png: &[u8]) -> Option<Result<Document, &'static str>> {
     let all = chunks(png)?;
-    let &(at, kind, data) = all
+    let (&(at, kind, data), start) = all
         .iter()
-        .find(|c| c.1 == b"iTXt" && c.2.starts_with(HEAD))?;
+        .find_map(|c| Some((c, carries(c.2).filter(|_| c.1 == b"iTXt")?)))?;
     let stored = png.get(at + 8 + data.len()..at + 12 + data.len());
-    let text = std::str::from_utf8(&data[HEAD.len()..]).ok();
+    let text = std::str::from_utf8(&data[start..]).ok();
     Some(match text {
         Some(t) if stored == Some(&crc(kind, data).to_be_bytes()[..]) => Document::from_json(t),
         _ => Err("error.draw2.document"),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A synthetic PNG whose document sits under the keyword `slug`.
+    fn file(slug: &str, doc: &Document) -> Vec<u8> {
+        let mut f = SIGNATURE.to_vec();
+        chunk(&mut f, b"IHDR", &[0, 0, 0, 2, 0, 0, 0, 2, 8, 6, 0, 0, 0]);
+        chunk(
+            &mut f,
+            b"iTXt",
+            &[&head(slug)[..], doc.to_json().as_bytes()].concat(),
+        );
+        chunk(&mut f, b"IDAT", &[120, 156, 99, 0, 1, 0, 0, 5, 0, 1]);
+        chunk(&mut f, b"IEND", &[]);
+        f
+    }
+
+    #[test]
+    fn a_document_under_an_earlier_keyword_is_read_and_replaced_by_one_under_the_current_keyword() {
+        let id = crate::brand::DOCUMENT_ID;
+        let doc = Document::from_json(&format!(
+            r#"{{"format":"{id}","next":3,"atoms":[{{"id":1,"el":"N","x":0.0,"y":0.0}}],"bonds":[]}}"#
+        ))
+        .unwrap();
+        let old = file("zzzzzz", &doc);
+        assert_eq!(carried(&old).unwrap().unwrap().to_json(), doc.to_json());
+        let now = finish(&old, &doc, 11811).unwrap();
+        assert_eq!(carried(&now).unwrap().unwrap().to_json(), doc.to_json());
+        assert!(now.windows(6).any(|w| w == crate::brand::SLUG.as_bytes()));
+        assert!(
+            !now.windows(6).any(|w| w == b"zzzzzz"),
+            "the chunk of the earlier name is replaced, not kept"
+        );
+        assert!(carried(&file("other", &doc)).is_none());
+    }
 }

@@ -225,7 +225,9 @@ try {
 
   await step("the page loads the module and starts empty on the single-bond tool", async () => {
     eq(await state(pg), { focus: 0, atoms: 0, bonds: 0, objects: 0, tool: "bond:1", style: "mzlab", warnings: 0, std: 0, selected: 0 });
-    eq(await pg.evaluate("window.MZDRAW.version()"), "mzdraw/1");
+    eq(await pg.evaluate("window.MZDRAW.version()"), NAMES.bridge);
+    eq(await pg.title(), NAMES.name);                         // the tab carries the name from brand.toml (appname.js), never blank
+    eq(await pg.innerText("h1"), NAMES.name);                 // and so does the heading, through {app} of the catalog
     eq(await pg.innerText("#d2-summary"), await pg.evaluate("I18N.t('draw.check.empty')"));
     assert(await pg.locator("#d2-palettes .items button, #d2-flys button[data-cmd]").count() >= 26, "the palettes");
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-palettes .items button, #d2-flys button[data-cmd], #d2-flys button[data-opens]')].filter(b => !b.title || b.title.length > 90 || !b.getAttribute('aria-label')).map(b => b.dataset.testid)"), []);      // every tool says in one short sentence what it does
@@ -335,7 +337,7 @@ try {
   await step("molfile (V2000 and V3000), SMILES, SVG, PNG and the mzdraw/1 document are saved as the module writes them; the pictures open again", async () => {
     const got = {};
     for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"], ["ket", "ket", "drawing.ket"], ["cdxml", "cdxml", "drawing.cdxml"], ["cml", "cml", "drawing.cml"],
-      ["svg", "svg", "drawing.svg"], ["mzdraw", "mzdraw", "drawing.mzdraw.json"]]) {
+      ["svg", "svg", "drawing.svg"], ["doc", "mzdraw", "drawing.mzdraw.json"]]) {
       const [d] = await Promise.all([pg.waitForEvent("download"), saveAs(pg, `#d2-ex-${button}`)]);
       eq(d.suggestedFilename(), name);
       got[kind] = readFileSync(await d.path(), "utf8");
