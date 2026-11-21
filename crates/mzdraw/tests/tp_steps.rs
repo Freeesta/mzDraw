@@ -534,55 +534,67 @@ fn best_of_three(run: impl Fn()) -> f64 {
         .fold(f64::MAX, f64::min)
 }
 
-/// Grows `n` until the small run is above the noise floor, then runs twice the size: a linear cost stays under 3 times (a quadratic
-/// one is 4 times).
-fn scales_linearly(what: &str, time: impl Fn(u32) -> f64, start: u32, limit: u32) {
-    let (mut n, mut small) = (start, 0.0);
-    while n <= limit {
-        small = time(n);
-        if small > 0.05 {
-            break;
-        }
-        n *= 2;
-    }
-    let big = time(2 * n);
-    assert!(
-        big < 3.0 * small + 0.02,
-        "{what}: {n} {small:.3} s, {} {big:.3} s",
-        2 * n
-    );
+/// The hydroxylation of atom 1 written as a plain patch (what the step expands to), for the comparison with the step.
+fn hydroxylation_patch() -> Vec<mzdraw::ops::Op> {
+    [
+        json!({"op":"atom.add","el":"O","x":-1.0,"y":-1.7321}),
+        json!({"op":"bond.add","a":1,"b":mzdraw::tp::new_ref(1),"o":1}),
+    ]
+    .iter()
+    .map(|o| mzdraw::ops::Op::parse(o).unwrap())
+    .collect()
 }
 
 #[test]
-fn a_step_derive_costs_the_size_of_the_drawing_not_its_square() {
-    let time = |n: u32| {
-        let cmds: Vec<Value> = (0..6).map(|_| derive(1, "hydroxylation", 1)).collect();
-        let req = json!({"import": many(n), "commands": cmds, "report": true}).to_string();
-        best_of_three(|| {
-            let r: Value = serde_json::from_str(&mzdraw::replay::replay(&req).unwrap()).unwrap();
-            assert_eq!(r["ok"], true, "{r}");
-        })
-    };
-    scales_linearly("derive by step", time, 1000, 16_000);
+fn a_step_derive_costs_no_more_than_the_plain_derive_of_the_same_edit() {
+    // The shared part (the import, the pieces and boxes of the drawing, the placement, the arrow route) is `tp::derive` of tp-03 and
+    // is not what this slice adds. The document is built once, outside the timing; the step derive and the plain derive of the
+    // same edit are timed on it, at two sizes, so only the code of the step (the structure, the record, the tests, the delta check)
+    // is measured. A step that scanned the drawing per atom would grow with the size and break the bound at the larger one.
+    let style = mzdraw::Style::default();
+    for n in [2000u32, 8000] {
+        let doc = mzdraw::Document::from_json(&many(n)).unwrap();
+        let patch = hydroxylation_patch();
+        let plain = best_of_three(|| {
+            for _ in 0..4 {
+                tp::derive(&doc, &style, 1, &patch, None).unwrap();
+            }
+        });
+        let step = best_of_three(|| {
+            for _ in 0..4 {
+                tp::derive_step(&doc, &style, 1, "hydroxylation", 1, None).unwrap();
+            }
+        });
+        assert!(
+            step <= 1.5 * plain + 0.03,
+            "{n} structures: step derive {step:.3} s, plain derive {plain:.3} s"
+        );
+    }
 }
 
 #[test]
 fn the_sites_of_a_big_structure_cost_its_size_not_its_square() {
-    // the structure is a chain of up to 5000 atoms (the cap), so a quadratic site search or neighbour lookup would show
+    // The site computation alone, on a document built once: no import. A chain of n atoms and one of 4n: linear is 4 times, a
+    // quadratic search 16; the bound is 9 with a floor against noise. Best of three.
+    let doc_of = |n: u32| mzdraw::Document::from_json(&chain(n)).unwrap();
+    let (small, big) = (doc_of(600), doc_of(2400));
     for step in [
         "hydroxylation",
         "dehydrogenation",
         "dechlorination",
         "hydrolysis",
+        "n-oxidation",
     ] {
-        let time = |n: u32| {
-            let req = json!({"import": chain(n), "out": "sites", "args": {"of": 1, "step": step}})
-                .to_string();
+        let time = |d: &mzdraw::Document| {
             best_of_three(|| {
-                mzdraw::replay::replay(&req).unwrap();
+                tp::sites(d, 1, step).unwrap();
             })
         };
-        scales_linearly(&format!("sites of {step}"), time, 300, 2400);
+        let (ts, tb) = (time(&small), time(&big));
+        assert!(
+            tb < 9.0 * ts + 0.02,
+            "sites of {step}: 600 atoms {ts:.4} s, 2400 atoms {tb:.4} s"
+        );
     }
 }
 
