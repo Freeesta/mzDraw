@@ -82,6 +82,45 @@ impl Editor {
         }
     }
 
+    /// Arranges the whole pathway of anchored arrows as a tree, one undo step: the command `pathway:tree` (`pathway::command`; what
+    /// the page's button "Arrange pathway" and the item `pathway.tree` of the context menu run). The line says what it did, in
+    /// numbers kept in `said_params` (structures, arrows, gaps widened); a refusal is kept in `error` and nothing changes.
+    pub fn pathway_tree(&mut self) -> u32 {
+        let lay = match crate::pathway::layout(self.doc(), &self.style) {
+            Ok(l) => l,
+            Err(r) => {
+                self.error = r.key();
+                return REPAINT;
+            }
+        };
+        let counts = (lay.nodes.len(), lay.edges.len(), lay.gaps.len());
+        match crate::pathway::ops(self.doc(), &self.style, &lay) {
+            // the operations already carry the routes of the arrows: `run` would add the follow of `route` a second time, and the log
+            // would differ from the log of the command `pathway:tree`
+            Ok(ops) => match self.session.run(&ops) {
+                Ok(()) => {
+                    self.said = ("draw2.say.pathway", String::new());
+                    self.said_params = vec![
+                        ("structures", counts.0 as u32),
+                        ("arrows", counts.1 as u32),
+                        ("gaps", counts.2 as u32),
+                    ];
+                    self.error = "";
+                    self.prune();
+                    REPAINT | CHANGED
+                }
+                Err(e) => {
+                    self.error = e.key;
+                    REPAINT
+                }
+            },
+            Err(r) => {
+                self.error = r.key();
+                REPAINT
+            }
+        }
+    }
+
     /// The selected atoms, the bonds between them and the selected objects as a document of their own, ids renumbered from 1
     /// (atoms, then bonds, then objects).
     pub(crate) fn selection_doc(&self) -> Document {

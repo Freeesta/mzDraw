@@ -20,7 +20,7 @@ const SPEC = /** @type {Record<string, any>} */ ({
   rings: { keep: ["ring:6a", "ring:6", "ring:5"], items: ["ring:3", "ring:4", "ring:7", "ring:8"], tool: true },
   atoms: { keep: ["atom:C", "atom:N", "atom:O"], items: ["atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "atom:B", "atom:Si"], head: "elements", more: "elements", owns: "atom:", fields: ["atom"], grid: true },
   charges: { keep: ["charge:+", "charge:-"], items: [], head: "label", owns: "label:", fields: ["label"], more: "label" },
-  objects: { keep: ["arrow", "plus", "scheme-row"], items: [], head: "text", owns: "text:", fields: ["text"], more: "text" },
+  objects: { keep: ["arrow", "plus", "scheme-row", "pathway-tree"], items: [], head: "text", owns: "text:", fields: ["text"], more: "text" },
   file: { items: ["open", "save", "saveas", "clear", "palettes"], head: "open" },
   history: { items: ["undo", "redo"], head: "undo" },
   edit: { items: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v"], head: "more" },

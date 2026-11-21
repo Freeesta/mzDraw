@@ -151,6 +151,8 @@ pub struct Editor {
     pub(crate) press: Option<Press>,
     /// What the last change did, as an i18n key with one parameter, for the screen reader line.
     pub said: (&'static str, String),
+    /// The numbers of a line that has more than one (`draw2.say.pathway`: structures, arrows, gaps), by name; valid only with the `said` they were set with.
+    pub said_params: Vec<(&'static str, u32)>,
     /// The last refused operation, an i18n key.
     pub error: &'static str,
     /// The fingers and the pen at work (pinch, palm rejection, long press).
@@ -186,6 +188,7 @@ impl Default for Editor {
             over: Overlay::default(),
             press: None,
             said: ("", String::new()),
+            said_params: Vec::new(),
             error: "",
             gesture: Default::default(),
             focus_from: None,
@@ -249,7 +252,7 @@ impl Editor {
     }
 
     /// Drops selection, hover and flags that point at things that no longer exist.
-    fn prune(&mut self) {
+    pub(crate) fn prune(&mut self) {
         let d = &self.session.doc;
         self.over.sel_atoms.retain(|&i| d.atom(i).is_some());
         self.over.sel_bonds.retain(|&i| d.bond(i).is_some());

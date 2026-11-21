@@ -121,7 +121,7 @@ pub fn key(key: &str, mods: u32, t: f64) -> u32 {
 }
 
 /// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
-/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
+/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `pathway-tree` (arranges the pathway of anchored arrows as a tree), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
 /// `bond:up`, `label:Ph`, `arrow`, `plus`, `text:<one line>`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
@@ -140,6 +140,7 @@ pub fn command(what: &str) -> u32 {
         "flip-h" => e.flip(Axis::H),
         "flip-v" => e.flip(Axis::V),
         "scheme-row" => e.scheme_row(),
+        "pathway-tree" => e.pathway_tree(),
         "move-here" => e.set_move_here(!e.move_here),
         tool => e.set_tool(tool),
     })
@@ -589,7 +590,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -602,6 +603,11 @@ pub fn state() -> String {
             !e.clipboard(mzdraw::brand::SLUG).is_empty(),
             q(e.said.0),
             q(&e.said.1),
+            (e.said_params.iter())
+                .filter(|_| e.said.0 == "draw2.say.pathway")
+                .map(|(k, n)| format!("\"{k}\":{n}"))
+                .collect::<Vec<_>>()
+                .join(","),
             q(e.error),
             if p.check.is_empty() { "null" } else { &p.check },
             p.std_none,

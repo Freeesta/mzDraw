@@ -1,0 +1,125 @@
+{
+ "format": "pathway-graphviz/1",
+ "program": "dot - graphviz version 2.43.0 (0)",
+ "date": "2026-11-21",
+ "invocation": "dot -Grankdir=LR -Tjson",
+ "pathways": {
+  "chain4": {
+   "nodes": 4,
+   "edges": 3,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "star2": {
+   "nodes": 3,
+   "edges": 2,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "star3": {
+   "nodes": 4,
+   "edges": 3,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "star4": {
+   "nodes": 5,
+   "edges": 4,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "star5": {
+   "nodes": 6,
+   "edges": 5,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "star4_mz": {
+   "nodes": 5,
+   "edges": 4,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "binary3": {
+   "nodes": 15,
+   "edges": 14,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "unbalanced": {
+   "nodes": 9,
+   "edges": 8,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "dag": {
+   "nodes": 5,
+   "edges": 6,
+   "kind": "dag",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "two_components": {
+   "nodes": 6,
+   "edges": 4,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "mixed": {
+   "nodes": 6,
+   "edges": 5,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "messy_star": {
+   "nodes": 4,
+   "edges": 3,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  },
+  "big200": {
+   "nodes": 200,
+   "edges": 199,
+   "kind": "tree",
+   "ranks_equal": true,
+   "rank_differences": {},
+   "crossings_ours": 0,
+   "crossings_dot": 0
+  }
+ }
+}
