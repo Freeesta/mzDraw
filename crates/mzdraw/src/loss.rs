@@ -98,7 +98,7 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("atom.isotope", [Y, Y, Y, Y, Y, Y, Y, Y, Y, Y]),
     ("atom.map", [Y, Y, Y, Y, Y, N, N, Y, Y, Y]),
     ("atom.radical", [Y, Y, P, Y, Y, Y, Y, Y, Y, Y]),
-    ("caption", [N, N, N, N, N, Y, N, N, Y, Y]),
+    ("caption", [N, N, N, N, N, P, N, N, Y, Y]),
     ("colour", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("colour.object", [N, N, N, N, N, N, N, N, Y, Y]),
     ("data", [N, N, N, Y, N, N, N, N, Y, Y]),

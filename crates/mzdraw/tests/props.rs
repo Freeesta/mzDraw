@@ -282,24 +282,24 @@ fn the_values_are_copied_as_text_in_three_forms() {
         .run(&[cap(1, &["formula", "hbd", "hba"])])
         .unwrap();
     // no selection: every molecule, each with its choice, else every line the numbers of which are there (no engine: the record's)
-    let methane =
-        "CH4\nlogP: 0.64\ntPSA: 0.00\nHBD: 0\nHBA: 0\nRotatable bonds: 0\nHeavy atoms: 1\n";
+    let methane = "CH4\nlogP: 0.64 [wildman-crippen-logp]\ntPSA: 0.00 [tpsa-ertl-n-o-only]\nHBD: 0 [mzlab-mol-hbd]\nHBA: 0 [mzlab-mol-hba]\nRotatable bonds: 0 [mzlab-mol-rotatable-bonds]\nHeavy atoms: 1 [heavy-atom-count]\n";
     assert_eq!(
         e.copy_values("text").unwrap(),
-        format!("C2H6O\nHBD: 1\nHBA: 1\n\n{methane}")
+        format!("C2H6O\nHBD: 1 [mzlab-mol-hbd]\nHBA: 1 [mzlab-mol-hba]\n\n{methane}")
     );
+    // the one-line form stays short: no method
     assert_eq!(
         e.copy_values("line").unwrap(),
         "C2H6O; HBD 1; HBA 1\nCH4; logP 0.64; tPSA 0.00; HBD 0; HBA 0; Rotatable bonds 0; Heavy atoms 1\n"
     );
     assert_eq!(
         e.copy_values("tsv").unwrap(),
-        "structure\tname\tvalue\nC2H6O\tHBD\t1\nC2H6O\tHBA\t1\nCH4\tlogP\t0.64\nCH4\ttPSA\t0.00\nCH4\tHBD\t0\nCH4\tHBA\t0\nCH4\tRotatable bonds\t0\nCH4\tHeavy atoms\t1\n"
+        "structure\tname\tvalue\tmethod\nC2H6O\tHBD\t1\tmzlab-mol-hbd\nC2H6O\tHBA\t1\tmzlab-mol-hba\nCH4\tlogP\t0.64\twildman-crippen-logp\nCH4\ttPSA\t0.00\ttpsa-ertl-n-o-only\nCH4\tHBD\t0\tmzlab-mol-hbd\nCH4\tHBA\t0\tmzlab-mol-hba\nCH4\tRotatable bonds\t0\tmzlab-mol-rotatable-bonds\nCH4\tHeavy atoms\t1\theavy-atom-count\n"
     );
     assert_eq!(e.copy_values("html"), Err("error.draw2.propsCopy"));
     // a molecule with only the formula chosen is its formula and nothing else
     e.session.run(&[cap(1, &["formula"])]).unwrap();
-    assert!(e.copy_values("tsv").unwrap().contains("C2H6O\t\t\n"));
+    assert!(e.copy_values("tsv").unwrap().contains("C2H6O\t\t\t\n"));
 }
 
 #[test]
@@ -328,7 +328,7 @@ fn the_request_field_gives_the_json_and_the_text_and_stands_alone() {
     assert_eq!(t, "C2H6O; HBD 1; Heavy atoms 3\n");
     let t = replay(r#"{"import":"CCO","props":{"text":"text","atoms":[1],"lines":["heavy"]}}"#)
         .unwrap();
-    assert_eq!(t, "CH4\nHeavy atoms: 1\n");
+    assert_eq!(t, "CH4\nHeavy atoms: 1 [heavy-atom-count]\n");
     // a selection of a whole molecule that chose its lines copies those lines; a part of it, or molecules that chose differently, every line
     let t = replay(r#"{"import":"CCO","log":[{"op":"atom.cap","id":1,"lines":["formula","hbd"]}],"props":{"text":"line","atoms":[1,2,3]}}"#).unwrap();
     assert_eq!(t, "C2H6O; HBD 1\n");
@@ -407,13 +407,14 @@ fn a_format_without_a_place_for_the_lines_says_it_and_the_document_and_cdxml_do_
             assert!(!said.iter().any(|l| l.what == "unknown"), "{kind}");
         }
     }
-    for kind in ["mzdraw", "cdxml", "svg", "pdf"] {
+    for kind in ["mzdraw", "svg", "pdf"] {
         assert!(e.lost_on_save(kind).is_empty(), "{kind}");
     }
     let said = mzdraw::loss::loss(e.doc(), "cdxml").unwrap();
+    // CDXML writes the lines as a text object but reads it back as a plain text, not as a choice: partial, so it is listed
     assert!(
-        !said.iter().any(|l| l.what == "caption"),
-        "CDXML carries it"
+        said.iter().any(|l| l.what == "caption"),
+        "CDXML does not give the choice back"
     );
 }
 
@@ -449,6 +450,9 @@ fn every_text_of_the_lines_exists_in_the_catalog() {
         "error.draw2.linesMixed",
         "error.draw2.props",
         "error.draw2.propsCopy",
+        "error.draw2.propsLines",
+        "error.draw2.propsElement",
+        "error.draw2.valuesZero",
     ]
     .map(String::from)
     .to_vec();
@@ -459,104 +463,6 @@ fn every_text_of_the_lines_exists_in_the_catalog() {
     for k in &want {
         assert!(catalog.get(k).is_some_and(|v| !v.trim().is_empty()), "{k}");
     }
-}
-
-/// `n` structures, each a chain of three atoms (a carbon, a nitrogen, an oxygen), far apart, each with a choice of descriptor lines.
-fn many(n: usize) -> Document {
-    let (mut atoms, mut bonds) = (Vec::new(), Vec::new());
-    let mut id = 1usize;
-    for k in 0..n {
-        for (j, el) in ["C", "N", "O"].iter().enumerate() {
-            let mut a = json!({"id": id + j, "el": el, "x": 3.0 * k as f64 + 0.5 * j as f64, "y": (j % 2) as f64 * 0.5});
-            if j == 0 {
-                a["cap"] = json!(["formula", "logp", "tpsa", "hbd", "hba", "rotb", "heavy"]);
-            }
-            atoms.push(a);
-        }
-        id += 3;
-    }
-    let mut bid = id;
-    for k in 0..n {
-        for j in 0..2 {
-            bonds.push(json!({"id": bid, "a": 3 * k + j + 1, "b": 3 * k + j + 2, "o": 1}));
-            bid += 1;
-        }
-    }
-    let v = json!({"format": "mzdraw/1", "next": bid + 1, "atoms": atoms, "bonds": bonds});
-    Document::from_json(&v.to_string()).unwrap()
-}
-
-/// The best of five runs of `f`, in microseconds.
-fn best(f: impl Fn()) -> u128 {
-    (0..5)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            f();
-            t.elapsed().as_micros()
-        })
-        .min()
-        .unwrap()
-}
-
-/// Four times the size may cost about four times; a pass over all atoms for each molecule costs sixteen times. No floor: the sizes are
-/// chosen so that the small run takes milliseconds in a release build too, and the bound 8 leaves a factor two for noise.
-fn assert_linear(what: &str, small: u128, large: u128) {
-    assert!(
-        large <= 8 * small.max(1),
-        "{what}: {small} us, four times the size {large} us"
-    );
-}
-
-/// The code of this slice that runs for every molecule: the captions that write descriptors (the memo is emptied before each run, so
-/// the library's descriptors are timed, not the memo), the copy as text and the values of a selection.
-fn new_code(d: &Document) {
-    mzdraw::props::forget();
-    drop(values::captions(d, values::Mode::Off, &[], &[]));
-    drop(values::props_text("tsv", d, &[], &[], &[], None));
-    let ids: Vec<u32> = d.atoms.iter().map(|a| a.id).collect();
-    drop(values::props_json(
-        d,
-        &[],
-        false,
-        "",
-        &[],
-        Some((&ids, None)),
-    ));
-}
-
-#[test]
-fn the_new_code_scales_linearly_in_the_number_of_molecules() {
-    let (small, large) = (many(500), many(2000));
-    assert_linear(
-        "captions, copy and values of 500 molecules",
-        best(|| new_code(&small)),
-        best(|| new_code(&large)),
-    );
-}
-
-/// The proof of the test above: the same function with one pass over all the atoms for every molecule (what a careless version of
-/// the scan would do) is quadratic and the guard refuses it.
-#[test]
-#[should_panic(expected = "four times the size")]
-fn a_planted_quadratic_version_fails_the_scaling_test() {
-    let slow = |d: &Document| {
-        new_code(d);
-        let n = values::scan(d).structures.len();
-        let mut seen = 0usize;
-        // 20 passes over all the atoms for each molecule, so that the planted work is what the time is made of
-        for _ in 0..20 {
-            for k in 0..n {
-                seen += d
-                    .atoms
-                    .iter()
-                    .filter(|a| a.id as usize % n.max(1) == k)
-                    .count();
-            }
-        }
-        std::hint::black_box(seen);
-    };
-    let (small, large) = (many(500), many(2000));
-    assert_linear("planted", best(|| slow(&small)), best(|| slow(&large)));
 }
 
 /// The numbers of the descriptor lines for a few synthetic molecules, pinned. They are the outputs of the engine at the pin of
@@ -606,5 +512,247 @@ fn the_descriptor_lines_of_a_few_molecules_are_the_pinned_engines_outputs() {
             ],
             "{smiles}"
         );
+    }
+}
+
+/// `n` molecules, each a chain of `len` atoms (carbon, nitrogen, oxygen in turn) closed into a ring, far apart, each with a choice of
+/// descriptor lines: big enough that the work of the descriptors, not the bookkeeping, is what the time is made of.
+fn many(n: usize, len: usize) -> Document {
+    let (mut atoms, mut bonds) = (Vec::new(), Vec::new());
+    let mut id = 1usize;
+    for k in 0..n {
+        for j in 0..len {
+            let el = ["C", "N", "O"][j % 3];
+            let mut a = json!({"id": id + j, "el": el, "x": 40.0 * k as f64 + 0.5 * j as f64, "y": (j % 2) as f64 * 0.5});
+            if j == 0 {
+                a["cap"] = json!(["formula", "logp", "tpsa", "hbd", "hba", "rotb", "heavy"]);
+            }
+            atoms.push(a);
+        }
+        id += len;
+    }
+    let mut bid = id;
+    for k in 0..n {
+        for j in 0..len - 1 {
+            bonds.push(json!({"id": bid, "a": len * k + j + 1, "b": len * k + j + 2, "o": 1}));
+            bid += 1;
+        }
+        bonds.push(json!({"id": bid, "a": len * k + 1, "b": len * k + len, "o": 1}));
+        bid += 1;
+    }
+    let v = json!({"format": "mzdraw/1", "next": bid + 1, "atoms": atoms, "bonds": bonds});
+    Document::from_json(&v.to_string()).unwrap()
+}
+
+/// The best of five runs of `f`, in microseconds.
+fn best(f: impl Fn()) -> u128 {
+    (0..5)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            f();
+            t.elapsed().as_micros()
+        })
+        .min()
+        .unwrap()
+}
+
+/// Four times the size may cost about four times; a pass over all the molecules for each molecule costs sixteen times. No floor: the sizes
+/// are chosen so that the small run takes milliseconds, and the bound 8 leaves a factor two for noise.
+fn assert_linear(what: &str, small: u128, large: u128) {
+    assert!(
+        large <= 8 * small.max(1),
+        "{what}: {small} us, four times the size {large} us"
+    );
+}
+
+/// The new code alone: the descriptors of every molecule (`Scan::props`: the sub-record and the library's descriptors, the memo emptied
+/// before each run, within the cap of 200 structures) and the lines written from them (`chosen_lines`), on a scan made once outside the timed part; molecules of 12 atoms.
+/// Proved by planting a slow mutation in the real code (`Scan::props` walking all the structures at every call), as the PR text says.
+#[test]
+fn the_descriptor_and_caption_code_scales_linearly_in_the_number_of_molecules() {
+    let run = |d: &Document| {
+        let sc = values::scan(d);
+        best(|| {
+            mzdraw::props::forget();
+            for (k, s) in sc.structures.iter().enumerate() {
+                let x = values::Subject {
+                    formula: &s.formula,
+                    now: None,
+                    props: sc.props(k).ok(),
+                };
+                std::hint::black_box(values::chosen_lines(&s.cap, &[], &x));
+            }
+        })
+    };
+    assert_linear(
+        "descriptors and lines of 40 molecules",
+        run(&many(40, 12)),
+        run(&many(160, 12)),
+    );
+}
+
+#[test]
+fn a_structure_with_an_element_the_descriptors_are_not_written_for_has_no_descriptor_number() {
+    // selenium, a bare sodium ion, iron: no logP, tPSA or counts, the key says why (the library alone would give them a default type:
+    // a logP for Na+)
+    for smiles in ["C[Se]C", "[Na+]", "[Fe+2]"] {
+        let mut e = editor(smiles);
+        e.session
+            .run(&[cap(
+                1,
+                &["formula", "logp", "tpsa", "hbd", "hba", "rotb", "heavy"],
+            )])
+            .unwrap();
+        let c = values::captions(e.doc(), values::Mode::Off, &[], &[]);
+        assert_eq!(
+            c[0].lines.len(),
+            1,
+            "{smiles}: only the formula, got {:?}",
+            c[0].lines
+        );
+        let v: Value = serde_json::from_str(
+            &replay(&json!({"import": smiles, "props": true}).to_string()).unwrap(),
+        )
+        .unwrap();
+        let b = &v["structures"][0];
+        assert_eq!(b["propsError"], "error.draw2.propsElement", "{smiles}");
+        assert_eq!(b["values"]["logp"], json!([]), "{smiles}");
+        assert_eq!(b["values"]["tpsa"], json!([]), "{smiles}");
+        let t = replay(&json!({"import": smiles, "props": {"text": "tsv"}}).to_string()).unwrap();
+        assert!(
+            t.contains("note\terror.draw2.propsElement"),
+            "{smiles}: {t}"
+        );
+        assert!(!t.contains("logP"), "{smiles}: {t}");
+    }
+    // a salt: the covered ion keeps its numbers, the other has none
+    let v: Value =
+        serde_json::from_str(&replay(r#"{"import":"[Na+].[Cl-]","props":true}"#).unwrap()).unwrap();
+    assert_eq!(v["structures"][0]["propsError"], "error.draw2.propsElement");
+    assert_eq!(v["structures"][1]["propsError"], Value::Null);
+    // an R group: no number, the key of an open structure; an isotope-labelled atom does not change the descriptors; a charged atom of a
+    // covered element has them
+    let v: Value =
+        serde_json::from_str(&replay(r#"{"import":"C[*]","props":true}"#).unwrap()).unwrap();
+    assert_eq!(v["structures"][0]["propsError"], "error.draw2.valuesOpen");
+    let plain: Value =
+        serde_json::from_str(&replay(r#"{"import":"CCO","props":true}"#).unwrap()).unwrap();
+    let iso: Value =
+        serde_json::from_str(&replay(r#"{"import":"[13CH3]CO","props":true}"#).unwrap()).unwrap();
+    for k in ["logp", "tpsa", "hbd", "hba", "rotb", "heavy"] {
+        assert_eq!(
+            plain["structures"][0]["values"][k], iso["structures"][0]["values"][k],
+            "{k}"
+        );
+    }
+    let v: Value =
+        serde_json::from_str(&replay(r#"{"import":"C[NH3+]","props":true}"#).unwrap()).unwrap();
+    assert_eq!(v["structures"][0]["propsError"], Value::Null);
+}
+
+/// An engine that refuses a structure, or gives a mass of zero for one that has atoms (what the real one does above its limit), leaves no
+/// number: not the engine lines, and not the descriptors.
+#[test]
+fn a_refusing_engine_or_a_zero_mass_leaves_no_number_at_all() {
+    fn zero(_: &str, a: &[String]) -> Result<Measured, &'static str> {
+        Ok(Measured {
+            mass: 0.0,
+            average: Some(0.0),
+            ion_mz: None,
+            pct: Vec::new(),
+            mz: a.iter().map(|_| Some(1.0)).collect(),
+        })
+    }
+    fn refuse(_: &str, _: &[String]) -> Result<Measured, &'static str> {
+        Err("error.grafo.element")
+    }
+    for (engine, key) in [
+        (zero as values::Measurer, "error.draw2.valuesZero"),
+        (refuse, "error.grafo.element"),
+    ] {
+        let mut e = editor("CCO");
+        e.session
+            .run(&[cap(1, &["formula", "mw", "exact", "mz", "logp", "hbd"])])
+            .unwrap();
+        e.measurer = Some(engine);
+        e.refresh_values();
+        let c = values::captions(
+            e.doc(),
+            values::Mode::Off,
+            &keys(&["[M+H]+"]),
+            e.measured_entries(),
+        );
+        assert_eq!(c[0].lines, ["C2H6O"], "{key}: the formula only");
+        let v: Value = serde_json::from_str(&e.props_json()).unwrap();
+        let b = &v["structures"][0];
+        assert_eq!((&b["error"], &b["propsError"]), (&json!(key), &json!(key)));
+        assert_eq!(b["values"]["exact"], json!([]));
+        assert_eq!(b["values"]["logp"], json!([]));
+        assert!(e
+            .copy_values("text")
+            .unwrap()
+            .contains(&format!("note: {key}")));
+        // the SVG and the CDXML say the same
+        assert!(
+            !e.save("svg").unwrap().contains("Exact mass")
+                && !e.save("cdxml").unwrap().contains("HBD")
+        );
+    }
+    // the same on the values of the panel (arch-web-17): the zero is an error there too, not "0.0000"
+    let d = doc_of("CCO");
+    let out = values::document_json(&d, &[], None, Some(zero));
+    assert!(
+        out.contains("error.draw2.valuesZero") && !out.contains("0.0000"),
+        "{out}"
+    );
+}
+
+#[test]
+fn above_the_caps_no_descriptor_work_is_done_and_the_key_says_why() {
+    // 201 structures: above MAX_STRUCTURES, before any sub-record is built
+    let big = "C.".repeat(200) + "C";
+    let v: Value =
+        serde_json::from_str(&replay(&json!({"import": big, "props": true}).to_string()).unwrap())
+            .unwrap();
+    assert_eq!(v["structures"].as_array().unwrap().len(), 201);
+    assert_eq!(v["structures"][0]["propsError"], "error.draw2.valuesSize");
+    assert_eq!(v["structures"][0]["values"]["logp"], json!([]));
+    // the same above 5000 atoms without an engine: said, not silently empty
+    let long = "C".repeat(5001);
+    let v: Value =
+        serde_json::from_str(&replay(&json!({"import": long, "props": true}).to_string()).unwrap())
+            .unwrap();
+    assert_eq!(v["structures"][0]["propsError"], "error.draw2.valuesSize");
+}
+
+#[test]
+fn props_json_carries_the_method_of_every_line_and_the_request_refuses_what_it_does_not_know() {
+    let v: Value =
+        serde_json::from_str(&replay(r#"{"import":"CCO","props":true}"#).unwrap()).unwrap();
+    for k in mzdraw::props::LINES {
+        let m = &v["methods"][k];
+        assert!(
+            m["id"].as_str().is_some_and(|s| !s.is_empty())
+                && m["text"].as_str().is_some_and(|s| !s.is_empty()),
+            "{k}"
+        );
+    }
+    assert_eq!(v["methods"]["logp"]["id"], "wildman-crippen-logp");
+    assert!(v["methods"]["tpsa"]["text"]
+        .as_str()
+        .unwrap()
+        .contains("Ertl 2000"));
+    // a key that is none and an atom the drawing lacks are refused with a key
+    for (bad, key) in [
+        (
+            r#"{"import":"CCO","props":{"text":"line","lines":["logp","nope"]}}"#,
+            "error.draw2.propsLines",
+        ),
+        (
+            r#"{"import":"CCO","props":{"atoms":[1,99]}}"#,
+            "error.draw2.noAtom",
+        ),
+    ] {
+        assert_eq!(replay(bad).unwrap_err().key, key, "{bad}");
     }
 }

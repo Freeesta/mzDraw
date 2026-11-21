@@ -2510,11 +2510,15 @@ try {
     const before = await spOpen();
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-props-lines input')].every(i => i.disabled)"), true);
     eq(await pg.innerText("#d2-props-note"), await pg.evaluate("I18N.t('draw2.props.none')"));
-    eq(await pg.locator("#d2-props-lines label span:not(.val)").allInnerTexts(), await pg.evaluate("['formula','mw','exact','ea','mz','logp','tpsa','hbd','hba','rotb','heavy'].map(k => I18N.t('draw2.props.line.' + k))"));
+    eq(await pg.locator("#d2-props-lines .txt > span:not(.val)").allInnerTexts(), await pg.evaluate("['formula','mw','exact','ea','mz','logp','tpsa','hbd','hba','rotb','heavy'].map(k => I18N.t('draw2.props.line.' + k))"));
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await until(pg, `${STATE}.selected > 0`);
     await until(pg, `!document.querySelector('${spBox("formula")}').disabled`);
-    eq(await pg.innerText(`${spBox("exact")} + span + .val`), "Exact mass 46.0419");
-    eq(await pg.innerText(`${spBox("ea")} + span + .val`), "%C 52.14; %H 13.13; %O 34.73");
+    eq(await pg.innerText("#d2-props-note"), "");        // the words for "no molecule" are gone when there is one
+    eq(await pg.innerText(`${spBox("exact")} + .txt .val`), "Exact mass 46.0419");
+    eq(await pg.innerText(`${spBox("ea")} + .txt .val`), "%C 52.14; %H 13.13; %O 34.73");
+    // the method is visible text beside each value (not a tooltip only), the words of the catalog
+    eq(await pg.locator("#d2-props-lines .how").allInnerTexts(), await pg.evaluate("['formula','mw','exact','ea','mz','logp','tpsa','hbd','hba','rotb','heavy'].map(k => I18N.t('draw2.props.method.' + k))"));
+    assert(await pg.isVisible(`${spBox("logp")} + .txt .how`), "the method of logP is visible");
     await pg.focus(spBox("formula")); await pg.keyboard.press("Space"); await frames(pg);
     eq(await spTicked(), ["formula"]); eq(await pg.innerText("#d2-props-note"), await pg.evaluate("I18N.t('draw2.say.lines', { what: 'formula' })"));
     await pg.focus(spBox("hbd")); await pg.keyboard.press("Space"); await frames(pg);
@@ -2523,9 +2527,9 @@ try {
     await shotEl(pg, "#d2-props", "struct-props-panel"); await shot(pg, "struct-props");
     // the values copied as text: the module's own forms, three of them, the choice of the molecule
     await pg.selectOption("#d2-props-form", "tsv"); await pg.click("#d2-props-copy");
-    eq(await pg.evaluate("window.MZDRAW.copy_values('tsv')"), "structure\tname\tvalue\nC2H6O\tHBD\t1\n");
+    eq(await pg.evaluate("window.MZDRAW.copy_values('tsv')"), "structure\tname\tvalue\tmethod\nC2H6O\tHBD\t1\tmzlab-mol-hbd\n");
     eq(await pg.evaluate("window.MZDRAW.copy_values('line')"), "C2H6O; HBD 1\n");
-    eq(await pg.evaluate("window.MZDRAW.copy_values('text')"), "C2H6O\nHBD: 1\n");
+    eq(await pg.evaluate("window.MZDRAW.copy_values('text')"), "C2H6O\nHBD: 1 [mzlab-mol-hbd]\n");
     eq(await pg.innerText("#d2-props-note"), await pg.evaluate("I18N.t('draw2.props.copied', { form: I18N.t('draw2.props.form.tsv') })"));
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await spTicked(), ["formula"]); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
     await pg.keyboard.press("Control+y"); await pg.keyboard.press("Control+y"); await spSame("redo");
@@ -2556,10 +2560,11 @@ try {
     await spTap(tap, "formula"); await spTap(tap, "hbd");
     await spSame("pen");
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); await pg.keyboard.press("Control+z"); eq(await tpDoc(), before);
-    // nothing selected, nothing focused: the module refuses and the tick goes back
+    // nothing selected, nothing focused: the ticks are off, and a real pen tap on one changes nothing
     const area = await pg.locator("#d2-canvas").boundingBox(); await pg.mouse.click(area.x + 12, area.y + area.height - 12); await frames(pg); await pg.keyboard.press("Escape");
-    await pg.evaluate("window.MZDRAW.toggle_line('formula', true)");
-    eq(await tpDoc(), before); eq(JSON.parse(await pg.evaluate("window.MZDRAW.state()")).error, "error.draw2.linesNone");
+    await until(pg, `document.querySelector('${spBox("formula")}').disabled`);
+    await spTap(tap, "formula");
+    eq(await tpDoc(), before); eq(await spTicked(), []);
   });
   await ctx.close();
 

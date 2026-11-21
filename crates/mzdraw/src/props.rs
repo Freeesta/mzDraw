@@ -25,6 +25,29 @@ pub const LINES: [&str; 11] = [
 pub const MAX_LINES: usize = 24;
 pub const MAX_KEY: usize = 40;
 
+/// The elements the descriptor numbers are written for: the organic set the Wildman-Crippen typing is written for (`H C N O F Cl Br I P S`).
+/// The library also gives a default type to metals, semimetals and other elements (a bare `Na+` gets a logP), which is not a measure of the
+/// structure: a structure with any other element has no descriptor number, only the key `error.draw2.propsElement`.
+pub const DESCRIPTOR_ELEMENTS: [&str; 10] = ["H", "C", "N", "O", "F", "Cl", "Br", "I", "P", "S"];
+
+/// The method of each line: a stable id and the English text (the page shows the words of its catalog, `draw2.props.method.<key>`).
+pub fn method(key: &str) -> Option<(&'static str, &'static str)> {
+    Some(match key {
+        "formula" => ("hill-formula", "counted on the drawing, Hill order, abbreviations expanded"),
+        "mw" => ("average-mass-conventional-weights", "average mass, the conventional atomic weights of the mzLab engine sel"),
+        "exact" => ("monoisotopic-mass", "monoisotopic mass from the mzLab engine sel"),
+        "ea" => ("mass-percent-analysis", "mass per cent of each element of the formula, from the mzLab engine analysis/1"),
+        "mz" => ("adduct-shift", "monoisotopic mass plus the adduct shift of the mzLab engine"),
+        "logp" => ("wildman-crippen-logp", "Wildman-Crippen logP, from the molecular descriptors of mzlab-mol (its own definitions, not another toolkit's)"),
+        "tpsa" => ("tpsa-ertl-n-o-only", "topological polar surface area from N and O only (Ertl 2000), from the molecular descriptors of mzlab-mol (its own definitions)"),
+        "hbd" => ("mzlab-mol-hbd", "hydrogen-bond donors by the molecular descriptors of mzlab-mol (its own definitions)"),
+        "hba" => ("mzlab-mol-hba", "hydrogen-bond acceptors by the molecular descriptors of mzlab-mol (its own definitions)"),
+        "rotb" => ("mzlab-mol-rotatable-bonds", "rotatable bonds by the molecular descriptors of mzlab-mol (its own definitions)"),
+        "heavy" => ("heavy-atom-count", "atoms that are not hydrogen, counted on the drawing"),
+        _ => return None,
+    })
+}
+
 /// The lines that need the engine (the shared measure); the others come from the record alone.
 pub fn needs_engine(key: &str) -> bool {
     matches!(key, "mw" | "exact" | "ea" | "mz")

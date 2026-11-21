@@ -228,6 +228,21 @@ fn sub_record(m: &Mol, members: &[usize], bonds: &[usize], cut: &[u32]) -> Mol {
     Mol::new(atoms, bonds, Vec::new(), Vec::new())
 }
 
+/// Whether every element of a composition is one the descriptors are written for.
+fn covered(c: &[(String, u32)]) -> bool {
+    c.iter()
+        .all(|(el, _)| crate::props::DESCRIPTOR_ELEMENTS.contains(&el.as_str()))
+}
+
+/// A mass of zero for a structure that has atoms is not a measure (the engine gives it for a structure above its own limit): the result
+/// is `error.draw2.valuesZero` and no number is written from it.
+fn guard(r: Result<Measured, &'static str>, formula: &str) -> Result<Measured, &'static str> {
+    match r {
+        Ok(m) if m.mass == 0.0 && !formula.is_empty() => Err("error.draw2.valuesZero"),
+        other => other,
+    }
+}
+
 /// Splits the drawing into its connected structures, in the order of their first atom: one pass.
 pub fn scan(doc: &Document) -> Scan {
     let m = doc.to_mol();
@@ -318,17 +333,26 @@ fn molfile(m: &Mol, members: &[usize], bonds: &[usize], cut: &[u32]) -> String {
 }
 
 impl Scan {
-    /// The descriptors of structure `k` (`props`), `None` for an open one (an R group) or a record above the cap.
-    pub fn props(&self, k: usize) -> Option<crate::props::Props> {
-        let s = self.structures.get(k)?;
-        (!s.open && self.record.atoms.len() <= MAX_ATOMS).then(|| {
-            crate::props::of(&sub_record(
-                &self.record,
-                &s.members,
-                &self.bonds_of[k],
-                &[],
-            ))
-        })
+    /// The descriptors of structure `k` (`props`), or the key that says why there are none: `error.draw2.valuesSize` (above the caps, checked
+    /// before any work), `error.draw2.valuesOpen` (an R group) or `error.draw2.propsElement` (an element outside
+    /// `props::DESCRIPTOR_ELEMENTS`: the library would give it a default type, which is not a measure).
+    pub fn props(&self, k: usize) -> Result<crate::props::Props, &'static str> {
+        if self.record.atoms.len() > MAX_ATOMS || self.structures.len() > MAX_STRUCTURES {
+            return Err("error.draw2.valuesSize");
+        }
+        let s = self.structures.get(k).ok_or("error.draw2.valuesOpen")?;
+        if s.open {
+            return Err("error.draw2.valuesOpen");
+        }
+        if !covered(&s.composition) {
+            return Err("error.draw2.propsElement");
+        }
+        Ok(crate::props::of(&sub_record(
+            &self.record,
+            &s.members,
+            &self.bonds_of[k],
+            &[],
+        )))
     }
 
     /// The numbers of every structure, in order. `Err` when the work is above the caps; an `open` structure (an R group) has the key
@@ -382,9 +406,12 @@ impl Scan {
                     result: if s.open {
                         Err("error.draw2.valuesOpen")
                     } else {
-                        engine(
-                            &molfile(&self.record, &s.members, &self.bonds_of[k], &[]),
-                            adducts,
+                        guard(
+                            engine(
+                                &molfile(&self.record, &s.members, &self.bonds_of[k], &[]),
+                                adducts,
+                            ),
+                            &s.formula,
                         )
                     },
                 }
@@ -470,9 +497,18 @@ pub struct Selected {
 }
 
 impl Selected {
-    /// The descriptors of the selection (`props`), `None` for an open one (an R group) or one above the cap.
-    pub fn props(&self) -> Option<crate::props::Props> {
-        (!self.open && self.atoms <= MAX_ATOMS).then(|| crate::props::of(&self.sub))
+    /// The descriptors of the selection, or the key that says why there are none (as `Scan::props`).
+    pub fn props(&self) -> Result<crate::props::Props, &'static str> {
+        if self.atoms > MAX_ATOMS {
+            return Err("error.draw2.valuesSize");
+        }
+        if self.open {
+            return Err("error.draw2.valuesOpen");
+        }
+        if !covered(&self.composition) {
+            return Err("error.draw2.propsElement");
+        }
+        Ok(crate::props::of(&self.sub))
     }
 
     /// The numbers of the selection, as for a structure.
@@ -483,7 +519,7 @@ impl Selected {
         if self.open {
             return Err("error.draw2.valuesOpen");
         }
-        engine(&self.molfile, adducts)
+        guard(engine(&self.molfile, adducts), &self.formula)
     }
 }
 
@@ -623,12 +659,15 @@ struct Block {
     charge: i32,
     cap: Vec<String>,
     error: Option<&'static str>,
+    /// Why there is no descriptor number (an element outside `props::DESCRIPTOR_ELEMENTS`, an R group, above the caps), when it is so.
+    props_error: Option<&'static str>,
     values: Vec<(&'static str, Vec<(String, String)>)>,
 }
 
 fn block<'a>(
     adducts: &[String],
     mut x: Subject<'a>,
+    props: Result<crate::props::Props, &'static str>,
     r: Option<&'a Result<Measured, &'static str>>,
     mut b: Block,
 ) -> Block {
@@ -636,6 +675,12 @@ fn block<'a>(
         Some(Ok(m)) => x.now = Some(m),
         Some(Err(k)) => b.error = Some(k),
         None => {}
+    }
+    // an engine that refused the structure (an element it does not know, a size it does not take) leaves no descriptor number either
+    match props {
+        Ok(p) if b.error.is_none() => x.props = Some(p),
+        Ok(_) => b.props_error = b.error,
+        Err(k) => b.props_error = b.error.or(Some(k)),
     }
     b.values = crate::props::LINES
         .iter()
@@ -664,14 +709,15 @@ fn blocks(
                 charge: s.charge,
                 cap: s.cap.clone(),
                 error: None,
+                props_error: None,
                 values: Vec::new(),
             };
             let x = Subject {
                 formula: &s.formula,
                 now: None,
-                props: sc.props(k),
+                props: None,
             };
-            block(adducts, x, r, b)
+            block(adducts, x, sc.props(k), r, b)
         })
         .collect();
     let selection = sel.and_then(|(ids, r)| {
@@ -693,14 +739,15 @@ fn blocks(
             charge: s.charge,
             cap,
             error: None,
+            props_error: None,
             values: Vec::new(),
         };
         let x = Subject {
             formula: &s.formula,
             now: None,
-            props: s.props(),
+            props: None,
         };
-        Some(block(adducts, x, r, b))
+        Some(block(adducts, x, s.props(), r, b))
     });
     (rows, selection)
 }
@@ -723,11 +770,12 @@ fn block_json(b: &Block) -> String {
         })
         .collect();
     format!(
-        r#"{{{head},"formula":{},"charge":{},"cap":[{}],"error":{},"values":{{{}}}}}"#,
+        r#"{{{head},"formula":{},"charge":{},"cap":[{}],"error":{},"propsError":{},"values":{{{}}}}}"#,
         quote(&b.formula),
         b.charge,
         cap.join(","),
         b.error.map_or("null".into(), quote),
+        b.props_error.map_or("null".into(), quote),
         values.join(",")
     )
 }
@@ -748,10 +796,22 @@ pub fn props_json(
     let keys: Vec<String> = crate::props::LINES.iter().map(|k| quote(k)).collect();
     let names: Vec<String> = adducts.iter().map(|a| quote(a)).collect();
     let rows: Vec<String> = rows.iter().map(block_json).collect();
+    let methods: Vec<String> = (crate::props::LINES.iter())
+        .filter_map(|k| {
+            let m = crate::props::method(k)?;
+            Some(format!(
+                r#"{}:{{"id":{},"text":{}}}"#,
+                quote(k),
+                quote(m.0),
+                quote(m.1)
+            ))
+        })
+        .collect();
     format!(
-        r#"{{"format":"{PROPS_FORMAT}","keys":[{}],"adducts":[{}],"engine":{engine},"error":{},"structures":[{}],"selection":{}}}"#,
+        r#"{{"format":"{PROPS_FORMAT}","keys":[{}],"adducts":[{}],"methods":{{{}}},"engine":{engine},"error":{},"structures":[{}],"selection":{}}}"#,
         keys.join(","),
         names.join(","),
+        methods.join(","),
         if error.is_empty() {
             "null".into()
         } else {
@@ -784,7 +844,8 @@ pub fn props_text(
     if used.is_empty() {
         return None;
     }
-    let pairs = |b: &Block| -> Vec<(String, String)> {
+    // (name, value, method id); a block with no number for a reason ends with the note, the key of that reason
+    let pairs = |b: &Block| -> Vec<(String, String, String)> {
         let wanted: Vec<&str> = if !keys.is_empty() {
             keys.iter().map(String::as_str).collect()
         } else if !b.cap.is_empty() {
@@ -792,30 +853,39 @@ pub fn props_text(
         } else {
             crate::props::LINES.to_vec()
         };
-        (wanted.iter())
+        let mut rows: Vec<(String, String, String)> = (wanted.iter())
             .filter(|k| **k != "formula")
             .filter_map(|k| b.values.iter().find(|v| v.0 == *k))
-            .flat_map(|v| v.1.iter().cloned())
-            .collect()
+            .flat_map(|v| {
+                let id = crate::props::method(v.0).map_or("", |m| m.0);
+                v.1.iter()
+                    .map(move |(n, x)| (n.clone(), x.clone(), id.to_string()))
+            })
+            .collect();
+        if let Some(why) = b.error.or(b.props_error) {
+            rows.push(("note".into(), why.into(), String::new()));
+        }
+        rows
     };
     let mut out = String::new();
     match form {
         "tsv" => {
-            out += "structure\tname\tvalue\n";
+            out += "structure\tname\tvalue\tmethod\n";
             for b in &used {
                 let rows = pairs(b);
                 if rows.is_empty() {
-                    out += &format!("{}\t\t\n", b.formula);
+                    out += &format!("{}\t\t\t\n", b.formula);
                 }
-                for (n, v) in rows {
-                    out += &format!("{}\t{n}\t{v}\n", b.formula);
+                for (n, v, m) in rows {
+                    out += &format!("{}\t{n}\t{v}\t{m}\n", b.formula);
                 }
             }
         }
         "line" => {
             for b in &used {
                 let mut parts = vec![b.formula.clone()];
-                parts.extend(pairs(b).into_iter().map(|(n, v)| format!("{n} {v}")));
+                // the one-line form stays short: no method (the table and the text forms have it)
+                parts.extend(pairs(b).into_iter().map(|(n, v, _)| format!("{n} {v}")));
                 out += &(parts.join("; ") + "\n");
             }
         }
@@ -825,8 +895,12 @@ pub fn props_text(
                     out += "\n";
                 }
                 out += &format!("{}\n", b.formula);
-                for (n, v) in pairs(b) {
-                    out += &format!("{n}: {v}\n");
+                for (n, v, m) in pairs(b) {
+                    if m.is_empty() {
+                        out += &format!("{n}: {v}\n");
+                    } else {
+                        out += &format!("{n}: {v} [{m}]\n");
+                    }
                 }
             }
         }
@@ -843,6 +917,16 @@ pub fn document_props(
     engine: Option<Measurer>,
     form: Option<(&str, &[String])>,
 ) -> Result<String, &'static str> {
+    // an id the drawing lacks and a line key that is none are refused, never answered with an empty selection or a dropped key
+    if select.is_some_and(|ids| ids.iter().any(|i| doc.atom(*i).is_none())) {
+        return Err("error.draw2.noAtom");
+    }
+    if form.is_some_and(|(_, keys)| {
+        keys.iter()
+            .any(|k| !crate::props::LINES.contains(&k.as_str()))
+    }) {
+        return Err("error.draw2.propsLines");
+    }
     let sc = scan(doc);
     let (entries, error) = match engine.map(|f| sc.measure(adducts, f)) {
         Some(Ok(e)) => (e, ""),
@@ -987,9 +1071,8 @@ pub fn captions(
         .filter(|(_, s)| !s.ids.is_empty())
         .filter(|(_, s)| mode != Mode::Off || !s.cap.is_empty())
         .map(|(k, s)| {
-            let now = (measured.iter())
-                .find(|e| e.matches(s))
-                .and_then(|e| e.result.as_ref().ok());
+            let held = (measured.iter()).find(|e| e.matches(s));
+            let now = held.and_then(|e| e.result.as_ref().ok());
             let lines = if s.cap.is_empty() {
                 lines(s, mode, adducts, now)
             } else {
@@ -997,8 +1080,10 @@ pub fn captions(
                     .cap
                     .iter()
                     .any(|c| !crate::props::needs_engine(c) && c != "formula")
-                    .then(|| sc.props(k))
-                    .flatten();
+                    // no descriptor number where the engine refused the structure or the element is not covered
+                    .then(|| sc.props(k).ok())
+                    .flatten()
+                    .filter(|_| !held.is_some_and(|e| e.result.is_err()));
                 chosen_lines(
                     &s.cap,
                     adducts,

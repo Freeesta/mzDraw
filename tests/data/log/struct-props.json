@@ -199,8 +199,8 @@
       }
     },
     {
-      "name": "CDXML carries the lines: nothing is dropped",
-      "out": "{\"format\":\"loss/1\",\"target\":\"cdxml\",\"items\":[]}",
+      "name": "CDXML writes the lines as a text but does not read the choice back (partial): it is listed",
+      "out": "{\"format\":\"loss/1\",\"target\":\"cdxml\",\"items\":[{\"what\":\"caption\",\"atoms\":[1],\"bonds\":[],\"objects\":[]}]}",
       "request": {
         "import": "CCO",
         "log": [
@@ -272,6 +272,31 @@
           "text": "text"
         }
       }
+    },
+    {
+      "error_key": "error.draw2.propsLines",
+      "request": {
+        "import": "CCO",
+        "props": {
+          "lines": [
+            "logp",
+            "nope"
+          ],
+          "text": "line"
+        }
+      }
+    },
+    {
+      "error_key": "error.draw2.noAtom",
+      "request": {
+        "import": "CCO",
+        "props": {
+          "atoms": [
+            1,
+            99
+          ]
+        }
+      }
     }
   ],
   "results": [
@@ -298,7 +323,7 @@
   "values": [
     {
       "name": "props: caffeine, every line with the engine (elemental analysis, adducts, logP, tPSA, counts)",
-      "out": "{\"format\":\"props/1\",\"keys\":[\"formula\",\"mw\",\"exact\",\"ea\",\"mz\",\"logp\",\"tpsa\",\"hbd\",\"hba\",\"rotb\",\"heavy\"],\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":14,\"formula\":\"C8H10N4O2\",\"charge\":0,\"cap\":[],\"error\":null,\"values\":{\"formula\":[[\"Formula\",\"C8H10N4O2\"]],\"mw\":[[\"MW\",\"194.1940\"]],\"exact\":[[\"Exact mass\",\"194.0804\"]],\"ea\":[[\"%C\",\"49.48\"],[\"%H\",\"5.19\"],[\"%N\",\"28.85\"],[\"%O\",\"16.48\"]],\"mz\":[[\"[M+H]+\",\"195.0877\"],[\"[M-H]-\",\"193.0731\"]],\"logp\":[[\"logP\",\"-1.03\"]],\"tpsa\":[[\"tPSA\",\"61.82\"]],\"hbd\":[[\"HBD\",\"0\"]],\"hba\":[[\"HBA\",\"3\"]],\"rotb\":[[\"Rotatable bonds\",\"0\"]],\"heavy\":[[\"Heavy atoms\",\"14\"]]}}],\"selection\":null}",
+      "out": "{\"format\":\"props/1\",\"keys\":[\"formula\",\"mw\",\"exact\",\"ea\",\"mz\",\"logp\",\"tpsa\",\"hbd\",\"hba\",\"rotb\",\"heavy\"],\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"methods\":{\"formula\":{\"id\":\"hill-formula\",\"text\":\"counted on the drawing, Hill order, abbreviations expanded\"},\"mw\":{\"id\":\"average-mass-conventional-weights\",\"text\":\"average mass, the conventional atomic weights of the mzLab engine sel\"},\"exact\":{\"id\":\"monoisotopic-mass\",\"text\":\"monoisotopic mass from the mzLab engine sel\"},\"ea\":{\"id\":\"mass-percent-analysis\",\"text\":\"mass per cent of each element of the formula, from the mzLab engine analysis/1\"},\"mz\":{\"id\":\"adduct-shift\",\"text\":\"monoisotopic mass plus the adduct shift of the mzLab engine\"},\"logp\":{\"id\":\"wildman-crippen-logp\",\"text\":\"Wildman-Crippen logP, from the molecular descriptors of mzlab-mol (its own definitions, not another toolkit's)\"},\"tpsa\":{\"id\":\"tpsa-ertl-n-o-only\",\"text\":\"topological polar surface area from N and O only (Ertl 2000), from the molecular descriptors of mzlab-mol (its own definitions)\"},\"hbd\":{\"id\":\"mzlab-mol-hbd\",\"text\":\"hydrogen-bond donors by the molecular descriptors of mzlab-mol (its own definitions)\"},\"hba\":{\"id\":\"mzlab-mol-hba\",\"text\":\"hydrogen-bond acceptors by the molecular descriptors of mzlab-mol (its own definitions)\"},\"rotb\":{\"id\":\"mzlab-mol-rotatable-bonds\",\"text\":\"rotatable bonds by the molecular descriptors of mzlab-mol (its own definitions)\"},\"heavy\":{\"id\":\"heavy-atom-count\",\"text\":\"atoms that are not hydrogen, counted on the drawing\"}},\"engine\":true,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":14,\"formula\":\"C8H10N4O2\",\"charge\":0,\"cap\":[],\"error\":null,\"propsError\":null,\"values\":{\"formula\":[[\"Formula\",\"C8H10N4O2\"]],\"mw\":[[\"MW\",\"194.1940\"]],\"exact\":[[\"Exact mass\",\"194.0804\"]],\"ea\":[[\"%C\",\"49.48\"],[\"%H\",\"5.19\"],[\"%N\",\"28.85\"],[\"%O\",\"16.48\"]],\"mz\":[[\"[M+H]+\",\"195.0877\"],[\"[M-H]-\",\"193.0731\"]],\"logp\":[[\"logP\",\"-1.03\"]],\"tpsa\":[[\"tPSA\",\"61.82\"]],\"hbd\":[[\"HBD\",\"0\"]],\"hba\":[[\"HBA\",\"3\"]],\"rotb\":[[\"Rotatable bonds\",\"0\"]],\"heavy\":[[\"Heavy atoms\",\"14\"]]}}],\"selection\":null}",
       "request": {
         "import": "Cn1cnc2c1c(=O)n(C)c(=O)n2C",
         "props": true
@@ -306,7 +331,7 @@
     },
     {
       "name": "props: the values of two structures copied as tab-separated text, the choice of the first kept",
-      "out": "structure\tname\tvalue\nC2H6O\tMW\t46.0690\nC2H6O\tExact mass\t46.0419\nC2H6O\t%C\t52.14\nC2H6O\t%H\t13.13\nC2H6O\t%O\t34.73\nC2H6O\t[M+H]+\t47.0491\nC2H6O\t[M-H]-\t45.0346\nC2H6O\tlogP\t0.00\nC2H6O\ttPSA\t20.23\nC2H6O\tHBD\t1\nC2H6O\tHBA\t1\nC2H6O\tRotatable bonds\t0\nC2H6O\tHeavy atoms\t3\nC9H8O4\tExact mass\t180.0423\nC9H8O4\t%C\t60.00\nC9H8O4\t%H\t4.48\nC9H8O4\t%O\t35.52\nC9H8O4\tlogP\t1.31\n",
+      "out": "structure\tname\tvalue\tmethod\nC2H6O\tMW\t46.0690\taverage-mass-conventional-weights\nC2H6O\tExact mass\t46.0419\tmonoisotopic-mass\nC2H6O\t%C\t52.14\tmass-percent-analysis\nC2H6O\t%H\t13.13\tmass-percent-analysis\nC2H6O\t%O\t34.73\tmass-percent-analysis\nC2H6O\t[M+H]+\t47.0491\tadduct-shift\nC2H6O\t[M-H]-\t45.0346\tadduct-shift\nC2H6O\tlogP\t0.00\twildman-crippen-logp\nC2H6O\ttPSA\t20.23\ttpsa-ertl-n-o-only\nC2H6O\tHBD\t1\tmzlab-mol-hbd\nC2H6O\tHBA\t1\tmzlab-mol-hba\nC2H6O\tRotatable bonds\t0\tmzlab-mol-rotatable-bonds\nC2H6O\tHeavy atoms\t3\theavy-atom-count\nC9H8O4\tExact mass\t180.0423\tmonoisotopic-mass\nC9H8O4\t%C\t60.00\tmass-percent-analysis\nC9H8O4\t%H\t4.48\tmass-percent-analysis\nC9H8O4\t%O\t35.52\tmass-percent-analysis\nC9H8O4\tlogP\t1.31\twildman-crippen-logp\n",
       "request": {
         "import": "CCO.CC(=O)Oc1ccccc1C(=O)O",
         "log": [
@@ -395,7 +420,7 @@
     },
     {
       "name": "props: without the engine the plain replay has the lines that need none and never a made-up number",
-      "out": "{\"format\":\"props/1\",\"keys\":[\"formula\",\"mw\",\"exact\",\"ea\",\"mz\",\"logp\",\"tpsa\",\"hbd\",\"hba\",\"rotb\",\"heavy\"],\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"engine\":false,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":3,\"formula\":\"C2H6O\",\"charge\":0,\"cap\":[\"formula\",\"mw\",\"logp\",\"hbd\"],\"error\":null,\"values\":{\"formula\":[[\"Formula\",\"C2H6O\"]],\"mw\":[],\"exact\":[],\"ea\":[],\"mz\":[],\"logp\":[[\"logP\",\"0.00\"]],\"tpsa\":[[\"tPSA\",\"20.23\"]],\"hbd\":[[\"HBD\",\"1\"]],\"hba\":[[\"HBA\",\"1\"]],\"rotb\":[[\"Rotatable bonds\",\"0\"]],\"heavy\":[[\"Heavy atoms\",\"3\"]]}}],\"selection\":null}",
+      "out": "{\"format\":\"props/1\",\"keys\":[\"formula\",\"mw\",\"exact\",\"ea\",\"mz\",\"logp\",\"tpsa\",\"hbd\",\"hba\",\"rotb\",\"heavy\"],\"adducts\":[\"[M+H]+\",\"[M-H]-\"],\"methods\":{\"formula\":{\"id\":\"hill-formula\",\"text\":\"counted on the drawing, Hill order, abbreviations expanded\"},\"mw\":{\"id\":\"average-mass-conventional-weights\",\"text\":\"average mass, the conventional atomic weights of the mzLab engine sel\"},\"exact\":{\"id\":\"monoisotopic-mass\",\"text\":\"monoisotopic mass from the mzLab engine sel\"},\"ea\":{\"id\":\"mass-percent-analysis\",\"text\":\"mass per cent of each element of the formula, from the mzLab engine analysis/1\"},\"mz\":{\"id\":\"adduct-shift\",\"text\":\"monoisotopic mass plus the adduct shift of the mzLab engine\"},\"logp\":{\"id\":\"wildman-crippen-logp\",\"text\":\"Wildman-Crippen logP, from the molecular descriptors of mzlab-mol (its own definitions, not another toolkit's)\"},\"tpsa\":{\"id\":\"tpsa-ertl-n-o-only\",\"text\":\"topological polar surface area from N and O only (Ertl 2000), from the molecular descriptors of mzlab-mol (its own definitions)\"},\"hbd\":{\"id\":\"mzlab-mol-hbd\",\"text\":\"hydrogen-bond donors by the molecular descriptors of mzlab-mol (its own definitions)\"},\"hba\":{\"id\":\"mzlab-mol-hba\",\"text\":\"hydrogen-bond acceptors by the molecular descriptors of mzlab-mol (its own definitions)\"},\"rotb\":{\"id\":\"mzlab-mol-rotatable-bonds\",\"text\":\"rotatable bonds by the molecular descriptors of mzlab-mol (its own definitions)\"},\"heavy\":{\"id\":\"heavy-atom-count\",\"text\":\"atoms that are not hydrogen, counted on the drawing\"}},\"engine\":false,\"error\":null,\"structures\":[{\"anchor\":1,\"atoms\":3,\"formula\":\"C2H6O\",\"charge\":0,\"cap\":[\"formula\",\"mw\",\"logp\",\"hbd\"],\"error\":null,\"propsError\":null,\"values\":{\"formula\":[[\"Formula\",\"C2H6O\"]],\"mw\":[],\"exact\":[],\"ea\":[],\"mz\":[],\"logp\":[[\"logP\",\"0.00\"]],\"tpsa\":[[\"tPSA\",\"20.23\"]],\"hbd\":[[\"HBD\",\"1\"]],\"hba\":[[\"HBA\",\"1\"]],\"rotb\":[[\"Rotatable bonds\",\"0\"]],\"heavy\":[[\"Heavy atoms\",\"3\"]]}}],\"selection\":null}",
       "plain": true,
       "request": {
         "import": "CCO",
@@ -412,6 +437,32 @@
           }
         ],
         "props": true
+      }
+    },
+    {
+      "name": "props: dimethylselenide and a bare sodium ion, the engine refuses the element: no engine line and no descriptor number, the key says why",
+      "out": "structure\tname\tvalue\tmethod\nC2H6Se\tnote\terror.grafo.element\t\nNa+\tnote\terror.grafo.element\t\n",
+      "refusal": true,
+      "request": {
+        "import": "C[Se]C.[Na+]",
+        "props": {
+          "text": "tsv"
+        }
+      }
+    },
+    {
+      "name": "props: a chain of 1000 carbons, the engine gives a mass of zero: nothing is written from it, the key says why",
+      "out": "C1000H2002\nnote: error.draw2.valuesZero\n",
+      "refusal": true,
+      "request": {
+        "import": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        "props": {
+          "lines": [
+            "exact",
+            "logp"
+          ],
+          "text": "text"
+        }
       }
     }
   ]

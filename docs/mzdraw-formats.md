@@ -109,7 +109,7 @@ Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms 
 | `atom.isotope` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
 | `atom.map` | yes | yes | yes | yes | yes | no | no | yes | yes | yes |
 | `atom.radical` | yes | yes | drawing | yes | yes | yes | yes | yes | yes | yes |
-| `caption` | no | no | no | no | no | yes | no | no | yes | yes |
+| `caption` | no | no | no | no | no | drawing | no | no | yes | yes |
 | `colour` | no | no | no | no | no | yes | no | no | yes | yes |
 | `colour.object` | no | no | no | no | no | no | no | no | yes | yes |
 | `data` | no | no | no | yes | no | no | no | no | yes | yes |

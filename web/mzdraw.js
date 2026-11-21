@@ -141,7 +141,10 @@ function propsField() {
     input.type = "checkbox"; input.dataset.key = key; input.dataset.testid = "d2-props-" + key;
     name.textContent = t("draw2.props.line." + key); val.className = "val";
     label.title = val.title = t("draw2.props.method." + key);       // every value shows its method
-    label.append(input, name, val);
+    // the method is visible text under the name (a tooltip is not on the keyboard or on a touch screen), and the title repeats it
+    const how = document.createElement("small"); how.className = "how"; how.textContent = t("draw2.props.method." + key);
+    const text = document.createElement("span"); text.className = "txt"; text.append(name, val, how);
+    label.append(input, text);
     input.addEventListener("change", () => {
       const f = after(ed.toggle_line(key, input.checked)), st = JSON.parse(ed.state());
       note.textContent = f & CHANGED ? t("draw2.say.lines", { what: (st.lines || []).join(", ") }) : st.error ? t(st.error) : "";
@@ -169,7 +172,13 @@ function propsState(st) {
     input.checked = !!st.lines && st.lines.includes(key); input.disabled = st.lines === null;
     if (val) val.textContent = one ? (one.values[key] || []).map((/** @type {string[]} */ [n, v]) => `${n} ${v}`).join("; ") : "";
   }
-  if (st.lines === null) $("d2-props-note").textContent = t("draw2.props.none");
+  // why a number is not there, in words (the module's key); the words for "no molecule" go when there is one
+  const note = $("d2-props-note"), none = t("draw2.props.none");
+  const why = one && (one.error || one.propsError);
+  if (st.lines === null) note.textContent = none;
+  else if (why) note.textContent = t(why);
+  else if (note.textContent === none || (one && note.dataset.why)) note.textContent = "";
+  note.dataset.why = why ? "1" : "";
 }
 
 /** the colour in use on the selection is the pressed one; a mixed selection presses none @param {any} st */
