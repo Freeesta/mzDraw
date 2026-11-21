@@ -135,6 +135,10 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 | expect | `pieces` | uint | the atoms form exactly this many connected pieces |
 | expect | `smiles` | string | the SMILES of the whole drawing equals this text |
 
+## Semantic diff (`diff`)
+
+`diff::diff(a, b)` is the patch of `draw_edit/1` that turns the document `a` into `b`: things are matched by id, and the patch has removes (bonds, atoms, objects), adds (atoms, bonds, objects), sets and moves (grouped by equal displacement), in that order. `diff::hunks(a, ops)` groups it into hunks that apply independently (one connected piece of the drawing, or one object): any subset applies in order to a valid document. The replay request `{"diff": {"a": DOC, "b": DOC}}` answers `{"ops", "hunks"}` (CLI twin; the request stands alone). It is the base of the proposal layer (plan-16). Built note and limits (the counter `next`, pool order, unknown fields): `docs/built/diff-core.md`.
+
 ## Replay result (`draw-result/1`)
 
 A replay request with `"report":true`, `"dry_run":true` or a non-empty `"expect"` is answered by ONE JSON document `draw-result/1` (nothing else on stdout); without them the answer is the bare output as before. Code: `crates/mzdraw/src/outcome.rs` and `replay.rs` (`replay_at` also gives `ok` and takes the index `n` of the request in its batch); schema: `docs/schemas/draw-result-1.json`. Keys, always in this order; a key that does not apply is left out:

@@ -256,10 +256,39 @@ pub fn replay(request: &str) -> Result<String, OpError> {
     replay_at(request, 0).map(|r| r.text)
 }
 
+/// The request `{"diff": {"a": DOC, "b": DOC}}`, which stands alone: the patch that turns the document `a` into `b` and its hunks
+/// (`diff::json`). A document is an `mzdraw/1` object or its JSON text; an unreadable one is the keyed error of the document.
+/// `None` when the request has no `diff` at the top level.
+fn diff_request(request: &str) -> Result<Option<String>, &'static str> {
+    const BAD: &str = "error.draw2.request";
+    let v: serde_json::Value = serde_json::from_str(request).map_err(|_| BAD)?;
+    let Some(d) = v.get("diff") else {
+        return Ok(None);
+    };
+    if v.as_object().is_some_and(|o| o.len() > 1) {
+        return Err("error.draw2.requestField");
+    }
+    let pair = d.as_object().filter(|o| o.len() == 2).ok_or(BAD)?;
+    let read = |k: &str| {
+        let doc = pair.get(k).ok_or(BAD)?;
+        match doc.as_str() {
+            Some(text) => crate::doc::Document::from_json(text),
+            None => crate::doc::Document::from_json(&doc.to_string()),
+        }
+    };
+    let (a, b) = (read("a")?, read("b")?);
+    Ok(Some(crate::diff::json(&a, &crate::diff::diff(&a, &b))))
+}
+
 /// Like `replay`, for the request number `n` (0-based) of a batch: `n` is the `id` of the document when the request has none, and
 /// the reply says whether the run is good.
 pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
     let fail = |key| OpError { key, id: 0 };
+    if request.contains("\"diff\"")
+        && let Some(text) = diff_request(request).map_err(fail)?
+    {
+        return Ok(Reply { text, ok: true });
+    }
     let r = Request::read(request).map_err(fail)?;
     let mut e = Editor::default();
     if let Some(text) = &r.import {
