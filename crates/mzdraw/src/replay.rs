@@ -1,12 +1,16 @@
 //! The headless door: a request with a starting document or text, a command log and the output wanted gives the output text. The
 //! `.wasm`, the app and the CLI call this one function, so a session of the editor replays to the same bytes anywhere.
 
+use crate::doc::Document;
 use crate::editor::Editor;
 use crate::ops::{Op, OpError};
 use crate::outcome::{read_expect, Expectation, Failed, IdSets, Outcome};
 
 /// The request, read by hand from its JSON value (as the operations and the document are).
+#[derive(Default)]
 struct Request {
+    /// `diff`: two documents; the answer is the patch from the first to the second and its hunks (`diff::json`). The request stands alone.
+    diff: Option<(crate::doc::Document, crate::doc::Document)>,
     /// A structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES.
     import: Option<String>,
     /// The bytes of a file to start from, in base64 (RFC 4648, padding optional, blanks ignored): a binary CDX file, or a PNG or a PDF
@@ -42,7 +46,8 @@ enum Event {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 14] = [
+const FIELDS: [&str; 15] = [
+    "diff",
     "import",
     "import_base64",
     "style",
@@ -86,6 +91,25 @@ impl Request {
         let obj = v.as_object().ok_or(BAD)?;
         if obj.keys().any(|k| !FIELDS.contains(&k.as_str())) {
             return Err("error.draw2.requestField");
+        }
+        if let Some(d) = v.get("diff") {
+            // alone: no other field, not even `report`, `dry_run`, `expect` or `id` (the answer is not a `draw-result/1`)
+            if obj.len() > 1 {
+                return Err("error.draw2.diffAlone");
+            }
+            let pair = d.as_object().filter(|o| o.len() == 2).ok_or(BAD)?;
+            // a document is an `mzdraw/1` object or its JSON text
+            let read = |k: &str| {
+                let doc = pair.get(k).ok_or(BAD)?;
+                match doc.as_str() {
+                    Some(text) => Document::from_json(text),
+                    None => Document::from_json(&doc.to_string()),
+                }
+            };
+            return Ok(Request {
+                diff: Some((read("a")?, read("b")?)),
+                ..Request::default()
+            });
         }
         let one = |c: &serde_json::Value, args: Option<&serde_json::Value>| {
             let name = c.as_str().ok_or(BAD)?;
@@ -149,6 +173,7 @@ impl Request {
                 .collect::<Result<Vec<Event>, _>>()?,
         };
         Ok(Request {
+            diff: None,
             events,
             commands,
             report: flag("report")?,
@@ -261,6 +286,11 @@ pub fn replay(request: &str) -> Result<String, OpError> {
 pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
     let fail = |key| OpError { key, id: 0 };
     let r = Request::read(request).map_err(fail)?;
+    // the diff of two documents stands alone and answers its own document (not `draw-result/1`)
+    if let Some((a, b)) = &r.diff {
+        let text = crate::diff::json(a, &crate::diff::diff(a, b));
+        return Ok(Reply { text, ok: true });
+    }
     let mut e = Editor::default();
     if let Some(text) = &r.import {
         e.import(text).map_err(fail)?;

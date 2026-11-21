@@ -92,19 +92,19 @@
       }
     },
     {
+      "error_key": "error.draw2.trasfShape",
       "name": "the product stands on the arrow: refused",
       "request": {
         "import": "$RXN\n\n  synthetic\n\n  1  1\n$MOL\nsynthetic\n  mzdraw\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n$MOL\nsynthetic\n  mzdraw\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  2  0  0\n    3.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  3  0  0\n    4.5000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\n  3  4  1  0\nM  END\n",
         "log": [
           {
-            "op": "obj.set",
             "id": 6,
+            "op": "obj.set",
             "x2": 105.0
           }
         ],
         "out": "trasf"
-      },
-      "error_key": "error.draw2.trasfShape"
+      }
     }
   ],
   "results": [
