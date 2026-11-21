@@ -121,7 +121,7 @@ pub fn key(key: &str, mods: u32, t: f64) -> u32 {
 }
 
 /// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
-/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `pathway-tree` (arranges the pathway of anchored arrows as a tree), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
+/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `pathway-tree` (arranges the pathway of anchored arrows as a tree), `scheme-orient` (each structure after an arrow turned onto the one before it), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
 /// `bond:up`, `label:Ph`, `arrow`, `plus`, `text:<one line>`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
@@ -141,6 +141,7 @@ pub fn command(what: &str) -> u32 {
         "flip-v" => e.flip(Axis::V),
         "scheme-row" => e.scheme_row(),
         "pathway-tree" => e.pathway_tree(),
+        "scheme-orient" => e.scheme_orient(),
         "move-here" => e.set_move_here(!e.move_here),
         tool => e.set_tool(tool),
     })
@@ -546,7 +547,7 @@ pub fn strings() -> Vec<String> {
     with(|p| p.scene.strings.clone())
 }
 
-/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, moveHere, clip, say: {key, what}, error, check, std}` (`check` is
+/// What the page shows around the canvas: `{tool, style, outline: [{formula, atoms, bonds, anchor, data, ann: {level, known, identifier, evidence, note, entries} | null}], focus: {id, name, index, of, bonds, hydrogens, charge} | null, atoms, bonds, objects, undo, redo, selected, moveHere, clip, say: {key, what}, notice: {key, what}, error, check, std}` (`check` is
 /// the `check/1` document or null; `std` is `{none, lines}`: `lines` lists the drawing checks that have findings, `[{key, grade, n}]`, as `Editor::save("std")` reports them, and `none` is true when something is drawn and there are none).
 #[wasm_bindgen]
 pub fn state() -> String {
@@ -596,7 +597,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -614,6 +615,8 @@ pub fn state() -> String {
                 .map(|(k, n)| format!("\"{k}\":{n}"))
                 .collect::<Vec<_>>()
                 .join(","),
+            q(e.notice.0),
+            q(&e.notice.1),
             q(e.error),
             if p.check.is_empty() { "null" } else { &p.check },
             p.std_none,

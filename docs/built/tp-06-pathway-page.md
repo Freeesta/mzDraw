@@ -12,4 +12,6 @@
 
 **What the goldens are.** `tests/data/log/pathway-page.json` is blessed from the same Rust (`MZDRAW_BLESS=1`): it shows that the page, the wasm replay and the native replay give the same bytes, not that the picture is right. The e2e compares the page with that golden (not with tp-05's three cases, which do not include the messy star).
 
-**Not built.** The key binding and the entry in arch-std-06's command table (that slice is not on `main`; the keyboard route is the focused button and the context menu opened with the Menu key). The page's way to draw an anchored arrow (tp-02b, in review): the cycle of the e2e is opened from a synthetic file, not drawn by hand. The kill test (the owner's judgement of three pathways against their habit) is for the owner: screenshots are in `docs/screenshots/`. Moves of the selection only: the command lays out the whole pathway.
+**Cycle by hand.** One e2e step draws a cycle with the arrow tool of tp-02 (A to B, then B to A): Arrange pathway refuses it with the cycle text and nothing moves; after one undo the layout of two structures runs. A second step opens the cycle of tp-05 from a file.
+
+**Not built.** The key binding and the entry in arch-std-06's command table (that slice is not on `main`; the keyboard route is the focused button and the context menu opened with the Menu key). The kill test (the owner's judgement of three pathways against their habit) is for the owner: screenshots are in `docs/screenshots/`. Moves of the selection only: the command lays out the whole pathway.

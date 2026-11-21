@@ -13,6 +13,9 @@
   {"id": "glycine-zwitterion", "goal": "Draw the glycine zwitterion", "target_smiles": "[NH3+]CC(=O)[O-]"},
   {"id": "boc-amine", "goal": "Draw N-ethyl tert-butyl carbamate with the Boc abbreviation (an ethylamine carrying Boc)", "target_smiles": "CCNC(=O)OC(C)(C)C"},
   {"id": "esterification", "goal": "Draw ethanol + acetic acid, an arrow with the condition text H+, and ethyl acetate", "target_smiles": "CCO.CC(=O)O.CC(=O)OCC", "objects": [{"t": "plus"}, {"t": "arrow", "text": "H+"}]},
-  {"id": "three-in-a-row", "goal": "Draw benzene, ethanol and acetic acid in a row, separated by two plus signs", "target_smiles": "c1ccccc1.CCO.CC(=O)O", "objects": [{"t": "plus"}, {"t": "plus"}]}
+  {"id": "three-in-a-row", "goal": "Draw benzene, ethanol and acetic acid in a row, separated by two plus signs", "target_smiles": "c1ccccc1.CCO.CC(=O)O", "objects": [{"t": "plus"}, {"t": "plus"}]},
+  {"id": "two-step-chain", "goal": "Draw three molecules of ethane in a row and join them with two arrows, each anchored to the structures it joins (a two-step chain)", "target_smiles": "CC.CC.CC", "objects": [{"t": "arrow", "from": 0, "to": 1}, {"t": "arrow", "from": 1, "to": 2}]},
+  {"id": "star-of-four", "goal": "Draw one molecule of ethane in the middle and four more around it, each reached by an arrow from the middle one (a star of four)", "target_smiles": "CC.CC.CC.CC.CC", "objects": [{"t": "arrow", "from": 0, "to": 1}, {"t": "arrow", "from": 0, "to": 2}, {"t": "arrow", "from": 0, "to": 3}, {"t": "arrow", "from": 0, "to": 4}]},
+  {"id": "parent-three-tps", "goal": "Draw a parent molecule of ethane with three product molecules of ethane, an arrow from the parent to each (a parent with three transformation products)", "target_smiles": "CC.CC.CC.CC", "objects": [{"t": "arrow", "from": 0, "to": 1}, {"t": "arrow", "from": 0, "to": 2}, {"t": "arrow", "from": 0, "to": 3}]}
  ]
 }

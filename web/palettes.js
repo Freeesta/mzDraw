@@ -23,7 +23,7 @@ const SPEC = /** @type {Record<string, any>} */ ({
   objects: { keep: ["arrow", "plus", "scheme-row", "pathway-tree"], items: [], head: "text", owns: "text:", fields: ["text"], more: "text" },
   file: { items: ["open", "save", "saveas", "clear", "palettes"], head: "open" },
   history: { items: ["undo", "redo"], head: "undo" },
-  edit: { items: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v"], head: "more" },
+  edit: { items: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v", "scheme-orient"], head: "more" },
   view: { items: ["zoom-out", "zoom-in", "fit"], head: "fit" },
 });
 /** the buttons that open a flyout of their own, and the icon of each */

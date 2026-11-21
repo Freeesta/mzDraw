@@ -11,7 +11,7 @@
 
 use crate::doc::{round4, Document, ObjKind};
 use crate::ops::Op;
-use crate::route::structure_box;
+use crate::route::Structures;
 use crate::scene::width;
 use crate::settings::Style;
 use serde_json::Value;
@@ -207,11 +207,13 @@ fn gather(doc: &Document, style: &Style, o: &Opts) -> Vec<Unit> {
     };
     let mut units: Vec<Unit> = Vec::new();
     let mut notes: Vec<Vec<Note>> = arrows.iter().map(|_| Vec::new()).collect();
-    for ids in crate::layout::pieces(doc) {
+    // the structures and their boxes once for the whole walk
+    let st = Structures::new(doc, style);
+    for ids in st.pieces().iter().cloned() {
         if !all && !ids.iter().any(|i| o.atoms.contains(i)) {
             continue;
         }
-        let Some(r) = structure_box(doc, ids[0], style) else {
+        let Some(r) = st.box_of(ids[0]) else {
             continue;
         };
         let n = ids.len() as f64;
@@ -489,11 +491,13 @@ pub fn row(doc: &Document, style: &Style, o: &Opts) -> Result<Vec<Op>, &'static 
     // an arrow anchored at both ends: its ends are routed (tp-01), on the document the moves leave
     let mut after = doc.clone();
     after.apply(&ops).map_err(|e| e.key)?;
+    // the route operations move arrows only: the boxes of the document the moves leave are computed once
+    let st = Structures::new(&after, style);
     for u in &units {
         if let Kind::Arrow { id, .. } = u.kind {
             let a = doc.object(id).expect("an arrow of the drawing");
             if a.from != 0 && a.to != 0 {
-                let routed = crate::route::route(&after, id, style);
+                let routed = crate::route::route_in(&after, id, &st, style);
                 after.apply(&routed).map_err(|e| e.key)?;
                 ops.extend(routed);
             }

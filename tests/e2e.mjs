@@ -46,6 +46,23 @@ async function step(name, fn) {
     steps.push([name, "FAIL " + lines.slice(0, 8).join(" | ").slice(0, 900) + (at ? " @ " + at.trim().replace(/^at /, "").replace(/^.*\//, "") : "")]);
   }
 }
+/** a chiral centre drawn with the tools at (cx, cy): a wedge to an O, two plain bonds to an N and a C; returns the id of the centre and
+ * `px(id)`, the pixel of an atom (the view is at its start: 40 px to the bond length, y up in the document) */
+async function chiral(pg, cx, cy, tapAt) {
+  const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+  await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  await tool(pg, "bond:up"); await tapAt(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+  const d0 = await doc(), a = d0.bonds[0].a, o = d0.bonds[0].b;
+  const px = async id => { const d = await doc(), A = d.atoms.find(x => x.id === a), P = d.atoms.find(x => x.id === id); return [cx + 40 * (P.x - A.x), cy - 40 * (P.y - A.y)]; };
+  await tool(pg, "bond:1"); await tapAt(cx, cy); await tapAt(cx, cy); await want(pg, { atoms: 4, bonds: 3 });
+  const ids = (await doc()).atoms.map(x => x.id).filter(id => id !== a && id !== o), [n, c] = ids;
+  await tool(pg, "atom:O"); await tapAt(...await px(o));
+  await tool(pg, "atom:N"); await tapAt(...await px(n));
+  const smiles = await pg.evaluate("window.MZDRAW.save('smiles')");
+  assert(/@/.test(smiles) && smiles.includes("N") && smiles.includes("O"), "a chiral centre is drawn: " + smiles);
+  return { centre: a, o, n, c, px, smiles: () => pg.evaluate("window.MZDRAW.save('smiles')") };
+}
+
 const STATE = "JSON.parse(document.documentElement.dataset.d2 || '{}')";
 
 /** waits until a JS expression of the page is true (polled with evaluate: the page's CSP forbids the string eval of waitForFunction) */
@@ -68,6 +85,25 @@ async function context(browser, opts) {
   return { ctx, pg, cx: b.x + b.width / 2, cy: b.y + b.height / 2 };
 }
 const state = pg => pg.evaluate(STATE);
+/** a scheme for `scheme:orient`: a methylpyridine, and its copy drawn turned by `deg` degrees 10 bond lengths to the right, free arrow between */
+const orientScheme = deg => {
+  const atoms = [], bonds = [], mol = (base, ox, d) => {
+    const pts = [0, 1, 2, 3, 4, 5].map(i => [Math.cos(i * Math.PI / 3), Math.sin(i * Math.PI / 3)]);
+    pts.push([pts[0][0] + 1, pts[0][1] + 0.0]);
+    const cx = pts.reduce((a, p) => a + p[0], 0) / 7, cy = pts.reduce((a, p) => a + p[1], 0) / 7, t = d * Math.PI / 180;
+    pts.forEach((p, i) => {
+      const dx = p[0] - cx, dy = p[1] - cy, r4 = v => Math.round(v * 1e4) / 1e4;
+      atoms.push({ id: base + i + 1, el: i === 3 ? "N" : "C", x: r4(ox + dx * Math.cos(t) - dy * Math.sin(t)), y: r4(dx * Math.sin(t) + dy * Math.cos(t)) });
+    });
+    for (let i = 0; i < 6; i++) bonds.push({ id: base + 50 + i, a: base + i + 1, b: base + (i + 1) % 6 + 1, o: 1 + i % 2 });
+    bonds.push({ id: base + 56, a: base + 1, b: base + 7, o: 1 });
+  };
+  mol(0, 0, 0); mol(100, 10, deg);
+  return JSON.stringify({ format: "mzdraw/1", next: 1000, atoms, bonds, objects: [{ id: 900, t: "arrow", x: 4, y: 0, x2: 6, y2: 0 }] });
+};
+/** the angle of the bond from atom `a` to atom `b` of a saved document, in degrees */
+const bondAngle = (d, a, b) => { const p = d.atoms.find(x => x.id === a), q = d.atoms.find(x => x.id === b); return Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI; };
+
 /** opens, by keyboard, the flyout that holds an element when it is not in view: the focus on the button that opens it, then the
  * arrow key across its palette (or Enter on a button that is itself in a flyout); a flyout opened this way changes no tool */
 async function reveal(pg, sel) {
@@ -602,6 +638,63 @@ try {
     await pg.evaluate("(() => { const d = new DataTransfer(); d.setData('text/plain', 'not a structure ((('); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()");
     await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('error.draw2.smiles')");
     eq((await state(pg)).atoms, 16);
+  });
+
+  await step("stereo guard, mouse and keyboard: a rigid nudge and a turn say nothing, a mirror and a drag of one neighbour say where the configuration changed (said and shown), and undo takes it back", async () => {
+    const say = what => pg.evaluate(`I18N.t('draw2.say.stereoChanged', { what: ${JSON.stringify(String(what))} })`);
+    const shown = () => pg.evaluate("document.querySelector('#d2-status .d2-notice')?.textContent.trim() || ''");
+    const g = await chiral(pg, cx, cy, (x, y) => pg.mouse.click(x, y)), was = await g.smiles();
+    await pg.focus("#d2-canvas"); await tool(pg, "select");
+    await pg.keyboard.press("Control+a"); await pg.keyboard.press("ArrowRight");
+    eq(await shown(), ""); assert(!(await pg.innerText("#d2-live")).includes("onfiguration"), "a nudge of the whole piece says nothing");
+    await tool(pg, "rotate-l"); eq(await shown(), "");
+    eq(await g.smiles(), was);
+    const mid = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await tool(pg, "flip-h");
+    eq(await shown(), await say(g.centre)); eq(await pg.innerText("#d2-live"), await say(g.centre));
+    assert((await g.smiles()) !== was, "the mirror image is the other enantiomer");
+    await shot(pg, "plan-21-stereo-guard");
+    await pg.keyboard.press("Control+z"); eq(await shown(), "");
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), mid); eq(await g.smiles(), was);
+    // the mouse: the C neighbour is dragged to the other side of the centre
+    await pg.mouse.click(cx + 250, cy + 250);
+    const from = await g.px(g.c), at = await g.px(g.centre);
+    await pg.mouse.move(...from); await pg.mouse.down();
+    for (let i = 1; i <= 8; i++) await pg.mouse.move(from[0] + (2 * (at[0] - from[0])) * i / 8, from[1] + (2 * (at[1] - from[1])) * i / 8);
+    eq(await shown(), "", "nothing is said while the drag is under way");
+    await pg.mouse.up();
+    assert((await g.smiles()) !== was, "the drag changed the configuration");
+    eq(await shown(), await say(g.centre));
+    // the keys: Alt+Shift+Arrow moves the selected atom one bond length; the C neighbour goes to the mirror point through the centre
+    await pg.keyboard.press("Control+z"); eq(await g.smiles(), was);
+    await pg.mouse.click(cx + 250, cy + 250);
+    const f2 = await g.px(g.c), a2 = await g.px(g.centre);
+    await pg.mouse.click(...f2); await want(pg, { selected: 1 });
+    const nx = Math.round(2 * (a2[0] - f2[0]) / 40), ny = Math.round(2 * (a2[1] - f2[1]) / 40);
+    let said = false;
+    for (const [key, n] of [[nx > 0 ? "Alt+Shift+ArrowRight" : "Alt+Shift+ArrowLeft", Math.abs(nx)], [ny > 0 ? "Alt+Shift+ArrowDown" : "Alt+Shift+ArrowUp", Math.abs(ny)]])
+      for (let i = 0; i < n; i++) { await pg.keyboard.press(key); said = said || (await shown()) === await say(g.centre); }
+    assert(said, "a key nudge of one neighbour across the centre says where the configuration changed");
+    assert((await g.smiles()) !== was, "the key nudges changed the configuration");
+  });
+
+  await step("scheme orient by keyboard: the button reached with the keys turns the structure after the arrow onto the one before it, one undo step; a second press says it is already oriented", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await pg.evaluate(`(() => { const d = new DataTransfer(); d.setData('text/plain', ${JSON.stringify(orientScheme(70))}); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()`);
+    await want(pg, { atoms: 14, objects: 1 });
+    const before = await doc(), ids = before.atoms.map(a => a.id).sort((a, b) => a - b);
+    // the pasted atoms have new ids; the first seven are the source, the next seven the product
+    assert(Math.abs(bondAngle(before, ids[7], ids[13]) - bondAngle(before, ids[0], ids[6])) > 30, "the product is drawn turned");
+    const sel = '[data-testid="d2-scheme-orient"]'; await reveal(pg, sel); await pg.focus(sel); await pg.keyboard.press("Enter");
+    const after = await doc();
+    const turn = Math.abs((bondAngle(after, ids[7], ids[13]) - bondAngle(after, ids[0], ids[6]) + 540) % 360 - 180);
+    assert(turn < 0.1, `the methyl bond of the product lies as the source's (off by ${turn} degrees)`);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate(`I18N.t("draw2.say.oriented", { what: "1" })`));
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+z"); eq(await doc(), before);                       // one undo step
+    await pg.keyboard.press("Control+y"); await reveal(pg, sel); await pg.focus(sel); await pg.keyboard.press("Enter");
+    await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('draw2.say.orientDone')").catch(async e => { throw new Error(e.message + " | live: " + await pg.innerText("#d2-live") + " | " + await pg.evaluate("document.documentElement.dataset.d2")); });
+    await tool(pg, "fit"); await shot(pg, "plan-14-scheme-orient");
   });
 
   await step("labels: an abbreviation and an R group are chosen, typed, refused in words, drawn and expanded in the molfile", async () => {
@@ -1504,6 +1597,30 @@ try {
     eq(pdf.subarray(0, 5).toString("latin1"), "%PDF-");
   });
 
+  await step("scheme orient by touch and by pen: a tap and a pen press on the button turn the structure after the arrow onto the one before it, each one undo step", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    const sel = '[data-testid="d2-scheme-orient"]';
+    const load = async deg => {
+      await tool(pg, "clear"); await want(pg, { atoms: 0 });
+      await pg.evaluate(`(() => { const d = new DataTransfer(); d.setData('text/plain', ${JSON.stringify(orientScheme(deg))}); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()`);
+      await want(pg, { atoms: 14, objects: 1 });
+    };
+    const off = async () => { const d = await doc(), ids = d.atoms.map(a => a.id).sort((a, b) => a - b); return Math.abs((bondAngle(d, ids[7], ids[13]) - bondAngle(d, ids[0], ids[6]) + 540) % 360 - 180); };
+    await load(70); assert(await off() > 30, "drawn turned");
+    await reveal(pg, sel); const b = await pg.locator(sel).boundingBox();
+    await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+    await until(pg, "document.querySelector('#d2-live').textContent.length > 0");
+    assert(await off() < 0.1, `a tap orients it (off by ${await off()})`);
+    await tool(pg, "undo"); assert(await off() > 30, "one undo step");
+    await load(130);
+    const cdp = await pg.context().newCDPSession(pg);
+    await reveal(pg, sel); const c = await pg.locator(sel).boundingBox();
+    const at = { x: c.x + c.width / 2, y: c.y + c.height / 2, button: "left", clickCount: 1, pointerType: "pen" };
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...at }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
+    assert(await off() < 0.1, `a pen orients it (off by ${await off()})`);
+    await tool(pg, "fit"); await shot(pg, "plan-14-scheme-orient-touch");
+  });
+
   await step("drawing checks by touch: a tap on the line selects the atom and bond it is about", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, std: 0 });
     await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
@@ -1637,6 +1754,36 @@ try {
     await pg.click('[data-testid="d2-palettes"]'); await pg.click('[data-testid="d2-menu-reset"]'); await frames(pg);
     eq(await rects(pg), home);
   });
+  await step("stereo guard by touch and pen: a tap on the mirror button, a finger drag and a pen drag of one neighbour across the others say where the configuration changed", async () => {
+    const say = what => pg.evaluate(`I18N.t('draw2.say.stereoChanged', { what: ${JSON.stringify(String(what))} })`);
+    const shown = () => pg.evaluate("document.querySelector('#d2-status .d2-notice')?.textContent.trim() || ''");
+    const tapOn = async sel => { await reveal(pg, sel); await pg.locator(sel).scrollIntoViewIfNeeded(); const b = await pg.locator(sel).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+    const g = await chiral(pg, cx, cy, (x, y) => pg.touchscreen.tap(x, y)), was = await g.smiles();
+    await tool(pg, "select"); await pg.keyboard.press("Control+a");
+    await tapOn('[data-testid="d2-flip-h"]');
+    eq(await shown(), await say(g.centre)); assert((await g.smiles()) !== was, "the mirror image");
+    await tapOn('[data-testid="d2-undo"]'); eq(await shown(), ""); eq(await g.smiles(), was);
+    // a finger drags the C neighbour to the other side of the centre
+    const cdp = await pg.context().newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    await tool(pg, "select"); await pg.touchscreen.tap(cx + 250, cy + 250);
+    const from = await g.px(g.c), at = await g.px(g.centre), to = i => [from[0] + 2 * (at[0] - from[0]) * i / 8, from[1] + 2 * (at[1] - from[1]) * i / 8];
+    await touch("touchStart", [from]); for (let i = 1; i <= 8; i++) await touch("touchMove", [to(i)]);
+    eq(await shown(), "", "nothing is said while the finger is down");
+    await touch("touchEnd", []);
+    assert((await g.smiles()) !== was, "the finger drag changed the configuration"); eq(await shown(), await say(g.centre));
+    // (after a synthetic touch drag the test protocol drops the click of the next tap: the next presses are clicks)
+    await tool(pg, "undo"); eq(await g.smiles(), was);
+    // the pen does the same
+    await pg.mouse.click(cx + 250, cy + 250);
+    const pen = (type, x, y, buttons) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: "left", buttons, clickCount: 1 });
+    await pen("mouseMoved", ...from, 0); await pen("mousePressed", ...from, 1);
+    for (let i = 1; i <= 8; i++) await pen("mouseMoved", ...to(i), 1);
+    eq(await shown(), "", "nothing is said while the pen is down");
+    await pen("mouseReleased", ...to(8), 0);
+    assert((await g.smiles()) !== was, "the pen drag changed the configuration"); eq(await shown(), await say(g.centre));
+    // (last step of this context: the tap that follows a synthetic drag is dropped, so nothing that needs a tap comes after it)
+  });
   await ctx.close();
   // The context menu of the canvas (web/context.js paints what Editor::context_menu builds; Rust decides every item)
   const ring = async (pg, cx, cy) => { await tool(pg, "clear"); await tool(pg, "ring:6a"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 6, bonds: 6 }); await tool(pg, "select"); };
@@ -1704,7 +1851,7 @@ try {
     await open(...bond, "bond"); eq(await pg.getAttribute(item("bond.s.up"), "aria-checked"), "true"); eq(await pg.getAttribute(item("bond.reverse"), "aria-disabled"), null, "a marked bond can be reversed");
     await pg.keyboard.press("Escape"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
     // an object: edit asks for the text field; delete is one undo step
-    await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "edit.delete"]);
+    await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "pathway.anchor", "pathway.free", "edit.delete"]);
     await pg.click(item("edit.delete")); await want(pg, { objects: 0 }); await pg.keyboard.press("Control+z"); await want(pg, { objects: 1 });
     // a selection: a click inside it keeps it; rotate is one undo step; copy as SMILES reaches the clipboard of the system
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 13 });
@@ -1856,6 +2003,132 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("ContextMenu"); await shown(pg); eq((await menuNow(pg)).kind, "key");
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-menu .ctx button')].filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).length"), 0);
     await pg.keyboard.press("Escape"); await shown(pg, false);
+  });
+  await ctx.close();
+
+  // tp-02: arrows anchored by hand. Two benzene rings 500 px apart (a bond length is 40 px); the arrow tool anchors an arrow drawn from one to the other.
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
+  const pathDoc = async pg => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+  /** the smallest atom id of the left ring and of the right ring (the ids a tool-made anchor carries) */
+  const ringIds = async pg => { const d = await pathDoc(pg), mid = (Math.min(...d.atoms.map(a => a.x)) + Math.max(...d.atoms.map(a => a.x))) / 2; const m = f => Math.min(...d.atoms.filter(f).map(a => a.id)); return [m(a => a.x < mid), m(a => a.x > mid)]; };
+  const twoRings = async (pg, cx, cy, dx) => {
+    await tool(pg, "clear"); await tool(pg, "fit");
+    await tool(pg, "ring:6a"); await pg.mouse.click(cx - dx, cy); await pg.mouse.click(cx + dx, cy); await want(pg, { atoms: 12, bonds: 12 });
+  };
+  /** the page's own log replayed by the module gives the page's document and picture: the CLI route gives the bytes of the page */
+  const replayEq = async pg => pg.evaluate(`(() => {
+    const log = JSON.parse(window.MZDRAW.save("log")), out = {};
+    for (const k of ["mzdraw", "svg"]) out[k] = window.MZDRAW.replay(JSON.stringify({ log, out: k })) === window.MZDRAW.save(k);
+    return out; })()`);
+  await step("arrow tool, mouse and keyboard: an arrow drawn between two structures is anchored and routed at once; the parent moved with Alt+Arrow, the arrow follows; the page equals the replay of its log", async () => {
+    await twoRings(pg, cx, cy, 250);
+    await tool(pg, "arrow"); await pg.mouse.move(cx - 250, cy); await pg.mouse.down(); await pg.mouse.move(cx, cy + 6, { steps: 6 }); await pg.mouse.move(cx + 250, cy + 4, { steps: 6 }); await pg.mouse.up();
+    await want(pg, { objects: 1 });
+    let a = (await pathDoc(pg)).objects[0];
+    eq([a.from, a.to], await ringIds(pg));                       // the smallest atom id of each ring
+    assert(a.x > -250 / 40 + 1 && a.x2 < 250 / 40 - 1, "routed: the ends are outside the boxes of the rings");
+    assert((await pg.innerText("#d2-live")).includes("\u2192"), "the live line says what was anchored");
+    await shot(pg, "tp02-arrow-anchored");
+    const before = await pathDoc(pg);
+    // a free arrow (ended on empty canvas) stays free
+    await tool(pg, "arrow"); await pg.mouse.move(cx - 60, cy + 120); await pg.mouse.down(); await pg.mouse.move(cx, cy + 120, { steps: 4 }); await pg.mouse.move(cx + 60, cy + 120, { steps: 4 }); await pg.mouse.up();
+    await want(pg, { objects: 2 });
+    const free = (await pathDoc(pg)).objects[1];
+    eq([free.from || 0, free.to || 0], [0, 0]);
+    await tool(pg, "undo"); await want(pg, { objects: 1 }); eq(await pathDoc(pg), before);
+    // the parent is selected by a band and moved by the keyboard; the arrow follows (its tail moves up with the structure)
+    await tool(pg, "select"); await pg.mouse.move(cx - 340, cy - 90); await pg.mouse.down(); await pg.mouse.move(cx - 250, cy, { steps: 4 }); await pg.mouse.move(cx - 160, cy + 90, { steps: 4 }); await pg.mouse.up();
+    await until(pg, `${STATE}.selected >= 6`);
+    await pg.focus("#d2-canvas");
+    for (let i = 0; i < 3; i++) await pg.keyboard.press("Alt+ArrowUp");
+    const moved = (await pathDoc(pg)).objects[0];
+    assert(moved.y > a.y + 1e-6 || moved.y2 !== a.y2, "the arrow followed the move: " + JSON.stringify([a, moved]));
+    eq([moved.from, moved.to], await ringIds(pg));
+    await shot(pg, "tp02-arrow-followed");
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+  });
+  await step("pathway: a cycle drawn by hand with the arrow tool (A to B, then B to A) is refused by Arrange pathway with its text and nothing moves; once the second arrow is undone the layout runs", async () => {
+    await twoRings(pg, cx, cy, 250);
+    const drag = async (x0, y0, x1, y1) => { await tool(pg, "arrow"); await pg.mouse.move(x0, y0); await pg.mouse.down(); await pg.mouse.move((x0 + x1) / 2, (y0 + y1) / 2, { steps: 5 }); await pg.mouse.move(x1, y1, { steps: 5 }); await pg.mouse.up(); };
+    await drag(cx - 250, cy - 15, cx + 250, cy - 15); await want(pg, { objects: 1 });
+    await drag(cx + 250, cy + 15, cx - 250, cy + 15); await want(pg, { objects: 2 });
+    const [l, r] = await ringIds(pg), arrows = (await pathDoc(pg)).objects;
+    eq(arrows.map(a => [a.from, a.to]), [[l, r], [r, l]]);                      // anchored both ways: a cycle
+    const before = await pathDoc(pg);
+    await tool(pg, "pathway-tree"); await frames(pg);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('error.draw2.schemeCycle')"));
+    eq(await pathDoc(pg), before);
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+    await tool(pg, "undo"); await want(pg, { objects: 1 });                     // one direction only: a pathway of two structures
+    await tool(pg, "pathway-tree"); await frames(pg);
+    eq(await pg.innerText("#d2-live"), "Pathway arranged: 2 structures, 1 arrow, no gap widened.");
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+  });
+  await step("pathway:anchor by keyboard: a free arrow is selected, the context menu opens with Shift+F10, A then Enter anchors it; Route arrows (Menu key, R, Enter) puts displaced arrows back and the page equals the golden; one undo each", async () => {
+    await twoRings(pg, cx, cy, 250);
+    await tool(pg, "arrow"); await pg.mouse.move(cx - 180, cy + 10); await pg.mouse.down(); await pg.mouse.move(cx, cy + 10, { steps: 4 }); await pg.mouse.move(cx + 180, cy + 10, { steps: 4 }); await pg.mouse.up();
+    await want(pg, { objects: 1 });
+    let a = (await pathDoc(pg)).objects[0];
+    eq([a.from || 0, a.to || 0], [0, 0]);                       // 30 px (3/4 of a bond length) from each ring: out of the box, so free
+    await tool(pg, "select"); await pg.mouse.click(cx, cy + 10); await want(pg, { selected: 1 });
+    const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Shift+F10"); await shown(pg);
+    eq((await menuNow(pg)).target, "object");
+    await pg.keyboard.press("a"); eq((await menuNow(pg)).active, "pathway.anchor");
+    await pg.keyboard.press("Enter"); await shown(pg, false);
+    a = (await pathDoc(pg)).objects[0];
+    eq([a.from, a.to], await ringIds(pg));
+    assert((await pg.innerText("#d2-live")).includes("\u2192"), "the live line says what was anchored");
+    await pg.keyboard.press("Control+z"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), before);
+    await pg.keyboard.press("Control+Shift+z"); eq([(await pathDoc(pg)).objects[0].from, (await pathDoc(pg)).objects[0].to], await ringIds(pg));
+    // Route arrows (canvas menu) on arrows that are already routed moves nothing and says so
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
+    const routed = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await pg.mouse.click(cx, cy - 250, { button: "right" }); await shown(pg); eq((await menuNow(pg)).target, "canvas");
+    assert(await pg.isVisible(item("pathway.route")), "the canvas menu has Route arrows");
+    await pg.click(item("pathway.route")); await shown(pg, false);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.routeNone')"));
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), routed);
+    // a really displaced arrow: a document opened with raw arrows (anchored, but not where the route puts them); Route arrows by the keyboard
+    // moves them, and the page equals the golden case of tests/data/log/pathway-tools.json (the native replay of the same request), not only its own log
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway-tools.json"), "utf8")).cases.find(c => c.name.startsWith("pathway:route puts displaced"));
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import);
+    await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 6, objects: 2 });
+    const raw = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    assert(raw !== gold.out.mzdraw, "the opened arrows are displaced");
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await pg.keyboard.press("ContextMenu"); await shown(pg);
+    eq((await menuNow(pg)).target, "canvas");
+    await pg.keyboard.press("r"); eq((await menuNow(pg)).active, "pathway.route");
+    await pg.keyboard.press("Enter"); await shown(pg, false); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), gold.out.svg);
+    // the module replays the same request (the opened document and the command) to the same bytes: the CLI route of the page
+    eq(await pg.evaluate(r => window.MZDRAW.replay(JSON.stringify({ ...r, out: "svg" })), gold.request), gold.out.svg);
+    await pg.keyboard.press("Control+z"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), raw);          // one step
+    await pg.keyboard.press("Control+Shift+z"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
+  });
+  await ctx.close();
+
+  // the same on a tablet: a finger and a pen draw the arrow between two structures
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+  await step("arrow tool by touch and by pen: an arrow dragged from one structure to another is anchored and routed; the page equals the replay of its log", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    await tool(pg, "clear"); await tool(pg, "fit"); await tool(pg, "ring:6a");
+    await pg.touchscreen.tap(cx - 160, cy); await pg.touchscreen.tap(cx + 160, cy); await want(pg, { atoms: 12, bonds: 12 });
+    await tool(pg, "arrow");
+    await touch("touchStart", [[cx - 160, cy]]); await touch("touchMove", [[cx - 60, cy + 4]]); await touch("touchMove", [[cx + 60, cy + 4]]); await touch("touchMove", [[cx + 160, cy]]); await touch("touchEnd", []);
+    await want(pg, { objects: 1 });
+    let a = (await pathDoc(pg)).objects[0];
+    eq([a.from, a.to], await ringIds(pg));
+    assert(a.x > -160 / 40 + 1 && a.x2 < 160 / 40 - 1, "routed");
+    await shot(pg, "tp02-arrow-touch");
+    await pen("mouseMoved", cx + 160, cy); await pen("mousePressed", cx + 160, cy); await pen("mouseMoved", cx, cy + 6); await pen("mouseMoved", cx - 160, cy); await pen("mouseReleased", cx - 160, cy);
+    await want(pg, { objects: 2 });
+    a = (await pathDoc(pg)).objects[1];
+    eq([a.from, a.to], (await ringIds(pg)).reverse());           // right to left: from the second ring to the first
+    eq(await replayEq(pg), { mzdraw: true, svg: true });
   });
   await ctx.close();
 } finally {

@@ -1,17 +1,30 @@
 //! The editor commands of a request (`"commands":[{"command":NAME,"args":{...}}]`): the same commands the page runs, so a raw-op
 //! agent gets the follow of anchored arrows (`route`) that a bare operation of the log does not give. The commands of this slice
-//! are `move`, `rotate`, `flip` and `scheme:row` (plan-13: the one-line scheme layout, `gap`, `wrap`, `atoms`, `objects`); their `args` are the fields of the operation of the same name, and a `rotate` without `x`,
+//! are `move`, `rotate`, `flip`, `scheme:row` (plan-13: the one-line scheme layout, `gap`, `wrap`, `atoms`, `objects`) and (tp-02) `pathway:anchor` (`{"arrow": id}`) and `pathway:route`; their `args` are the fields of the operation of the same name, and a `rotate` without `x`,
 //! `y` (or a `flip` without `at`) works about the centre of the bounding box of its atoms, as the buttons of the page do.
 
 use crate::editor::Editor;
 use crate::ops::{Op, OpError};
+use crate::orient::Status;
 use serde_json::{json, Value};
+
+/// Whether a command tells, in the result document, whether it changed the drawing (`changed`): `scheme:orient`, `pathway:anchor` and `pathway:route` do.
+pub(crate) fn reports_change(name: &str) -> bool {
+    matches!(name, "scheme:orient" | "pathway:anchor" | "pathway:route")
+}
 
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
     matches!(
         name,
-        "move" | "rotate" | "flip" | "scheme:row" | "pathway:tree"
+        "move"
+            | "rotate"
+            | "flip"
+            | "scheme:row"
+            | "pathway:anchor"
+            | "pathway:route"
+            | "pathway:tree"
+            | "scheme:orient"
     )
 }
 
@@ -21,6 +34,16 @@ pub(crate) fn known(name: &str) -> bool {
 pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     if !known(name) {
         return Err("error.draw2.command");
+    }
+    if name == "pathway:anchor" || name == "pathway:route" {
+        return pathway_args(name, args).map(|_| ());
+    }
+    if name == "scheme:orient" {
+        // no argument: it orients every structure after an arrow on the one before it
+        return match args.as_object() {
+            Some(o) if o.is_empty() => Ok(()),
+            _ => Err("error.draw2.request"),
+        };
     }
     if name == "scheme:row" {
         return crate::scheme::Opts::parse(args).map(|_| ());
@@ -45,6 +68,23 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     Op::parse(&v).map(|_| ())
 }
 
+/// The arrow of `pathway:anchor` (`args` is `{"arrow": id}`); `pathway:route` takes no argument. Anything else is an invalid request.
+fn pathway_args(name: &str, args: &Value) -> Result<Option<u32>, &'static str> {
+    let obj = args.as_object().ok_or("error.draw2.request")?;
+    if name == "pathway:route" {
+        return if obj.is_empty() {
+            Ok(None)
+        } else {
+            Err("error.draw2.request")
+        };
+    }
+    let id = obj.get("arrow").and_then(Value::as_u64);
+    match id {
+        Some(i) if obj.len() == 1 && i > 0 && i <= u64::from(u32::MAX) => Ok(Some(i as u32)),
+        _ => Err("error.draw2.request"),
+    }
+}
+
 /// Runs one command as one undo step, with the route operations of the arrows that follow. The error is an i18n key and the id it
 /// is about.
 pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpError> {
@@ -52,11 +92,21 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     if !known(name) {
         return Err(bad("error.draw2.command"));
     }
+    if name == "pathway:anchor" || name == "pathway:route" {
+        let id = pathway_args(name, args).map_err(bad)?;
+        return match id {
+            Some(arrow) => e.pathway_anchor(arrow).map(|_| ()),
+            None => e.pathway_route().map(|_| ()),
+        };
+    }
+    if name == "scheme:orient" {
+        return orient(e);
+    }
     if name == "scheme:row" {
         let opts = crate::scheme::Opts::parse(args).map_err(bad)?;
         let ops = crate::scheme::row(e.doc(), &e.style, &opts).map_err(bad)?;
         let ops = e.following(&ops);
-        return e.session.run(&ops);
+        return e.run_guarded(&ops);
     }
     if name == "pathway:tree" {
         let ops = crate::pathway::command(e.doc(), &e.style).map_err(|r| OpError {
@@ -97,5 +147,55 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     }
     let op = Op::parse(&v).map_err(bad)?;
     let ops = e.following(&[op]);
-    e.session.run(&ops)
+    e.run_guarded(&ops)
+}
+
+/// `scheme:orient`: one undo step with the turns of `orient::plan` (and the route of the arrows that follow). Nothing is changed, and
+/// the command is refused, when a structure would overlap (`orientOverlap`), when none has a core (`orientNone`) or is too large
+/// (`orientSize`). A scheme already oriented is not a refusal: the command changes nothing and says so (`changed` false).
+/// The steps of the last run are kept in `e.orient_steps` for the result document.
+fn orient(e: &mut Editor) -> Result<(), OpError> {
+    let plan = crate::orient::plan(e.doc());
+    e.orient_steps = plan.steps.clone();
+    if let Some(s) = (plan.steps.iter()).find(|s| s.status == Status::Overlap) {
+        return Err(OpError {
+            key: s.status.key(),
+            id: s.at,
+        });
+    }
+    let count = |st: Status| plan.steps.iter().filter(|s| s.status == st).count();
+    let (turned, same, big, none) = (
+        count(Status::Oriented),
+        count(Status::Already),
+        count(Status::TooLarge),
+        count(Status::NoCore),
+    );
+    if plan.ops.is_empty() {
+        if same == 0 {
+            let key = if big > 0 {
+                Status::TooLarge.key()
+            } else {
+                Status::NoCore.key()
+            };
+            return Err(OpError { key, id: 0 });
+        }
+        // nothing to turn: oriented already, and the ones that could not be said as well
+        e.said = if big + none == 0 {
+            ("draw2.say.orientDone", String::new())
+        } else {
+            ("draw2.say.orientDonePart", (big + none).to_string())
+        };
+        return Ok(());
+    }
+    let ops = e.following(&plan.ops);
+    e.session.run(&ops)?;
+    e.said = if big + none == 0 {
+        ("draw2.say.oriented", turned.to_string())
+    } else {
+        (
+            "draw2.say.orientedPart",
+            format!("{turned}/{}", turned + same + big + none),
+        )
+    };
+    Ok(())
 }

@@ -193,6 +193,21 @@ impl Editor {
                 } else {
                     (x + 2.0, y)
                 };
+                // dragged from inside the box of one structure to inside the box of another, the arrow is anchored to both
+                // (the smallest atom id of each) and routed, in the same step; anything else stays free as drawn
+                let (mut from, mut to) = (0, 0);
+                // (the structures and their boxes are computed once for the whole release)
+                let st = p
+                    .moved
+                    .then(|| crate::route::Structures::new(&self.session.doc, &self.style));
+                if let Some(st) = &st {
+                    let end = self.view.to_doc(px, py);
+                    if let (Some(a), Some(b)) = (st.at(x, y), st.at(end.0, end.1))
+                        && !st.same(a, b)
+                    {
+                        (from, to) = (a, b);
+                    }
+                }
                 let add = Op::ObjAdd {
                     id: None,
                     t: ObjKind::Arrow,
@@ -201,10 +216,30 @@ impl Editor {
                     x2,
                     y2,
                     text: String::new(),
-                    from: 0,
-                    to: 0,
+                    from,
+                    to,
                 };
-                self.run(&[add], "draw2.say.arrow", "")
+                let mut ops = vec![add];
+                if let (true, Some(st)) = (from != 0, &st) {
+                    // route needs the id the arrow will get: the one the operation gives on a copy of the document
+                    let mut copy = self.session.doc.clone();
+                    if let Ok((done, _)) = copy.apply(&ops)
+                        && let Some(Op::ObjAdd { id: Some(id), .. }) = done.first()
+                    {
+                        ops = done.clone();
+                        ops.extend(crate::route::route_in(&copy, *id, st, &self.style));
+                    }
+                }
+                if from != 0 {
+                    let what = format!(
+                        "{} \u{2192} {}",
+                        crate::route::formula_of(&self.session.doc, from),
+                        crate::route::formula_of(&self.session.doc, to)
+                    );
+                    self.run(&ops, "draw2.say.anchored", &what)
+                } else {
+                    self.run(&ops, "draw2.say.arrow", "")
+                }
             }
             Tool::Plus => {
                 let (x, y) = self.view.to_doc(px, py);

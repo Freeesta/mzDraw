@@ -145,6 +145,8 @@ pub(crate) struct Press {
 
 pub struct Editor {
     pub session: Session,
+    /// The steps of the last `scheme:orient` command (for the result document), empty before the first.
+    pub(crate) orient_steps: Vec<crate::orient::Step>,
     pub view: View,
     pub tool: Tool,
     pub over: Overlay,
@@ -153,6 +155,8 @@ pub struct Editor {
     pub said: (&'static str, String),
     /// The numbers of a line that has more than one (`draw2.say.pathway`: structures, arrows, gaps), by name; valid only with the `said` they were set with.
     pub said_params: Vec<(&'static str, u32)>,
+    /// A report that stays visible until the next step (the stereo guard), as an i18n key with one parameter; empty when none.
+    pub notice: (&'static str, String),
     /// The last refused operation, an i18n key.
     pub error: &'static str,
     /// The fingers and the pen at work (pinch, palm rejection, long press).
@@ -189,6 +193,7 @@ impl Default for Editor {
             press: None,
             said: ("", String::new()),
             said_params: Vec::new(),
+            notice: ("", String::new()),
             error: "",
             gesture: Default::default(),
             focus_from: None,
@@ -199,6 +204,7 @@ impl Default for Editor {
             pasted: 0,
             nudge: None,
             move_here: false,
+            orient_steps: Vec::new(),
             ctx: Default::default(),
         }
     }
@@ -226,10 +232,12 @@ impl Editor {
 
     /// Runs one undo step; a refusal is kept in `error` and changes nothing.
     pub(crate) fn run(&mut self, ops: &[Op], say: &'static str, what: &str) -> u32 {
+        let guard = crate::stereo_guard::before(self.doc(), ops);
         let ops = self.following(ops);
         match self.session.run(&ops) {
             Ok(()) => {
                 self.said = (say, what.to_string());
+                self.say_stereo(guard);
                 self.error = "";
                 self.prune();
                 REPAINT | CHANGED
@@ -239,6 +247,29 @@ impl Editor {
                 REPAINT
             }
         }
+    }
+
+    /// The guard of the configuration: after a geometry step, when a piece that held a wedge now has another signature, the live
+    /// line says at which atoms (report only, the step stands).
+    pub(crate) fn say_stereo(&mut self, before: Option<crate::stereo_guard::Snapshot>) {
+        self.notice = ("", String::new());
+        if let Some(then) = before {
+            let atoms = crate::stereo_guard::changed(self.doc(), &then, false);
+            if !atoms.is_empty() {
+                let list: Vec<String> = atoms.iter().map(u32::to_string).collect();
+                self.said = ("draw2.say.stereoChanged", list.join(", "));
+                self.notice = self.said.clone();
+            }
+        }
+    }
+
+    /// Runs operations as one undo step with the stereo guard around them (what `run` does without the words of the live line): the
+    /// route of the editor commands.
+    pub(crate) fn run_guarded(&mut self, ops: &[Op]) -> Result<(), crate::ops::OpError> {
+        let guard = crate::stereo_guard::before(self.doc(), ops);
+        self.session.run(ops)?;
+        self.say_stereo(guard);
+        Ok(())
     }
 
     /// The operations of a command and, after them, the route operations of the anchored arrows whose structures they change
@@ -283,6 +314,7 @@ impl Editor {
             return 0;
         }
         self.said = ("draw2.say.undo", String::new());
+        self.notice = ("", String::new());
         self.prune();
         REPAINT | CHANGED
     }
@@ -292,6 +324,7 @@ impl Editor {
             return 0;
         }
         self.said = ("draw2.say.redo", String::new());
+        self.notice = ("", String::new());
         self.prune();
         REPAINT | CHANGED
     }
@@ -494,6 +527,7 @@ impl Editor {
         };
         let placed = self.place(&new, dx, 0.0)?;
         self.said = ("draw2.say.imported", new.atoms.len().to_string());
+        self.notice = ("", String::new());
         Ok((info, placed))
     }
 
@@ -589,6 +623,7 @@ impl Editor {
         self.press = None;
         self.nudge = None;
         self.said = ("draw2.say.opened", self.doc().atoms.len().to_string());
+        self.notice = ("", String::new());
         self.error = "";
         Ok(())
     }

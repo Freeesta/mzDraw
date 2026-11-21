@@ -1,0 +1,11 @@
+{
+ "program": "RDKit",
+ "version": "2026.09.2",
+ "date": "2026-11-21",
+ "script": "tools/fidelity/orient.py",
+ "cases": 4,
+ "pairs_compared": 5,
+ "pairs_skipped": 0,
+ "worst_degrees": 0.006,
+ "limit_degrees": 2.0
+}

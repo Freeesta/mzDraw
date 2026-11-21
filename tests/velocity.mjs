@@ -49,9 +49,19 @@ function targetIdentity(t) {
   if (r.status !== 0) return null;
   return identities([r.stdout])[0];
 }
-/** the objects of a document as sorted "kind|text" strings */
-const objectsOf = doc => (doc.objects || []).map(o => `${o.t}|${o.text || ""}`).sort();
-const wantObjects = t => (t.objects || []).map(o => `${o.t}|${o.text || ""}`).sort();
+/** the objects of a document as sorted "kind|text" strings; an anchored arrow adds "|i>j", the creation-order index of the structure
+ *  (rank of its smallest atom id among the structures, a structure being a connected set of atoms) at its tail and at its head */
+function objectsOf(doc) {
+  const parent = new Map((doc.atoms || []).map(a => [a.id, a.id]));
+  const find = x => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
+  for (const b of doc.bonds || []) parent.set(find(b.a), find(b.b));
+  const smallest = new Map();
+  for (const a of doc.atoms || []) { const r = find(a.id); smallest.set(r, Math.min(smallest.get(r) ?? Infinity, a.id)); }
+  const order = [...smallest.values()].sort((a, b) => a - b);
+  const index = id => order.indexOf(smallest.get(find(id)));
+  return (doc.objects || []).map(o => `${o.t}|${o.text || ""}` + (o.from || o.to ? `|${o.from ? index(o.from) : "-"}>${o.to ? index(o.to) : "-"}` : "")).sort();
+}
+const wantObjects = t => (t.objects || []).map(o => `${o.t}|${o.text || ""}` + (o.from !== undefined || o.to !== undefined ? `|${o.from ?? "-"}>${o.to ?? "-"}` : "")).sort();
 
 const tasks = JSON.parse(readFileSync(path.join(data, "tasks.json"), "utf8")).tasks;
 const paths = JSON.parse(readFileSync(arg("paths", path.join(data, "mzdraw.json")), "utf8")).tasks;

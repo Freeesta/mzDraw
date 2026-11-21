@@ -291,6 +291,21 @@ impl Editor {
                 Target::Object(o) => self.ask(format!("text:{o}")),
                 _ => 0,
             },
+            "pathway.anchor" | "pathway.free" => match open.target {
+                Target::Object(o) => {
+                    let r = if id == "pathway.free" {
+                        self.pathway_free(o)
+                    } else {
+                        self.pathway_anchor(o)
+                    };
+                    self.pathway_flags(r)
+                }
+                _ => 0,
+            },
+            "pathway.route" => {
+                let r = self.pathway_route();
+                self.pathway_flags(r)
+            }
             "sel.rotate.l" => self.rotate(15.0),
             "sel.rotate.r" => self.rotate(-15.0),
             "sel.flip.h" => self.flip(Axis::H),
@@ -521,10 +536,24 @@ impl Editor {
 
     fn object_items(&self, o: u32) -> Vec<Value> {
         let text = self.doc().object(o).is_some_and(|x| x.t != ObjKind::Plus);
-        vec![
-            item("obj.edit", "Edit", "", text),
-            item("edit.delete", "Delete", "Del", true),
-        ]
+        let arrow = self.doc().object(o).filter(|x| x.t == ObjKind::Arrow);
+        let mut items = vec![item("obj.edit", "Edit", "", text)];
+        if let Some(a) = arrow {
+            items.push(item(
+                "pathway.anchor",
+                "Anchor to structures",
+                "",
+                !self.doc().atoms.is_empty(),
+            ));
+            items.push(item(
+                "pathway.free",
+                "Free ends",
+                "",
+                a.from != 0 || a.to != 0,
+            ));
+        }
+        items.push(item("edit.delete", "Delete", "Del", true));
+        items
     }
 
     fn canvas_items(&self) -> Vec<Value> {
@@ -547,6 +576,9 @@ impl Editor {
         if any {
             items.push(item("canvas.save", "Save image", "", true));
         }
+        let anchored =
+            (self.doc().objects.iter()).any(|o| o.t == ObjKind::Arrow && o.from != 0 && o.to != 0);
+        items.push(item("pathway.route", "Route arrows", "", anchored));
         items.push(item("canvas.clear", "Clear all", "", any));
         items
     }
