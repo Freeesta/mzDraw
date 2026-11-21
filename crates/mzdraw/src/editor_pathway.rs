@@ -111,6 +111,46 @@ impl Editor {
         Ok(changed)
     }
 
+    /// `pathway:label`: writes the computed label (`steplabel::plan`, the mode `pathway.label`) on every anchored arrow whose text is
+    /// empty or its own, one undo step; none when nothing changes. The counts for the live line are kept in `said_params`.
+    pub(crate) fn pathway_label(&mut self, opts: &crate::steplabel::Opts) -> Result<bool, OpError> {
+        let plan = crate::steplabel::plan(self.doc(), self.style.pathway_label, opts)?;
+        let changed = !plan.ops.is_empty();
+        if changed {
+            self.session.run(&plan.ops)?;
+        }
+        self.error = "";
+        self.said = if plan.labelled + plan.kept + plan.skipped == 0 {
+            ("draw2.say.labelNone", String::new())
+        } else {
+            ("draw2.say.labelled", String::new())
+        };
+        self.said_params = vec![
+            ("labelled", plan.labelled as u32),
+            ("kept", plan.kept as u32),
+            ("skipped", plan.skipped as u32),
+        ];
+        self.prune();
+        Ok(changed)
+    }
+
+    /// The page's button "Label arrows": `pathway:label` with the isomer word of the page's language (empty: the default word).
+    pub fn pathway_label_page(&mut self, isomer: &str) -> u32 {
+        let mut opts = crate::steplabel::Opts::default();
+        if !isomer.is_empty() {
+            let json = serde_json::json!({ "isomer": isomer });
+            match crate::steplabel::Opts::parse(&json) {
+                Ok(o) => opts = o,
+                Err(key) => {
+                    self.error = key;
+                    return crate::editor::REPAINT;
+                }
+            }
+        }
+        let r = self.pathway_label(&opts);
+        self.pathway_flags(r)
+    }
+
     /// Flags of a pathway command run from the page.
     pub(crate) fn pathway_flags(&mut self, r: Result<bool, OpError>) -> u32 {
         match r {

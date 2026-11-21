@@ -125,9 +125,11 @@ pub struct Edge {
     pub to: usize,
     /// Whether the arrow is in the forest (the primary parent of `to`).
     pub primary: bool,
+    /// The width of the text of the arrow as painted (bond lengths): the visible arrow must be at least that long (rule `label`).
+    pub label: f64,
 }
 
-/// A raised gap between two columns of a component: `gap` replaced `pathway.col_gap` by the `rule` (`slope` or `length`).
+/// A raised gap between two columns of a component: `gap` replaced `pathway.col_gap` by the `rule` (`slope`, `length` or `label`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct GapNote {
     pub comp: usize,
@@ -195,6 +197,15 @@ fn field(doc: &Document, atoms: &[u32], name: &str) -> Option<f64> {
         }
     }
     None
+}
+
+/// The width of the text of an arrow as the painter sets it (bond lengths): the font of the arrow text is 0.85 of the label font.
+fn label_width(text: &str, style: &Style) -> f64 {
+    if text.is_empty() {
+        return 0.0;
+    }
+    let m = style.metrics(1.0, false);
+    crate::scene::width(&crate::steplabel::display(text), m.font * 0.85)
 }
 
 /// Transposes a box (the frame of `pathway.dir=down`).
@@ -268,6 +279,9 @@ pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
             from: index[&u],
             to: index[&v],
             primary: false,
+            label: doc
+                .object(arrow)
+                .map_or(0.0, |o| label_width(&o.text, style)),
         })
         .collect();
     // refusals: a pair joined twice, a directed cycle
@@ -469,7 +483,7 @@ pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
                 gap = slope;
                 rule = "slope";
             }
-            let long_enough = |gap: f64| {
+            let long_enough = |gap: f64, labels: bool| {
                 let x1 = xs[k] + wk[k] / 2.0 + gap + wk[k + 1] / 2.0;
                 between.iter().all(|e| {
                     let (u, v) = (e.from, e.to);
@@ -477,25 +491,34 @@ pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
                     let a = [a[0], a[1], a[0] + fw[u], a[1] + fh[u]];
                     let b = [x1 - fw[v] / 2.0, ys[local[&v]] - fh[v] / 2.0, 0.0, 0.0];
                     let b = [b[0], b[1], b[0] + fw[v], b[1] + fh[v]];
-                    visible(a, b, o.margin) >= o.min_arrow
+                    let need = if labels {
+                        o.min_arrow.max(e.label)
+                    } else {
+                        o.min_arrow
+                    };
+                    visible(a, b, o.margin) >= need
                 })
             };
-            if !long_enough(gap) {
+            // the rule that raises the gap: `length` for the least visible length, then `label` for the room of the widest text
+            for (labels, name) in [(false, "length"), (true, "label")] {
+                if long_enough(gap, labels) {
+                    continue;
+                }
                 let mut hi = gap.max(1.0);
-                while !long_enough(hi) && hi < 1e6 {
+                while !long_enough(hi, labels) && hi < 1e6 {
                     hi *= 2.0;
                 }
                 let mut lo = gap;
                 for _ in 0..80 {
                     let mid = (lo + hi) / 2.0;
-                    if long_enough(mid) {
+                    if long_enough(mid, labels) {
                         hi = mid;
                     } else {
                         lo = mid;
                     }
                 }
                 gap = hi;
-                rule = "length";
+                rule = name;
             }
             if !rule.is_empty() {
                 gaps.push(GapNote {

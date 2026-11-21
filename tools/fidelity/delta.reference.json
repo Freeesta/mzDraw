@@ -1,0 +1,140 @@
+{
+ "program": "RDKit 2026.09.2",
+ "date": "2026-11-21",
+ "rows": [
+  {
+   "case": "pathway:label writes the delta on empty arrows and on its own labels, keeps the person's text",
+   "arrow": 5000,
+   "label": "+O",
+   "ours": true,
+   "rdkit_delta": {
+    "O": 1
+   },
+   "rdkit_mass_shift": 15.9949,
+   "agree": true
+  },
+  {
+   "case": "pathway:label writes the delta on empty arrows and on its own labels, keeps the person's text",
+   "arrow": 5001,
+   "label": "+CH2",
+   "ours": true,
+   "rdkit_delta": {
+    "C": 1,
+    "H": 2
+   },
+   "rdkit_mass_shift": 14.0157,
+   "agree": true
+  },
+  {
+   "case": "pathway:label writes the delta on empty arrows and on its own labels, keeps the person's text",
+   "arrow": 5002,
+   "label": "isomer",
+   "ours": true,
+   "rdkit_delta": {},
+   "rdkit_mass_shift": 0.0,
+   "agree": true
+  },
+  {
+   "case": "pathway:label writes the delta on empty arrows and on its own labels, keeps the person's text",
+   "arrow": 5003,
+   "label": "hydroxylation (CYP)",
+   "ours": false,
+   "rdkit_delta": {
+    "H": 2,
+    "O": 1
+   },
+   "rdkit_mass_shift": 18.0106,
+   "agree": true
+  },
+  {
+   "case": "pathway:label writes the delta on empty arrows and on its own labels, keeps the person's text",
+   "arrow": 5004,
+   "label": "H2O",
+   "ours": false,
+   "rdkit_delta": {
+    "H": -2
+   },
+   "rdkit_mass_shift": -2.0157,
+   "agree": true
+  },
+  {
+   "case": "pathway:label with force rewrites every label, the isomer word of the caller",
+   "arrow": 5000,
+   "label": "+O",
+   "ours": true,
+   "rdkit_delta": {
+    "O": 1
+   },
+   "rdkit_mass_shift": 15.9949,
+   "agree": true
+  },
+  {
+   "case": "pathway:label with force rewrites every label, the isomer word of the caller",
+   "arrow": 5001,
+   "label": "+CH2",
+   "ours": true,
+   "rdkit_delta": {
+    "C": 1,
+    "H": 2
+   },
+   "rdkit_mass_shift": 14.0157,
+   "agree": true
+  },
+  {
+   "case": "pathway:label with force rewrites every label, the isomer word of the caller",
+   "arrow": 5002,
+   "label": "isomero",
+   "ours": false,
+   "rdkit_delta": {},
+   "rdkit_mass_shift": 0.0,
+   "agree": true
+  },
+  {
+   "case": "pathway:label with force rewrites every label, the isomer word of the caller",
+   "arrow": 5003,
+   "label": "+H2O",
+   "ours": true,
+   "rdkit_delta": {
+    "H": 2,
+    "O": 1
+   },
+   "rdkit_mass_shift": 18.0106,
+   "agree": true
+  },
+  {
+   "case": "pathway:label with force rewrites every label, the isomer word of the caller",
+   "arrow": 5004,
+   "label": "-H2",
+   "ours": true,
+   "rdkit_delta": {
+    "H": -2
+   },
+   "rdkit_mass_shift": -2.0157,
+   "agree": true
+  },
+  {
+   "case": "pathway:label then pathway:tree leaves room for the labels (rule label)",
+   "arrow": 5000,
+   "label": "a long reagent text over the arrow",
+   "ours": false,
+   "rdkit_delta": {
+    "O": 1
+   },
+   "rdkit_mass_shift": 15.9949,
+   "agree": true
+  },
+  {
+   "case": "pathway:label then pathway:tree leaves room for the labels (rule label)",
+   "arrow": 5001,
+   "label": "+CH2-O",
+   "ours": true,
+   "rdkit_delta": {
+    "C": 1,
+    "H": 2,
+    "O": -1
+   },
+   "rdkit_mass_shift": -1.9793,
+   "agree": true
+  }
+ ]
+}

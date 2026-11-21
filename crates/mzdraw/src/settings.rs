@@ -38,6 +38,8 @@ pub struct Style {
     pub pathway_down: bool,
     /// `pathway.order`: the sibling order key.
     pub pathway_order: crate::pathway::Order,
+    /// `pathway.label`: what `pathway:label` writes on an arrow (`delta`, `mass`, `delta+mass`, `name+delta`).
+    pub pathway_label: crate::steplabel::Mode,
     /// One ink for every element instead of the element colours.
     pub mono: bool,
     /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
@@ -198,13 +200,13 @@ pub const FIELDS: [Field; 13] = [
 fn known(key: &str) -> bool {
     matches!(
         key,
-        "preset" | "colour" | "maps" | "pathway.dir" | "pathway.order"
+        "preset" | "colour" | "maps" | "pathway.dir" | "pathway.order" | "pathway.label"
     ) || FIELDS.iter().any(|f| f.key == key)
 }
 
 /// The keys of the settings that take a word: the key, the words (the first is the default) as `--set` and the settings file read
 /// them. `pathway.order` has `id`, `mz` and `rt` here; `reverse-id` is for the tests of the layout and is not offered.
-const CHOICES: &str = r#"{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"}"#;
+const CHOICES: &str = r#"{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"},{"key":"pathway.label","values":["delta","mass","delta+mass","name+delta"],"default":"delta"}"#;
 
 /// The schema of the settings file as JSON, for the surfaces that show or document it (the fields of the page, the help of the
 /// CLI): `{"format", "presets", "colours", "fields": [{"key", "unit", "min", "max", "default"}]}`, the defaults being the ones of
@@ -256,6 +258,7 @@ impl Default for Style {
             pathway_min_arrow: 1.2,
             pathway_down: false,
             pathway_order: crate::pathway::Order::Id,
+            pathway_label: crate::steplabel::Mode::Delta,
             mono: false,
             maps: true,
             unknown: Unknown::default(),
@@ -301,6 +304,7 @@ impl Style {
             pathway_min_arrow: 1.2,
             pathway_down: false,
             pathway_order: crate::pathway::Order::Id,
+            pathway_label: crate::steplabel::Mode::Delta,
             mono: true,
             maps: true,
             unknown: Unknown::default(),
@@ -381,6 +385,10 @@ impl Style {
                 self.pathway_order =
                     crate::pathway::Order::parse(v).ok_or("error.draw2.styleValue")?
             }
+            ("label", v) => {
+                self.pathway_label =
+                    crate::steplabel::Mode::parse(v).ok_or("error.draw2.styleValue")?
+            }
             (k, _) => {
                 let full = format!("pathway.{k}");
                 if !FIELDS.iter().any(|f| f.key == full) {
@@ -397,6 +405,7 @@ impl Style {
         match key {
             "pathway.dir" => Some(if self.pathway_down { "down" } else { "right" }),
             "pathway.order" => Some(self.pathway_order.name()),
+            "pathway.label" => Some(self.pathway_label.name()),
             _ => None,
         }
     }
@@ -462,11 +471,16 @@ impl Style {
             None => crate::pathway::Order::Id,
             Some(v) => crate::pathway::Order::parse_public(&v)?,
         };
+        let label = match g.s("pathway.label").ok()?.as_deref() {
+            None => crate::steplabel::Mode::Delta,
+            Some(v) => crate::steplabel::Mode::parse(v)?,
+        };
         let mut s = Style {
             mono: colour,
             maps,
             pathway_down: down,
             pathway_order: order,
+            pathway_label: label,
             unknown,
             ..base
         };
@@ -502,6 +516,9 @@ impl Style {
             crate::pathway::Order::Id | crate::pathway::Order::ReverseId
         ) {
             style.push(("pathway.order".to_string(), text(self.pathway_order.name())));
+        }
+        if self.pathway_label != crate::steplabel::Mode::Delta {
+            style.push(("pathway.label".to_string(), text(self.pathway_label.name())));
         }
         for f in &FIELDS {
             style.push((f.key.to_string(), num(f.of(self))));
