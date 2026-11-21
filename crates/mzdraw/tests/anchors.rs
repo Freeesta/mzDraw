@@ -282,3 +282,20 @@ fn a_document_without_anchors_is_written_as_before() {
     let anchored = Document::from_json(&scheme()).unwrap();
     assert_eq!(Document::from_json(&anchored.to_json()).unwrap(), anchored);
 }
+
+#[test]
+fn a_refused_command_is_a_verdict_of_stage_command_and_an_unknown_one_an_invalid_request() {
+    let request = json!({"import": scheme(), "report": true, "commands": [
+        {"command":"move","args":{"atoms":[3,4],"dx":1,"dy":0}},
+        {"command":"move","args":{"atoms":[99],"dx":1,"dy":0}}]});
+    let reply = mzdraw::replay::replay_at(&request.to_string(), 0).unwrap();
+    assert!(!reply.ok);
+    let v: Value = serde_json::from_str(&reply.text).unwrap();
+    assert_eq!(v["failed"]["stage"], "command");
+    assert_eq!(v["failed"]["op"], 1);
+    assert_eq!(v["failed"]["key"], "error.draw2.noAtom");
+    assert!(v.get("out").is_none(), "nothing is written");
+    let unknown = json!({"import": scheme(), "report": true, "commands": [{"command":"explode"}]});
+    let e = mzdraw::replay::replay(&unknown.to_string()).unwrap_err();
+    assert_eq!(e.key, "error.draw2.command");
+}

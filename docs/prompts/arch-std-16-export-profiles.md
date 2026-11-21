@@ -19,7 +19,7 @@ Out (do not do here):
 - RSC and Wiley-journal (Angewandte, Chemistry Europe) profiles: their pages were not readable; PDF output (arch-std-18).
 
 ## Context (read first)
-- `CLAUDE.md`, `docs/mzdraw.md` ("Built state" is what exists), `docs/study/arch-std.md` (§2.3 table and rules).
+- `CLAUDE.md`, `docs/built/` (the Built state is what exists), `docs/study/arch-std.md` (§2.3 table and rules).
 - ACS JOC author guidelines PDF, last updated 2026-10-08 (https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=joceah), Appendix 2; Elsevier artwork sizing and types pages (https://www.elsevier.com/about/policies-and-standards/author/artwork-and-media-instructions/artwork-sizing); Nature final and initial submission pages; Wiley figure guide (March 2025). Re-read each page before pinning its numbers and note the date.
 - `crates/mzdraw/src/settings.rs`, `crates/mzdraw/src/svg.rs`, `crates/mzdraw/src/png.rs`, `crates/mzdraw/src/conform.rs`.
 
@@ -29,7 +29,7 @@ Out (do not do here):
 - Synthetic data only in tests and examples (structures you write yourself). Never skip, disable or loosen a test.
 - Branch `claude/arch-std-16-export-profiles` from `origin/main`; never push to `main`, never rebase, never force-push; merge `main` only on a real conflict. Open the PR ready for review and never merge it: the coordinator merges.
 - UI changes come with screenshots at deviceScaleFactor 2 in the PR. Keep touch, pen and keyboard in the e2e tests.
-- Keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice, "Not built" said plainly). Size: update `measured` in `tools/wasm-cap.toml` when the module moves. The owner lifted the size limit for now, but `cap` is still the owner's: if the module passes it, send the numbers to the coordinator and raise `cap` only on its answer, with the reason in the PR.
+- Keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice, "Not built" said plainly). Size: no `measured` edit (the build prints the size; the cap in `tools/wasm-cap.toml` is the guard). The owner lifted the size limit for now, but `cap` is still the owner's: if the module passes it, send the numbers to the coordinator and raise `cap` only on its answer, with the reason in the PR.
 - Rule 15 of `CLAUDE.md`, in full: 15. CLI-native and agent-first. mzDraw is born usable through the CLI (`mzlab-cli mol draw`) by people and above all by AI agents, to draw canvases of every kind as fast, as safely and as reproducibly as possible. Every feature is first a Rust command with a machine-readable form (`draw_edit/1` JSON ops, `--json` with stable keys, distinct exit codes, data on stdout and diagnostics on stderr, a `--dry-run` / validate mode, batch input and stdin streaming, deterministic bytes, no browser in the path); the page is one client of that same command set. A feature without a CLI route and a test that replays it natively is incomplete.
 - From the CLI rules of the prompts: ids are stable, every operation reports the ids it created and removed, a batch of operations is atomic (all or nothing).
 - A source behind a login or paywall is "not read", never guessed; copy no text, code, test file or artwork of another program or document; never claim fidelity to a product.

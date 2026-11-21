@@ -22,7 +22,7 @@ Out (do not build here, say so in the PR if you meet it):
 
 ## Context
 
-Read first: `CLAUDE.md` (the rules override this prompt), `docs/mzdraw.md` ("Built state": what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
+Read first: `CLAUDE.md` (the rules override this prompt), `docs/built/` (the Built state: what exists; do not rebuild it), the rows named above in `docs/study/arch-cd.md` (what the desktop editors do, with sources), and the files named below.
 
 - `doc.rs` `Obj` (points only today), `scene.rs` (arrow painting), `ops.rs` `Remove` (what happens to objects bound to removed atoms).
 - Study facts: MarvinSketch snaps ends to radicals, lone pairs, charges and bonds and limits arrows per source (MS/marvin_electron-flow-arrows.html); Marvin JS removes an arrow when its source or target changes (MJ/marvin-js_reaction-mechanism.html); ChemDoodle lays pushers out automatically (CDD-G §10.13).
@@ -41,11 +41,11 @@ Tests to add (synthetic data, small):
 
 UI: lone-pair and curved-arrow tools; e2e: draw a pair arrow from a lone pair to a carbon with the mouse and with touch, move the atom, save SVG; screenshot. Screenshots at deviceScaleFactor 2 (`MZDRAW_SHOTS=<dir> node tests/e2e.mjs`), attached to the PR description; keep the touch/pen and keyboard steps of `tests/e2e.mjs` green and add yours.
 
-Docs: keep the "Built state" of `docs/mzdraw.md` true (one bullet for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
+Docs: keep the Built state true: add your note as `docs/built/<slice>.md` (one file for this slice: what it does, the op/setting names, what is not built); update the row(s) of `docs/study/arch-cd.md` to `built` in the same PR.
 
 CLI route and native replay (rule 15): lone pairs and curves are `draw_edit/1` ops (`atom.set lp`, `obj.add t:"curve"`, `obj.set bend`), replayed natively; anchors are ids, so a replayed move of an anchored atom moves the curve in the native SVG too (parity entry with a move after the curve).
 
-Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, write the new size in `measured` and the delta in the PR.
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, there is no `measured` to write (the build prints the size); give the delta in the PR.
 
 ## Acceptance
 
@@ -58,7 +58,7 @@ cargo build --locked -p mzdraw --example replay && node tests/parity.mjs
 node tests/e2e.mjs
 ```
 
-If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend `tests/data/mzdraw_log.json` with the new op(s) so that the parity test replays them.
+If a golden output changes because of this slice (and only then), rewrite it with `MZDRAW_BLESS=1 cargo test -p mzdraw --test replay` and explain each changed file in the PR. Extend your own file `tests/data/log/<area>.json` with the new op(s) so that the parity test replays them.
 
 ## Messages
 

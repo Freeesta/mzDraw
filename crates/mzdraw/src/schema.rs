@@ -296,30 +296,49 @@ pub const OPS: &[OpSpec] = &[
     },
 ];
 
-/// One field of the request of `replay` (the route of `mzlab-cli mol draw`), next to the operations.
+/// One field of the replay request (`mol draw`), or one arm of its `expect`.
 pub struct RequestSpec {
+    /// `request` for a field of the request, `expect` for an arm of the list `expect`.
+    pub section: &'static str,
     pub key: &'static str,
     pub ty: &'static str,
-    pub note: &'static str,
+    /// What the field does, one sentence.
+    pub meaning: &'static str,
 }
 
-/// The request fields that do not belong to an operation: the commands of the editor, run after `log` and before `out`.
+const fn r(
+    section: &'static str,
+    key: &'static str,
+    ty: &'static str,
+    meaning: &'static str,
+) -> RequestSpec {
+    RequestSpec {
+        section,
+        key,
+        ty,
+        meaning,
+    }
+}
+
+/// The fields of the replay request, then the arms of `expect`: what `replay::replay` reads. A field outside the table is an invalid
+/// request (`error.draw2.requestField`), an arm outside it too (`error.draw2.expect`).
 pub const REQUEST: &[RequestSpec] = &[
-    RequestSpec {
-        key: "commands",
-        ty: "json[]",
-        note: "[{\"command\":NAME,\"args\":{...}}]: editor commands (move, rotate, flip); the route of the anchored arrows follows; a refused command stops the request; not with `command`",
-    },
-    RequestSpec {
-        key: "command",
-        ty: "string",
-        note: "one command, with `args`: the same as a `commands` list of length one; not with `commands`",
-    },
-    RequestSpec {
-        key: "args",
-        ty: "json",
-        note: "the fields of the operation of the same name as `command` (a rotate without x, y or a flip without at works about the centre of its atoms)",
-    },
+    r("request", "import", "string", "a structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES"),
+    r("request", "style", "string|object", "the style of the SVG: a preset name or a settings file"),
+    r("request", "set", "string[]", "settings applied after `style`, each `<section>.<key>=<value>`"),
+    r("request", "log", "json[]", "the command log, operations of `draw_edit/1`"),
+    r("request", "out", "string", "the output wanted (`mzdraw` by default): a format name, `log`, `std`, `schema` or `settings`"),
+    r("request", "commands", "object[]", "editor commands `[{\"command\":NAME,\"args\":{...}}]` (move, rotate, flip), run after `log` and before `out`; the route of the anchored arrows follows; not with `command`"),
+    r("request", "command", "string", "one editor command, with `args`: the same as a `commands` list of length one; not with `commands`"),
+    r("request", "args", "object", "the fields of the operation of the same name as `command` (a rotate without x, y or a flip without at works about the centre of its atoms)"),
+    r("request", "report", "bool", "answer with one `draw-result/1` document instead of the bare output"),
+    r("request", "dry_run", "bool", "run and report everything, write nothing: the document has no `out`; implies `report`"),
+    r("request", "expect", "object[]", "postconditions on the final drawing, one arm each; a non-empty list implies `report`"),
+    r("request", "id", "string|uint", "echoed as the `id` of the document (default: the index of the request in its batch)"),
+    r("expect", "std", "string", "`\"none\"`: the drawing has no `std/1` finding"),
+    r("expect", "std_absent", "string[]", "none of these `std/1` keys is found"),
+    r("expect", "pieces", "uint", "the atoms form exactly this many connected pieces"),
+    r("expect", "smiles", "string", "the SMILES of the whole drawing equals this text"),
 ];
 
 /// The row of an operation by name.
@@ -362,16 +381,17 @@ pub fn json() -> String {
         }
         out.push_str("]}");
     }
-    out.push_str(r#"],"request":["#);
-    for (i, r) in REQUEST.iter().enumerate() {
+    out.push_str("],\"request\":[");
+    for (i, x) in REQUEST.iter().enumerate() {
         if i > 0 {
             out.push(',');
         }
         out.push_str(&format!(
-            r#"{{"key":{},"type":{},"note":{}}}"#,
-            q(r.key),
-            q(r.ty),
-            q(r.note)
+            r#"{{"section":{},"key":{},"type":{},"meaning":{}}}"#,
+            q(x.section),
+            q(x.key),
+            q(x.ty),
+            q(x.meaning)
         ));
     }
     out.push_str("]}");

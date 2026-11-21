@@ -7,11 +7,16 @@ use crate::editor::Editor;
 use crate::ops::{Op, OpError};
 use serde_json::{json, Value};
 
+/// Whether `name` is a command of this editor.
+pub(crate) fn known(name: &str) -> bool {
+    matches!(name, "move" | "rotate" | "flip")
+}
+
 /// Runs one command as one undo step, with the route operations of the arrows that follow. The error is an i18n key and the id it
 /// is about.
 pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpError> {
     let bad = |key| OpError { key, id: 0 };
-    if !matches!(name, "move" | "rotate" | "flip") {
+    if !known(name) {
         return Err(bad("error.draw2.command"));
     }
     let mut v = args.clone();
