@@ -235,7 +235,7 @@ The SVG sizes include the carried `mzdraw/1` document; the PNG sizes do not incl
 Not proposed: EPS (turned off in Office, PDF covers the publishers), EMF (Windows only; its better text handling in Office is reported only by community answers `*`; LATER in the desktop app).
 
 ### 2.10 Where each format lives, and what overlaps with mzLab today
-Rule asked by the coordinator (COO 16): the draw route of mzLab must be pinned and called, not written twice. Read for this study (S35): on mzLab `main` at `76a4703` the draw route is in **`mzlab-feat`** (`src/chem/draw.rs`, `draw_svg.rs`, `draw_png.rs`, `draw_file.rs` with `ket()` and `cdxml()` writers, `draw_cip.rs`, `draw_label.rs`, `draw_font.rs`), not in `mzlab-mol`; it takes its own `Drawn` / `Figure` types (a structure laid out from a record), and it landed after the pin of mzDraw (`ccd4680`), so calling it needs a pin move (rule 9: a PR of its own). `mzlab-mol` holds the layout (`layout_2d`, `layout_2d_fixed`, `layout/clean.rs` with overlap removal), already at the pin.
+Rule asked by the coordinator (COO 16): the draw route of mzLab must be pinned and called, not written twice. Read for this study (S35): on mzLab `main` at `76a4703` the draw route is in **`mzlab-feat`** (`src/chem/draw.rs`, `draw_svg.rs`, `draw_png.rs`, `draw_file.rs` with `ket()` and `cdxml()` writers, `draw_cip.rs`, `draw_label.rs`, `draw_font.rs`), not in `mzlab-mol`; it takes its own `Drawn` / `Figure` types (a structure laid out from a record), and, checked with `git cat-file` on the mzLab history, `draw_file.rs`, `draw_svg.rs`, `draw_png.rs` and `draw_cip.rs` do not exist at the pin of mzDraw (`ccd4680`) while `draw.rs` does, so calling them needs a pin move (rule 9: a PR of its own). `mzlab-mol` holds the layout (`layout_2d`, `layout_2d_fixed`, `layout/clean.rs` with overlap removal), already at the pin.
 Proposed placement:
 - **(a) `mzlab-mol`** (shared with the CLI; PR through COO 16 / COO-DRAW): every format whose content is the chemistry of a record: molfile V2000/V3000, SDF, RXN/RDF, SMILES (with an aromatic "standard form" option), CXSMILES (a writer: today only the stereo-group tail is read), SMARTS (if ever), PDB/mmCIF ligands, XYZ, MOL2, CIF, InChI (outside the wasm); the 2D layout and clean-up; CIP perception.
 - **(b) `crates/mzdraw` only**: what carries the drawing as drawn (positions as the user left them, wedges as drawn, arrows, plus signs, texts, objects, annotations, unknown fields): `mzdraw/1`, the editor's SVG/PNG/PDF from its display list, KET, CDXML/CDX, MRV, CML documents, the clipboard, the import report, the conformance report `std/1`.
@@ -350,13 +350,13 @@ Priority for mzDraw: **MUST** (needed to be better than Ketcher for a chemist wh
 | 43 | pass with a real screen reader | S22 | SHOULD (cannot run here) | - | S |
 | 44 | conformance report `std/1` on the page (list, click to select the atoms) | this study | MUST (the checks must be seen) | `"out":"std"` | S |
 | 45 | molfile, SDF, KET, CDXML, CML, MRV, RXN in; SVG, PNG out (built) | S9-S14, S18, S20 | MUST (built) | `import`, `out` | - |
-| 46 | CDX binary read | S10 | LATER | `import` | L |
+| 46 | CDX binary read | S10, §2.8 (owner requirement) | MUST (prompt 22) | `import` | L |
 | 47 | Haworth, chair, Fischer templates | S2 | LATER (class drawings, not for software reading) | templates | M |
 | 48 | macromolecules, query features, S-groups other than abbreviations | `CLAUDE.md` | OUT (scope) | listed on import | - |
 | 49 | EMF / OLE clipboard | `mzdraw-formats.md` §1 | OUT of the page; LATER in the desktop app | - | L |
 | 50 | default download: SVG on a white ground, start-anchored text, document carried; a Download menu with every format | §2.9 (S32, S8, measured sizes) | MUST (owner requirement) | `out` `svg`; setting `style.background` | S |
 | 51 | Copy puts PNG, molfile text and, where supported, SVG on the clipboard | §2.9 (S25, S33, S34) | MUST | clipboard payload list from Rust | S |
-Counts (rows 1-51, a row with two words counts under its first): MUST 20 (4 of them built: rows 1, 3, 9, 45), SHOULD 20, LATER 8, OUT 3. The formats of §2.8 are counted there.
+Counts (rows 1-51, a row with two words counts under its first): MUST 21 (4 of them built: rows 1, 3, 9, 45), SHOULD 20, LATER 7, OUT 3. The formats of §2.8 are counted there.
 
 ## 6. Proposed DEV slices (prompts)
 One small slice each, in the order a coordinator can run them; none repeats a built feature. Each prompt is self-contained (`docs/prompts/arch-std-NN-slug.md`).
