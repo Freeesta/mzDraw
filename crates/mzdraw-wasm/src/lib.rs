@@ -488,6 +488,12 @@ pub fn text_input(text: &str) -> u32 {
     act(|e| e.text_input(text))
 }
 
+/// Whether keys and the clipboard act on the characters of a text being edited.
+#[wasm_bindgen]
+pub fn text_editing() -> bool {
+    with(|p| p.editor.text_editing())
+}
+
 /// A double click or a double tap at a point: a text under it is selected, edited and its word under the point selected.
 #[wasm_bindgen]
 pub fn text_double(x: f64, y: f64) -> u32 {
