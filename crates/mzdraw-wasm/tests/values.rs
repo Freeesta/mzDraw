@@ -320,7 +320,10 @@ fn the_glue_path_with_the_real_engine_scales_linearly_in_the_structures() {
         assert_eq!(v["error"], Value::Null);
     };
     let (a, b) = (best(|| run(&small)), best(|| run(&large)));
-    assert!(b <= 8 * a, "25 structures {a} us, 100 structures {b} us");
+    assert!(
+        b <= 8 * a.max(1),
+        "25 structures {a} us, 100 structures {b} us"
+    );
 }
 
 #[test]

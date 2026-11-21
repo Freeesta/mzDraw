@@ -402,7 +402,7 @@ fn best(f: impl Fn()) -> u128 {
 /// over the linear ratio for noise.
 fn assert_linear(what: &str, small: u128, large: u128) {
     assert!(
-        large <= 8 * small,
+        large <= 8 * small.max(1),
         "{what}: {small} us, four times the size {large} us"
     );
 }

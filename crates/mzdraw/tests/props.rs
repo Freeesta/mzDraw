@@ -557,7 +557,7 @@ fn best(f: impl Fn()) -> u128 {
 /// are chosen so that the small run takes milliseconds, and the bound 8 leaves a factor two for noise.
 fn assert_linear(what: &str, small: u128, large: u128) {
     assert!(
-        large <= 8 * small,
+        large <= 8 * small.max(1),
         "{what}: {small} us, four times the size {large} us"
     );
 }
