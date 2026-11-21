@@ -34,6 +34,8 @@ pub const ABBREVIATIONS: &[(&str, &str)] = &[
     ("SO3H", "S(=O)(=O)O"),
     ("TMS", "[Si](C)(C)C"),
     ("TBS", "[Si](C)(C)C(C)(C)C"),
+    // the glucuronic acid residue as a glycoside (C6H9O6 on the atom it replaces a hydrogen of): the anomeric carbon first, no stereo
+    ("GlcA", "C1OC(C(=O)O)C(O)C(O)C1O"),
 ];
 
 /// What a label is.
@@ -64,8 +66,8 @@ pub fn kind(label: &str) -> Option<Kind> {
 /// Abbreviations that are one unit inside a longer label (`OMe`, `NHBoc`, `CO2Et`): the names of the table that are not made of element
 /// symbols, plus the usual prefixed butyls and propyls. Longest names first, so that `Boc` is read before `Bo...`.
 const UNITS: &[&str] = &[
-    "Boc", "Cbz", "Fmoc", "TMS", "TBS", "iPr", "nPr", "tBu", "nBu", "sBu", "iBu", "Me", "Et", "Pr",
-    "Bu", "Ph", "Bn", "Ac", "Bz", "Ts", "Ms", "Tf",
+    "Boc", "Cbz", "Fmoc", "GlcA", "TMS", "TBS", "iPr", "nPr", "tBu", "nBu", "sBu", "iBu", "Me",
+    "Et", "Pr", "Bu", "Ph", "Bn", "Ac", "Bz", "Ts", "Ms", "Tf",
 ];
 
 /// One unit of a label: an element symbol with its count, an abbreviation (with a count: `Me2`), an `R` group with its number or
