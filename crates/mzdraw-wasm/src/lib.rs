@@ -350,24 +350,54 @@ pub fn set_data(anchor: u32, json: &str) -> u32 {
     })
 }
 
-/// Annotates the structure of the atom `anchor` with a new entry: a confidence level (`ann_schema` lists those of the scale;
+/// Annotates the structure of the atom `anchor` with a new entry: a scale (`ann_schema` lists them; empty: the default) and a
+/// confidence level (`ann_schema` lists those of each scale;
 /// an empty one takes the annotation away), an identifier, the evidence as lines `kind: reference`, a note. An entry that is not
 /// of its shape changes nothing (`error` in `state`).
 #[wasm_bindgen]
-pub fn annotate(anchor: u32, level: &str, identifier: &str, evidence: &str, note: &str) -> u32 {
-    with(|p| p.editor.annotate(anchor, level, identifier, evidence, note))
+pub fn annotate(
+    anchor: u32,
+    scale: &str,
+    level: &str,
+    identifier: &str,
+    evidence: &str,
+    note: &str,
+) -> u32 {
+    with(|p| {
+        p.editor
+            .annotate(anchor, scale, level, identifier, evidence, note)
+    })
 }
 
-/// What an annotation can say, for a surface that builds its fields: `{"scale", "levels": [...], "kinds": [...]}`.
+/// What an annotation can say, for a surface that builds its fields: `{"scale", "levels": [...], "scales": [{"name",
+/// "levels"}], "kinds": [...]}` (`scale` and `levels` are the default scale and its levels). The levels to list for a chosen
+/// scale are `ann_levels`.
 #[wasm_bindgen]
 pub fn ann_schema() -> String {
     let list = |l: &[&str]| format!(r#"["{}"]"#, l.join(r#"",""#));
     format!(
-        r#"{{"scale":"{}","levels":{},"kinds":{}}}"#,
+        r#"{{"scale":"{}","levels":{},"scales":[{}],"kinds":{}}}"#,
         mzdraw::ann::SCALE,
         list(&mzdraw::ann::LEVELS),
+        (mzdraw::ann::SCALES.iter())
+            .map(|s| format!(r#"{{"name":"{}","levels":{}}}"#, s.0, list(s.1)))
+            .collect::<Vec<_>>()
+            .join(","),
         list(&mzdraw::ann::KINDS)
     )
+}
+
+/// The levels to list for the scale `scale` and the current level `file_level` of a structure: `[{"level", "ofFile"}]`,
+/// those of the scale first, then `file_level` flagged `ofFile` when it is not in the scale.
+#[wasm_bindgen]
+pub fn ann_levels(scale: &str, file_level: &str) -> String {
+    let items: Vec<String> = (mzdraw::ann::level_list(scale, file_level).into_iter())
+        .map(|(l, f)| {
+            let level = serde_json::Value::from(l);
+            format!(r#"{{"level":{level},"ofFile":{f}}}"#)
+        })
+        .collect();
+    format!("[{}]", items.join(","))
 }
 
 /// Sets one setting, `<section>.<key>=<value>` (for the style: `style.line_width=2`, `style.colour=mono`).
@@ -426,7 +456,8 @@ pub fn state() -> String {
                     .collect();
                 let ann = s.ann.map_or("null".to_string(), |a| {
                     format!(
-                        r#"{{"level":{},"known":{},"identifier":{},"evidence":{},"note":{},"entries":{}}}"#,
+                        r#"{{"scale":{},"level":{},"known":{},"identifier":{},"evidence":{},"note":{},"entries":{}}}"#,
+                        q(&a.scale),
                         q(&a.level),
                         a.known,
                         q(&a.identifier),
@@ -489,4 +520,46 @@ pub fn replay(request: &str) -> Result<String, JsValue> {
             e.key, e.id
         ))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{json, Value};
+
+    #[test]
+    fn the_annotation_schema_lists_the_scales_and_their_levels() {
+        let v: Value = serde_json::from_str(&ann_schema()).unwrap();
+        assert_eq!(v["scale"], "schymanski-2014");
+        assert_eq!(v["levels"], json!(["1", "2a", "2b", "3", "4", "5"]));
+        assert_eq!(v["scales"][0]["name"], "schymanski-2014");
+        assert_eq!(v["scales"][0]["levels"], v["levels"]);
+        assert_eq!(v["scales"][1]["name"], "charbonnet-2022");
+        assert_eq!(
+            v["scales"][1]["levels"],
+            json!(["1a", "1b", "2a", "2b", "2c", "3a", "3b", "3c", "3d", "4", "5a", "5b"])
+        );
+        assert_eq!(v["scales"].as_array().unwrap().len(), 2);
+        assert!(v["kinds"].as_array().unwrap().contains(&json!("formula")));
+    }
+
+    #[test]
+    fn the_levels_to_list_follow_the_scale_and_flag_the_level_of_the_file() {
+        let list = |s: &str, l: &str| serde_json::from_str::<Value>(&ann_levels(s, l)).unwrap();
+        let pfas = list("charbonnet-2022", "");
+        assert_eq!(pfas.as_array().unwrap().len(), 12);
+        assert!(pfas
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|x| x["ofFile"] == false));
+        // a level of the chosen scale is not "of the file"; one that is not in it is, once, last
+        assert_eq!(list("charbonnet-2022", "3b"), pfas);
+        let other = list("schymanski-2014", "3b");
+        assert_eq!(other.as_array().unwrap().len(), 7);
+        assert_eq!(other[6], json!({"level": "3b", "ofFile": true}));
+        assert_eq!(other[0], json!({"level": "1", "ofFile": false}));
+        // a scale of no table has only the level of the file
+        assert_eq!(list("mine", "x"), json!([{"level": "x", "ofFile": true}]));
+    }
 }
