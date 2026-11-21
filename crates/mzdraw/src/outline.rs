@@ -133,6 +133,63 @@ pub fn pieces(doc: &Document) -> Vec<Piece> {
     out
 }
 
+/// The English words of the text alternative of a saved picture. A small fixed table: the file has no i18n layer.
+const WORDS: [&str; 6] = [
+    "Empty drawing",
+    "and",
+    "with a reaction arrow",
+    "Reaction arrow",
+    "Drawing",
+    "level",
+];
+
+/// The text alternative of a drawing, as `(title, desc)`: the title is the outline line (the Hill formulas of the structures
+/// joined by "and", then the arrow if there is one), the desc lists each structure with its formula and, when it is annotated,
+/// its level. Plain text, not escaped.
+pub fn alternative(doc: &Document) -> (String, String) {
+    let pieces = pieces(doc);
+    let arrow = doc
+        .objects
+        .iter()
+        .any(|o| o.t == crate::doc::ObjKind::Arrow);
+    if pieces.is_empty() && !arrow {
+        let t = if doc.is_empty() { WORDS[0] } else { WORDS[4] };
+        return (t.into(), t.into());
+    }
+    let mut title = String::new();
+    for (i, p) in pieces.iter().enumerate() {
+        if i > 0 {
+            title.push_str(if i + 1 == pieces.len() { " and " } else { ", " });
+        }
+        title.push_str(&p.formula);
+    }
+    let mut desc = String::new();
+    for (i, p) in pieces.iter().enumerate() {
+        if i > 0 {
+            desc.push(' ');
+        }
+        desc.push_str(&p.formula);
+        if let Some(a) = p.ann.as_ref().filter(|a| !a.level.is_empty()) {
+            desc.push_str(&format!(" ({} {})", WORDS[5], a.level));
+        }
+        desc.push('.');
+    }
+    if arrow {
+        if pieces.is_empty() {
+            title.push_str(WORDS[3]);
+            desc.push_str(WORDS[3]);
+            desc.push('.');
+        } else {
+            title.push(' ');
+            title.push_str(WORDS[2]);
+            desc.push(' ');
+            desc.push_str(WORDS[2]);
+            desc.push('.');
+        }
+    }
+    (title, desc)
+}
+
 /// What the atom `id` is, for the line that says where the keyboard focus is.
 pub fn focus(doc: &Document, id: u32) -> Option<Focus> {
     let index = doc.atom_index(id)?;

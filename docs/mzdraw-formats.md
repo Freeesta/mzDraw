@@ -48,7 +48,7 @@ Built in `crates/mzdraw` unless said; R = read, W = write. "Listed" = said in wo
 | CML | yes | yes | molecular convention. In: element and array forms, with or without namespace prefix; R, dummy and list atoms; wedges and hatches. Out: one molecule, R groups as the element `R` with a label, wedges; no arrows or texts (the format has none). Names, formulas, properties, `atomParity` are not read |
 | MRV (Marvin) | yes | no | read by the CML reader: molecules in documents and reactions, the reaction arrow and signs, text boxes, polyline arrows; S-groups, R-group definitions and other graphics counted and listed |
 | CDX, XYZ, PDB | no | no | not built |
-| SVG | own only | yes | the saved SVG carries the document in a `metadata` element; an SVG of another program is refused in words |
+| SVG | own only | yes | the saved SVG carries the document in a `metadata` element and a text alternative (`role="img"`, `title`, `desc`, `xml:lang="en"`; SVG 1.1 elements only); an SVG of another program is refused in words |
 | PNG | own only | yes | 300 dpi on white, drawn by the page from the module's SVG, finished by the module (`iTXt` document, `pHYs`); a PNG of another program is refused in words |
 | PDF | - | no | not started |
 

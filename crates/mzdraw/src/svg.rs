@@ -30,6 +30,19 @@ fn escape(s: &str) -> String {
         .replace('>', "&gt;")
 }
 
+/// The attributes of the root that name the picture for assistive technology (SVG 1.1 plus WAI-ARIA Graphics: the role, the
+/// two elements that label it, the language of their text).
+const ACCESS: &str = " role=\"img\" aria-labelledby=\"svg-title svg-desc\" xml:lang=\"en\"";
+
+/// The `title` and `desc` elements, first children of the root.
+fn alternative(title: &str, desc: &str) -> String {
+    format!(
+        "<title id=\"svg-title\">{}</title>\n<desc id=\"svg-desc\">{}</desc>\n",
+        escape(title),
+        escape(desc)
+    )
+}
+
 /// Where an SVG written by mzDraw carries its document.
 const CARRIED: (&str, &str) = ("<metadata id=\"mzdraw\">", "</metadata>");
 
@@ -73,8 +86,12 @@ pub fn to_svg_styled(doc: &Document, style: &Style) -> String {
 /// `to_svg_styled` with the width and the height of the drawing in points.
 pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
     let Some((x0, y0, mut x1, y1)) = doc.bounds() else {
-        let empty = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"></svg>\n";
-        return (empty.into(), 1.0, 1.0);
+        let (t, d) = crate::outline::alternative(doc);
+        let empty = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"{ACCESS}>\n{}</svg>\n",
+            alternative(&t, &d)
+        );
+        return (empty, 1.0, 1.0);
     };
     let scale = style.bond_length;
     let m = style.metrics(scale, false);
@@ -95,8 +112,10 @@ pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
     let size = ((w * 100.0).round() / 100.0, (h * 100.0).round() / 100.0);
     let (w, h) = (num(w as f32), num(h as f32));
     let mut s = format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}pt\" height=\"{h}pt\" viewBox=\"0 0 {w} {h}\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\">\n"
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}pt\" height=\"{h}pt\" viewBox=\"0 0 {w} {h}\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\"{ACCESS}>\n"
     );
+    let (t, d) = crate::outline::alternative(doc);
+    s.push_str(&alternative(&t, &d));
     let d = &sc.data;
     let mut i = 0;
     while i < d.len() {
