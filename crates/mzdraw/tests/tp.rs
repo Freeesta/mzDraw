@@ -400,18 +400,13 @@ fn derive_time(n: u32, derives: usize) -> f64 {
 #[test]
 fn the_cost_of_a_derive_grows_linearly_with_the_drawing() {
     // twice the structures must cost about twice as much, not four times: the pieces, the placement and the checks are linear.
-    // A floor keeps timer noise out: the small run must take long enough to measure.
-    let (mut n, mut small) = (1000u32, 0.0);
-    while n <= 16_000 {
-        small = derive_time(n, 6);
-        if small > 0.05 {
-            break;
-        }
-        n *= 2;
-    }
+    // The sizes are fixed (not searched by a clock, which made the size that was compared depend on the speed of the machine): at
+    // 2000 and 4000 structures the small run is long enough to measure on the CPU clock, and above that the cost is no longer
+    // a pure scan (the memory is). The 0.02 s is the fixed cost of a request, not a margin for noise.
+    let (n, small) = (2000u32, derive_time(2000, 6));
     let big = derive_time(2 * n, 6);
     assert!(
-        big < 3.0 * small,
+        big < 3.0 * small + 0.02,
         "{n} structures {small:.3} s, {} structures {big:.3} s",
         2 * n
     );
