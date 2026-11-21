@@ -98,8 +98,8 @@ impl<'a> Index<'a> {
         out
     }
 
-    /// The connected pieces, each with ascending ids, ordered by the smallest id.
-    fn pieces(&self) -> Vec<Piece> {
+    /// The connected pieces, each with ascending ids, ordered by the smallest id, and the piece of each atom (by its position).
+    fn piece_index(&self) -> (Vec<Piece>, Vec<usize>) {
         let n = self.doc.atoms.len();
         let mut parent: Vec<usize> = (0..n).collect();
         fn root(p: &mut [usize], mut i: usize) -> usize {
@@ -117,25 +117,64 @@ impl<'a> Index<'a> {
         }
         let mut groups: Vec<Piece> = Vec::new();
         let mut slot = vec![usize::MAX; n];
-        for i in 0..n {
+        let mut of = vec![0usize; n];
+        for (i, g) in of.iter_mut().enumerate() {
             let r = root(&mut parent, i);
             if slot[r] == usize::MAX {
                 slot[r] = groups.len();
                 groups.push(Vec::new());
             }
+            *g = slot[r];
             groups[slot[r]].push(self.doc.atoms[i].id);
         }
         for g in &mut groups {
             g.sort_unstable();
         }
-        groups.sort_by_key(|g| g[0]);
-        groups
+        // ordered by the smallest id: the discovery order is by position, so the groups are renumbered
+        let mut order: Vec<usize> = (0..groups.len()).collect();
+        order.sort_by_key(|&g| groups[g][0]);
+        let mut renumber = vec![0usize; groups.len()];
+        for (new, &old) in order.iter().enumerate() {
+            renumber[old] = new;
+        }
+        for g in &mut of {
+            *g = renumber[*g];
+        }
+        let sorted = order
+            .iter()
+            .map(|&g| std::mem::take(&mut groups[g]))
+            .collect();
+        (sorted, of)
+    }
+
+    /// The pieces wanted as drawings of their own, all built in one pass over the atoms and the bonds (`None` for the others).
+    fn documents(&self, of: &[usize], wanted: &[bool]) -> Vec<Option<Document>> {
+        let mut docs: Vec<Option<Document>> = wanted
+            .iter()
+            .map(|&w| {
+                w.then(|| Document {
+                    next: self.doc.next,
+                    ..Document::default()
+                })
+            })
+            .collect();
+        for (i, a) in self.doc.atoms.iter().enumerate() {
+            if let Some(d) = &mut docs[of[i]] {
+                d.atoms.push(a.clone());
+            }
+        }
+        for b in &self.doc.bonds {
+            if let (Some(p), Some(_)) = (self.pos(b.a), self.pos(b.b)) {
+                docs[of[p]].iter_mut().for_each(|d| d.bonds.push(b.clone()));
+            }
+        }
+        docs
     }
 }
 
 /// The connected pieces of the atoms of a document, each with ascending ids, ordered by their smallest id.
 pub fn pieces(doc: &Document) -> Vec<Piece> {
-    Index::new(doc).pieces()
+    Index::new(doc).piece_index().0
 }
 
 /// A piece as a drawing of its own.
@@ -202,12 +241,13 @@ impl Elem {
         let core = key.core();
         let mut ids = core.clone();
         let mut bonds: Vec<Bond> = Vec::new();
+        let mut seen: BTreeSet<u32> = BTreeSet::new();
         for &c in &core {
             ix.atom(c)?;
             for &i in ix.bonds(c) {
                 let b = &ix.doc.bonds[i];
                 let other = if b.a == c { b.b } else { b.a };
-                if ix.atom(other).is_none() || bonds.iter().any(|x| x.id == b.id) {
+                if ix.atom(other).is_none() || !seen.insert(b.id) {
                     continue;
                 }
                 bonds.push(b.clone());
@@ -313,19 +353,37 @@ impl Geometry {
 /// the same molecule).
 pub struct Snapshot {
     elems: Vec<Elem>,
-    pieces: Vec<(BTreeSet<u32>, Document)>,
+    /// The piece of each element, as an index into `pieces`.
+    piece_of: Vec<usize>,
+    /// The pieces that hold an element: their atoms, ascending, and the drawing of each.
+    pieces: Vec<(Piece, Document)>,
 }
 
 impl Snapshot {
     fn build(ix: &Index, elems: Vec<Elem>) -> Snapshot {
+        let (all, of) = ix.piece_index();
+        let mut wanted = vec![false; all.len()];
+        let mut first: Vec<usize> = Vec::new();
+        for e in &elems {
+            let p = ix.pos(e.atoms[0].id).map_or(0, |i| of[i]);
+            wanted[p] = true;
+            first.push(p);
+        }
+        let mut docs = ix.documents(&of, &wanted);
+        let mut slot = vec![usize::MAX; all.len()];
         let mut pieces = Vec::new();
-        for p in ix.pieces() {
-            let set: BTreeSet<u32> = p.into_iter().collect();
-            if elems.iter().any(|e| set.contains(&e.atoms[0].id)) {
-                pieces.push((set.clone(), sub_document(ix.doc, &set)));
+        for (g, ids) in all.into_iter().enumerate() {
+            if let Some(d) = docs[g].take() {
+                slot[g] = pieces.len();
+                pieces.push((ids, d));
             }
         }
-        Snapshot { elems, pieces }
+        let piece_of = first.iter().map(|&g| slot[g]).collect();
+        Snapshot {
+            elems,
+            piece_of,
+            pieces,
+        }
     }
 
     /// Every element of a document: the start of a request, for the arm `{"stereo":"kept"}`. `None` when there is none.
@@ -369,8 +427,8 @@ pub fn before(doc: &Document, ops: &[Op]) -> Option<Snapshot> {
 /// leaves the piece the same molecule with the same atoms (the mirror image of a meso compound) is no change.
 pub fn changed(doc: &Document, then: &Snapshot, lost: bool) -> Vec<u32> {
     let ix = Index::new(doc);
-    let mut flagged: Vec<&Elem> = Vec::new();
-    for e in &then.elems {
+    let mut flagged: Vec<(usize, &Elem)> = Vec::new();
+    for (k, e) in then.elems.iter().enumerate() {
         match Elem::read(&ix, e.key) {
             Some(now) => {
                 let common: BTreeSet<u32> = (e.neighbours())
@@ -379,12 +437,12 @@ pub fn changed(doc: &Document, then: &Snapshot, lost: bool) -> Vec<u32> {
                     .collect();
                 if matches!(e.key, Key::Centre(_)) && common.len() < 3 {
                     if lost {
-                        flagged.push(e);
+                        flagged.push((k, e));
                     }
                     continue;
                 }
                 if e.text(&common) != now.text(&common) {
-                    flagged.push(e);
+                    flagged.push((k, e));
                 }
             }
             // gone: a step of geometry never does it, a structure edit does (said only when `lost`); a centre that lost its wedge
@@ -392,7 +450,7 @@ pub fn changed(doc: &Document, then: &Snapshot, lost: bool) -> Vec<u32> {
             None => {
                 let still = matches!(e.key, Key::Centre(c) if ix.neighbours(c).len() >= 3);
                 if lost || still {
-                    flagged.push(e);
+                    flagged.push((k, e));
                 }
             }
         }
@@ -400,21 +458,28 @@ pub fn changed(doc: &Document, then: &Snapshot, lost: bool) -> Vec<u32> {
     if flagged.is_empty() {
         return Vec::new();
     }
-    let now_pieces = ix.pieces();
+    // the same molecule drawn mirrored (meso): the piece has the same atoms and the same canonical text. Each piece is looked at once.
+    let (now, of) = ix.piece_index();
+    let mut end: Vec<Option<usize>> = Vec::new();
+    let mut wanted = vec![false; now.len()];
+    for &(k, _) in &flagged {
+        let p = ix.pos(then.elems[k].atoms[0].id).map(|i| of[i]);
+        if let Some(p) = p.filter(|&p| now[p] == then.pieces[then.piece_of[k]].0) {
+            wanted[p] = true;
+        }
+        end.push(p);
+    }
+    let mut docs = ix.documents(&of, &wanted);
     let mut same: Vec<Option<bool>> = vec![None; then.pieces.len()];
     let mut out = BTreeSet::new();
-    for e in flagged {
-        let first = e.atoms[0].id;
-        let was = then.pieces.iter().position(|(set, _)| set.contains(&first));
-        let end = now_pieces.iter().find(|p| p.binary_search(&first).is_ok());
-        let unchanged = match (was, end) {
-            (Some(w), Some(p)) if then.pieces[w].0.iter().eq(p.iter()) => *same[w]
-                .get_or_insert_with(|| {
-                    let set: BTreeSet<u32> = p.iter().copied().collect();
-                    let a = canonical_text(&then.pieces[w].1);
-                    a.is_some() && a == canonical_text(&sub_document(doc, &set))
-                }),
-            _ => false,
+    for (n, &(k, _)) in flagged.iter().enumerate() {
+        let (e, w) = (&then.elems[k], then.piece_of[k]);
+        let unchanged = match end[n].and_then(|p| docs[p].take().map(|d| (p, d))) {
+            Some((_, d)) => *same[w].get_or_insert_with(|| {
+                let a = canonical_text(&then.pieces[w].1);
+                a.is_some() && a == canonical_text(&d)
+            }),
+            None => same[w].unwrap_or(false),
         };
         if !unchanged {
             out.extend(e.atoms[..e.core].iter().map(|a| a.id));

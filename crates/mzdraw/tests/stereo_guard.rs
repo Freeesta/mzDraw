@@ -110,6 +110,40 @@ fn dragging_one_neighbour_across_the_others_changes_it() {
     assert_eq!(e.said, ("draw2.say.stereoChanged", "1".to_string()));
 }
 
+/// The keys: `Alt+Shift+Arrow` nudges the selected atoms by a bond length, `Alt+[` turns them; the guard is in their hook too.
+#[test]
+fn a_key_nudge_or_turn_of_one_neighbour_across_a_centre_says_so() {
+    use mzdraw::editor::{ALT, SHIFT};
+    let mut e = editor_with(&centre());
+    let was = smiles(&e);
+    // a nudge of the whole piece: nothing
+    e.select_all();
+    e.key_at("ArrowRight", ALT | SHIFT, 0.0);
+    assert_eq!(e.said.0, "draw2.announce.moved");
+    assert_eq!(e.notice.0, "");
+    // Cl alone, one bond length to the right twice: across Br (the second press, a second later, is a step of its own)
+    e.over.sel_atoms = vec![3];
+    e.key_at("ArrowRight", ALT | SHIFT, 5000.0);
+    assert_eq!(e.notice.0, "", "not across yet: {:?}", e.said);
+    e.key_at("ArrowRight", ALT | SHIFT, 9000.0);
+    assert_eq!(e.notice, ("draw2.say.stereoChanged", "1".to_string()));
+    assert_ne!(smiles(&e), was);
+
+    // a key turn of two neighbours (Cl and Br) about their middle: a half turn in 15 degree presses swaps them
+    let mut e = editor_with(&centre());
+    e.over.sel_atoms = vec![3, 4];
+    let mut said = false;
+    for k in 0..12 {
+        e.key_at("[", ALT, 5000.0 * f64::from(k + 1));
+        said |= e.notice.0 == "draw2.say.stereoChanged";
+    }
+    assert!(
+        said,
+        "the half turn of two neighbours is said by a key turn"
+    );
+    assert_ne!(smiles(&e), was);
+}
+
 #[test]
 fn only_the_centres_that_changed_are_named() {
     let mut e = imported("C[C@H](F)[C@H](Cl)Br");
@@ -486,6 +520,114 @@ fn kill_test_one_thousand_documents_five_geometry_edits_each() {
         other_changed > 100,
         "the generator must produce changes: {other_changed}"
     );
+}
+
+/// The floor under the kill test: the plain flip of a fresh chiral, non-meso drawing (one centre, two centres, a centre with a
+/// double bond, an amino acid; `@` or `@@` at random) is the other enantiomer, and the guard must say it every time.
+#[test]
+fn a_plain_flip_of_a_fresh_chiral_drawing_is_always_flagged() {
+    let mut r = Rng(11);
+    let mut n = 0;
+    for _ in 0..1000 {
+        let at = |r: &mut Rng| if r.next() < 0.5 { "@" } else { "@@" };
+        let (a, b) = (at(&mut r), at(&mut r));
+        let smi = match r.below(4) {
+            0 => format!("C[C{a}H](F)Cl"),
+            1 => format!("C[C{a}H](F)[C{b}H](Cl)Br"),
+            2 => format!("C/C=C/[C{a}H](F)Cl"),
+            _ => format!("N[C{a}H](C)C(=O)O"),
+        };
+        let mut e = imported(&smi);
+        let ids: Vec<u32> = e.doc().atoms.iter().map(|a| a.id).collect();
+        let op = Op::Flip {
+            atoms: ids,
+            axis: if r.next() < 0.5 { Axis::H } else { Axis::V },
+            at: r.next() * 4.0 - 2.0,
+        };
+        let guard = mzdraw::stereo_guard::before(e.doc(), std::slice::from_ref(&op))
+            .expect("a chiral drawing has elements");
+        e.session.run(std::slice::from_ref(&op)).unwrap();
+        assert!(
+            !mzdraw::stereo_guard::changed(e.doc(), &guard, false).is_empty(),
+            "{smi}"
+        );
+        n += 1;
+    }
+    assert!(n >= 1000);
+}
+
+/// Separate pieces cost in proportion to their number: k chiral molecules, all mirrored by one step, take k times one (a quadratic
+/// version took 1.3 s for 4,000 in a release build).
+#[test]
+fn the_guard_scales_with_the_number_of_pieces() {
+    let time = |k: u32| {
+        let mut s = Session::default();
+        let mut atoms = Vec::new();
+        let mut bonds = Vec::new();
+        for i in 0..k {
+            let (x, y) = (f64::from(i % 50) * 4.0, f64::from(i / 50) * 4.0);
+            for (el, dx, dy) in [
+                ("C", 0.0, 0.0),
+                ("F", 0.0, 1.0),
+                ("Cl", -0.9, -0.5),
+                ("Br", 0.9, -0.5),
+            ] {
+                atoms.push(Op::AtomAdd {
+                    id: None,
+                    el: el.into(),
+                    x: x + dx,
+                    y: y + dy,
+                    map: None,
+                });
+            }
+            let c = i * 4 + 1;
+            bonds.push(Op::BondAdd {
+                id: None,
+                a: c,
+                b: c + 1,
+                o: 1,
+                s: 1,
+            });
+            bonds.push(Op::BondAdd {
+                id: None,
+                a: c,
+                b: c + 2,
+                o: 1,
+                s: 0,
+            });
+            bonds.push(Op::BondAdd {
+                id: None,
+                a: c,
+                b: c + 3,
+                o: 1,
+                s: 0,
+            });
+        }
+        s.run(&atoms).unwrap();
+        s.run(&bonds).unwrap();
+        let ids: Vec<u32> = s.doc.atoms.iter().map(|a| a.id).collect();
+        let op = Op::Flip {
+            atoms: ids,
+            axis: Axis::H,
+            at: 100.0,
+        };
+        let t = std::time::Instant::now();
+        let guard = mzdraw::stereo_guard::before(&s.doc, std::slice::from_ref(&op)).unwrap();
+        s.run(std::slice::from_ref(&op)).unwrap();
+        let named = mzdraw::stereo_guard::changed(&s.doc, &guard, false);
+        assert_eq!(named.len(), k as usize, "every centre is said");
+        t.elapsed().as_secs_f64() * 1000.0
+    };
+    let (small, big) = (time(500), time(2000));
+    println!("guarded mirror of 500 pieces: {small:.1} ms, of 2000: {big:.1} ms");
+    // linear is 4 times, quadratic 16 times; 9 leaves room for noise
+    assert!(
+        big < 9.0 * small.max(1.0),
+        "{small} ms for 500, {big} ms for 2000"
+    );
+    if !cfg!(debug_assertions) {
+        assert!(big < 600.0, "{big} ms for 2000 pieces in a release build");
+    }
 }
 
 // ----- the budget -----

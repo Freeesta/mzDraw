@@ -644,6 +644,17 @@ try {
     await pg.mouse.up();
     assert((await g.smiles()) !== was, "the drag changed the configuration");
     eq(await shown(), await say(g.centre));
+    // the keys: Alt+Shift+Arrow moves the selected atom one bond length; the C neighbour goes to the mirror point through the centre
+    await pg.keyboard.press("Control+z"); eq(await g.smiles(), was);
+    await pg.mouse.click(cx + 250, cy + 250);
+    const f2 = await g.px(g.c), a2 = await g.px(g.centre);
+    await pg.mouse.click(...f2); await want(pg, { selected: 1 });
+    const nx = Math.round(2 * (a2[0] - f2[0]) / 40), ny = Math.round(2 * (a2[1] - f2[1]) / 40);
+    let said = false;
+    for (const [key, n] of [[nx > 0 ? "Alt+Shift+ArrowRight" : "Alt+Shift+ArrowLeft", Math.abs(nx)], [ny > 0 ? "Alt+Shift+ArrowDown" : "Alt+Shift+ArrowUp", Math.abs(ny)]])
+      for (let i = 0; i < n; i++) { await pg.keyboard.press(key); said = said || (await shown()) === await say(g.centre); }
+    assert(said, "a key nudge of one neighbour across the centre says where the configuration changed");
+    assert((await g.smiles()) !== was, "the key nudges changed the configuration");
   });
 
   await step("labels: an abbreviation and an R group are chosen, typed, refused in words, drawn and expanded in the molfile", async () => {
