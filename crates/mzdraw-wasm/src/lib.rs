@@ -276,7 +276,7 @@ pub fn open(text: &str) -> Result<u32, JsValue> {
     })
 }
 
-/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log` (the command log) or `std` (the drawing checks).
+/// The drawing as `mzdraw` (the document), `molfile`, `molfile-v3000`, `smiles`, `ket`, `cdxml`, `cml`, `rxn`, `sdf`, `svg`, `log` (the command log), `std` (the drawing checks) or `settings`.
 #[wasm_bindgen]
 pub fn save(kind: &str) -> Result<String, JsValue> {
     with(|p| p.editor.save(kind).map_err(js_err))
@@ -412,10 +412,57 @@ pub fn settings_schema() -> String {
     mzdraw::settings::schema_json()
 }
 
-/// The current style as a settings file.
+/// The current settings file: the style, the layout of the palettes and the export defaults.
 #[wasm_bindgen]
 pub fn style() -> String {
-    with(|p| p.editor.style.to_json())
+    with(|p| p.editor.settings_json())
+}
+
+/// The palettes laid out in a viewport of `w` x `h` pixels, from the sizes the page measured (`sizes`: a JSON list of
+/// `[id, width, height]`, or empty to keep the last ones). JSON as `Layout::arranged_json` writes it.
+#[wasm_bindgen]
+pub fn palettes(w: f64, h: f64, sizes: &str) -> String {
+    let sizes = mzdraw::palettes::sizes_of(sizes);
+    with(|p| p.editor.layout.arranged_json(w, h, &sizes))
+}
+
+/// An action on the palette `id`: `press`, `drag`, `release` at the page point (`x`, `y`) of its handle, `cancel`, a key on
+/// its handle (`key:<name as the browser names it>`, Shift in `shift`), `hidden`, `collapsed`, `orient` (toggles), `reset`
+/// (every palette), `all` (hide or show every palette). Returns `PALETTES` (128) when the layout changed, else 0.
+#[wasm_bindgen]
+pub fn palette(action: &str, id: &str, x: f64, y: f64, shift: bool) -> u32 {
+    with(|p| {
+        let l = &mut p.editor.layout;
+        let changed = match action {
+            "press" => l.press(id, x, y),
+            "drag" => l.drag(x, y),
+            "release" => l.release(x, y),
+            "cancel" => l.cancel(),
+            "reset" => {
+                l.reset();
+                true
+            }
+            "all" => {
+                l.all_hidden = !l.all_hidden;
+                true
+            }
+            a => match a.strip_prefix("key:") {
+                Some(k) => l.key(id, &k.to_ascii_lowercase(), shift),
+                None => l.toggle(id, a),
+            },
+        };
+        if changed {
+            mzdraw::editor::PALETTES
+        } else {
+            0
+        }
+    })
+}
+
+/// What one click on Save writes: `{"default": <format>, "background": "white" | "none"}` of the settings.
+#[wasm_bindgen]
+pub fn export_settings() -> String {
+    with(|p| p.editor.export.to_json())
 }
 
 /// The labels the label tool takes: the abbreviations of the table, then `R` and `R1` ... `R9` (up to `R32` can be typed).
