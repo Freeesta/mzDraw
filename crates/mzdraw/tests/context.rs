@@ -56,6 +56,11 @@ fn scenario(name: &str) -> (Editor, (f64, f64)) {
             e.select_all();
             atom_px(&e, 2)
         }
+        "bond selection" => {
+            let b = e.doc().bonds[0].id;
+            e.over.sel_bonds = vec![b];
+            bond_px(&e, b)
+        }
         "text" => object_px(&e, obj),
         "plus" => object_px(&e, e.doc().objects[1].id),
         "canvas" => (40.0, 40.0),
@@ -77,10 +82,11 @@ fn scenario(name: &str) -> (Editor, (f64, f64)) {
     (e, at)
 }
 
-const SCENARIOS: [&str; 8] = [
+const SCENARIOS: [&str; 9] = [
     "atom",
     "bond",
     "selection",
+    "bond selection",
     "text",
     "plus",
     "canvas",
@@ -477,4 +483,92 @@ fn every_item_runs_and_its_undo_restores_the_identical_document() {
         }
     }
     assert!(ran >= 60, "{ran} items ran");
+}
+
+#[test]
+fn a_selection_of_a_bond_alone_has_nothing_to_copy_and_deletes_the_bond_only() {
+    let (mut e, at) = scenario("bond selection");
+    let b = e.doc().bonds[0].id;
+    let m = parse(&e.context_menu(at.0, at.1));
+    assert_eq!(m["target"], "selection");
+    assert_eq!(
+        (e.over.sel_atoms.len(), e.over.sel_bonds.clone()),
+        (0, vec![b]),
+        "the selection is kept as it was"
+    );
+    for id in [
+        "edit.cut",
+        "edit.copy",
+        "edit.duplicate",
+        "sel.rotate.l",
+        "sel.flip.h",
+        "sel.copyas.molfile",
+        "sel.copyas.smiles",
+    ] {
+        assert_eq!(find(&m, id)["enabled"], false, "{id}");
+    }
+    assert_eq!(find(&m, "edit.delete")["enabled"], true);
+    let (atoms, bonds) = (e.doc().atoms.len(), e.doc().bonds.len());
+    assert_eq!(e.context_run("edit.delete") & CHANGED, CHANGED);
+    assert_eq!(
+        (e.doc().atoms.len(), e.doc().bonds.len()),
+        (atoms, bonds - 1)
+    );
+}
+
+#[test]
+fn the_charge_items_are_disabled_at_the_limit_of_the_charge() {
+    let (mut e, at) = scenario("atom");
+    for (chg, plus, minus) in [(3, true, true), (4, false, true), (-4, true, false)] {
+        let set = Op::AtomSet {
+            id: 1,
+            el: None,
+            chg: Some(chg),
+            iso: None,
+            rad: None,
+            h: None,
+            lab: None,
+        };
+        e.session.run(&[set]).unwrap();
+        let m = parse(&e.context_menu(at.0, at.1));
+        assert_eq!(find(&m, "atom.chg.plus")["enabled"], plus, "charge {chg}");
+        assert_eq!(find(&m, "atom.chg.minus")["enabled"], minus, "charge {chg}");
+    }
+}
+
+#[test]
+fn a_coordinate_that_is_not_finite_never_reaches_the_view() {
+    for (x, y) in [
+        (f64::NAN, 10.0),
+        (10.0, f64::INFINITY),
+        (f64::NEG_INFINITY, f64::NAN),
+    ] {
+        let (mut e, _) = scenario("canvas");
+        let m = parse(&e.context_menu(x, y));
+        assert_eq!(m["target"], "canvas");
+        for id in ["canvas.zoom.in", "canvas.zoom.out"] {
+            e.context_menu(x, y);
+            e.context_run(id);
+            let v = e.view;
+            assert!(
+                v.scale.is_finite() && v.ox.is_finite() && v.oy.is_finite(),
+                "{id} at ({x}, {y}): {v:?}"
+            );
+        }
+    }
+    // and the zoom of the editor itself ignores what it cannot use
+    let (mut e, _) = scenario("canvas");
+    let view = e.view;
+    for (x, y, f) in [
+        (f64::NAN, 1.0, 1.1),
+        (1.0, 1.0, f64::INFINITY),
+        (1.0, 1.0, 0.0),
+        (1.0, 1.0, -2.0),
+    ] {
+        assert_eq!(e.zoom(x, y, f), 0);
+    }
+    assert_eq!(
+        (e.view.scale, e.view.ox, e.view.oy),
+        (view.scale, view.ox, view.oy)
+    );
 }

@@ -4,6 +4,12 @@
 //! runs one item through the commands the page already has (one undo step), and closes the menu. Every item is an existing
 //! command (an `Op` of the `draw_edit/1` log, the clipboard, the selection, the view), so the CLI route exists for all of them.
 //!
+//! `key` is the key the page binds to the same function, shown as a hint. It is the key of the item's action for Ctrl+Z / Y / A / D
+//! and Del; Ctrl+C / X / V are clipboard events of the page, and the item does the same through `context_run` (the page mirrors the
+//! editor's clipboard to the system one on the answer `clipboard`). For the keys that only pick a tool (1-3, W, Shift+W, Y, + and -
+//! with no focused atom, the element letters) the menu item applies the choice to the atom or bond under the pointer at once: the key
+//! is the hint of the same choice, not of the same gesture.
+//!
 //! Items the editor cannot finish alone (a field to fill, a file to write, the size of the canvas) answer with the flag `ASK` and
 //! leave what the page has to do in `context_ask()`: `element:<atom>`, `label:<atom>`, `data:<atom>`, `annotation:<atom>`,
 //! `text:<object>`, `import`, `fit`, `save-image`, `clipboard` (mirror the editor's clipboard to the system one) and
@@ -11,6 +17,7 @@
 //!
 //! A menu is a picture of the state at the click: it remembers a fingerprint of the document, the selection, the clipboard and the
 //! view, and an item run after any of them changed is refused (`error.draw2.contextStale`), so a stale menu cannot act on an old target.
+//! The view is part of the fingerprint: a pan or a zoom between opening and running closes the menu, as a change of the document does.
 
 use crate::doc::{ObjKind, WEDGE_DOWN, WEDGE_UP, WEDGE_WAVY};
 use crate::editor::{Editor, Hit, CHANGED, MOUSE, REPAINT};
@@ -22,6 +29,9 @@ use std::hash::{Hash, Hasher};
 pub const ASK: u32 = 128;
 /// The i18n key of the line shown instead of an export on an empty canvas.
 pub const EMPTY_NOTICE: &str = "draw2.ctx.empty";
+
+/// The charge of an atom is kept within +-4 (`Op::AtomSet`): the charge items are disabled at the limit.
+const CHARGE_MAX: i8 = 4;
 
 /// The elements of the quick list, with their keys.
 const ELEMENTS: [(&str, &str); 9] = [
@@ -71,6 +81,14 @@ pub(crate) struct Context {
     ask: String,
 }
 
+fn finite(v: f64) -> f64 {
+    if v.is_finite() {
+        v
+    } else {
+        0.0
+    }
+}
+
 fn item(id: &str, label: &str, key: &str, enabled: bool) -> Value {
     let mut v = json!({"id": id, "label": label, "enabled": enabled});
     if !key.is_empty() {
@@ -106,6 +124,8 @@ impl Editor {
 
     /// `context_menu` for a pointer of the given kind (a finger reaches further).
     pub fn context_menu_at(&mut self, x: f64, y: f64, kind: u32) -> String {
+        // a number the page could not parse must not reach the view (the zoom item keeps this point)
+        let (x, y) = (finite(x), finite(y));
         self.cancel_press();
         let hit = self.hit(x, y, kind);
         let target = self.context_target(hit);
@@ -395,6 +415,7 @@ impl Editor {
 
     fn atom_items(&self, a: u32) -> Vec<Value> {
         let now = self.doc().atom(a).map_or("", |x| x.el.as_str());
+        let chg = self.doc().atom(a).map_or(0, |x| x.chg);
         let piece = (crate::layout::pieces(self.doc()).into_iter())
             .find(|p| p.contains(&a))
             .map_or(0, |p| p.len());
@@ -405,8 +426,8 @@ impl Editor {
         elements.push(item("atom.el.more", "More...", "", true));
         vec![
             group("atom.element", "Element", elements),
-            item("atom.chg.plus", "Charge +", "+", true),
-            item("atom.chg.minus", "Charge -", "-", true),
+            item("atom.chg.plus", "Charge +", "+", chg < CHARGE_MAX),
+            item("atom.chg.minus", "Charge -", "-", chg > -CHARGE_MAX),
             item("atom.label", "Label or abbreviation...", "L", true),
             item("atom.data", "Data...", "", true),
             item("atom.ann", "Annotation...", "", true),
@@ -436,7 +457,10 @@ impl Editor {
 
     fn selection_items(&self) -> Vec<Value> {
         let atoms = !self.over.sel_atoms.is_empty();
-        let smiles = atoms && self.selection_doc().to_smiles().is_ok();
+        let doc = self.selection_doc();
+        // a selection of bonds alone holds nothing to copy: atoms and objects are what the clipboard keeps
+        let copyable = !doc.is_empty();
+        let smiles = atoms && doc.to_smiles().is_ok();
         let copy_as = vec![
             item("sel.copyas.molfile", "Molfile", "", atoms),
             item("sel.copyas.smiles", "SMILES", "", smiles),
@@ -444,10 +468,10 @@ impl Editor {
             item("sel.copyas.png", "PNG", "", atoms),
         ];
         vec![
-            item("edit.cut", "Cut", "Ctrl+X", true),
-            item("edit.copy", "Copy", "Ctrl+C", true),
+            item("edit.cut", "Cut", "Ctrl+X", copyable),
+            item("edit.copy", "Copy", "Ctrl+C", copyable),
             item("edit.paste", "Paste", "Ctrl+V", !self.clip.is_empty()),
-            item("edit.duplicate", "Duplicate", "Ctrl+D", true),
+            item("edit.duplicate", "Duplicate", "Ctrl+D", copyable),
             item("sel.rotate.l", "Rotate left", "", atoms),
             item("sel.rotate.r", "Rotate right", "", atoms),
             item("sel.flip.h", "Flip horizontal", "", atoms),

@@ -326,6 +326,10 @@ impl Editor {
 
     /// Zooms by `factor` keeping the point under the pointer still (scale 8-240 px per bond).
     pub fn zoom(&mut self, px: f64, py: f64, factor: f64) -> u32 {
+        // a number that is not finite (or a factor that is not positive) would poison the view for good
+        if ![px, py, factor].iter().all(|v| v.is_finite()) || factor <= 0.0 {
+            return 0;
+        }
         let (x, y) = self.view.to_doc(px, py);
         self.view.scale = (self.view.scale * factor).clamp(8.0, 240.0);
         self.view.ox = px - x * self.view.scale;
