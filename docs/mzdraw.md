@@ -116,6 +116,7 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 | section | key | type | meaning |
 |---|---|---|---|
 | request | `import` | string | a structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES |
+| request | `import_base64` | string | the bytes of a file to start from in base64 (a binary CDX, or a PNG or PDF saved by mzDraw), read after `import` |
 | request | `style` | string\|object | the style of the SVG: a preset name or a settings file |
 | request | `set` | string[] | settings applied after `style`, each `<section>.<key>=<value>` |
 | request | `log` | json[] | the command log, operations of `draw_edit/1` |

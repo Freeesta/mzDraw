@@ -210,9 +210,22 @@ impl Read {
 /// Reads a CDXML text. The error is an i18n key.
 pub(crate) fn from_cdxml(text: &str, info: &mut Imported) -> Result<Document, &'static str> {
     const KEY: &str = "error.draw2.cdxml";
-    let root = xml::parse(text).filter(|r| r.name == "CDXML").ok_or(KEY)?;
+    let root = xml::parse(text).ok_or(KEY)?;
+    from_tree(&root, info, KEY)
+}
+
+/// The document of an element tree whose root is `CDXML`: the text form, and the binary form (`cdx.rs`), which builds the same
+/// tree, go through this one mapping. `key` is the error of the form being read.
+pub(crate) fn from_tree(
+    root: &Element,
+    info: &mut Imported,
+    key: &'static str,
+) -> Result<Document, &'static str> {
+    if root.name != "CDXML" {
+        return Err(key);
+    }
     let mut r = Read::default();
-    r.walk(&root, 0);
+    r.walk(root, 0);
     crate::m::sort(&mut r.ids);
     let mut bonds = Vec::new();
     for (from, to, order, cfg) in &r.bonds {
@@ -220,7 +233,7 @@ pub(crate) fn from_cdxml(text: &str, info: &mut Imported) -> Result<Document, &'
             let k = r.ids.binary_search_by(|x| x.0.cmp(id)).ok()?;
             Some(r.ids[k].1 + 1)
         };
-        let (i, j) = (at(from).ok_or(KEY)?, at(to).ok_or(KEY)?);
+        let (i, j) = (at(from).ok_or(key)?, at(to).ok_or(key)?);
         let cfg = if *cfg == 0 {
             String::new()
         } else {
@@ -229,7 +242,7 @@ pub(crate) fn from_cdxml(text: &str, info: &mut Imported) -> Result<Document, &'
         bonds.push(format!("{order} {i} {j}{cfg}"));
     }
     info.other += r.other;
-    let mut d = crate::formats::assemble(&r.atoms, &bonds, r.objects, r.far, info, KEY)?;
+    let mut d = crate::formats::assemble(&r.atoms, &bonds, r.objects, r.far, info, key)?;
     for (i, lab) in r.groups {
         if let Some(a) = d.atoms.get_mut(i) {
             a.lab = lab;
