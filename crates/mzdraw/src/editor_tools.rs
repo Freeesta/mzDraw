@@ -714,6 +714,7 @@ impl Editor {
             (false, "l") => ASK_LABEL,
             (false, "t") => ASK_TEXT,
             (false, "a") if shift => self.set_tool("arrow"),
+            (false, "d") if shift => self.tp_derive(None),
             // every palette of the page hidden, or shown again: the whole canvas in one key
             (false, "\\") => {
                 self.layout.all_hidden = !self.layout.all_hidden;

@@ -302,6 +302,7 @@ impl Editor {
                 }
                 _ => 0,
             },
+            "tp.derive" => self.tp_derive(if atom != 0 { Some(atom) } else { None }),
             "pathway.route" => {
                 let r = self.pathway_route();
                 self.pathway_flags(r)
@@ -483,6 +484,7 @@ impl Editor {
             item("atom.label", "Label or abbreviation...", "L", true),
             item("atom.data", "Data...", "", true),
             item("atom.ann", "Annotation...", "", true),
+            item("tp.derive", "Derive TP", "Shift+D", true),
             item("edit.copy", "Copy", "Ctrl+C", true),
             item("edit.cut", "Cut", "Ctrl+X", true),
             item("edit.delete", "Delete", "Del", true),
@@ -524,6 +526,7 @@ impl Editor {
             item("edit.copy", "Copy", "Ctrl+C", copyable),
             item("edit.paste", "Paste", "Ctrl+V", !self.clip.is_empty()),
             item("edit.duplicate", "Duplicate", "Ctrl+D", copyable),
+            item("tp.derive", "Derive TP", "Shift+D", atoms),
             item("sel.rotate.l", "Rotate left", "", atoms),
             item("sel.rotate.r", "Rotate right", "", atoms),
             item("sel.flip.h", "Flip horizontal", "", atoms),

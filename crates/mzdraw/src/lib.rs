@@ -44,6 +44,7 @@ pub mod scheme;
 pub mod settings;
 pub mod stereo_guard;
 pub mod svg;
+pub mod tp;
 pub mod trasf;
 pub mod xml;
 

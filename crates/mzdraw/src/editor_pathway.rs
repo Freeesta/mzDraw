@@ -123,3 +123,47 @@ impl Editor {
         }
     }
 }
+
+impl Editor {
+    /// `tp:derive` from the page (the menu item "Derive TP" and Shift+D): the structure of `atom`, or of the focused atom, or of the
+    /// first selected atom, is copied with its maps and an arrow to the copy (`tp::derive` with no patch), one undo step. The copy
+    /// becomes the selection and the tool Select, so the next edit applies to it.
+    pub fn tp_derive(&mut self, atom: Option<u32>) -> u32 {
+        let from = atom
+            .or(self.over.focus)
+            .or_else(|| self.over.sel_atoms.iter().copied().min());
+        let Some(of) = from else {
+            self.error = "error.draw2.tpNone";
+            return REPAINT;
+        };
+        let first = self.doc().next;
+        let ops = match crate::tp::derive(self.doc(), &self.style, of, &[], None) {
+            Ok(ops) => ops,
+            Err(key) => {
+                self.error = key;
+                return REPAINT;
+            }
+        };
+        if let Err(e) = self.run_guarded(&ops) {
+            self.error = e.key;
+            return REPAINT;
+        }
+        let d = self.doc();
+        let atoms: Vec<u32> = (d.atoms.iter())
+            .map(|a| a.id)
+            .filter(|&i| i >= first)
+            .collect();
+        let bonds: Vec<u32> = (d.bonds.iter())
+            .map(|b| b.id)
+            .filter(|&i| i >= first)
+            .collect();
+        let what = atoms
+            .first()
+            .map_or(String::new(), |&a| route::formula_of(d, a));
+        let o = &mut self.over;
+        (o.sel_atoms, o.sel_bonds, o.sel_objs) = (atoms, bonds, Vec::new());
+        self.said = ("draw2.say.derived", what);
+        self.error = "";
+        self.set_tool("select") | REPAINT | CHANGED | crate::editor::TOOL
+    }
+}

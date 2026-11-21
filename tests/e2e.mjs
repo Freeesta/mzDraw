@@ -1984,6 +1984,50 @@ try {
     eq(await replayEq(pg), { mzdraw: true, svg: true });
   });
   await ctx.close();
+
+  // tp-03: Derive TP (menu item, Shift+D) copies the structure with its maps and an anchored, routed arrow; the page equals the golden
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  await step("tp:derive by mouse (right-click), touch (long press) and keyboard (Shift+D): the copy is selected, the page equals the golden (document and picture), the next edit applies to the copy, one undo each", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/tp-derive.json"), "utf8")).cases.find(c => c.name.startsWith("a plain derive"));
+    const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')"), svg = () => pg.evaluate("window.MZDRAW.save('svg')");
+    const menuNow = () => pg.evaluate(`(() => { const m = document.getElementById("d2-menu"); return m.hidden ? null : { target: m.dataset.target, ids: [...m.querySelectorAll("button[data-id]")].map(b => b.dataset.id) }; })()`);
+    const shown = (on = true) => until(pg, `document.getElementById("d2-menu").hidden === ${!on}`);
+    const open = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 0 }); return doc(); };
+    const firstAtom = async () => { const d = await pg.evaluate("window.MZDRAW.scene().slice(0, 5)"), b = await pg.locator("#d2-canvas").boundingBox(); return [b.x + d[1], b.y + d[2]]; };
+    const same = async what => { eq(await doc(), gold.out.mzdraw, what + ": document"); eq(await svg(), gold.out.svg, what + ": picture"); };
+    // mouse
+    let before = await open(); let at = await firstAtom();
+    await pg.mouse.click(...at, { button: "right" }); await shown(); eq((await menuNow()).target, "atom");
+    assert((await menuNow()).ids.includes("tp.derive"), "the atom menu has Derive TP");
+    eq((await pg.innerText(`[data-testid="d2-ctx-tp.derive"]`)).split("\n"), [await pg.evaluate("I18N.t('draw2.ctx.tp.derive')"), "Shift+D"]);
+    await pg.click('[data-testid="d2-ctx-tp.derive"]'); await shown(false); await frames(pg);
+    await same("mouse"); await want(pg, { atoms: 16, objects: 1, selected: 16 });
+    await shot(pg, "tp03-derived");
+    // the next edit applies to the copy (the selection): Alt+Arrow moves it, the parent stays, the arrow follows; one undo
+    const derived = await doc(); await pg.focus("#d2-canvas"); await pg.keyboard.press("Alt+ArrowDown");
+    const moved = JSON.parse(await doc());
+    assert(moved.atoms.filter(a => a.id <= 8).every((a, i) => a.y === JSON.parse(derived).atoms[i].y), "the parent did not move");
+    assert(moved.atoms.filter(a => a.id >= 17).every((a, i) => a.y < JSON.parse(derived).atoms[8 + i].y), "the copy moved");
+    await shot(pg, "tp03-edited");
+    eq(await pg.evaluate(`(() => { const log = JSON.parse(window.MZDRAW.save("log")); return window.MZDRAW.replay(JSON.stringify({ import: ${JSON.stringify(before)}, log, out: "svg" })) === window.MZDRAW.save("svg"); })()`), true);
+    await pg.keyboard.press("Control+z"); eq(await doc(), derived); await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    // keyboard: Home focuses the first atom, Shift+D derives
+    before = await open(); await pg.focus("#d2-canvas"); await pg.keyboard.press("Home"); await until(pg, `${STATE}.focus === 1`);
+    await pg.keyboard.press("Shift+D"); await frames(pg); await want(pg, { atoms: 16, objects: 1 });
+    eq(JSON.parse(await doc()).objects[0].from, 1); eq(JSON.parse(await doc()).objects[0].to, 17);
+    await pg.keyboard.press("Control+z"); eq(await doc(), before);
+    // touch: a long press on an atom opens its menu, a tap on the item derives
+    await open(); at = await firstAtom();
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    await touch("touchStart", [at]); await pg.waitForTimeout(700); await touch("touchEnd", []);
+    await shown(); const [bx, by] = await center(pg, '[data-testid="d2-ctx-tp.derive"]');
+    await pg.touchscreen.tap(bx, by); await shown(false); await frames(pg);
+    await want(pg, { atoms: 16, objects: 1 });
+    eq(JSON.parse(await doc()).atoms.length, 16);
+    await pg.keyboard.press("Control+z"); eq(await doc(), before);
+  });
+  await ctx.close();
 } finally {
   await browser.close();
   if (server) server.close();

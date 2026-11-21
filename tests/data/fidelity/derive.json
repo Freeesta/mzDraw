@@ -1,0 +1,53 @@
+{
+ "format": "fidelity-derive/1",
+ "date": "2026-11-21",
+ "programs": {
+  "rdkit": "2026.09.2"
+ },
+ "success": "3/3",
+ "results": [
+  {
+   "case": "hydroxylation",
+   "reactant": "C6H11NO",
+   "product": "C6H11NO2",
+   "delta": {
+    "O": 1
+   },
+   "expected": {
+    "O": 1
+   },
+   "maps_same_atoms": true,
+   "ok": true
+  },
+  {
+   "case": "demethylation",
+   "reactant": "C6H11NO",
+   "product": "C5H9NO",
+   "delta": {
+    "C": -1,
+    "H": -2
+   },
+   "expected": {
+    "C": -1,
+    "H": -2
+   },
+   "maps_same_atoms": true,
+   "ok": true
+  },
+  {
+   "case": "ring opening (hydrolysis)",
+   "reactant": "C6H11NO",
+   "product": "C6H13NO2",
+   "delta": {
+    "O": 1,
+    "H": 2
+   },
+   "expected": {
+    "H": 2,
+    "O": 1
+   },
+   "maps_same_atoms": true,
+   "ok": true
+  }
+ ]
+}
