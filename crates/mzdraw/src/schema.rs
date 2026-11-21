@@ -324,6 +324,7 @@ const fn r(
 /// request (`error.draw2.requestField`), an arm outside it too (`error.draw2.expect`).
 pub const REQUEST: &[RequestSpec] = &[
     r("request", "import", "string", "a structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES"),
+    r("request", "import_base64", "string", "the bytes of a file to start from in base64 (a binary CDX, or a PNG or PDF saved by mzDraw), read after `import`"),
     r("request", "style", "string|object", "the style of the SVG: a preset name or a settings file"),
     r("request", "set", "string[]", "settings applied after `style`, each `<section>.<key>=<value>`"),
     r("request", "log", "json[]", "the command log, operations of `draw_edit/1`"),

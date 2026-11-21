@@ -15,6 +15,8 @@ import path from "node:path";
 
 const { chromium } = createRequire(import.meta.url)("playwright");       // require, so that a global install (NODE_PATH) is found too
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// a CDX file made of the example of the CDX documentation (dimethylamine: a nitrogen and two carbons, two bonds), as printed there byte by byte
+const CDX = Buffer.from("566A4344303130300403020100000000000000000000000000000000018001000000038008000000048005000000000208000040A40000809400020402000700000004800600000000020800BA03AC004F7AB100000005800200000004060400050000000506040006000000000004800400000000020800BA03AC00B08577000000058003000000040604000500000005060400040000000000000000000000", "hex");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json" };
 let server = null, base = process.argv[2];
 if (!base) {
@@ -90,6 +92,19 @@ const tapPalette = async (pg, id, show) => {
   assert(!!(await rects(pg))[id] === show, `the ${id} palette is ${show ? "shown" : "hidden"}`);
 };
 const frames = pg => pg.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
+/** opens or closes a palette `<details>` by its summary and waits for the page to say so (the palettes lay themselves out again after
+ *  a toggle: a click made before that lands on what moved). On failure the message carries the state of every such element. */
+async function setOpen(pg, sel, open) {
+  const now = () => pg.evaluate(`document.querySelector(${JSON.stringify(sel)}).open`);
+  try {
+    if ((await now()) !== open) { await frames(pg); await pg.locator(sel + " summary").click({ timeout: 5000 }); }
+    await until(pg, `document.querySelector(${JSON.stringify(sel)}).open === ${open}`, 5000);
+    await frames(pg);
+  } catch (e) {
+    const state = await pg.evaluate(() => [...document.querySelectorAll("details")].map(d => [d.id, d.open, JSON.stringify(d.querySelector("summary").getBoundingClientRect())]));
+    throw new Error(`${sel} did not become ${open ? "open" : "closed"}: ${String(e && e.message || e).split("\n")[0]} | details: ${JSON.stringify(state)}`);
+  }
+}
 const center = async (pg, sel) => { const b = await pg.locator(sel).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
 /** the shown palettes lie inside the viewport, no two docked ones overlap, and the canvas is in the area they leave free */
 async function tidy(pg, w, h) {
@@ -290,7 +305,7 @@ try {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", `${ethanol}\n>  <name>\nethanol (synthetic)\n\n>  <note>\nline one\nline two\n\n$$$$\n${ethanol}\n$$$$\n`); await pg.click("#d2-add");
     await want(pg, { atoms: 6, bonds: 4 });
-    await pg.click("#d2-data-more summary");
+    await setOpen(pg, "#d2-data-more", true);
     const rows = () => pg.evaluate("[...document.querySelectorAll('#d2-data fieldset')].map(f => [...f.querySelectorAll('.d2-datum')].map(r => [r.children[0].value, r.children[1].value]))");
     eq(await rows(), [[["name", "ethanol (synthetic)"], ["note", "line one\nline two"]], []]);
     const first = "#d2-data fieldset:nth-of-type(1)", second = "#d2-data fieldset:nth-of-type(2)";
@@ -323,9 +338,9 @@ try {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.setInputFiles("#d2-file", { name: "drawing.sdf", mimeType: "chemical/x-mdl-sdfile", buffer: Buffer.from(sdfOut) }); await want(pg, { atoms: 6, bonds: 4 });
     eq((await rows())[0], [["name", "ethanol, absolute"], ["note", "line one\nline two"], ["purity", "99.8 %"]]);
-    await pg.click("#d2-data-more summary");
+    await setOpen(pg, "#d2-data-more", false);
     // the annotation of a structure: a confidence level of the scale, an identifier, evidence; drawn, saved, read back, undone
-    await pg.click("#d2-ann-more summary");
+    await setOpen(pg, "#d2-ann-more", true);
     const af = "#d2-ann fieldset:nth-of-type(1)", lv = `${af} .d2-annf:nth-of-type(2) select`, sc = `${af} .d2-annf:nth-of-type(1) select`;
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) .d2-annf:nth-of-type(2) select option')].map(o => o.value)"), ["", "1", "2a", "2b", "3", "4", "5"]);
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-ann fieldset:nth-of-type(1) .d2-annf:nth-of-type(1) select option')].map(o => o.value)"), ["schymanski-2014", "charbonnet-2022"]);
@@ -375,7 +390,7 @@ try {
     await pg.selectOption(lv, ""); await pg.click(`${af} button`);
     await until(pg, "document.querySelector('#d2-ann-note').textContent === I18N.t('draw2.ann.gone', { level: '' })");
     eq(await levels(), [null, null]);
-    await pg.click("#d2-ann-more summary");
+    await setOpen(pg, "#d2-ann-more", false);
     // labels that do not crowd: the bond of an O(-) stops after the minus sign, and starts earlier without the charge
     const bondStart = async (/** @type {string} */ first) => {
       await tool(pg, "clear"); await want(pg, { atoms: 0 });
@@ -925,6 +940,16 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await want(pg, { selected: 0 });
     await pg.keyboard.press("Control+z"); await want(pg, { atoms: 2, bonds: 1, std: 0 });      // the line goes with the wedge
   });
+  await step("binary CDX: a file opened by the keyboard (focus on Open, Enter) is read, a cut one is refused in words", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    const open = async name => { const [fc] = await Promise.all([pg.waitForEvent("filechooser"), (async () => { await pg.focus("#d2-open"); await pg.keyboard.press("Enter"); })()]); return fc; };
+    await (await open()).setFiles({ name: "dimethylamine.cdx", mimeType: "chemical/x-cdx", buffer: CDX }); await want(pg, { atoms: 3, bonds: 2 });
+    await tool(pg, "undo"); await want(pg, { atoms: 0 });
+    await (await open()).setFiles({ name: "cut.cdx", mimeType: "chemical/x-cdx", buffer: CDX.subarray(0, 90) }); await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+    eq(await pg.innerText("#d2-note"), await pg.evaluate("I18N.t('error.draw2.cdx')"));
+    await want(pg, { atoms: 0 });
+  });
+
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
@@ -939,6 +964,16 @@ try {
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
+  });
+
+  await step("tablet with touch: a CDX file is opened by tapping Open", async () => {
+    // a page of its own; the Open button of the file palette is on the page from the start
+    const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+    try {
+      const tap = async sel => { const b = await t.pg.locator(sel).boundingBox(); await t.pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+      const [fc] = await Promise.all([t.pg.waitForEvent("filechooser"), tap('[data-testid="d2-open"]')]);
+      await fc.setFiles({ name: "dimethylamine.cdx", mimeType: "chemical/x-cdx", buffer: CDX }); await want(t.pg, { atoms: 3, bonds: 2 });
+    } finally { await t.ctx.close(); }
   });
 
   await step("tablet with touch: the PFAS scale and level 2c of the annotation, set by tapping", async () => {
