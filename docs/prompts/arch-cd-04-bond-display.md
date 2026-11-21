@@ -17,6 +17,7 @@ In:
 - auto: ring doubles inside the ring, terminal doubles centred, chain doubles on the side of more substituents (write the rule down)
 - dashed displays `dash`, `bdash` (bold dashed) and `hash` (plain hashed, not stereo) as values of arch-web-20's bond kind field `k` (it brings `bold`, `dative`, `hbond`); if arch-web-20 is not on `main`, ask COO-MZDRAW before adding a field of your own
 - painted on screen and in the SVG; written to CDXML and KET where they have a place, otherwise listed as not written
+- the bond menu gains the double-bond side (centre, left, right, auto) for a double bond (study §7 X09/X10: the entry is part of this slice; PR #37's `context.rs` holds the menus)
 
 Out (do not build here, say so in the PR if you meet it):
 - `bold`, `dative`, `hbond` (arch-web-20)

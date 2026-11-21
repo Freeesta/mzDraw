@@ -7,3 +7,4 @@ Study rows: C04 of `docs/study/arch-cd.md`.
 ## Additions from the desktop editors
 
 - Show the groups on the canvas (`abs`, `&1`, `or1`) behind a display setting; accept `abs`, `or1`, `and1` typed over a centre (MarvinSketch, MS/marvin_stereochemistry-in-marvinsketch.html).
+- Add the stereo group (abs, and n, or n) to the atom and selection menus of PR #37 (study §7 X09).

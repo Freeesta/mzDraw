@@ -8,3 +8,4 @@ Study rows: A05, A06 of `docs/study/arch-cd.md`.
 
 - V2000 molfiles have no code for dative or hydrogen bonds: write V3000 automatically or list them as lost, and say which in the PR.
 - Check that `check/1` does not count a dative bond as a covalent one on the donor (follow `mzlab-mol`'s handling of V3000 type 9; a gap goes to mzLab).
+- Add the new kinds to the bond menu of PR #37, and keep Change direction for the dative bond (study §7 X10).

@@ -20,6 +20,7 @@ In:
 - one test per item: run it through `context_run` on a synthetic document and check the document after it (the item does exactly what its label says)
 - the CLI route of an item: the replay request takes `"context": [{"x":…, "y":…, "item":"bond.o.1"}]` (menu at the pixel of the default view, then the item), so agents and `tests/parity.mjs` reach every item natively
 - touch and pen: decide how a long press opens the menu without losing today's long-press selection (open the menu on the same press once it has selected, or on a second long press), and the pen's barrel button as a right-click; keyboard: `Shift+F10` and the Menu key on the focused atom or bond, arrows, Left / Right for submenus, Enter / Space, Escape gives the focus back
+- Change direction (`bond.reverse`) shown only for bonds that have a direction (wedges, and the dative bond of arch-web-20 when it exists), as Ketcher does (KE-SRC)
 
 Out (do not build here, say so in the PR if you meet it):
 - new commands (an entry appears when its feature lands: popover, isotope, enhanced stereo, double-bond side, clean, align: §7 X09-X12)

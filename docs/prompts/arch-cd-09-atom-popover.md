@@ -8,3 +8,4 @@ Study rows: B13 of `docs/study/arch-cd.md`.
 
 - Touch: a second long press on a selected atom opens it (the first one selects, as built).
 - The periodic table grid is not in arch-web-11: it is arch-cd-08.
+- Add `Properties…` to the atom menu of PR #37 (`context.rs`), opening the popover (study §7 X09).

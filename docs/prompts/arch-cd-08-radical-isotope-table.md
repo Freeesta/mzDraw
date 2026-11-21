@@ -16,6 +16,7 @@ In:
 - a periodic table picker: the page draws the grid Rust gives (symbol, row, column, block); a click or Enter picks `atom:<el>`
 - key `.` over a hovered or focused atom cycles the radical (none → doublet → singlet → none); `Shift+I` opens the isotope field of the atom popover (arch-web-11) or, until it exists, a field validated in Rust
 - radical dots and the mass number painted as now (already supported by `atom.set rad` / `iso`)
+- the atom menu gains Isotope… and Radical > (study §7 X09/X10: the entry is part of this slice; PR #37's `context.rs` holds the menus)
 
 Out (do not build here, say so in the PR if you meet it):
 - the atom popover itself (arch-web-11)

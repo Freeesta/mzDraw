@@ -7,3 +7,4 @@ Study rows: L04 of `docs/study/arch-cd.md`.
 ## Additions from the desktop editors
 
 - Tool presets for embedders (`one-molecule`, `reaction`, `full`), as Marvin JS presets and ChemDoodle's `oneMolecule` / `includeToolbar` (study row K11); a `readonly` mode (arch-web-05).
+- An editor removed from the page stops catching right-clicks and other events (Ketcher #5588; study §7 X16): a test that removes an element and right-clicks where it was.
