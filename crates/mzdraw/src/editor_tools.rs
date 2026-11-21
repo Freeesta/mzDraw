@@ -606,6 +606,10 @@ impl Editor {
         let ctrl = mods & CTRL != 0;
         let shift = mods & SHIFT != 0;
         let lower = key.to_ascii_lowercase();
+        // the Menu key and Shift+F10 open the context menu of what has the keyboard focus (`Editor::context_anchor`)
+        if !ctrl && (lower == "contextmenu" || (lower == "f10" && shift)) {
+            return crate::context::MENU | HANDLED;
+        }
         if mods & ALT != 0 && !ctrl {
             // Alt+Arrow moves the selection, Alt+[ and Alt+] turn it; the page must not let the browser go back or forward
             let f = match lower.as_str() {

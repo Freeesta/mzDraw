@@ -1,7 +1,9 @@
 //! Touch and pen: what several pointers at once mean. One finger uses the tool; two fingers pan and zoom the view and never edit;
-//! a finger that lands while the pen is at work is a palm and is ignored; a finger held still for half a second selects what is
+//! a finger that lands while the pen is at work is a palm and is ignored; a finger or a pen held still for half a second asks for
+//! the context menu and, over something, selects what is
 //! under it; the eraser end of a pen erases. The page forwards every pointer with its id and its time stamp and decides nothing.
 
+use crate::context::MENU;
 use crate::editor::{Editor, Hit, Tool, CHANGED, HANDLED, PEN, REPAINT, TOUCH};
 use crate::m;
 
@@ -82,11 +84,31 @@ impl Editor {
         }
     }
 
+    /// A press held still for `LONG_PRESS_MS` (finger or pen) is not a use of the tool: it selects what is under it when that is
+    /// something and the tool is not Select, and asks for the context menu (`MENU`). `None`: not a long press.
+    fn long_press(&mut self, t: f64) -> Option<u32> {
+        let p = self.press.as_ref()?;
+        if p.moved || t - self.gesture.down_at < LONG_PRESS_MS {
+            return None;
+        }
+        let hit = p.hit;
+        self.cancel_press();
+        let mut f = REPAINT | HANDLED | MENU;
+        if hit != Hit::None && self.tool != Tool::Select {
+            // a long press selects what is under the finger, whatever the tool
+            self.select_hit(hit);
+            self.said = ("draw2.say.selected", String::new());
+            f |= CHANGED;
+        }
+        Some(f)
+    }
+
     fn pen(&mut self, phase: u32, x: f64, y: f64, mods: u32, t: f64) -> u32 {
         self.gesture.pen = Some(t);
         match phase {
             DOWN => {
                 self.gesture.pen_down = true;
+                self.gesture.down_at = t;
                 // the pen takes over: fingers already down were a hand coming to rest
                 let resting: Vec<u32> = self.gesture.touches.drain(..).map(|p| p.0).collect();
                 if !resting.is_empty() {
@@ -101,6 +123,13 @@ impl Editor {
             }
             UP | CANCEL => self.gesture.pen_down = false,
             _ => {}
+        }
+        // a pen held still (not its eraser end) asks for the menu as a finger does
+        if phase == UP
+            && self.gesture.before_eraser.is_none()
+            && let Some(f) = self.long_press(t)
+        {
+            return f;
         }
         let f = self.single(phase, x, y, PEN, mods);
         if matches!(phase, UP | CANCEL)
@@ -175,18 +204,8 @@ impl Editor {
                 if phase == CANCEL {
                     return self.cancel_press();
                 }
-                let held = t - g.down_at >= LONG_PRESS_MS;
-                let still = self
-                    .press
-                    .as_ref()
-                    .is_some_and(|p| !p.moved && p.hit != Hit::None);
-                if held && still && self.tool != Tool::Select {
-                    // a long press selects what is under the finger, whatever the tool
-                    let hit = self.press.take().map_or(Hit::None, |p| p.hit);
-                    self.cancel_press();
-                    self.select_hit(hit);
-                    self.said = ("draw2.say.selected", String::new());
-                    return REPAINT | CHANGED | HANDLED;
+                if let Some(f) = self.long_press(t) {
+                    return f;
                 }
                 self.pointer_up(x, y)
             }

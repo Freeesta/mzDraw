@@ -11,7 +11,8 @@
 //! is the hint of the same choice, not of the same gesture.
 //!
 //! Items the editor cannot finish alone (a field to fill, a file to write, the size of the canvas) answer with the flag `ASK` and
-//! leave what the page has to do in `context_ask()`: `element:<atom>`, `label:<atom>`, `data:<atom>`, `annotation:<atom>`,
+//! leave what the page has to do in `context_ask()`: `element:<atom>`, `label:<atom>`, `data:<anchor>`, `annotation:<anchor>` (the
+//! anchor is the first atom of the structure, as `outline` gives it),
 //! `text:<object>`, `import`, `fit`, `save-image`, `clipboard` (mirror the editor's clipboard to the system one) and
 //! `copy-as:<molfile|smiles|svg|png>` (the text comes from `context_copy_as`, the PNG plan from `context_png_plan`).
 //!
@@ -26,7 +27,10 @@ use serde_json::{json, Value};
 use std::hash::{Hash, Hasher};
 
 /// The flag of an answer that leaves work for the page: read `context_ask()`.
-pub const ASK: u32 = 128;
+pub const ASK: u32 = 256;
+/// The flag of a pointer or key event that asks the page to open the context menu: a finger or a pen held still, the Menu key or
+/// Shift+F10. The page gives `context_anchor` its size, then calls `context_menu` at the point it answers (or at the event's own).
+pub const MENU: u32 = 512;
 /// The i18n key of the line shown instead of an export on an empty canvas.
 pub const EMPTY_NOTICE: &str = "draw2.ctx.empty";
 
@@ -153,6 +157,42 @@ impl Editor {
         menu.to_string()
     }
 
+    /// Whether the open menu still describes the state: false when none is open or when the document, the selection, the clipboard
+    /// or the view changed since it was built. The page closes its menu when this turns false.
+    pub fn context_valid(&self) -> bool {
+        self.ctx
+            .open
+            .as_ref()
+            .is_some_and(|o| o.print == self.print())
+    }
+
+    /// Where a menu opened from the keyboard goes, in pixels of a canvas `w` x `h`: on the atom with the keyboard focus, else on
+    /// the first selected atom or object, else in the middle of the canvas.
+    pub fn context_anchor(&self, w: f64, h: f64) -> (f64, f64) {
+        let d = self.doc();
+        let atom = (self
+            .over
+            .focus
+            .into_iter()
+            .chain(self.over.sel_atoms.first().copied()))
+        .find_map(|a| d.atom(a));
+        if let Some(a) = atom {
+            return self.view.to_px(a.x, a.y);
+        }
+        match self.over.sel_objs.first().and_then(|&i| d.object(i)) {
+            Some(o) => self.view.to_px(o.x, o.y),
+            None => (finite(w) / 2.0, finite(h) / 2.0),
+        }
+    }
+
+    /// The first atom of the structure `atom` belongs to: the anchor its data and annotation are kept on.
+    fn anchor_of(&self, atom: u32) -> u32 {
+        (crate::layout::pieces(self.doc()).into_iter())
+            .find(|p| p.contains(&atom))
+            .and_then(|p| p.first().copied())
+            .unwrap_or(atom)
+    }
+
     /// Closes the menu without running anything.
     pub fn context_close(&mut self) {
         self.ctx.open = None;
@@ -250,8 +290,8 @@ impl Editor {
             "atom.chg.minus" => self.add_charge(atom, -1),
             "atom.el.more" => self.ask(format!("element:{atom}")),
             "atom.label" => self.ask(format!("label:{atom}")),
-            "atom.data" => self.ask(format!("data:{atom}")),
-            "atom.ann" => self.ask(format!("annotation:{atom}")),
+            "atom.data" => self.ask(format!("data:{}", self.anchor_of(atom))),
+            "atom.ann" => self.ask(format!("annotation:{}", self.anchor_of(atom))),
             "obj.edit" => match open.target {
                 Target::Object(o) => self.ask(format!("text:{o}")),
                 _ => 0,
