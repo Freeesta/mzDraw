@@ -121,7 +121,7 @@ pub fn key(key: &str, mods: u32, t: f64) -> u32 {
 }
 
 /// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
-/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `scheme-orient` (each structure after an arrow turned onto the one before it), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
+/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `pathway-tree` (arranges the pathway of anchored arrows as a tree), `scheme-orient` (each structure after an arrow turned onto the one before it), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
 /// `bond:up`, `label:Ph`, `arrow`, `plus`, `text:<one line>`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
@@ -140,6 +140,7 @@ pub fn command(what: &str) -> u32 {
         "flip-h" => e.flip(Axis::H),
         "flip-v" => e.flip(Axis::V),
         "scheme-row" => e.scheme_row(),
+        "pathway-tree" => e.pathway_tree(),
         "scheme-orient" => e.scheme_orient(),
         "move-here" => e.set_move_here(!e.move_here),
         tool => e.set_tool(tool),
@@ -471,6 +472,12 @@ pub fn style() -> String {
     with(|p| p.editor.settings_json())
 }
 
+/// The effective word of a setting that takes a word (`choices` of `settings_schema`): `right` for `pathway.dir` when the file says nothing.
+#[wasm_bindgen]
+pub fn choice(key: &str) -> String {
+    with(|p| p.editor.style.choice(key).unwrap_or_default().to_string())
+}
+
 /// The palettes laid out in a viewport of `w` x `h` pixels, from the sizes the page measured (`sizes`: a JSON list of
 /// `[id, width, height]`, or empty to keep the last ones). JSON as `Layout::arranged_json` writes it.
 #[wasm_bindgen]
@@ -590,7 +597,7 @@ pub fn state() -> String {
         });
         let selected = e.over.sel_atoms.len() + e.over.sel_bonds.len() + e.over.sel_objs.len();
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -603,6 +610,11 @@ pub fn state() -> String {
             !e.clipboard(mzdraw::brand::SLUG).is_empty(),
             q(e.said.0),
             q(&e.said.1),
+            (e.said_params.iter())
+                .filter(|_| e.said.0 == "draw2.say.pathway")
+                .map(|(k, n)| format!("\"{k}\":{n}"))
+                .collect::<Vec<_>>()
+                .join(","),
             q(e.notice.0),
             q(&e.notice.1),
             q(e.error),

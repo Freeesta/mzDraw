@@ -310,6 +310,7 @@ impl Editor {
             "sel.rotate.r" => self.rotate(-15.0),
             "sel.flip.h" => self.flip(Axis::H),
             "sel.flip.v" => self.flip(Axis::V),
+            "pathway.tree" => self.pathway_tree(),
             "canvas.add" => self.ask("import".into()),
             "canvas.fit" => self.ask("fit".into()),
             "canvas.save" => self.ask("save-image".into()),
@@ -557,9 +558,13 @@ impl Editor {
 
     fn canvas_items(&self) -> Vec<Value> {
         let any = !self.doc().is_empty();
+        // an arrow that is anchored at both ends: what a pathway is made of (a refusal of the layout, such as a cycle, is said in words)
+        let anchored =
+            (self.doc().objects.iter()).any(|o| o.t == ObjKind::Arrow && o.from != 0 && o.to != 0);
         let mut items = vec![
             item("edit.paste", "Paste", "Ctrl+V", !self.clip.is_empty()),
             item("edit.all", "Select all", "Ctrl+A", any),
+            item("pathway.tree", "Arrange pathway", "", anchored),
             item("canvas.add", "Add structure from text...", "", true),
             item("edit.undo", "Undo", "Ctrl+Z", self.session.can_undo()),
             item("edit.redo", "Redo", "Ctrl+Shift+Z", self.session.can_redo()),
