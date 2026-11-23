@@ -399,6 +399,9 @@ pub(crate) fn from_tree(
             crate::bonddisp::pos_put(&mut b.more, side);
             crate::bonddisp::k_put(&mut b.more, kind);
         }
+    } else {
+        // a bond was refused: the bonds of the file and the drawing cannot be paired, so none keeps its display; it is said
+        info.bond_display_left += r.bond_disp.iter().filter(|d| **d != ("", "")).count();
     }
     Ok(d)
 }

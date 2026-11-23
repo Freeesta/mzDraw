@@ -294,3 +294,63 @@ fn cdxml_carries_the_side_and_the_dashes_and_the_loss_says_the_rest() {
         assert!(names.contains(&w), "{w} {names:?}");
     }
 }
+
+#[test]
+fn a_cdxml_keeps_every_display_of_a_file_whose_bonds_were_all_read_and_the_loss_has_a_note() {
+    // the reader keeps one bond for every bond line of the file (a bad bond refuses the whole file), so the displays always pair; the
+    // note exists for the day it does not, and says how many bonds were affected
+    let e = drawn("CC=CC");
+    let id = double(e.doc());
+    let mut s = session(e.doc());
+    s.run(&[set(id, Some("r"), Some("dash"))]).unwrap();
+    let mut ok = Editor::default();
+    let info = ok.import(&s.doc.to_cdxml()).unwrap();
+    assert_eq!(info.bond_display_left, 0);
+    assert!(!info
+        .notes()
+        .iter()
+        .any(|n| n.0 == "draw2.import.bondDisplay"));
+    assert!(ok
+        .doc()
+        .bonds
+        .iter()
+        .any(|b| b.kind() == "dash" && b.pos() == "r"));
+    let said = mzdraw::io::Imported {
+        bond_display_left: 3,
+        ..Default::default()
+    };
+    assert_eq!(said.notes(), [("draw2.import.bondDisplay", 3)]);
+}
+
+#[test]
+fn a_display_tool_over_a_wedge_clears_the_mark_on_both_paths() {
+    let mut e = drawn("CCC");
+    let id = e.doc().bonds[0].id;
+    let b = e.doc().bond(id).unwrap().clone();
+    let (p, q) = (e.doc().atom(b.a).unwrap(), e.doc().atom(b.b).unwrap());
+    let (x, y) = e.view.to_px((p.x + q.x) / 2.0, (p.y + q.y) / 2.0);
+    let click = |e: &mut Editor| {
+        e.pointer_down(x, y, MOUSE, 0);
+        e.pointer_up(x, y)
+    };
+    // path 1: the click on the bond
+    e.set_tool("bond:up");
+    click(&mut e);
+    assert_eq!(e.doc().bond(id).unwrap().s, 1);
+    e.set_tool("bond:dash");
+    click(&mut e);
+    let one = e.doc().bond(id).unwrap().clone();
+    assert_eq!((one.s, one.kind().as_str()), (0, "dash"));
+    // path 2: the tool drawn from an atom onto the other atom of the bond (the bond already there)
+    e.undo();
+    assert_eq!(e.doc().bond(id).unwrap().s, 1);
+    let (a, _) = (e.doc().atom(b.a).unwrap().clone(), ());
+    let o = e.doc().atom(b.b).unwrap().clone();
+    let (ax, ay) = e.view.to_px(a.x, a.y);
+    let (bx, by) = e.view.to_px(o.x, o.y);
+    e.pointer_down(ax, ay, MOUSE, 0);
+    e.pointer_move(bx, by, MOUSE);
+    e.pointer_up(bx, by);
+    let two = e.doc().bond(id).unwrap().clone();
+    assert_eq!((two.s, two.kind().as_str()), (0, "dash"));
+}

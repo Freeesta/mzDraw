@@ -64,6 +64,7 @@ I18N.add("en", {
   "draw2.export.tptableCsv": "TP table (CSV)",
   "draw2.export.tptableCsv.title": "Save the same table as a CSV file (NORMAN-style column names; not validated by NORMAN)",
   "draw2.import.tpTableIgnored": "A TP table was read: its computed columns (generation, formula, masses, m/z, ppm, differences) are not read but calculated again from the structures: {n} columns.",
+  "draw2.import.bondDisplay": "The dashed or hashed display and the side of the second line of double bonds could not be kept in this file (a bond of the file was not read): bonds affected: {n}.",
   "draw2.import.tpNoPathway": "An SDF has no arrows: structures with a TP name were read with their data and levels but without a pathway: {n}. Import the parent links again.",
   "error.draw2.tpTableSize": "That drawing is too large for a TP table: at most 15,000 atoms and 1,000 structures.",
   "draw2.export.mapsLost": "This format has no place for atom maps: {n} left out of the file.",

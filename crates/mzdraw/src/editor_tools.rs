@@ -485,7 +485,15 @@ impl Editor {
                 Some(x) if !kind.is_empty() => {
                     // on a bond that has the kind already it takes the kind away
                     let now = if x.kind() == kind { "" } else { kind };
-                    vec![crate::context::bond_set(x.id, None, Some(now.into()))]
+                    // a bond with a wedge mark loses the mark (the click on a bond does the same)
+                    vec![Op::BondSet {
+                        id: x.id,
+                        o: None,
+                        s: (x.s != 0).then_some(0),
+                        pos: None,
+                        k: Some(now.into()),
+                        rev: false,
+                    }]
                 }
                 Some(x) => vec![Op::BondSet {
                     id: x.id,

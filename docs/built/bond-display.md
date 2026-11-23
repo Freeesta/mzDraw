@@ -31,9 +31,15 @@ Screen and SVG are one display list: a dash is a run of lines as long as the has
 - Molfile (both), SMILES, SDF, KET, CML, RXN: none of the four is written; the loss manifest lists `bond.pos`, `bond.dash`, `bond.bdash`, `bond.hash` (rows in `docs/mzdraw-formats.md`, `loss.rs`). KET has no dashed or side field in its bond schema as far as the schema read goes (not confirmed here).
 - SVG, mzDraw document: carry all.
 
+`rev: true` on a double bond swaps its ends and keeps `pos` as stored (so the line moves to the other side on the screen); the page cannot reach it (it is offered for wedge marks only), a log can.
+
+A CDXML file in which the reader refused a bond keeps no side or display of any bond (the bonds of the file and of the drawing cannot be paired); the import note `draw2.import.bondDisplay` says how many bonds were affected (no input is known to reach this: a bad bond refuses the whole file, so the note is a guard; its wiring is tested, the case is not).
+
+A display tool drawn over a bond with a wedge mark clears the mark and sets the kind, as the click on the bond does.
+
 ## Tests
 
-`crates/mzdraw/tests/bond_display.rs`; golden parity `tests/data/log/bond-display.json` (cases, losses, refusals); e2e steps "bond display" in `tests/e2e.mjs`.
+`crates/mzdraw/tests/bond_display.rs`; golden parity `tests/data/log/bond-display.json` (cases, losses, refusals); e2e steps "bond display" in `tests/e2e.mjs`. Screenshots at deviceScaleFactor 2: `docs/screenshots/bond-display.png` (desktop), `docs/screenshots/bond-display-touch.png` (tablet, touch).
 
 ## Not built
 
