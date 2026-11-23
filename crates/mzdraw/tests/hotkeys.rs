@@ -112,10 +112,10 @@ fn alt_digit_sprouts_a_chain_and_shift_digit_fuses_a_ring() {
         assert_eq!(r.doc().bonds.len(), 1 + n);
         assert_eq!(said, ("draw2.say.ring", n.to_string()));
     }
-    // benzene: a ring of six on a corner of the ring
+    // benzene: a corner has one valence left, a ring needs two
     let mut b = from("c1ccccc1");
     let corner = b.doc().atoms[0].id;
-    one_step(&mut b, "6", SHIFT, (true, corner));
+    refused(&mut b, "6", SHIFT, (true, corner), "error.draw2.hotValence");
     // a ring outside 3 to 8 is no key
     e.key_over("2", SHIFT, Some((true, a)), None);
     assert_eq!(e.doc().atoms.len(), 2);
@@ -270,4 +270,224 @@ fn with_a_drawing_tool_active_the_keys_that_picked_tools_still_pick_them() {
     let a = e.doc().atoms[0].id;
     e.key_over("3", ALT, Some((true, a)), None);
     assert_eq!(e.doc().atoms.len(), 5);
+}
+
+fn degree(e: &Editor, n: usize) -> u32 {
+    let d = e.doc();
+    d.atoms
+        .iter()
+        .find(|a| d.neighbours(a.id).len() == n)
+        .map(|a| a.id)
+        .unwrap()
+}
+
+fn set_kind(e: &mut Editor, bond: u32, kind: &str) {
+    let op = mzdraw::ops::Op::BondSet {
+        id: bond,
+        o: None,
+        s: None,
+        pos: None,
+        k: Some(kind.into()),
+        rev: false,
+    };
+    e.session.run(&[op]).unwrap();
+}
+
+/// The key leaves the drawing and the history as they were; `error` or the say line tells why.
+fn refused(e: &mut Editor, key: &str, mods: u32, hover: (bool, u32), error: &'static str) {
+    let before = (saved(e), e.session.log_json());
+    let f = e.key_over(key, mods, Some(hover), None);
+    assert_eq!(f & CHANGED, 0, "{key}");
+    assert_eq!(
+        (saved(e), e.session.log_json()),
+        before,
+        "{key} changes nothing"
+    );
+    assert_eq!(e.error, error, "{key}");
+}
+
+#[test]
+fn a_key_that_changes_nothing_takes_no_undo_step() {
+    let mut e = from("CCC");
+    let (b, a) = (e.doc().bonds[0].id, degree(&e, 1));
+    // an edit that is real, then keys that change nothing: the undo after them undoes the real edit
+    e.key_over("2", 0, Some((false, b)), None);
+    let real = saved(&e);
+    for (key, mods, hover) in [("2", 0, (false, b)), ("1", 0, (false, e.doc().bonds[1].id))] {
+        let log = e.session.log_json();
+        let f = e.key_over(key, mods, Some(hover), None);
+        assert_eq!(f & CHANGED, 0, "{key} changes nothing");
+        assert_eq!(e.said.0, "draw2.say.hotNoChange");
+        assert_eq!((saved(&e), e.session.log_json()), (real.clone(), log));
+    }
+    e.key_over("m", 0, Some((true, a)), None);
+    let log = e.session.log_json();
+    assert_eq!(
+        e.key_over("m", 0, Some((true, a)), None) & CHANGED,
+        0,
+        "Me twice"
+    );
+    assert_eq!(e.session.log_json(), log);
+    assert!(e.undo() > 0);
+    assert_eq!(
+        saved(&e),
+        real,
+        "the undo takes back the label, not a phantom step"
+    );
+    assert!(e.undo() > 0);
+    assert_ne!(saved(&e), real, "and the next one the order");
+}
+
+#[test]
+fn the_pointer_over_an_atom_does_not_send_a_digit_to_a_walked_bond_far_away() {
+    let mut e = from("CCC");
+    let (a1, a2, a3) = (
+        e.doc().atoms[0].id,
+        e.doc().atoms[1].id,
+        e.doc().atoms[2].id,
+    );
+    let before = saved(&e);
+    // the focus walked a1 -> a2 (the bond between them), the pointer rests on a3
+    e.key_over("2", 0, Some((true, a3)), Some((a2, Some(a1))));
+    assert_eq!(saved(&e), before, "the walked bond is not edited from afar");
+    assert_eq!(
+        e.tool.name(),
+        "bond:2",
+        "the digit picks its tool as everywhere"
+    );
+    // an atom row does not use the focus when the pointer is over a bond
+    let mut e = from("CCC");
+    let (b, a1, a3) = (
+        e.doc().bonds[0].id,
+        e.doc().atoms[0].id,
+        e.doc().atoms[2].id,
+    );
+    e.key_over("3", ALT, Some((false, b)), Some((a3, Some(a1))));
+    assert_eq!(
+        e.doc().atoms.len(),
+        3,
+        "the chain is not sprouted from the focused atom"
+    );
+}
+
+#[test]
+fn a_group_label_is_refused_where_it_would_lose_something() {
+    // not a terminal atom
+    let mut e = from("CCC");
+    let mid = degree(&e, 2);
+    refused(&mut e, "m", 0, (true, mid), "error.draw2.hotGroup");
+    // charged, an isotope, a radical, not carbon
+    for (what, op) in [
+        (
+            "charge",
+            mzdraw::ops::Op::AtomSet {
+                id: 0,
+                el: None,
+                chg: Some(1),
+                iso: None,
+                rad: None,
+                h: None,
+                lab: None,
+                map: None,
+                lp: None,
+            },
+        ),
+        (
+            "isotope",
+            mzdraw::ops::Op::AtomSet {
+                id: 0,
+                el: None,
+                chg: None,
+                iso: Some(13),
+                rad: None,
+                h: None,
+                lab: None,
+                map: None,
+                lp: None,
+            },
+        ),
+        (
+            "element",
+            mzdraw::ops::Op::AtomSet {
+                id: 0,
+                el: Some("N".into()),
+                chg: None,
+                iso: None,
+                rad: None,
+                h: None,
+                lab: None,
+                map: None,
+                lp: None,
+            },
+        ),
+    ] {
+        let mut e = from("CCC");
+        let end = degree(&e, 1);
+        let mut op = op;
+        if let mzdraw::ops::Op::AtomSet { id, .. } = &mut op {
+            *id = end;
+        }
+        e.session.run(&[op]).unwrap();
+        for (key, mods) in [("o", SHIFT), ("f", SHIFT), ("e", 0)] {
+            refused(&mut e, key, mods, (true, end), "error.draw2.hotAtom");
+        }
+        let _ = what;
+    }
+}
+
+#[test]
+fn a_chain_or_a_ring_is_refused_on_an_atom_with_no_free_valence() {
+    let mut e = from("CC(C)(C)C");
+    let quaternary = degree(&e, 4);
+    refused(
+        &mut e,
+        "1",
+        ALT,
+        (true, quaternary),
+        "error.draw2.hotValence",
+    );
+    refused(
+        &mut e,
+        "6",
+        SHIFT,
+        (true, quaternary),
+        "error.draw2.hotValence",
+    );
+    // one valence left: a chain goes, a ring (two bonds on the atom) does not
+    let mut e = from("CC(C)C");
+    let branch = degree(&e, 3);
+    refused(&mut e, "5", SHIFT, (true, branch), "error.draw2.hotValence");
+    let n = e.doc().atoms.len();
+    e.key_over("2", ALT, Some((true, branch)), None);
+    assert_eq!(e.doc().atoms.len(), n + 2);
+    // an end atom has room for both, a labelled one (a group) none
+    let mut e = from("CC");
+    let end = e.doc().atoms[0].id;
+    e.key_over("m", 0, Some((true, end)), None);
+    refused(&mut e, "1", ALT, (true, end), "error.draw2.hotValence");
+    let mut e = from("CC");
+    e.key_over("5", SHIFT, Some((true, end)), None);
+    assert_eq!(e.doc().atoms.len(), 6);
+}
+
+#[test]
+fn a_key_never_drops_the_kind_of_a_bond_silently() {
+    for kind in ["dative", "hbond"] {
+        let mut e = from("CC");
+        let b = e.doc().bonds[0].id;
+        set_kind(&mut e, b, kind);
+        for (key, mods) in [("2", 0), ("3", 0), ("w", 0), ("w", SHIFT), ("y", 0)] {
+            refused(&mut e, key, mods, (false, b), "error.draw2.hotKind");
+        }
+        // order 1 is what the bond is: nothing to change, and the kind stays
+        assert_eq!(e.key_over("1", 0, Some((false, b)), None) & CHANGED, 0);
+        assert_eq!(e.doc().bond(b).unwrap().kind(), kind);
+    }
+    // a bold or dashed line keeps its kind through an order key, and a wedge key refuses (a mark would replace the kind)
+    let mut e = from("CC");
+    let b = e.doc().bonds[0].id;
+    set_kind(&mut e, b, "bold");
+    refused(&mut e, "w", 0, (false, b), "error.draw2.hotKind");
+    e.key_over("2", 0, Some((false, b)), None);
+    assert_eq!(e.doc().bond(b).unwrap().kind(), "bold");
 }

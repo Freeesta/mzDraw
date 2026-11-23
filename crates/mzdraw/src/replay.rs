@@ -654,11 +654,21 @@ pub fn replay_with(
         })
         .collect();
     let mut flags = flags;
-    flags.extend(
-        r.keys
-            .iter()
-            .map(|k| e.key_over(&k.key, k.mods, k.hover, k.focus)),
-    );
+    for k in &r.keys {
+        // an id that is not in the drawing (as the keys before it left it) is a bad entry, never a silent fall-through to the tool keys
+        let d = e.doc();
+        let known = match k.hover {
+            Some((true, id)) => d.atom(id).is_some(),
+            Some((false, id)) => d.bond(id).is_some(),
+            None => true,
+        } && k.focus.is_none_or(|(a, from)| {
+            d.atom(a).is_some() && from.is_none_or(|f| d.atom(f).is_some())
+        });
+        if !known {
+            return Err(fail("error.draw2.keys"));
+        }
+        flags.push(e.key_over(&k.key, k.mods, k.hover, k.focus));
+    }
     if let Some((kind, with_log, agent, lang)) = &r.feedback {
         let log = e.session.log_json();
         let params = crate::feedback::Params {

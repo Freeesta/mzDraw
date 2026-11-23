@@ -4787,15 +4787,17 @@ try {
       eq(await pg.locator("#d2-hotkeys tr").count(), table.length);
       assert((await pg.locator("#d2-hotkeys tr").evaluateAll(r => r.map(x => x.textContent))).some(t => t.startsWith("Shift+W")), "Shift+W is in the help");
     });
-    await step("hover keys by keyboard focus: the walked bond takes 2 and W, the focused atom takes Alt+M, Alt+Shift+F and Shift+6; E still picks the erase tool", async () => {
+    await step("hover keys by keyboard focus: the walked bond takes 2 and W, the focused atom takes Shift+6, Alt+M, Alt+Shift+F; a key that changes nothing or loses something says so; E still picks the erase tool", async () => {
       await tool(pg, "clear"); await want(pg, { atoms: 0 }); await tool(pg, "select");
       await pg.mouse.move(5, 5); await pg.focus("#d2-canvas");
       await pg.keyboard.press("Enter"); await pg.keyboard.press("Enter"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 3, bonds: 2, focus: 3 });
       await pg.keyboard.press("w"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[1].s === 1");            // the walked bond, not a tool
-      await pg.keyboard.press("Alt+m"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).atoms[2].lab === 'Me'");
-      await pg.keyboard.press("Alt+Shift+F"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).atoms[2].lab === 'CF3'");
-      await pg.keyboard.press("Shift+6"); await want(pg, { atoms: 8, bonds: 8 });
+      await pg.keyboard.press("Shift+6"); await want(pg, { atoms: 8, bonds: 8 });                                              // a ring sharing the focused atom
       await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
+      await pg.keyboard.press("Alt+m"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).atoms[2].lab === 'Me'");
+      await pg.keyboard.press("Alt+m"); await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('draw2.say.hotNoChange')");   // nothing to change: no step
+      await pg.keyboard.press("Alt+Shift+F"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).atoms[2].lab === 'CF3'");
+      await pg.keyboard.press("Shift+6"); await until(pg, "JSON.parse(window.MZDRAW.state()).error === 'error.draw2.hotValence'"); await want(pg, { atoms: 3 });   // a group takes no ring
       await pg.keyboard.press("e"); await want(pg, { tool: "erase" });
       eq((await doc()).atoms[2].lab, "CF3");
     });

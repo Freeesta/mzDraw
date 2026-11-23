@@ -7,7 +7,7 @@
 //! tool).
 
 use crate::build;
-use crate::editor::{Editor, Tool, FOCUS};
+use crate::editor::{Editor, Tool, FOCUS, REPAINT};
 use crate::ops::Op;
 use std::f64::consts::PI;
 
@@ -32,8 +32,15 @@ pub enum Cmd {
     Group(&'static str),
     /// A zigzag chain of this many bonds sprouts from the atom (`chain`, at the sprout angle).
     Chain(u8),
-    /// A ring of this many atoms is fused on the atom (`ring`, the atom a corner).
+    /// A ring of this many atoms that shares the atom as one corner, a spiro or pendant ring (`ring`).
     Ring(u8),
+}
+
+/// What a hover key would do to its object.
+enum Check {
+    Go,
+    Nothing,
+    Refuse(&'static str),
 }
 
 /// One row of the table: the key (lower case, as `Editor::key` reads it), whether Shift or Alt is held, the command.
@@ -127,24 +134,33 @@ pub fn help_json() -> String {
 }
 
 impl Editor {
-    /// The atom a hover key acts on: under the pointer first, else (when the row takes it) the one with the focus.
+    /// The atom a hover key acts on: under the pointer first; else, when the pointer is over nothing and the row takes it, the one with
+    /// the focus (a pointer over a bond is over something: the focus is not used).
     fn hot_atom(&self, focus: bool) -> Option<u32> {
-        (self.over.hover_atom.or(self.over.focus.filter(|_| focus)))
-            .filter(|&a| self.doc().atom(a).is_some())
+        let pointer = self.over.hover_atom;
+        let rest = self
+            .over
+            .focus
+            .filter(|_| focus && self.over.hover_bond.is_none());
+        pointer.or(rest).filter(|&a| self.doc().atom(a).is_some())
     }
 
-    /// The bond a hover key acts on: under the pointer first, else the bond just walked.
+    /// The bond a hover key acts on: under the pointer first; else, when the pointer is over no atom, the bond just walked.
     fn hot_bond(&self) -> Option<u32> {
-        (self.over.hover_bond.or_else(|| self.walked_bond()))
-            .filter(|&b| self.doc().bond(b).is_some())
+        let pointer = self.over.hover_bond;
+        let walked = self
+            .walked_bond()
+            .filter(|_| self.over.hover_atom.is_none());
+        pointer.or(walked).filter(|&b| self.doc().bond(b).is_some())
     }
 
     /// A hover key (`key` lower case): `None` when it is not one here (no row, or nothing under the pointer or in focus), so that the
-    /// other bindings apply. One undo step, announced.
+    /// other bindings apply. One undo step, announced; a key that would change nothing takes no step and says so, and one that would
+    /// lose something silently is refused with a keyed note and changes nothing.
     pub(crate) fn hot_key(&mut self, key: &str, shift: bool, alt: bool) -> Option<u32> {
         // a key that already picks a tool (digits, W, Y, M, E, Shift+F, Shift+O) acts on the object only with the select tool or the plain
-        // single-bond tool (the tool the page starts with), so that the
-        // flow "pick a tool with the key, then click" of the drawing tools is what it was; the Alt keys and the rings are new keys
+        // single-bond tool (the tool the page starts with), so that the flow "pick a tool with the key, then click" of the drawing
+        // tools is what it was; the Alt keys and the rings are new keys
         let contested = !alt && !(shift && key.len() == 1 && key.as_bytes()[0].is_ascii_digit());
         if contested && !matches!(self.tool, Tool::Select | Tool::Bond(1, 0)) {
             return None;
@@ -160,7 +176,89 @@ impl Editor {
         } else {
             0
         };
-        Some(self.hot_run(h.cmd, id) | focused)
+        Some(match self.hot_check(h.cmd, id) {
+            Check::Go => self.hot_run(h.cmd, id) | focused,
+            Check::Nothing => {
+                self.said = ("draw2.say.hotNoChange", String::new());
+                self.error = "";
+                REPAINT
+            }
+            Check::Refuse(key) => {
+                self.error = key;
+                REPAINT
+            }
+        })
+    }
+
+    /// Whether the key changes the object, would lose something, or changes nothing.
+    fn hot_check(&self, cmd: Cmd, id: u32) -> Check {
+        let d = self.doc();
+        match cmd {
+            Cmd::Order(o) => {
+                let Some(b) = d.bond(id) else {
+                    return Check::Nothing;
+                };
+                let kind = b.kind();
+                if b.o == o {
+                    Check::Nothing
+                } else if o != 1 && crate::bonddisp::single_only(&kind) {
+                    // a dative or hydrogen bond is a single bond: another order would take the kind away
+                    Check::Refuse("error.draw2.hotKind")
+                } else {
+                    Check::Go
+                }
+            }
+            Cmd::Wedge(_) => match d.bond(id) {
+                // a mark replaces the display kind (dashed, bold, dative ...): not silently
+                Some(b) if !b.kind().is_empty() => Check::Refuse("error.draw2.hotKind"),
+                _ => Check::Go,
+            },
+            Cmd::Group(label) => {
+                let Some(a) = d.atom(id) else {
+                    return Check::Nothing;
+                };
+                // the label stands for the group the atom is the attachment of: one bond at most, nothing of the atom's own to lose
+                if d.neighbours(id).len() > 1 {
+                    Check::Refuse("error.draw2.hotGroup")
+                } else if a.chg != 0
+                    || a.iso != 0
+                    || a.rad != 0
+                    || (a.el != "C" && a.lab.is_empty())
+                {
+                    Check::Refuse("error.draw2.hotAtom")
+                } else if a.lab == label {
+                    Check::Nothing
+                } else {
+                    Check::Go
+                }
+            }
+            Cmd::Chain(_) | Cmd::Ring(_) => {
+                let new = if matches!(cmd, Cmd::Ring(_)) { 2 } else { 1 };
+                match d.atom(id) {
+                    Some(a) if self.free_valence(a) < new => {
+                        Check::Refuse("error.draw2.hotValence")
+                    }
+                    _ => Check::Go,
+                }
+            }
+        }
+    }
+
+    /// The valence an atom has left for new bonds: the highest valence its element and charge allow, less what its bonds and radical
+    /// electrons use; none on a labelled atom. An element with no known valence has no limit.
+    fn free_valence(&self, a: &crate::doc::Atom) -> u32 {
+        let used = self.doc().order_sum(a.id) + u32::from(a.rad);
+        // a labelled atom is a group of its own: nothing is added to it
+        if !a.lab.is_empty() {
+            return 0;
+        }
+        match mzlab_mol::allowed_valences(&a.el, i32::from(a.chg))
+            .into_iter()
+            .max()
+        {
+            Some(v) => v.saturating_sub(used),
+            None => u32::MAX,
+        }
     }
 
     fn hot_run(&mut self, cmd: Cmd, id: u32) -> u32 {

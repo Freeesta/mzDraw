@@ -62,7 +62,7 @@ impl Editor {
                 }
                 REPAINT | CHANGED
             }
-            ("1" | "2" | "3", Some(_)) => {
+            ("1" | "2" | "3", Some(_)) if self.over.hover_atom.is_none() => {
                 let bond = self.walked_bond()?;
                 let o = key.parse().unwrap_or(1);
                 let set = Op::BondSet {
