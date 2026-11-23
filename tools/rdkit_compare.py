@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""RDKit and mzDraw draw the same synthetic set from the command line; the layouts are measured with one ruler.
+"""RDKit and this editor draw the same synthetic set from the command line; the layouts are measured with one ruler.
 
-An optional reference tool (study docs/study/rdkit-vs-mzdraw.md). RDKit is never a dependency of the product: this script imports
+An optional reference tool (study docs/study/rdkit-compare.md). RDKit is never a dependency of the product: this script imports
 it when it is installed and stops cleanly when it is not. For every line of tools/rdkit_compare/set.tsv it
 
 - draws the molecule with RDKit (rdDepictor.Compute2DCoords, rdMolDraw2D SVG and Cairo PNG) and with the native `replay` example of
-  mzDraw (the CLI route: `import` a SMILES, `out` svg, molfile, smiles, cdxml, digest), twice each, and compares the bytes of the
+  the editor (the CLI route: `import` a SMILES, `out` svg, molfile, smiles, cdxml, digest), twice each, and compares the bytes of the
   two runs (deterministic or not);
-- reads both layouts into RDKit (mzDraw's through its own molfile, coordinates and wedges as mzDraw wrote them) and measures them
+- reads both layouts into RDKit (ours through its own molfile, coordinates and wedges as the editor wrote them) and measures them
   with the same functions: bond-length spread, ring regularity, angle regularity at chain atoms, atom-atom clashes, bond crossings,
   labelled atoms crossed by a bond;
 - checks that the stereo survives: the canonical isomeric SMILES of the input against the one RDKit reads back from each tool's
-  molfile (wedges), from mzDraw's SMILES and from mzDraw's CDXML;
+  molfile (wedges), from the editor's SMILES and from its CDXML;
 - runs a list of feature probes (highlight, atom indices, map numbers, CIP labels, legends, grids, mono, transparent background, ...):
   each says, for each tool, whether the command exists and whether the output shows it, from a command actually run.
 
 Usage:
-  cargo build --locked -p mzdraw --example replay
+  cargo build --locked -p <crate_prefix of brand.toml> --example replay
   python3 tools/rdkit_compare.py [--replay PATH] [--out DIR] [--no-time] [--markdown]
 
 Data on stdout (`rdkit-compare/1` JSON, or the Markdown tables with --markdown), diagnostics on stderr. With --no-time the timings
@@ -36,6 +36,17 @@ import time
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SET = os.path.join(ROOT, "tools", "rdkit_compare", "set.tsv")
 FORMAT = "rdkit-compare/1"
+
+
+def brand(key):
+    """A value of the section [product] of brand.toml (the one place the product name lives, CLAUDE.md rule 16)."""
+    import tomllib
+
+    with open(os.path.join(ROOT, "brand.toml"), "rb") as f:
+        return tomllib.load(f)["product"][key]
+
+
+NAME, CRATE = brand("name"), brand("crate_prefix")
 
 try:
     import rdkit
@@ -247,7 +258,7 @@ def compare_one(replay, name, what, smiles, outdir, timed, reps):
 
                 rd["ms"] = round(1000 * median_time(draw, reps), 2)
     row["rdkit"] = rd
-    # mzDraw
+    # the editor (key `ours` of the report)
     mz = {}
     start = {"import": rxnblock if is_rxn and rd.get("parsed") else smiles}
     code, svg, err, _ = replay.run({"import": smiles, "out": "svg"})
@@ -259,10 +270,10 @@ def compare_one(replay, name, what, smiles, outdir, timed, reps):
         mz["parsed_rxn_file"] = code == 0
     if code == 0:
         mz["svg_deterministic"] = svg == replay.out({**start, "out": "svg"})
-        open(os.path.join(outdir, f"{name}.mzdraw.svg"), "w").write(svg)
+        open(os.path.join(outdir, f"{name}.ours.svg"), "w").write(svg)
         cdxml = replay.out({**start, "out": "cdxml"})
         if cdxml:
-            open(os.path.join(outdir, f"{name}.mzdraw.cdxml"), "w").write(cdxml)
+            open(os.path.join(outdir, f"{name}.ours.cdxml"), "w").write(cdxml)
         digest = json.loads(replay.out({**start, "out": "digest"}) or "{}")
         mz["pieces"] = len(digest.get("pieces", []))
         mz["wedges"] = sum(len(p.get("stereo", [])) for p in digest.get("pieces", []))
@@ -281,13 +292,13 @@ def compare_one(replay, name, what, smiles, outdir, timed, reps):
             mz["cdxml_same"] = canon(joined) == ref if rd.get("parsed") and joined is not None else False
         if timed:
             mz["ms"] = round(1000 * statistics.median(replay.run({**start, "out": "svg"})[3] for _ in range(reps)), 2)
-    row["mzdraw"] = mz
+    row["ours"] = mz
     return row
 
 
 # ----------------------------------------------------------------------------------------------------------------- feature probes
 def probe(replay):
-    """Each probe: what RDKit does (API) and what mzDraw does (request), both run; `shows` is read from the output."""
+    """Each probe: what RDKit does (API) and what the editor does (request), both run; `shows` is read from the output."""
     rows = []
     base = Chem.MolFromSmiles("C[C@@H](O)c1ccccc1")
     rdDepictor.Compute2DCoords(base)
@@ -300,9 +311,9 @@ def probe(replay):
                 "probe": key,
                 "rdkit_api": rdkit_api,
                 "rdkit": bool(rd_shows),
-                "mzdraw_request": mz_request,
-                "mzdraw": mz,
-                "mzdraw_error": err.strip() if code not in (None, 0) else None,
+                "ours_request": mz_request,
+                "ours": mz,
+                "ours_error": err.strip() if code not in (None, 0) else None,
                 "note": note,
             }
         )
@@ -316,7 +327,7 @@ def probe(replay):
         "#FF0000" in svg.upper(),
         {"import": smi, "log": [{"op": "colour", "atoms": [2, 3], "bonds": [10], "col": "#ff0000"}], "out": "svg"},
         lambda o: "#ff0000" in o,
-        "mzDraw colours the ink of the atom and the bond; RDKit paints a halo behind them (highlight radius)",
+        "the editor colours the ink of the atom and the bond; RDKit paints a halo behind them (highlight radius)",
     )
     # atom indices
     svg = rdkit_svg(base, opts=lambda o: setattr(o, "addAtomIndices", True))
@@ -357,7 +368,7 @@ def probe(replay):
         "class='legend'" in svg,
         {"import": smi, "log": [{"op": "atom.title", "id": 1, "title": "compound 7"}], "out": "svg"},
         lambda o: o.count("compound 7") > 1 or ">compound" in o,
-        "mzDraw keeps the title in the document and the molfile; it is not drawn",
+        "the editor keeps the title in the document and the molfile; it is not drawn",
     )
     # grid of molecules with legends
     mols = [Chem.MolFromSmiles(s) for s in ("CCO", "c1ccccc1", "CC(=O)O", "CCN")]
@@ -386,7 +397,7 @@ def probe(replay):
         "<rect" not in svg_t,
         {"import": smi, "out": "svg"},
         lambda o: "<rect" not in o,
-        "mzDraw SVG has no background by default",
+        "the SVG of the editor has no background by default",
     )
     # fixed bond length
     add(
@@ -442,7 +453,7 @@ def probe(replay):
         "dash" in d.GetDrawingText(),
         {"import": "c1ccccc1", "set": ["style.aromatic=circle"], "out": "svg"},
         lambda o: "<circle" in o,
-        "mzDraw draws the Kekule form; aromatic circles are named out of scope in docs/built/label-display-modes.md",
+        "the editor draws the Kekule form; aromatic circles are named out of scope in docs/built/label-display-modes.md",
     )
     # explicit hydrogens
     add(
@@ -463,7 +474,7 @@ def probe(replay):
         "class='note'" in svg,
         {"import": smi, "log": [{"op": "atom.data", "id": 1, "data": [["note", "n1"]]}], "out": "svg"},
         lambda o: ">n1<" in o,
-        "mzDraw keeps atom data in the document and the SDF; it is not drawn at the atom",
+        "the editor keeps atom data in the document and the SDF; it is not drawn at the atom",
     )
     # dative bonds
     dat = Chem.MolFromSmiles("[NH3]->[Pd](Cl)(Cl)<-[NH3]")
@@ -481,6 +492,18 @@ def probe(replay):
         {"import": "N[Pd]", "log": [{"op": "bond.set", "id": 3, "k": "dative"}], "out": "svg"},
         lambda o: "<polygon" in o or "<path" in o,
     )
+    # hydrogen bond
+    hb = Chem.RWMol(Chem.MolFromSmiles("O.O"))
+    hb.AddBond(0, 1, Chem.BondType.HYDROGEN)
+    rdDepictor.Compute2DCoords(hb)
+    add(
+        "hydrogen bond drawn dashed or dotted",
+        "BondType.HYDROGEN",
+        "dash" in rdkit_svg(hb),
+        {"import": "ON", "log": [{"op": "bond.set", "id": 3, "k": "hbond"}], "out": "svg"},
+        lambda o: o.count("<line") > 3 or "<circle" in o,
+        "the editor draws the dots as short lines or dots",
+    )
     # zero-order bond
     add(
         "zero-order bond",
@@ -497,7 +520,7 @@ def probe(replay):
         wav is not None,
         {"import": "CC(F)Cl", "log": [{"op": "bond.set", "id": 5, "s": 3}], "out": "svg"},
         lambda o: o.count("<line") > 10,
-        "mzDraw draws the wave as short lines"
+        "the editor draws the wave as short lines"
     )
     # enhanced stereo
     enh = Chem.MolFromSmiles("C[C@H](F)Cl |&1:1|")
@@ -508,7 +531,7 @@ def probe(replay):
         "class='stereoGroup" in svg,
         {"import": "C[C@H](F)Cl |&1:1|", "out": "smiles"},
         lambda o: "&1" in o,
-        "mzDraw drops the group from a CXSMILES without a loss item (see the study)",
+        "the CLI route gives no loss item for the dropped group (the page says it on import; see the study)",
     )
     # reaction drawing from a reaction SMILES
     add(
@@ -539,7 +562,7 @@ def probe(replay):
         True,
         {"import": smi, "out": "svg"},
         lambda o: '<metadata id="' in o,
-        "mzDraw: SVG metadata, PDF attachment and PNG iTXt (the PNG pixels are made by the page)",
+        "the editor: SVG metadata, PDF attachment and PNG iTXt (the PNG pixels are made by the page)",
     )
     add(
         "CDXML out",
@@ -592,8 +615,8 @@ def probe(replay):
         lambda o: "loss/1" in o,
     )
     for r in rows:
-        if r["mzdraw"] is False and r["mzdraw_error"] is None:
-            r["mzdraw_error"] = "ran, but the output does not show it"
+        if r["ours"] is False and r["ours_error"] is None:
+            r["ours_error"] = "ran, but the output does not show it"
     return rows
 
 
@@ -608,14 +631,14 @@ def scheme(replay, outdir):
     req = {"commands": [{"command": "tp:import", "args": {"rows": rows}}], "out": "svg"}
     code, svg, err, _ = replay.run(req)
     if code == 0:
-        open(os.path.join(outdir, "tp-scheme.mzdraw.svg"), "w").write(svg)
+        open(os.path.join(outdir, "tp-scheme.ours.svg"), "w").write(svg)
     digest = json.loads(replay.out({**req, "out": "digest"}) or "{}")
     mols = [Chem.MolFromSmiles(r["smiles"]) for r in rows]
     grid = Draw.MolsToGridImage(mols, molsPerRow=4, legends=[r["name"] for r in rows], useSVG=True)
     open(os.path.join(outdir, "tp-scheme.rdkit.svg"), "w").write(str(grid))
     return {
         "rows": len(rows),
-        "mzdraw": {
+        "ours": {
             "ok": code == 0,
             "structures": len(digest.get("pieces", [])),
             "arrows": sum(1 for o in digest.get("objects", []) if o[1] == "arrow"),
@@ -632,7 +655,7 @@ def summary(mols):
         return fn(vals) if vals else None
 
     out = {}
-    for tool in ("rdkit", "mzdraw"):
+    for tool in ("rdkit", "ours"):
         out[tool] = {
             "parsed": sum(1 for m in mols if m[tool].get("parsed", m[tool].get("parsed_smiles"))),
             "svg_deterministic": sum(1 for m in mols if m[tool].get("svg_deterministic")),
@@ -653,34 +676,34 @@ def markdown(rep):
     s = rep["summary"]
     if rep.get("timing"):
         t = rep["timing"]
-        L.append(f"Timing: RDKit median {t['rdkit_ms_median']} ms, mzDraw median {t['mzdraw_ms_median']} ms of which "
-                 f"{t['mzdraw_process_start_ms']} ms start a process ({t['note']}).")
+        L.append(f"Timing: RDKit median {t['rdkit_ms_median']} ms, {NAME} median {t['ours_ms_median']} ms of which "
+                 f"{t['ours_process_start_ms']} ms start a process ({t['note']}).")
         L.append("")
-    L.append("| measure (whole set) | RDKit | mzDraw |")
+    L.append(f"| measure (whole set) | RDKit | {NAME} |")
     L.append("|---|---|---|")
     for k in s["rdkit"]:
-        L.append(f"| {k} | {s['rdkit'][k]} | {s['mzdraw'][k]} |")
+        L.append(f"| {k} | {s['rdkit'][k]} | {s['ours'][k]} |")
     L.append("")
-    L.append("| molecule | RDKit clashes / crossings / label | mzDraw clashes / crossings / label | ring angle dev RDKit / mzDraw | stereo RDKit / mzDraw (molfile, SMILES, CDXML) |")
+    L.append(f"| molecule | RDKit clashes / crossings / label | {NAME} clashes / crossings / label | ring angle dev RDKit / {NAME} | stereo RDKit / {NAME} (molfile, SMILES, CDXML) |")
     L.append("|---|---|---|---|---|")
     for m in rep["molecules"]:
-        r, z = m["rdkit"].get("layout") or {}, m["mzdraw"].get("layout") or {}
+        r, z = m["rdkit"].get("layout") or {}, m["ours"].get("layout") or {}
 
         def t(x):
             return f"{x.get('atom_clashes', '-')} / {x.get('bond_crossings', '-')} / {x.get('label_crossings', '-')}" if x else "-"
 
-        st = m["mzdraw"]
+        st = m["ours"]
         L.append(
             f"| {m['name']} | {t(r)} | {t(z) if st.get('parsed_smiles') else 'refused: ' + st.get('error', '')} | "
             f"{r.get('ring_angle_dev_max', '-')} / {z.get('ring_angle_dev_max', '-')} | "
             f"{m['rdkit'].get('stereo_from_molfile', '-')} / {st.get('stereo_from_molfile', '-')}, {st.get('smiles_same', '-')}, {st.get('cdxml_same', '-')} |"
         )
     L.append("")
-    L.append("| probe | RDKit | mzDraw | note |")
+    L.append(f"| probe | RDKit | {NAME} | note |")
     L.append("|---|---|---|---|")
     for p in rep["probes"]:
-        mzv = {True: "yes", False: "no", None: "-"}[p["mzdraw"]]
-        why = p["mzdraw_error"] or ""
+        mzv = {True: "yes", False: "no", None: "-"}[p["ours"]]
+        why = p["ours_error"] or ""
         L.append(f"| {p['probe']} | {'yes' if p['rdkit'] else 'no'} ({p['rdkit_api']}) | {mzv} {why} | {p['note']} |")
     return "\n".join(L) + "\n"
 
@@ -694,7 +717,7 @@ def main():
     ap.add_argument("--markdown", action="store_true")
     args = ap.parse_args()
     if not os.path.exists(args.replay):
-        print(f"rdkit_compare.py: {args.replay} is missing: cargo build --locked -p mzdraw --example replay", file=sys.stderr)
+        print(f"rdkit_compare.py: {args.replay} is missing: cargo build --locked -p {CRATE} --example replay", file=sys.stderr)
         sys.exit(2)
     os.makedirs(args.out, exist_ok=True)
     replay = Replay(args.replay)
@@ -708,13 +731,13 @@ def main():
     if not args.no_time:
         spawn = statistics.median(replay.run({"import": "C", "out": "smiles"})[3] for _ in range(args.reps))
         rd_ms = [m["rdkit"]["ms"] for m in mols if "ms" in m["rdkit"]]
-        mz_ms = [m["mzdraw"]["ms"] for m in mols if "ms" in m["mzdraw"]]
+        mz_ms = [m["ours"]["ms"] for m in mols if "ms" in m["ours"]]
         timing = {
             "rdkit_ms_median": round(statistics.median(rd_ms), 2),
-            "mzdraw_ms_median": round(statistics.median(mz_ms), 2),
-            "mzdraw_process_start_ms": round(1000 * spawn, 2),
-            "note": "RDKit in one Python process (parse, layout, SVG); mzDraw one replay process per request (parse, layout, SVG), "
-            "so its time includes the start of a process, measured alone as mzdraw_process_start_ms",
+            "ours_ms_median": round(statistics.median(mz_ms), 2),
+            "ours_process_start_ms": round(1000 * spawn, 2),
+            "note": "RDKit in one Python process (parse, layout, SVG); the editor one replay process per request (parse, layout, SVG), "
+            "so its time includes the start of a process, measured alone as ours_process_start_ms",
         }
     rep = {
         "format": FORMAT,

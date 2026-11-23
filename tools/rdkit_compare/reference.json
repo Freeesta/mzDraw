@@ -2,7 +2,8 @@
  "format": "rdkit-compare/1",
  "molecules": [
   {
-   "mzdraw": {
+   "name": "chain",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -24,7 +25,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "chain",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -47,7 +47,8 @@
    "what": "open chain, zigzag"
   },
   {
-   "mzdraw": {
+   "name": "branched",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -69,7 +70,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "branched",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -92,7 +92,8 @@
    "what": "quaternary carbons, amide"
   },
   {
-   "mzdraw": {
+   "name": "stereo-2",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -114,7 +115,6 @@
     "svg_deterministic": true,
     "wedges": 2
    },
-   "name": "stereo-2",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -137,7 +137,8 @@
    "what": "two stereocentres"
   },
   {
-   "mzdraw": {
+   "name": "ez-ester",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -159,7 +160,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "ez-ester",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -182,7 +182,8 @@
    "what": "E double bond"
   },
   {
-   "mzdraw": {
+   "name": "ez-halo",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -204,7 +205,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "ez-halo",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -227,7 +227,8 @@
    "what": "Z double bond, halogens"
   },
   {
-   "mzdraw": {
+   "name": "ring-cis",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -249,7 +250,6 @@
     "svg_deterministic": true,
     "wedges": 2
    },
-   "name": "ring-cis",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -272,7 +272,8 @@
    "what": "stereo on a ring"
   },
   {
-   "mzdraw": {
+   "name": "small-rings",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -294,7 +295,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "small-rings",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -317,7 +317,8 @@
    "what": "3- and 5-membered rings"
   },
   {
-   "mzdraw": {
+   "name": "fused-2",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -339,7 +340,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "fused-2",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -362,7 +362,8 @@
    "what": "two fused aromatic rings"
   },
   {
-   "mzdraw": {
+   "name": "fused-3",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -384,7 +385,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "fused-3",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -407,7 +407,8 @@
    "what": "three fused aromatic rings"
   },
   {
-   "mzdraw": {
+   "name": "steroid-like",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -429,7 +430,6 @@
     "svg_deterministic": true,
     "wedges": 6
    },
-   "name": "steroid-like",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -452,7 +452,8 @@
    "what": "four fused rings, six stereocentres"
   },
   {
-   "mzdraw": {
+   "name": "spiro",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -474,7 +475,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "spiro",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -497,7 +497,8 @@
    "what": "spiro junction"
   },
   {
-   "mzdraw": {
+   "name": "bridged",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -519,7 +520,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "bridged",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -542,7 +542,8 @@
    "what": "bicyclic bridge"
   },
   {
-   "mzdraw": {
+   "name": "cage",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -564,7 +565,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "cage",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -587,7 +587,8 @@
    "what": "cage (cubane skeleton)"
   },
   {
-   "mzdraw": {
+   "name": "adamantane-like",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -609,7 +610,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "adamantane-like",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -632,7 +632,8 @@
    "what": "tricyclic cage"
   },
   {
-   "mzdraw": {
+   "name": "macrocycle",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -654,7 +655,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "macrocycle",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -677,7 +677,8 @@
    "what": "12-membered ring"
   },
   {
-   "mzdraw": {
+   "name": "zwitterion",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -699,7 +700,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "zwitterion",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -722,7 +722,8 @@
    "what": "ammonium and carboxylate"
   },
   {
-   "mzdraw": {
+   "name": "nitro-noxide",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -746,7 +747,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "nitro-noxide",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -771,7 +771,8 @@
    "what": "nitro group, N-oxide"
   },
   {
-   "mzdraw": {
+   "name": "salt",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -793,7 +794,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "salt",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -816,11 +816,11 @@
    "what": "two ions"
   },
   {
-   "mzdraw": {
+   "name": "dative",
+   "ours": {
     "error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
     "parsed_smiles": false
    },
-   "name": "dative",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -843,7 +843,8 @@
    "what": "dative bonds to a metal"
   },
   {
-   "mzdraw": {
+   "name": "isotopes",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -867,7 +868,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "isotopes",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -892,7 +892,8 @@
    "what": "2H and 13C"
   },
   {
-   "mzdraw": {
+   "name": "radical",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -914,7 +915,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "radical",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -937,7 +937,8 @@
    "what": "an oxygen radical"
   },
   {
-   "mzdraw": {
+   "name": "boc-amine",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -961,7 +962,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "boc-amine",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -986,7 +986,8 @@
    "what": "group an abbreviation would condense"
   },
   {
-   "mzdraw": {
+   "name": "druglike-1",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -1010,7 +1011,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "druglike-1",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -1035,7 +1035,8 @@
    "what": "drug-like, 5 rings"
   },
   {
-   "mzdraw": {
+   "name": "druglike-2",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -1059,7 +1060,6 @@
     "svg_deterministic": true,
     "wedges": 2
    },
-   "name": "druglike-2",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -1084,7 +1084,8 @@
    "what": "drug-like, stereo, amides"
   },
   {
-   "mzdraw": {
+   "name": "carboline",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -1106,7 +1107,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "carboline",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -1129,7 +1129,8 @@
    "what": "fused heteroaromatics"
   },
   {
-   "mzdraw": {
+   "name": "sulfonamide",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -1153,7 +1154,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "sulfonamide",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -1178,7 +1178,8 @@
    "what": "hypervalent S"
   },
   {
-   "mzdraw": {
+   "name": "triple",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -1200,7 +1201,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "triple",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -1223,7 +1223,8 @@
    "what": "linear triple bond"
   },
   {
-   "mzdraw": {
+   "name": "allene",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -1245,7 +1246,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "allene",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -1268,7 +1268,8 @@
    "what": "cumulated double bonds"
   },
   {
-   "mzdraw": {
+   "name": "phosphate",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -1292,7 +1293,6 @@
     "svg_deterministic": true,
     "wedges": 1
    },
-   "name": "phosphate",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -1317,7 +1317,8 @@
    "what": "P(V), stereo"
   },
   {
-   "mzdraw": {
+   "name": "polyene",
+   "ours": {
     "arrows": 0,
     "cdxml_same": false,
     "layout": {
@@ -1339,7 +1340,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "polyene",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -1362,7 +1362,8 @@
    "what": "conjugated chain"
   },
   {
-   "mzdraw": {
+   "name": "sugar",
+   "ours": {
     "arrows": 0,
     "cdxml_same": true,
     "layout": {
@@ -1386,7 +1387,6 @@
     "svg_deterministic": true,
     "wedges": 5
    },
-   "name": "sugar",
    "rdkit": {
     "layout": {
      "atom_clashes": 0,
@@ -1411,7 +1411,8 @@
    "what": "pyranose, five stereocentres"
   },
   {
-   "mzdraw": {
+   "name": "reaction",
+   "ours": {
     "arrows": 1,
     "error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
     "parsed_rxn_file": true,
@@ -1421,7 +1422,6 @@
     "svg_deterministic": true,
     "wedges": 0
    },
-   "name": "reaction",
    "rdkit": {
     "components": [
      2,
@@ -1436,9 +1436,10 @@
  ],
  "probes": [
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "the editor colours the ink of the atom and the bond; RDKit paints a halo behind them (highlight radius)",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "log": [
      {
@@ -1455,57 +1456,57 @@
     ],
     "out": "svg"
    },
-   "note": "mzDraw colours the ink of the atom and the bond; RDKit paints a halo behind them (highlight radius)",
    "probe": "highlight atoms and bonds by index and colour",
    "rdkit": true,
    "rdkit_api": "DrawMolecule(highlightAtoms, highlightBonds, highlightAtomColors)"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg",
     "set": [
      "display.ids=on"
     ]
    },
-   "note": "",
    "probe": "atom indices in the picture",
    "rdkit": true,
    "rdkit_api": "MolDrawOptions.addAtomIndices"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "[CH3:1][CH2:2][OH:3]",
     "out": "svg"
    },
-   "note": "",
    "probe": "atom map numbers in the picture",
    "rdkit": true,
    "rdkit_api": "atom map numbers drawn by default"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg",
     "set": [
      "display.cip=on"
     ]
    },
-   "note": "",
    "probe": "CIP labels (R/S, E/Z) in the picture",
    "rdkit": true,
    "rdkit_api": "MolDrawOptions.addStereoAnnotation"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "ran, but the output does not show it",
-   "mzdraw_request": {
+   "note": "the editor keeps the title in the document and the molfile; it is not drawn",
+   "ours": false,
+   "ours_error": "ran, but the output does not show it",
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "log": [
      {
@@ -1516,15 +1517,15 @@
     ],
     "out": "svg"
    },
-   "note": "mzDraw keeps the title in the document and the molfile; it is not drawn",
    "probe": "legend (caption) under a molecule",
    "rdkit": true,
    "rdkit_api": "DrawMolecule(legend=...)"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "args": {
      "cols": 2
     },
@@ -1532,57 +1533,57 @@
     "import": "CCO.c1ccccc1.CC(=O)O.CCN",
     "out": "svg"
    },
-   "note": "",
    "probe": "grid of molecules with legends",
    "rdkit": true,
    "rdkit_api": "Draw.MolsToGridImage(mols, molsPerRow, legends, useSVG)"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg",
     "set": [
      "style.colour=mono"
     ]
    },
-   "note": "",
    "probe": "black-and-white atoms",
    "rdkit": true,
    "rdkit_api": "MolDrawOptions.useBWAtomPalette()"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "the SVG of the editor has no background by default",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg"
    },
-   "note": "mzDraw SVG has no background by default",
    "probe": "transparent background",
    "rdkit": true,
    "rdkit_api": "MolDrawOptions.clearBackground = False"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg",
     "set": [
      "style.bond_length=20"
     ]
    },
-   "note": "",
    "probe": "fixed bond length",
    "rdkit": true,
    "rdkit_api": "MolDrawOptions.fixedBondLength"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "args": {
      "atoms": [
       1,
@@ -1601,15 +1602,15 @@
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg"
    },
-   "note": "",
    "probe": "rotate the drawing",
    "rdkit": true,
    "rdkit_api": "MolDrawOptions.rotate (degrees)"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "args": {
      "atoms": [
       1,
@@ -1628,28 +1629,28 @@
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg"
    },
-   "note": "",
    "probe": "mirror the drawing",
    "rdkit": false,
    "rdkit_api": "none in MolDraw2D (transform the conformer by hand)"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "command": "abbreviate",
     "import": "CC(C)(C)OC(=O)NCc1ccccc1",
     "out": "svg"
    },
-   "note": "",
    "probe": "abbreviations condensed automatically",
    "rdkit": true,
    "rdkit_api": "rdAbbreviations.CondenseMolAbbreviations"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "CN",
     "log": [
      {
@@ -1660,42 +1661,42 @@
     ],
     "out": "svg"
    },
-   "note": "",
    "probe": "an abbreviation label set by hand",
    "rdkit": true,
    "rdkit_api": "atom property _displayLabel / atomLabels"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "the editor draws the Kekule form; aromatic circles are named out of scope in docs/built/label-display-modes.md",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "import": "c1ccccc1",
     "out": "svg",
     "set": [
      "style.aromatic=circle"
     ]
    },
-   "note": "mzDraw draws the Kekule form; aromatic circles are named out of scope in docs/built/label-display-modes.md",
    "probe": "aromatic bonds drawn as aromatic (not Kekule)",
    "rdkit": true,
    "rdkit_api": "PrepareMolForDrawing(kekulize=False)"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "[H]OC([H])([H])[H]",
     "out": "svg"
    },
-   "note": "",
    "probe": "explicit hydrogen atoms drawn",
    "rdkit": true,
    "rdkit_api": "Chem.AddHs before drawing"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "ran, but the output does not show it",
-   "mzdraw_request": {
+   "note": "the editor keeps atom data in the document and the SDF; it is not drawn at the atom",
+   "ours": false,
+   "ours_error": "ran, but the output does not show it",
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "log": [
      {
@@ -1711,27 +1712,27 @@
     ],
     "out": "svg"
    },
-   "note": "mzDraw keeps atom data in the document and the SDF; it is not drawn at the atom",
    "probe": "atom notes and bond notes",
    "rdkit": true,
    "rdkit_api": "atom/bond property atomNote, bondNote"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "import": "[NH3]->[Pd](Cl)(Cl)<-[NH3]",
     "out": "svg"
    },
-   "note": "",
    "probe": "dative bonds from SMILES",
    "rdkit": true,
    "rdkit_api": "SMILES '->' read, drawn as an arrow"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "N[Pd]",
     "log": [
      {
@@ -1742,15 +1743,34 @@
     ],
     "out": "svg"
    },
-   "note": "",
    "probe": "dative bond drawn as an arrow (set on a bond)",
    "rdkit": true,
    "rdkit_api": "BondType.DATIVE"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.bond\",\"params\":{\"id\":3}}",
-   "mzdraw_request": {
+   "note": "the editor draws the dots as short lines or dots",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
+    "import": "ON",
+    "log": [
+     {
+      "id": 3,
+      "k": "hbond",
+      "op": "bond.set"
+     }
+    ],
+    "out": "svg"
+   },
+   "probe": "hydrogen bond drawn dashed or dotted",
+   "rdkit": true,
+   "rdkit_api": "BondType.HYDROGEN"
+  },
+  {
+   "note": "",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.bond\",\"params\":{\"id\":3}}",
+   "ours_request": {
     "import": "C[Pd]",
     "log": [
      {
@@ -1761,15 +1781,15 @@
     ],
     "out": "svg"
    },
-   "note": "",
    "probe": "zero-order bond",
    "rdkit": true,
    "rdkit_api": "BondType.ZERO (drawn dashed)"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "the editor draws the wave as short lines",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "CC(F)Cl",
     "log": [
      {
@@ -1780,100 +1800,100 @@
     ],
     "out": "svg"
    },
-   "note": "mzDraw draws the wave as short lines",
    "probe": "wavy bond (unknown stereo)",
    "rdkit": true,
    "rdkit_api": "bond dir UNKNOWN / BondStereo.STEREOANY"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "ran, but the output does not show it",
-   "mzdraw_request": {
+   "note": "the CLI route gives no loss item for the dropped group (the page says it on import; see the study)",
+   "ours": false,
+   "ours_error": "ran, but the output does not show it",
+   "ours_request": {
     "import": "C[C@H](F)Cl |&1:1|",
     "out": "smiles"
    },
-   "note": "mzDraw drops the group from a CXSMILES without a loss item (see the study)",
    "probe": "enhanced stereo groups (and/or) kept and drawn",
    "rdkit": true,
    "rdkit_api": "CXSMILES |&1:..| read, drawn as 'and1' labels"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "import": "CC(=O)O.OCC>>CC(=O)OCC",
     "out": "svg"
    },
-   "note": "",
    "probe": "reaction from a reaction SMILES",
    "rdkit": true,
    "rdkit_api": "rdChemReactions.ReactionFromSmarts(useSmiles=True) + DrawReaction"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "pdf"
    },
-   "note": "",
    "probe": "PDF out",
    "rdkit": false,
    "rdkit_api": "no vector PDF drawer in rdMolDraw2D (Cairo writes PNG; a PIL image of MolToImage saves only as a raster PDF)"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.request\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.request\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "png"
    },
-   "note": "",
    "probe": "PNG out from the command line",
    "rdkit": true,
    "rdkit_api": "MolDraw2DCairo / MolToFile(.png)"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "the editor: SVG metadata, PDF attachment and PNG iTXt (the PNG pixels are made by the page)",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg"
    },
-   "note": "mzDraw: SVG metadata, PDF attachment and PNG iTXt (the PNG pixels are made by the page)",
    "probe": "the drawing travels inside the picture (opens again)",
    "rdkit": true,
    "rdkit_api": "PNG metadata (MolToPNGString, MolFromPNGString)"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "cdxml"
    },
-   "note": "",
    "probe": "CDXML out",
    "rdkit": true,
    "rdkit_api": "Chem.MolToCDXMLBlock (when this RDKit has it)"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg",
     "style": "acs-1996"
    },
-   "note": "",
    "probe": "ACS 1996 style",
    "rdkit": true,
    "rdkit_api": "MolDraw2D SetACS1996Mode / MolToACS1996SVG"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "args": {
      "template": "c1ccccc1"
     },
@@ -1881,28 +1901,28 @@
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg"
    },
-   "note": "",
    "probe": "align to a template or scaffold",
    "rdkit": true,
    "rdkit_api": "rdDepictor.GenerateDepictionMatching2DStructure"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
-   "mzdraw_request": {
+   "note": "docs/built/layout-no-coordinates.md: clean-up of an existing drawing is not wired",
+   "ours": false,
+   "ours_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
+   "ours_request": {
     "command": "clean",
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg"
    },
-   "note": "docs/built/layout-no-coordinates.md: clean-up of an existing drawing is not wired",
    "probe": "re-layout of a drawn structure (clean up)",
    "rdkit": true,
    "rdkit_api": "rdDepictor.Compute2DCoords on any molecule"
   },
   {
-   "mzdraw": false,
-   "mzdraw_error": "ran, but the output does not show it",
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "CO",
     "log": [
      {
@@ -1913,15 +1933,15 @@
     ],
     "out": "svg"
    },
-   "note": "",
    "probe": "lone pairs drawn",
    "rdkit": false,
    "rdkit_api": "none"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "command": "undo:1",
     "import": "C[C@@H](O)c1ccccc1",
     "log": [
@@ -1933,19 +1953,18 @@
     ],
     "out": "smiles"
    },
-   "note": "",
    "probe": "undo of an edit, exactly",
    "rdkit": false,
    "rdkit_api": "none (RWMol edits have no inverse)"
   },
   {
-   "mzdraw": true,
-   "mzdraw_error": null,
-   "mzdraw_request": {
+   "note": "",
+   "ours": true,
+   "ours_error": null,
+   "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "loss:smiles"
    },
-   "note": "",
    "probe": "loss report before writing a format",
    "rdkit": false,
    "rdkit_api": "none"
@@ -1953,7 +1972,7 @@
  ],
  "rdkit_version": "2026.09.2",
  "scheme": {
-  "mzdraw": {
+  "ours": {
    "arrows": 4,
    "deterministic": true,
    "ok": true,
@@ -1969,7 +1988,7 @@
  },
  "set": "tools/rdkit_compare/set.tsv",
  "summary": {
-  "mzdraw": {
+  "ours": {
    "atom_clashes": 3,
    "bond_crossings": 3,
    "bond_dev_max": 0.63,

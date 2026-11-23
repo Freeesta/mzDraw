@@ -58,12 +58,12 @@ Timing (`--markdown`, five runs each, median over the set): RDKit 0.33 ms per mo
 
 Transformation-product scheme (four rows): mzDraw `tp:import` draws 4 structures and 4 anchored arrows with formula deltas, deterministic; RDKit has no scheme or pathway drawing, the nearest is a grid of 4 with legends and no arrows.
 
-## 3. Bugs and silent losses found by the comparison
+## 3. Bugs and losses found by the comparison
 
 | id | finding | evidence (M) | consequence |
 |---|---|---|---|
 | F1 | **Lone pairs are not in the SVG or the PDF.** `atom.set lp` is drawn on the canvas, but the SVG and PDF writers skip the `DISC` primitive of the display list, so the dots never reach a file. `docs/built/curved-arrows.md` says "the SVG draws it and the lone pairs": not true at 05a0773. | `{"import":"CO","log":[{"op":"atom.set","id":2,"lp":2}],"out":"svg"}` gives one `<line>` and two `<text>`, no dot; `crates/mzdraw/src/svg.rs` `drawn_with` and `pdf.rs` handle `LINE`, `TEXT`, `TEXTX`, `TRI`, `RECT` only | a mechanism exported as SVG/PDF loses its electrons; fix first (small, high value) |
-| F2 | **Enhanced stereo is dropped on import without a loss item.** `C[C@H](F)Cl \|&1:1\|` and the V3000 molfile RDKit writes for it (`MDLV30/STERAC1`) both come in as plain absolute stereo; the report's `lost` is empty and `loss:molfile-v3000` has no item. | `{"import":"C[C@H](F)Cl \|&1:1\|","report":true,"out":"smiles"}` gives `C[C@H](F)Cl` and no `lost`; same with the V3000 text | a racemic or relative centre reads as absolute: a chemical meaning changes silently (rule 13 asks that what is not kept be listed) |
+| F2 | **Enhanced stereo is dropped on import, and the CLI route does not say so.** `C[C@H](F)Cl \|&1:1\|` and the V3000 molfile RDKit writes for it (`MDLV30/STERAC1`) both come in as plain absolute stereo. The page says it: the import note `draw2.import.stereoGroups` (`crates/mzdraw/src/io.rs`, `web/lang/mzdraw.js`, test `crates/mzdraw/tests/formats.rs`). The CLI route does not: the `draw-result/1` of `report: true` has no `lost` entry and `out: loss:molfile-v3000` has no item. | `{"import":"C[C@H](F)Cl \|&1:1\|","report":true,"out":"smiles"}` gives `C[C@H](F)Cl` and no `lost`; same with the V3000 text | an agent on the CLI route reads a racemic or relative centre as absolute with no word of it (rule 15: what the page says, the CLI says too) |
 | F3 | **An unspecified double bond is written as a defined E/Z.** RDKit writes an unspecified stereogenic double bond as "either" (crossed, bond stereo 3) in its molfile; mzDraw writes a plain double bond, so RDKit (and any reader that takes E/Z from 2D coordinates) reads the drawn geometry as specified. | polyene `C=CC=CC=CC=CC=C`: RDKit canonical SMILES of mzDraw's molfile, SMILES and CDXML differ from the input (E/Z added); RDKit's own round trip keeps it | a drawing says more than the input; `expect stereo kept` does not see it (it compares mzDraw with itself) |
 | F4 | **A reaction SMILES is refused.** `CC(=O)O.OCC>>CC(=O)OCC` is `error.draw2.smiles`; the same reaction as an RXN file is drawn (reactants, plus, arrow, product). | harness row `reaction` | agents must build an RXN file to draw a reaction |
 | F5 | **A dative SMILES is refused.** `[NH3]->[Pd](Cl)(Cl)<-[NH3]` is `error.draw2.smiles`, though the document has dative bonds (`bond.set k dative`). | harness row `dative` | coordination compounds cannot be drawn from SMILES |
@@ -82,7 +82,7 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | 2 | depict a molfile V2000/V3000 with its coordinates | `MolFromMolBlock` | `import` a molfile | built | `core.json` | M |
 | 3 | depict every record of an SDF | `SDMolSupplier` (+ grid) | `import` an SDF: records side by side | built | `sdf-data.json` | M |
 | 4 | coordinates given in a CXSMILES | read `\|(...)\|` | ignored, layout computed (F6) | missing | | M |
-| 5 | enhanced stereo groups (`&1`, `o1`, V3000 `STERAC`) | kept and drawn | dropped silently (F2) | missing | | M |
+| 5 | enhanced stereo groups (`&1`, `o1`, V3000 `STERAC`) | kept and drawn | dropped; the page's import note says so, the CLI route gives no loss item (F2) | missing | `crates/mzdraw/tests/formats.rs` (the page note) | M |
 | 6 | dative bonds in SMILES (`->`) | read | refused (F5) | missing | | M |
 | 7 | reaction SMILES (`A>>B`) | `ReactionFromSmarts(useSmiles=True)` | refused (F4); RXN file works (#41) | missing | | M |
 | 8 | CDXML / CDX read | `MolsFromCDXML` (CDXML) | CDXML and binary CDX | better | `cdx.json` | M |
@@ -109,8 +109,8 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | 24 | wavy bond | unknown stereo (`unspecifiedStereoIsUnknown`) | `bond.set s 3` | built | `core.json` | M |
 | 25 | unspecified double bond marked "either" in the molfile | crossed bond, stereo 3 | none (F3) | missing | | M |
 | 26 | hash drawn as wedge ladder or parallel lines | ladder (no option found among `MolDrawOptions`) | `style.hash_style` wedge/lines | better | `label-display.json` | M (mzDraw), D (RDKit) |
-| 27 | bond kinds: bold, dashed, bold dashed, plain hash, H-bond | none of these as display kinds (not found among `MolDrawOptions` or bond types drawn) | `bond.set k` bold/dash/bdash/hash/hbond | better | `bond-display.json`, `bond-kinds.json` | M (mzDraw), D (RDKit) |
-| 28 | dative bond drawn as an arrow | `BondType.DATIVE` | `bond.set k dative` | built | `bond-kinds.json` | M |
+| 27 | bond kinds: bold, dashed, bold dashed, plain hash | none of these as display kinds (not found among `MolDrawOptions` or the bond types drawn) | `bond.set k` bold/dash/bdash/hash | better | `bond-display.json`, `bond-kinds.json` | M (mzDraw), D (RDKit) |
+| 28 | dative bond drawn as an arrow; hydrogen bond drawn dashed or dotted | `BondType.DATIVE`; `BondType.HYDROGEN` (dashed) | `bond.set k dative`, `k hbond` (dotted) | built | `bond-kinds.json` | M |
 | 29 | zero-order bond | `BondType.ZERO` drawn dashed | `bond.set o 0` refused (`error.draw2.bond`) | missing | | M |
 | 30 | side of the second line of a double bond | automatic only | `bond.set pos` auto/c/l/r | better | `bond-display.json` | M |
 | 31 | aromatic bonds drawn aromatic (dashed) | `PrepareMolForDrawing(kekulize=False)` | Kekulé only (circles named out of scope in `built/label-display-modes.md`) | missing | | M |
@@ -197,7 +197,7 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | n.a. | 5 |
 | total | 77 |
 
-Built or better: 42 of 77. RDKit does something mzDraw cannot in the 23 missing rows and in part of the 7 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
+Built or better: 42 of 77 (the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 23 missing rows and in part of the 7 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
 
 ## 5. Where mzDraw is already better, with evidence
 
@@ -217,7 +217,7 @@ Rank by what agents and chemists need most from the command line, then by size. 
 | rank | gap | rows | why first | size |
 |---|---|---|---|---|
 | 1 | lone pairs in SVG and PDF (F1) | #40 | a bug in a built feature; the doc says it works | small |
-| 2 | enhanced stereo: list it as lost (now), then keep and draw it | #5, #38 | silent change of meaning; rule 13 | small (loss item), medium (keep) |
+| 2 | enhanced stereo: a loss item on the CLI route (the page already says it), then keep and draw it | #5, #38 | a change of meaning the CLI does not report; rule 15 | small (loss item), medium (keep) |
 | 3 | "either" mark for an unspecified stereogenic double bond in molfile/CDXML out (F3) | #25 | other programs read a defined E/Z | small |
 | 4 | atom and bond indices in the picture (`display.ids`) | #36 | agents name atoms by id in every op; seeing them closes the loop | small |
 | 5 | CIP labels drawn (`display.cip`, from the engine `cip`) | #37 | chemists check R/S and E/Z at a glance; the engine exists | medium |
