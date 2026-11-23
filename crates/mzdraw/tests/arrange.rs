@@ -1,4 +1,4 @@
-//! Align, distribute, turn by a typed angle, scale and nudge: existing operations only, one undo step each, deterministic.
+//! Align, distribute, turn by a typed angle and nudge: existing operations only, one undo step each, deterministic.
 
 use mzdraw::{Editor, Op};
 use serde_json::json;
@@ -169,42 +169,16 @@ fn an_arrow_is_aligned_with_a_structure_and_keeps_its_length() {
 }
 
 #[test]
-fn turning_by_90_four_times_and_scaling_by_2_then_one_half_return_the_document() {
+fn turning_by_90_four_times_returns_the_document() {
     let (mut e, ids) = three();
     select(&mut e, &ids);
-    let start = e.doc().to_json();
+    let was = e.doc().clone();
     for _ in 0..4 {
         e.arrange("rotate:90");
     }
-    let back = e.doc();
-    let was = mzdraw::Document::from_json(&start).unwrap();
-    for (a, b) in back.atoms.iter().zip(&was.atoms) {
-        assert!(close(a.x, b.x) && close(a.y, b.y), "{a:?} {b:?}");
-    }
-    let steps = e.session.steps();
-    e.arrange("scale:2");
-    assert_eq!(e.session.steps(), steps + 1, "a scale is one undo step");
-    let s = e.doc().atoms[0].x;
-    assert!((s - was.atoms[0].x).abs() > 0.5);
-    e.arrange("scale:0.5");
     for (a, b) in e.doc().atoms.iter().zip(&was.atoms) {
         assert!(close(a.x, b.x) && close(a.y, b.y), "{a:?} {b:?}");
     }
-}
-
-#[test]
-fn scaling_scales_the_bond_length_and_keeps_the_centre() {
-    let mut e = Editor::default();
-    e.import("CC").unwrap();
-    e.select_all();
-    let len = |e: &Editor| {
-        let (a, b) = (&e.doc().atoms[0], &e.doc().atoms[1]);
-        ((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt()
-    };
-    let (l0, c0) = (len(&e), (e.doc().atoms[0].x + e.doc().atoms[1].x) / 2.0);
-    e.arrange("scale:3");
-    assert!((len(&e) - 3.0 * l0).abs() < 2e-4);
-    assert!(close((e.doc().atoms[0].x + e.doc().atoms[1].x) / 2.0, c0));
 }
 
 #[test]
@@ -219,7 +193,6 @@ fn every_arrange_command_is_undone_exactly() {
         "distribute:h",
         "distribute:v",
         "rotate:37.5",
-        "scale:1.7",
         "nudge:0.3,-1.2",
     ] {
         let (mut e, ids) = three();

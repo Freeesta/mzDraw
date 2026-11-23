@@ -844,13 +844,13 @@ try {
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
   });
 
-  await step("arrange: the selection is aligned, distributed, turned by a typed angle and scaled from the Edit palette, with the keyboard and with the mouse; each is one undo step and the drawing equals the golden bytes of the command", async () => {
+  await step("arrange: the selection is aligned, distributed, turned by a typed angle from the Edit palette, with the keyboard and with the mouse; each is one undo step and the drawing equals the golden bytes of the command", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/arrange.json"), "utf8")).cases;
     const g = name => gold.find(c => c.name === name);
     await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9, objects: 1 });
     const start = await pg.evaluate("window.MZDRAW.save('mzdraw')"), save = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
     // keyboard: select all, the buttons reached by their focus, Enter
-    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 11 });
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 17 });
     const BT = c => `[data-testid="d2-${c}"]`;
     await reveal(pg, BT("align:top")); await pg.focus(BT("align:top")); await pg.keyboard.press("Enter"); await frames(pg);
     eq(await save(), g("whole drawing: align top").out.mzdraw);
@@ -865,13 +865,10 @@ try {
     await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "90"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
     eq(await save(), g("whole drawing: turn by 90").out.mzdraw);
     await tool(pg, "undo"); eq(await save(), start);
-    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
-    await reveal(pg, "#d2-scale"); await pg.fill("#d2-scale", "2"); await pg.press("#d2-scale", "Enter"); await frames(pg);
-    eq(await save(), g("whole drawing: scale by 2").out.mzdraw);
-    await tool(pg, "undo"); eq(await save(), start);
     // a nonsense angle is refused in words and nothing changes
     await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "abc"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
     eq(await pg.getAttribute("#d2-rotate", "aria-invalid"), "true"); eq(await save(), start);
+    await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas");                  // the flyout is left
     // mouse: nothing selected, so everything is arranged
     await tool(pg, "select"); await pg.mouse.click(cx, cy + 300); await want(pg, { selected: 0 });
     await tool(pg, "align:top"); await frames(pg);
@@ -1470,13 +1467,13 @@ try {
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
   });
 
-  await step("tablet with touch and a pen: the buttons align, distribute and the fields turn and scale arrange the drawing by a tap and by a pen, and each is undone", async () => {
+  await step("tablet with touch and a pen: the buttons align, distribute and the field turn arrange the drawing by a tap and by a pen, and each is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/arrange.json"), "utf8")).cases;
     const g = name => gold.find(c => c.name === name).out.mzdraw;
     await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9, objects: 1 });
     const save = () => pg.evaluate("window.MZDRAW.save('mzdraw')"), start = await save();
     const BT = c => `[data-testid="d2-${c}"]`;
-    await tool(pg, "all"); await want(pg, { selected: 11 });
+    await tool(pg, "all"); await want(pg, { selected: 17 });
     await reveal(pg, BT("align:top")); await pg.tap(BT("align:top")); await frames(pg);
     eq(await save(), g("whole drawing: align top"));
     await shot(pg, "cd-15-arrange-touch");

@@ -1,7 +1,7 @@
-//! Arranging the selection: align on an edge, distribute with equal gaps, turn by a typed angle, scale, nudge. Each command is
-//! planned here as existing operations only (`move`, `rotate`; a scale is one `move` per atom), so the log of a page replays natively
+//! Arranging the selection: align on an edge, distribute with equal gaps, turn by a typed angle, nudge (a scale waits for `atoms.xy`). Each command is
+//! planned here as existing operations only (`move`, `rotate`), so the log of a page replays natively
 //! to the same bytes and every step has the exact inverse of its operations. The commands are `align:left|centre|right|top|middle|
-//! bottom`, `distribute:h|v`, `rotate:<deg>`, `scale:<f>` and `nudge:<dx>,<dy>`; the arguments `atoms` and `objects` of a command
+//! bottom`, `distribute:h|v`, `rotate:<deg>` and `nudge:<dx>,<dy>`; the arguments `atoms` and `objects` of a command
 //! name what it acts on (the page leaves them out: it acts on the selection, or on everything when nothing is selected).
 //!
 //! The unit that moves is an *item*: a connected piece (an atom of the selection stands for its whole structure), or one selected object. An item's box is the box of
@@ -33,17 +33,12 @@ pub enum Cmd {
     /// Equal gaps along x (`true`) or along y (`false`).
     Distribute(bool),
     Rotate(f64),
-    Scale(f64),
     Nudge(f64, f64),
 }
 
 /// The largest angle or shift a command takes; a larger value is an invalid request.
 const LIMIT: f64 = MAX_COORD;
-/// The scale factors a command takes.
-const SCALE_MIN: f64 = 0.01;
-const SCALE_MAX: f64 = 100.0;
-
-/// Parses `align:left`, `distribute:h`, `rotate:45`, `scale:2`, `nudge:0.5,-1`; `None` for anything else (a number that is not finite,
+/// Parses `align:left`, `distribute:h`, `rotate:45`, `nudge:0.5,-1`; `None` for anything else (a number that is not finite,
 /// a factor outside `0.01..=100`, an unknown edge).
 pub fn parse(name: &str) -> Option<Cmd> {
     let (head, rest) = name.split_once(':')?;
@@ -69,9 +64,6 @@ pub fn parse(name: &str) -> Option<Cmd> {
             _ => None,
         },
         "rotate" => num(rest).map(Cmd::Rotate),
-        "scale" => num(rest)
-            .filter(|f| (SCALE_MIN..=SCALE_MAX).contains(f))
-            .map(Cmd::Scale),
         "nudge" => {
             let (dx, dy) = rest.split_once(',')?;
             Some(Cmd::Nudge(num(dx)?, num(dy)?))
@@ -196,7 +188,6 @@ pub fn plan(doc: &Document, cmd: Cmd, atoms: &[u32], objects: &[u32]) -> Result<
                 y,
             }])
         }
-        Cmd::Scale(f) => scale(doc, f, atoms, objects),
         Cmd::Align(edge) => {
             let its = items(doc, atoms, objects)?;
             if its.len() < 2 {
@@ -263,7 +254,7 @@ fn union(its: &[Item]) -> (f64, f64, f64, f64) {
         })
 }
 
-/// The centre of the box of some atoms, on the document grid (the point a turn or a scale leaves where it is).
+/// The centre of the box of some atoms, on the document grid (the point a turn leaves where it is).
 fn centre(doc: &Document, atoms: &[u32]) -> Result<(f64, f64), Refusal> {
     let mut b = None;
     for &i in atoms {
@@ -272,53 +263,6 @@ fn centre(doc: &Document, atoms: &[u32]) -> Result<(f64, f64), Refusal> {
     }
     let (x0, y0, x1, y1) = b.ok_or("error.draw2.arrangeNone")?;
     Ok((round4((x0 + x1) / 2.0), round4((y0 + y1) / 2.0)))
-}
-
-/// A scale by `f` about the centre of the box of the selection, as one `move` per atom (and per object: its anchor point goes where
-/// the scale puts it, its size is kept). The bonds of a structure scale with it; a factor of 1 changes nothing.
-fn scale(doc: &Document, f: f64, atoms: &[u32], objects: &[u32]) -> Result<Vec<Op>, Refusal> {
-    let mut b = None;
-    for &i in atoms {
-        let a = doc.atom(i).ok_or("error.draw2.noAtom")?;
-        grow(&mut b, a.x, a.y);
-    }
-    for &i in objects {
-        let o = doc.object(i).ok_or("error.draw2.noObject")?;
-        grow(&mut b, o.x, o.y);
-        if o.t == crate::doc::ObjKind::Arrow {
-            grow(&mut b, o.x2, o.y2);
-        }
-    }
-    let (x0, y0, x1, y1) = b.ok_or("error.draw2.arrangeNone")?;
-    let (cx, cy) = (round4((x0 + x1) / 2.0), round4((y0 + y1) / 2.0));
-    let mut ops = Vec::new();
-    for &i in atoms {
-        let a = doc.atom(i).ok_or("error.draw2.noAtom")?;
-        let (dx, dy) = ((f - 1.0) * (a.x - cx), (f - 1.0) * (a.y - cy));
-        ops.push(Op::Move {
-            atoms: vec![i],
-            objects: Vec::new(),
-            dx: round4(dx),
-            dy: round4(dy),
-        });
-    }
-    for &i in objects {
-        let o = doc.object(i).ok_or("error.draw2.noObject")?;
-        let (dx, dy) = ((f - 1.0) * (o.x - cx), (f - 1.0) * (o.y - cy));
-        ops.push(Op::Move {
-            atoms: Vec::new(),
-            objects: vec![i],
-            dx: round4(dx),
-            dy: round4(dy),
-        });
-    }
-    ops.retain(|o| !matches!(o, Op::Move { dx, dy, .. } if *dx == 0.0 && *dy == 0.0));
-    if ops.iter().any(
-        |o| matches!(o, Op::Move { dx, dy, .. } if dx.abs() > MAX_COORD || dy.abs() > MAX_COORD),
-    ) {
-        return Err("error.draw2.coordinate");
-    }
-    Ok(ops)
 }
 
 use crate::editor::{Editor, CHANGED, REPAINT};
@@ -357,7 +301,6 @@ impl Editor {
             Cmd::Align(_) => "draw2.say.aligned",
             Cmd::Distribute(_) => "draw2.say.distributed",
             Cmd::Rotate(_) => "draw2.say.rotated",
-            Cmd::Scale(_) => "draw2.say.scaled",
             Cmd::Nudge(..) => "draw2.say.nudged",
         };
         let what = name.split_once(':').map_or("", |p| p.1).to_string();
