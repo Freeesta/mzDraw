@@ -123,6 +123,58 @@ const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; awa
 const fillIn = async (pg, sel, text) => { await reveal(pg, sel); await pg.fill(sel, text); };
 const saveAs = async (pg, sel) => { await reveal(pg, sel); await pg.click(sel); };
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
+/** The three display keys of the style (carbon labels, hydrogens, hash style), from the fields of the page: each choice changes the
+ * canvas and the saved SVG, and the file the module writes; `pick(id, word)` chooses a word in the way of the step (keys, a finger, a pen).
+ * The labels are what the SVG writes as text (`CH3OH`); the rungs of a hash are its lines. Returns when the style is back to the default. */
+async function displayModes(pg, pick, tapAt) {
+  const style = async () => JSON.parse(await pg.evaluate("window.MZDRAW.style()")).style;
+  const texts = svg => [...svg.matchAll(/>([^<>]+)<\/text>/g)].map(m => m[1]).join("");
+  const rungs = svg => [...svg.matchAll(/<line x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"/g)].map(m => Math.hypot(m[3] - m[1], m[4] - m[2]));
+  const ink = () => pg.evaluate("(() => { const c = document.querySelector('#d2-canvas'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })()");
+  await tool(pg, "clear"); await want(pg, { atoms: 0, style: "mzlab" });
+  await pg.evaluate(() => { /** @type {HTMLTextAreaElement} */ (document.getElementById("d2-text")).value = "CCCO"; document.getElementById("d2-add")?.click(); }); await want(pg, { atoms: 4 });       // the Add button itself, where the palette of the page is folded away (a tablet)
+  await pg.locator("#d2-style-more summary").click();
+  const schema = JSON.parse(await pg.evaluate("window.MZDRAW.settings_schema()"));
+  for (const k of ["style.carbon_labels", "style.hydrogens", "style.hash_style"]) {
+    const c = schema.choices.find(x => x.key === k);
+    eq(await pg.locator(`[id="d2-style-${k}"] option`).allInnerTexts(), await pg.evaluate(`${JSON.stringify(c.values)}.map(v => I18N.t(${JSON.stringify("draw2.style.choice." + k + ".")} + v))`));
+    eq(await pg.inputValue(`[id="d2-style-${k}"]`), c.default);
+  }
+  eq(texts(await pg.evaluate("window.MZDRAW.save('svg')")), "OH");
+  const bare = await ink(), file = await pg.evaluate("window.MZDRAW.style()");
+  assert(!file.includes("carbon_labels") && !file.includes("hash_style") && !file.includes("hydrogens"), "the default is not written");
+  await pick("style.carbon_labels", "terminal");
+  await until(pg, "JSON.parse(window.MZDRAW.style()).style.carbon_labels === 'terminal'");
+  eq(texts(await pg.evaluate("window.MZDRAW.save('svg')")), "CH3OH");
+  assert((await ink()) !== bare, "the canvas paints the label of the chain end");
+  await pick("style.carbon_labels", "all");
+  await until(pg, "JSON.parse(window.MZDRAW.style()).style.carbon_labels === 'all'");
+  eq(texts(await pg.evaluate("window.MZDRAW.save('svg')")), "CH3CCOH");                  // a carbon with two bonds: the bare symbol
+  await pick("style.hydrogens", "all");
+  await until(pg, "JSON.parse(window.MZDRAW.style()).style.hydrogens === 'all'");
+  eq(texts(await pg.evaluate("window.MZDRAW.save('svg')")), "CH3CH2CH2OH");
+  await shot(pg, "label-display-modes-" + pick.how);
+  // the file the module writes names the three words, and the page reads it back
+  const written = JSON.parse(await pg.evaluate("window.MZDRAW.style()")).style;
+  eq([written.carbon_labels, written.hydrogens], ["all", "all"]);
+  // the hash: a hashed wedge widens; as parallel lines its rungs are equal
+  await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  await tool(pg, "bond:down"); await tapAt(); await want(pg, { atoms: 2, bonds: 1 });
+  const widening = rungs(await pg.evaluate("window.MZDRAW.save('svg')"));
+  assert(widening.length >= 3 && widening[widening.length - 1] > widening[0] + 1, `a hashed wedge widens: ${widening}`);
+  await pick("style.hash_style", "lines");
+  await until(pg, "JSON.parse(window.MZDRAW.style()).style.hash_style === 'lines'");
+  const equal = rungs(await pg.evaluate("window.MZDRAW.save('svg')"));
+  assert(equal.length >= 3 && equal.every(x => Math.abs(x - equal[0]) < 0.011), `parallel lines of one length: ${equal}`);
+  await shot(pg, "label-display-modes-hash-" + pick.how);
+  // an unknown word is refused with its key by the module and changes nothing
+  assert(await pg.evaluate("(() => { try { window.MZDRAW.set('style.hash_style=dots'); return false; } catch (e) { return JSON.parse(String(e)).error_key === 'error.draw2.styleValue'; } })()"), "a word outside the schema is refused with its key");
+  eq((await style()).hash_style, "lines");
+  // back to the default: nothing of the three is written
+  for (const [k, w] of [["style.carbon_labels", "none"], ["style.hydrogens", "hetero"], ["style.hash_style", "wedge"]]) await pick(k, w);
+  await until(pg, "!/carbon_labels|hash_style|hydrogens/.test(window.MZDRAW.style())");
+  await pg.locator("#d2-style-more summary").click();
+}
 /** a screenshot of one element at deviceScaleFactor 2 (the drawing checks panel, light, dark and tablet: docs/shots/) */
 const shotEl = async (pg, sel, name) => { if (shots) await pg.locator(sel).screenshot({ path: path.join(shots, name + ".png") }); };
 // the palettes: where each one is drawn, as the page shows it
@@ -1183,6 +1235,16 @@ try {
     await pg.click("#d2-style-more summary");
   });
 
+  await step("display modes by keyboard: carbon labels, hydrogens and the hash style are set from the fields with the arrow keys; the canvas, the SVG and the file follow", async () => {
+    const pick = async (id, word) => {
+      const sel = `[id="d2-style-${id}"]`, words = await pg.$$eval(`${sel} option`, o => o.map(x => x.value));
+      await pg.focus(sel);
+      for (let at = words.indexOf(await pg.inputValue(sel)), to = words.indexOf(word); at !== to; at += Math.sign(to - at)) await pg.keyboard.press(to > at ? "ArrowDown" : "ArrowUp");
+    };
+    pick.how = "keyboard";
+    await displayModes(pg, pick, () => pg.mouse.click(cx, cy));
+  });
+
   await step("keyboard alone: a molecule is drawn, walked and edited without the pointer; the outline and the focus are said in words", async () => {
     const live = () => pg.innerText("#d2-live"), key = k => pg.keyboard.press(k);
     await tool(pg, "clear"); await want(pg, { atoms: 0, focus: 0 });
@@ -1277,6 +1339,20 @@ try {
     await key("m"); eq(await pg.getAttribute(toggle, "aria-pressed"), "false");
     await pg.mouse.click(cx + 300, cy + 200); await want(pg, { selected: 0 });
   });
+  await step("display modes by touch: a finger opens the fields and chooses the words; the canvas, the SVG and the file follow", async () => {
+    const pick = async (id, word) => { await pg.locator(`[id="d2-style-${id}"]`).selectOption(word); };
+    pick.how = "touch";
+    await pg.locator("#d2-style-more summary").tap(); await pg.locator("#d2-style-more summary").tap();       // a tap on the summary: open, shut
+    await displayModes(pg, pick, () => pg.touchscreen.tap(cx, cy));
+  });
+  await step("display modes by pen: the hashed bond is drawn with the pen and shown as parallel lines of one length", async () => {
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const pick = async (id, word) => { await pg.locator(`[id="d2-style-${id}"]`).selectOption(word); };
+    pick.how = "pen";
+    await displayModes(pg, pick, async () => { await pen("mouseMoved", cx, cy); await pen("mousePressed", cx, cy); await pen("mouseReleased", cx, cy); });
+  });
+
   await ctx.close();
   // the desktop palettes in a context with a mouse and keyboard only (a touch screen gets the 44 px handles, tested on the tablet)
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
