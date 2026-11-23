@@ -101,6 +101,8 @@ impl Editor {
                 y2: None,
                 from: Some(0),
                 to: Some(0),
+                cv: Default::default(),
+                pt: [None, None],
             }])?;
         }
         self.error = "";

@@ -33,6 +33,7 @@ fn atom_set(a: &Atom, b: &Atom) -> Option<Op> {
         h: if reset || a.h != b.h { b.h } else { None },
         lab,
         map: (a.map != b.map).then_some(b.map),
+        lp: (a.lp() != b.lp()).then_some(b.lp()),
     };
     let empty = matches!(
         &op,
@@ -44,6 +45,7 @@ fn atom_set(a: &Atom, b: &Atom) -> Option<Op> {
             h: None,
             lab: None,
             map: None,
+            lp: None,
             ..
         }
     );
@@ -66,6 +68,7 @@ fn obj_add(o: &Obj) -> Op {
         runs: o.runs.clone(),
         from: o.from,
         to: o.to,
+        cv: o.curve(),
     }
 }
 
@@ -308,6 +311,63 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
             }
             continue;
         };
+        if p.t == ObjKind::Curve {
+            // a curve is said as it is: the points it keeps, the anchors, the head and the bow (an anchored end keeps 0, 0, and goes
+            // with its anchor)
+            let (cp, co) = (p.curve(), o.curve());
+            let cv = crate::curve::CurveSet {
+                half: (cp.half != co.half).then_some(cp.half),
+                bend: (cp.bend != co.bend).then_some(cp.bend),
+                // always said: it marks the set of a curve for `touched`
+                fl: Some(cp.fl),
+                tl: Some(cp.tl),
+            };
+            // an end that is freed is said whole (both numbers): freeing it puts it where it stood, which may be any of them
+            let (freed_a, freed_b) = (o.from != 0 && p.from == 0, o.to != 0 && p.to == 0);
+            let pt = [
+                (freed_a || p.x != o.x).then_some(p.x),
+                (freed_a || p.y != o.y).then_some(p.y),
+            ];
+            let (x2, y2) = (
+                (freed_b || p.x2 != o.x2).then_some(p.x2),
+                (freed_b || p.y2 != o.y2).then_some(p.y2),
+            );
+            let (from, to) = (
+                (o.from != p.from).then_some(p.from),
+                (o.to != p.to).then_some(p.to),
+            );
+            if cv.half.is_some()
+                || cv.bend.is_some()
+                || cp.fl != co.fl
+                || cp.tl != co.tl
+                || pt.iter().any(Option::is_some)
+                || x2.is_some()
+                || y2.is_some()
+                || from.is_some()
+                || to.is_some()
+            {
+                out.push(Op::ObjSet {
+                    id: p.id,
+                    text: None,
+                    runs: None,
+                    x2,
+                    y2,
+                    from,
+                    to,
+                    cv,
+                    pt,
+                });
+            }
+            if o.col() != p.col() {
+                out.push(Op::Colour {
+                    atoms: Vec::new(),
+                    bonds: Vec::new(),
+                    objects: vec![p.id],
+                    col: p.col(),
+                });
+            }
+            continue;
+        }
         let d = (round4(p.x - o.x), round4(p.y - o.y));
         // an arrow moves with its two ends; a different end point is set in the frame before the move
         let end = |v: f64, d: f64, was: f64| {
@@ -331,6 +391,8 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                 y2,
                 from,
                 to,
+                cv: Default::default(),
+                pt: [None, None],
             });
         }
         if o.col() != p.col() {
@@ -568,15 +630,38 @@ fn splittable(op: &Op) -> bool {
 /// The ids an operation of `diff` names (for a bond add: its own id and its two atoms).
 pub(crate) fn touched(op: &Op) -> Vec<u32> {
     match op {
-        Op::AtomAdd { id, .. } | Op::ObjAdd { id, .. } => id.iter().copied().collect(),
+        Op::AtomAdd { id, .. } => id.iter().copied().collect(),
+        // a curve is in one hunk with the pieces it is anchored to (it needs them to be there)
+        Op::ObjAdd {
+            id, t, from, to, ..
+        } => id
+            .iter()
+            .copied()
+            .chain(
+                [*from, *to]
+                    .into_iter()
+                    .filter(|&a| a != 0 && *t == ObjKind::Curve),
+            )
+            .collect(),
         Op::BondAdd { id, a, b, .. } => id.iter().copied().chain([*a, *b]).collect(),
         Op::AtomSet { id, .. }
         | Op::AtomData { id, .. }
         | Op::AtomAnn { id, .. }
         | Op::AtomCap { id, .. }
         | Op::AtomTitle { id, .. }
-        | Op::BondSet { id, .. }
-        | Op::ObjSet { id, .. } => vec![*id],
+        | Op::BondSet { id, .. } => vec![*id],
+        // the set of a curve (the diff always says its two flags) is in one hunk with the pieces it is anchored to
+        Op::ObjSet {
+            id, from, to, cv, ..
+        } => std::iter::once(*id)
+            .chain(
+                [from, to]
+                    .into_iter()
+                    .flatten()
+                    .copied()
+                    .filter(|&a| a != 0 && (cv.fl.is_some() || cv.tl.is_some())),
+            )
+            .collect(),
         Op::Colour {
             atoms,
             bonds,

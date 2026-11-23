@@ -26,6 +26,7 @@ fn set_label(id: u32, lab: &str) -> Op {
         rad: None,
         h: None,
         lab: Some(lab.into()),
+        lp: None,
     }
 }
 
@@ -187,6 +188,7 @@ fn labels_are_set_refused_cleared_and_undone() {
         rad: None,
         h: None,
         lab: None,
+        lp: None,
     }])
     .unwrap();
     assert_eq!(

@@ -182,6 +182,7 @@ pub fn command(what: &str) -> u32 {
         "scheme-row" => e.scheme_row(),
         "pathway-tree" => e.pathway_tree(),
         "scheme-orient" => e.scheme_orient(),
+        "lonepairs-place" => e.place_lone_pairs(),
         "pathway-label" => e.pathway_label_page(""),
         w if Editor::is_history_command(w) => e.history_command(w).unwrap_or(0),
         w if mzdraw::arrange::is_arrange(w) => e.arrange(w),

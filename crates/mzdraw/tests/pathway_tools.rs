@@ -262,6 +262,8 @@ fn pathway_route_puts_every_anchored_arrow_back_and_is_idempotent() {
             y2: Some(3.0),
             from: None,
             to: None,
+            cv: Default::default(),
+            pt: [None, None],
         }])
         .unwrap();
     let moved = e.doc().to_json();
