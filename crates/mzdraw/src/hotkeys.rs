@@ -2,10 +2,12 @@
 //! that object without selecting it first. The one table `TABLE` says which key does what; `Editor::key` reads it before the tool
 //! keys. Every command is made of operations that exist (`bond.set`, `atom.set`, `chain`, `ring`), so a session with hover keys
 //! replays natively to the same bytes and each key is one undo step. With the pointer over nothing and no focus the keys pick
-//! their tools as ever.
+//! their tools as ever, and so they do with a drawing tool active: the keys that already picked a tool act on the object only with
+//! the select tool or the plain single-bond tool, which is the tool the page starts with (the Alt keys and the rings work with any
+//! tool).
 
 use crate::build;
-use crate::editor::{Editor, FOCUS};
+use crate::editor::{Editor, Tool, FOCUS};
 use crate::ops::Op;
 use std::f64::consts::PI;
 
@@ -140,6 +142,13 @@ impl Editor {
     /// A hover key (`key` lower case): `None` when it is not one here (no row, or nothing under the pointer or in focus), so that the
     /// other bindings apply. One undo step, announced.
     pub(crate) fn hot_key(&mut self, key: &str, shift: bool, alt: bool) -> Option<u32> {
+        // a key that already picks a tool (digits, W, Y, M, E, Shift+F, Shift+O) acts on the object only with the select tool or the plain
+        // single-bond tool (the tool the page starts with), so that the
+        // flow "pick a tool with the key, then click" of the drawing tools is what it was; the Alt keys and the rings are new keys
+        let contested = !alt && !(shift && key.len() == 1 && key.as_bytes()[0].is_ascii_digit());
+        if contested && !matches!(self.tool, Tool::Select | Tool::Bond(1, 0)) {
+            return None;
+        }
         let bond = self.hot_bond();
         let (h, id) = match (find(Atom, key, shift, alt), find(Bond, key, shift, alt)) {
             (Some(h), _) if self.hot_atom(h.focus).is_some() => (h, self.hot_atom(h.focus)?),

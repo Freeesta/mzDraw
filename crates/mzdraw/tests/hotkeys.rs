@@ -249,3 +249,25 @@ fn the_table_has_no_clash_and_every_row_is_valid() {
     let v: serde_json::Value = serde_json::from_str(&hotkeys::help_json()).unwrap();
     assert_eq!(v.as_array().unwrap().len(), TABLE.len());
 }
+
+#[test]
+fn with_a_drawing_tool_active_the_keys_that_picked_tools_still_pick_them() {
+    let mut e = from("CC");
+    let b = e.doc().bonds[0].id;
+    e.key("w", 0);
+    assert_eq!(e.tool.name(), "bond:up");
+    let before = saved(&e);
+    for (key, mods) in [("w", 0), ("w", SHIFT), ("y", 0), ("2", 0)] {
+        e.key_over(key, mods, Some((false, b)), None);
+        assert_eq!(
+            saved(&e),
+            before,
+            "{key} picks a tool, the pointer is over a bond"
+        );
+    }
+    assert_eq!(e.tool.name(), "bond:2");
+    // the Alt keys and the rings are new keys: they act with any tool
+    let a = e.doc().atoms[0].id;
+    e.key_over("3", ALT, Some((true, a)), None);
+    assert_eq!(e.doc().atoms.len(), 5);
+}

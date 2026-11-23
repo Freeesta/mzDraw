@@ -467,7 +467,7 @@ I18N.add("en", {
   "draw2.say.wedge": "Wedge set.",
   "draw2.say.wedgeTurn": "Wedge turned around.",
   "error.draw2.keys": "A key of the request is not {key, mods, hover, focus} with an atom or bond number.",
-  "draw2.keys.hover": "Hover keys: with the pointer over an atom or a bond (or the focus on an atom, or on the bond just walked), a key acts on it without selecting it first, as one undo step. Over nothing these keys pick their tools. Touch has no hover: use the keyboard focus.",
+  "draw2.keys.hover": "Hover keys: with the pointer over an atom or a bond (or the focus on an atom, or on the bond just walked), a key acts on it without selecting it first, as one undo step. Over nothing, or with a drawing tool other than the plain bond active, these keys pick their tools (the Alt keys and the rings work with any tool). Touch has no hover: use the keyboard focus.",
   "draw2.hot.target.atom": "Atom",
   "draw2.hot.target.bond": "Bond",
   "draw2.hot.target.atomHover": "Atom (pointer only)",
