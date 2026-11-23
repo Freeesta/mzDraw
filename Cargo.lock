@@ -150,7 +150,7 @@ dependencies = [
 [[package]]
 name = "mzlab-core"
 version = "1.0.0"
-source = "git+https://github.com/Freeesta/mzlab?rev=ccd4680fc35b4ca6029cfead3a8e97f82042fdf7#ccd4680fc35b4ca6029cfead3a8e97f82042fdf7"
+source = "git+https://github.com/Freeesta/mzlab?rev=3783626345c7b79487218eb8242310eb2d5d68db#3783626345c7b79487218eb8242310eb2d5d68db"
 dependencies = [
  "base64",
  "flate2",
@@ -165,7 +165,7 @@ dependencies = [
 [[package]]
 name = "mzlab-feat"
 version = "1.0.0"
-source = "git+https://github.com/Freeesta/mzlab?rev=ccd4680fc35b4ca6029cfead3a8e97f82042fdf7#ccd4680fc35b4ca6029cfead3a8e97f82042fdf7"
+source = "git+https://github.com/Freeesta/mzlab?rev=3783626345c7b79487218eb8242310eb2d5d68db#3783626345c7b79487218eb8242310eb2d5d68db"
 dependencies = [
  "libm",
  "mzlab-core",
@@ -175,7 +175,7 @@ dependencies = [
 [[package]]
 name = "mzlab-mol"
 version = "1.0.0"
-source = "git+https://github.com/Freeesta/mzlab?rev=ccd4680fc35b4ca6029cfead3a8e97f82042fdf7#ccd4680fc35b4ca6029cfead3a8e97f82042fdf7"
+source = "git+https://github.com/Freeesta/mzlab?rev=3783626345c7b79487218eb8242310eb2d5d68db#3783626345c7b79487218eb8242310eb2d5d68db"
 dependencies = [
  "serde",
  "serde_json",
@@ -185,7 +185,7 @@ dependencies = [
 [[package]]
 name = "mzlab-picchi"
 version = "1.0.0"
-source = "git+https://github.com/Freeesta/mzlab?rev=ccd4680fc35b4ca6029cfead3a8e97f82042fdf7#ccd4680fc35b4ca6029cfead3a8e97f82042fdf7"
+source = "git+https://github.com/Freeesta/mzlab?rev=3783626345c7b79487218eb8242310eb2d5d68db#3783626345c7b79487218eb8242310eb2d5d68db"
 dependencies = [
  "libm",
 ]
@@ -210,7 +210,7 @@ dependencies = [
 [[package]]
 name = "opentfraw"
 version = "2.0.0"
-source = "git+https://github.com/Freeesta/mzlab?rev=ccd4680fc35b4ca6029cfead3a8e97f82042fdf7#ccd4680fc35b4ca6029cfead3a8e97f82042fdf7"
+source = "git+https://github.com/Freeesta/mzlab?rev=3783626345c7b79487218eb8242310eb2d5d68db#3783626345c7b79487218eb8242310eb2d5d68db"
 dependencies = [
  "openmassspec-core",
  "thiserror",

@@ -196,7 +196,7 @@
   "results": [
     {
       "name": "scheme:row as a dry run with an expectation",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{},\"removed\":{},\"expect\":[{\"check\":{\"pieces\":4},\"ok\":true,\"detail\":\"\"}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{},\"removed\":{},\"dirty\":true,\"expect\":[{\"check\":{\"pieces\":4},\"ok\":true,\"detail\":\"\"}]}",
       "request": {
         "args": {
           "gap": 1
@@ -213,7 +213,7 @@
     },
     {
       "name": "scheme:row naming an atom the drawing does not have is a verdict of stage command",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.noAtom\",\"id\":0}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.noAtom\",\"id\":0},\"dirty\":false}",
       "request": {
         "args": {
           "atoms": [

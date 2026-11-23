@@ -240,3 +240,14 @@ p { margin: 4px 0; }
 #d2-history-list li[data-state="undone"] { opacity: 0.6; font-style: italic; }
 #d2-history-list li:focus-visible { outline: 2px solid var(--mzd-accent, currentColor); outline-offset: -2px; }
 @media (pointer: coarse) { #d2-history-list li { min-height: 44px; display: flex; align-items: center; } }
+
+/* the unsaved-changes question (web/unsaved.js): a modal alert dialog over a veil; the three buttons are 44 px for every pointer */
+#d2-unsaved[hidden] { display: none; }
+#d2-unsaved { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgb(0 0 0 / .35); }
+#d2-unsaved-box { box-sizing: border-box; max-width: 420px; width: 100%; padding: 16px 18px; color: var(--fg); background: var(--mzd-surface-raised); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 28px var(--mzd-shadow); }
+#d2-unsaved-box h2 { font-size: 16px; margin: 0 0 6px; }
+#d2-unsaved-box p { margin: 0 0 12px; font-size: 14px; }
+#d2-unsaved-box .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+#d2-unsaved-box button { min-height: 44px; min-width: 44px; padding: 2px 14px; }
+#d2-unsaved-save { background: var(--mzd-accent-soft); border-color: var(--accent); font-weight: 600; }
+#d2-unsaved-box button:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 2px; }
