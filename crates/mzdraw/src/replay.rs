@@ -526,6 +526,7 @@ pub fn replay_with(
             failed = Some(Failed::log(i, err.key, err.id));
             break;
         }
+        e.name_op_step(op);
     }
     let orients = r.commands.iter().any(|c| c.0 == "scheme:orient");
     let reports = r
@@ -548,6 +549,7 @@ pub fn replay_with(
                 failed = Some(f);
                 break;
             }
+            e.name_steps();
         }
     }
     if let (None, Some(ops)) = (&failed, &r.propose) {

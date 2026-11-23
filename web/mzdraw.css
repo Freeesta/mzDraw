@@ -228,3 +228,12 @@ p { margin: 4px 0; }
 #d2-text-colours .sw { display: inline-block; width: 16px; height: 16px; border: 1px solid var(--mzd-ink); border-radius: 3px; flex: none; }
 #d2-text-input { left: 0; top: 0; }
 @media (pointer: coarse) { #d2-textbar button, #d2-textbar select { min-height: 44px; min-width: 44px; } }
+
+/* the history list: one row per step, newest first; the current step is marked, the steps a redo brings back are dimmed */
+#d2-history summary { cursor: pointer; margin: 6px 0; }
+#d2-history-list { list-style: none; margin: 4px 0; padding: 0; max-height: 14em; overflow: auto; }
+#d2-history-list li { padding: 4px 8px; min-height: 24px; box-sizing: border-box; border-left: 3px solid transparent; cursor: pointer; }
+#d2-history-list li[data-state="current"] { border-left-color: var(--mzd-accent, currentColor); font-weight: 600; }
+#d2-history-list li[data-state="undone"] { opacity: 0.6; font-style: italic; }
+#d2-history-list li:focus-visible { outline: 2px solid var(--mzd-accent, currentColor); outline-offset: -2px; }
+@media (pointer: coarse) { #d2-history-list li { min-height: 44px; display: flex; align-items: center; } }

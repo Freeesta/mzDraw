@@ -12,7 +12,7 @@ No production code is changed: the rule is the wanted behaviour (the resting han
 
 ## What is built (tests and notes only)
 - `crates/mzdraw/tests/touch.rs`: `a_tap_inside_the_palm_window_after_the_pen_is_lost_whole_and_the_first_one_after_it_draws`: after a pen stroke, finger taps with one id inside the window draw nothing and leave nothing held; the first tap after the window draws, and so does the next.
-- `tests/e2e.mjs`, one step on the shared tablet page straight after the pen step: three rounds of a pen tap (chain tool), Clear, the chain tool, a wait on the page's own clock (`performance.now()`, no fixed sleep) until the palm window is over, then a finger tap that must draw, and the keyboard undo. Finger and pen alternate. Tests that tap right after a pen stroke use the same wait.
+- `tests/e2e.mjs`, one step on the shared tablet page straight after the pen step: three rounds of a pen tap (chain tool), Clear, the chain tool, a wait on the page's own clock (`performance.now()`, no fixed sleep) until the palm window is over, then a finger tap that must draw, and the keyboard undo. Finger and pen alternate.
 
 ## Not built
 - A change of the palm window or of its start (the pen's lift instead of its last event): not wanted without a measurement on a real tablet.

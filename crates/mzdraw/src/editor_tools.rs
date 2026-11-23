@@ -778,7 +778,7 @@ impl Editor {
     /// Selects what the findings of one check (`key`, as the report names it) are about: their atoms, bonds and objects together,
     /// as the select tool would. The selection is the user's view and no step of the history. A key with no finding changes nothing.
     pub fn select_check(&mut self, key: &str) -> u32 {
-        let report = crate::conform::report(&self.session.doc);
+        let report = crate::conform::report_with(&self.session.doc, self.style.hash_lines);
         let found = report.checks.iter().filter(|f| f.key == key);
         let (mut atoms, mut bonds, mut objects) = (Vec::new(), Vec::new(), Vec::new());
         let mut any = false;
