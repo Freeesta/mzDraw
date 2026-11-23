@@ -64,6 +64,8 @@ fn full_ops() -> Vec<Op> {
             id: 3,
             o: Some(2),
             s: Some(1),
+            pos: Some("l".into()),
+            k: Some("dash".into()),
             rev: true,
         },
         Op::Rotate {

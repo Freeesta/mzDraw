@@ -477,12 +477,22 @@ impl Editor {
         (o, s): (u8, u8),
     ) -> u32 {
         let d = &self.session.doc;
-        let ops = match onto {
+        // a display tool draws a plain single bond and sets the kind on it
+        let kind = crate::editor::kind_of_tool(s);
+        let s = if kind.is_empty() { s } else { 0 };
+        let mut ops = match onto {
             Some(b) => match d.bond_between(a, b) {
+                Some(x) if !kind.is_empty() => {
+                    // on a bond that has the kind already it takes the kind away
+                    let now = if x.kind() == kind { "" } else { kind };
+                    vec![crate::context::bond_set(x.id, None, Some(now.into()))]
+                }
                 Some(x) => vec![Op::BondSet {
                     id: x.id,
                     o: Some(o),
                     s: (s != 0).then_some(s),
+                    pos: None,
+                    k: None,
                     rev: s != 0 && x.a != a,
                 }],
                 None => vec![Op::BondAdd {
@@ -513,6 +523,11 @@ impl Editor {
                 ]
             }
         };
+        if !kind.is_empty() && !ops.iter().any(|x| matches!(x, Op::BondSet { .. })) {
+            // the bond just added: the last id the operations take
+            let id = d.next + u32::from(onto.is_none());
+            ops.push(crate::context::bond_set(id, None, Some(kind.into())));
+        }
         self.run(&ops, "draw2.say.bond", &o.to_string())
     }
 
@@ -528,6 +543,22 @@ impl Editor {
                     .map_or((0.0, 0.0), |f| (f.x + m::cos(ang), f.y + m::sin(ang)));
                 self.join(a, None, to, "C", (o, s))
             }
+            Hit::Bond(b) if !crate::editor::kind_of_tool(s).is_empty() => {
+                // a display tool on a bond sets its kind (wedge marks keep none), or takes it away when it has it
+                let kind = crate::editor::kind_of_tool(s);
+                let (mark, now) =
+                    (self.session.doc.bond(b)).map_or((0, String::new()), |x| (x.s, x.kind()));
+                let next = if now == kind { "" } else { kind };
+                let set = Op::BondSet {
+                    id: b,
+                    o: None,
+                    s: (mark != 0).then_some(0),
+                    pos: None,
+                    k: Some(next.into()),
+                    rev: false,
+                };
+                self.run(&[set], "draw2.say.kind", "")
+            }
             Hit::Bond(b) if s != 0 => {
                 // a wedge tool on a bond sets its mark; on a bond that has it already it turns the wedge around
                 let same = self.session.doc.bond(b).is_some_and(|x| x.s == s);
@@ -535,6 +566,8 @@ impl Editor {
                     id: b,
                     o: Some(1),
                     s: Some(s),
+                    pos: None,
+                    k: None,
                     rev: same,
                 };
                 self.run(&[set], "draw2.say.wedge", "")
@@ -542,6 +575,22 @@ impl Editor {
             Hit::Bond(b) => {
                 // the single-bond tool on a bond walks 1 -> 2 -> 3 -> 1 (a marked bond first loses its mark); the others set their order
                 let (now, mark) = self.session.doc.bond(b).map_or((1, 0), |x| (x.o, x.s));
+                if (o, now, mark) == (2, 2, 0) {
+                    // the double-bond tool on a double bond walks the side of the second line: auto, left, centre, right
+                    let side = self
+                        .session
+                        .doc
+                        .bond(b)
+                        .map_or_else(String::new, |x| x.pos());
+                    let next = match side.as_str() {
+                        "" => "l",
+                        "l" => "c",
+                        "c" => "r",
+                        _ => "auto",
+                    };
+                    let set = crate::context::bond_set(b, Some(next.into()), None);
+                    return self.run(&[set], "draw2.say.side", "");
+                }
                 let next = match (o, mark) {
                     (1, 0) => now % 3 + 1,
                     _ => o,
@@ -550,6 +599,8 @@ impl Editor {
                     id: b,
                     o: Some(next),
                     s: Some(0),
+                    pos: None,
+                    k: None,
                     rev: false,
                 };
                 self.run(&[set], "draw2.say.order", &next.to_string())

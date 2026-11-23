@@ -243,6 +243,17 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                     col: y.col(),
                 });
             }
+            // and so are its side and its display kind
+            if !y.pos().is_empty() || !y.kind().is_empty() {
+                out.push(Op::BondSet {
+                    id: y.id,
+                    o: None,
+                    s: None,
+                    pos: (!y.pos().is_empty()).then(|| y.pos()),
+                    k: (!y.kind().is_empty()).then(|| y.kind()),
+                    rev: false,
+                });
+            }
             continue;
         };
         let rev = x.a != y.a;
@@ -254,11 +265,17 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                 col: y.col(),
             });
         }
-        if x.o != y.o || x.s != y.s || rev {
+        let (pos, k) = (y.pos(), y.kind());
+        // the order and the mark drop the side and the kind: say them again when they must stand
+        let pos_set = pos != x.pos() || (x.o != y.o && !pos.is_empty());
+        let k_set = k != x.kind() || (x.s != y.s && !k.is_empty());
+        if x.o != y.o || x.s != y.s || pos_set || k_set || rev {
             out.push(Op::BondSet {
                 id: y.id,
                 o: (x.o != y.o).then_some(y.o),
                 s: (x.s != y.s).then_some(y.s),
+                pos: pos_set.then(|| if pos.is_empty() { "auto".into() } else { pos }),
+                k: k_set.then(|| if k.is_empty() { "solid".into() } else { k }),
                 rev,
             });
         }

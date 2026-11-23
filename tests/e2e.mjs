@@ -597,6 +597,46 @@ try {
     await shot(pg, "acetic-acid");
   });
 
+  await step("bond display: the double-bond tool walks the side of the second line, the dashed tools and the menu set the kind, by mouse and keyboard, each one undo step", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    const bond = async () => (await doc()).bonds[0];
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:2"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1, tool: "bond:2" });
+    const mid = [cx + 17, cy - 10], sides = [], svgs = [];
+    for (let i = 0; i < 4; i++) {
+      await pg.mouse.click(...mid);
+      await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos !== ${JSON.stringify(i ? sides[i - 1] : undefined)}`);
+      sides.push((await bond()).pos); svgs.push(await pg.evaluate("window.MZDRAW.save('svg')"));
+    }
+    eq(sides, ["l", "c", "r", undefined]);                                     // auto leaves the document as it was drawn
+    eq(new Set(svgs.slice(0, 3)).size, 3, "three sides, three drawings");
+    assert(!(await pg.evaluate("window.MZDRAW.save('mzdraw')")).includes('"pos"'), "auto writes no field");
+    // the dashed tools of the bonds palette: a click on the bond sets the kind, a second click takes it away
+    const lines = async () => (await pg.evaluate("window.MZDRAW.save('svg')")).split("<line").length;
+    const plain = await lines();
+    await tool(pg, "bond:dash"); await want(pg, { tool: "bond:dash" });
+    await pg.mouse.click(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'dash'");
+    assert(await lines() > plain, "a dashed line is more lines");
+    await pg.mouse.click(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === undefined");
+    // keyboard: the palette entry takes Enter, then the canvas takes the click
+    await pg.focus('[data-testid="d2-bond:bdash"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "bond:bdash" });
+    await pg.mouse.click(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'bdash'");
+    await shot(pg, "bond-display");
+    // the context menu of a double bond: the side and the line style
+    await tool(pg, "select");
+    await pg.mouse.click(...mid, { button: "right" });
+    await pg.click('[data-testid="d2-ctx-bond.pos.r"]'); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === 'r'");
+    await pg.mouse.click(...mid, { button: "right" });
+    await pg.click('[data-testid="d2-ctx-bond.k.hash"]'); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'hash'");
+    // the command log says it, and undo takes each away
+    const log = JSON.parse(await pg.evaluate("window.MZDRAW.save('log')"));
+    eq(log.slice(-2).map(o => [o.op, o.pos, o.k]), [["bond.set", "r", undefined], ["bond.set", undefined, "hash"]]);
+    await tool(pg, "undo"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'bdash'");
+    await tool(pg, "undo"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === undefined");
+    // the molfile holds none of them and the page says so
+    assert(!(await pg.evaluate("window.MZDRAW.save('molfile')")).includes("dash"), "no dashes in a molfile");
+  });
+
   await step("wedge tools, rotate and flip, copy, cut, paste and duplicate by keyboard and by buttons", async () => {
     const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
     /** per bond: the position of its narrow-end atom in the atom list, and its mark (ids go on after a cleared canvas) */
@@ -1412,6 +1452,28 @@ try {
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
   });
+  await step("tablet with touch and a pen: the side of a double bond and the dashed tools by a tap and by a pen, each press one undo step", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:2"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    const mid = [cx + 17, cy - 10];
+    await pg.touchscreen.tap(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === 'l'");
+    await tool(pg, "bond:dash"); await pg.touchscreen.tap(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'dash'");
+    await shot(pg, "bond-display-touch");
+    // a pen
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    await tool(pg, "bond:2");
+    await pen("mouseMoved", ...mid); await pen("mousePressed", ...mid); await pen("mouseReleased", ...mid);
+    await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === 'c'");
+    await tool(pg, "bond:hash");
+    await pen("mouseMoved", ...mid); await pen("mousePressed", ...mid); await pen("mouseReleased", ...mid);
+    await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'hash'");
+    for (let i = 0; i < 4; i++) await tool(pg, "undo");
+    eq((await doc()).bonds[0].pos, undefined);
+    eq((await doc()).bonds[0].k, undefined);
+  });
+
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
     const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)

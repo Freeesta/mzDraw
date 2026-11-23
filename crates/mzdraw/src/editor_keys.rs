@@ -64,6 +64,8 @@ impl Editor {
                     id: bond,
                     o: Some(o),
                     s: None,
+                    pos: None,
+                    k: None,
                     rev: false,
                 };
                 self.run(&[set], "draw2.say.order", key)
