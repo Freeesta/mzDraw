@@ -4747,6 +4747,77 @@ try {
     });
   }
 
+  // arch-cd-03: hover keys: a key acts on the atom or bond under the pointer (or in keyboard focus) without selecting it first, one undo step each
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    const atomPx = async id => { const d = await doc(), A = d.atoms[0], P = d.atoms.find(x => x.id === id); return [cx + 40 * (P.x - A.x), cy - 40 * (P.y - A.y)]; };   // 40 px to the bond length, y up
+    const bondPx = async () => { const d = await doc(), [a, b] = [await atomPx(d.bonds[0].a), await atomPx(d.bonds[0].b)]; return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; };
+    const draw = async () => { await tool(pg, "clear"); await want(pg, { atoms: 0 }); await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1 }); await tool(pg, "select"); };
+    await step("hover keys by mouse: over a bond 2, W, W, Shift+W set the order, the wedge, turn it and make it hashed; over an atom M, Alt+3 and Shift+6; one undo step each; the help lists the keys", async () => {
+      await draw();
+      const first = await doc();
+      await pg.mouse.move(...await bondPx(), { steps: 3 }); await pg.focus("#d2-canvas");
+      await pg.keyboard.press("2"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].o === 2");
+      await pg.keyboard.press("w"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].s === 1");
+      eq([(await doc()).bonds[0].a, (await doc()).bonds[0].b], [first.bonds[0].a, first.bonds[0].b].map(Number));
+      await pg.keyboard.press("w"); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].a === ${first.bonds[0].b}`);          // the same key again: turned around
+      await pg.keyboard.press("Shift+W"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].s === 2");
+      eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.wedge')"));
+      await shot(pg, "hover-keys-bond");
+      await pg.keyboard.press("Control+z"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].s === 1");                 // one undo step per key
+      // over an atom: the pointer is on the end atom of the bond; Shift+6 fuses a ring of six on it, Alt+3 sprouts a chain
+      const [x, y] = await atomPx(first.bonds[0].b); await pg.mouse.move(x, y, { steps: 3 }); await pg.focus("#d2-canvas");
+      await pg.keyboard.press("Shift+6"); await want(pg, { atoms: 7, bonds: 7 });
+      eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.ring', { what: '6' })"));
+      await pg.keyboard.press("Control+z"); await want(pg, { atoms: 2, bonds: 1 });
+      await pg.keyboard.press("Alt+3"); await want(pg, { atoms: 5, bonds: 4 });
+      await pg.keyboard.press("Control+z"); await want(pg, { atoms: 2, bonds: 1 });
+      const [x0, y0] = await atomPx(first.bonds[0].a); await pg.mouse.move(x0, y0, { steps: 3 }); await pg.focus("#d2-canvas");
+      await pg.keyboard.press("m"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).atoms[0].lab === 'Me'");
+      await shot(pg, "hover-keys-atom");
+      await pg.keyboard.press("Control+z"); await until(pg, "!JSON.parse(window.MZDRAW.save('mzdraw')).atoms[0].lab");
+      // over nothing the same keys pick their tools
+      await pg.mouse.move(cx + 300, cy + 200, { steps: 3 }); await pg.focus("#d2-canvas");
+      await pg.keyboard.press("2"); await want(pg, { tool: "bond:2" });
+      await pg.keyboard.press("e"); await want(pg, { tool: "erase" });
+      eq((await doc()).atoms.length, 2);
+      // the help is generated from the table of the module
+      const table = JSON.parse(await pg.evaluate("window.MZDRAW.hotkeys()"));
+      eq(await pg.locator("#d2-hotkeys tr").count(), table.length);
+      assert((await pg.locator("#d2-hotkeys tr").evaluateAll(r => r.map(x => x.textContent))).some(t => t.startsWith("Shift+W")), "Shift+W is in the help");
+    });
+    await step("hover keys by keyboard focus: the walked bond takes 2 and W, the focused atom takes Shift+6, Alt+M, Alt+Shift+F; a key that changes nothing or loses something says so; E still picks the erase tool", async () => {
+      await tool(pg, "clear"); await want(pg, { atoms: 0 }); await tool(pg, "select");
+      await pg.mouse.move(5, 5); await pg.focus("#d2-canvas");
+      await pg.keyboard.press("Enter"); await pg.keyboard.press("Enter"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 3, bonds: 2, focus: 3 });
+      await pg.keyboard.press("w"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[1].s === 1");            // the walked bond, not a tool
+      await pg.keyboard.press("Shift+6"); await want(pg, { atoms: 8, bonds: 8 });                                              // a ring sharing the focused atom
+      await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
+      await pg.keyboard.press("Alt+m"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).atoms[2].lab === 'Me'");
+      await pg.keyboard.press("Alt+m"); await until(pg, "document.querySelector('#d2-live').textContent === I18N.t('draw2.say.hotNoChange')");   // nothing to change: no step
+      await pg.keyboard.press("Alt+Shift+F"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).atoms[2].lab === 'CF3'");
+      await pg.keyboard.press("Shift+6"); await until(pg, "JSON.parse(window.MZDRAW.state()).error === 'error.draw2.hotValence'"); await want(pg, { atoms: 3 });   // a group takes no ring
+      await pg.keyboard.press("e"); await want(pg, { tool: "erase" });
+      eq((await doc()).atoms[2].lab, "CF3");
+    });
+    await step("hover keys by touch: a tap is no hover, so a key does not act on the tapped atom (Rust decides); the focus route and the help are what a keyboard on a tablet has", async () => {
+      await draw();
+      const [x, y] = await atomPx((await doc()).bonds[0].b);
+      await pg.touchscreen.tap(x, y); await pg.focus("#d2-canvas");
+      await pg.keyboard.press("m");
+      eq((await doc()).atoms.map(a => a.lab || ""), ["", ""]);
+      await pg.keyboard.press("Shift+6"); eq((await doc()).atoms.length, 2);
+    });
+    await step("hover keys by pen: a pen that hovers over an atom is a pointer over it, so M labels it", async () => {
+      await draw();
+      const cdp = await ctx.newCDPSession(pg), [x, y] = await atomPx((await doc()).bonds[0].b);
+      await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, pointerType: "pen", button: "none", buttons: 0 });
+      await pg.focus("#d2-canvas");
+      await pg.keyboard.press("m"); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).atoms[1].lab === 'Me'");
+    });
+  }
+
   await ctx.close();
 } finally {
   await browser.close();

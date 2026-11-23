@@ -1,0 +1,611 @@
+{
+  "cases": [
+    {
+      "name": "hover keys on a bond of propane: order 2, solid wedge, the same key turns it around, hashed, wavy, order 3",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 45.00\"/>\n<n id=\"3\" p=\"55.98 30.00\"/>\n<n id=\"4\" p=\"81.96 45.00\"/>\n<b id=\"5\" B=\"2\" E=\"3\" Order=\"3\"/>\n<b id=\"6\" B=\"4\" E=\"3\" Display=\"Wavy\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"C\" x2=\"1.7321\" y2=\"0.0000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"T\"/>\n<bond id=\"b2\" atomRefs2=\"a3 a2\" order=\"S\"><bondStereo dictRef=\"mzdraw:wavy\">other</bondStereo></bond>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"C\",\"location\":[1.7321,0.0,0]}],\"bonds\":[{\"type\":3,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[2,1],\"stereo\":4}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"bond.set\",\"id\":4,\"o\":2},{\"op\":\"bond.set\",\"id\":5,\"s\":1},{\"op\":\"bond.set\",\"id\":5,\"rev\":true},{\"op\":\"bond.set\",\"id\":5,\"s\":2},{\"op\":\"bond.set\",\"id\":5,\"s\":3},{\"op\":\"bond.set\",\"id\":4,\"o\":3}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  3  0  0  0  0\n  3  2  1  4  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 3 2 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0\nM  V30 2 C 0.866000 0.500000 0.000000 0\nM  V30 3 C 1.732100 0.000000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 3 1 2\nM  V30 2 1 3 2 CFG=2\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":3},{\"id\":5,\"a\":3,\"b\":2,\"o\":1,\"s\":3}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  3  0  0  0  0\n  3  2  1  4  0  0  0\nM  END\n$$$$\n",
+        "smiles": "C#CC",
+        "std": "{\"format\":\"std/1\",\"checks\":[{\"key\":\"std.stereo.wavyNotCentre\",\"grade\":\"info\",\"atoms\":[3],\"bonds\":[5]}]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120.36pt\" height=\"83.4pt\" viewBox=\"0 0 120.36 83.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-ff503e86 d-ff503e86\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":3},{\"id\":5,\"a\":3,\"b\":2,\"o\":1,\"s\":3}]}</metadata>\n<title id=\"t-ff503e86\">C3H4</title>\n<desc id=\"d-ff503e86\">C3H4.</desc>\n<line x1=\"32.25\" y1=\"45.82\" x2=\"58.23\" y2=\"30.82\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"34.2\" y1=\"49.2\" x2=\"60.18\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"36.15\" y1=\"52.58\" x2=\"62.13\" y2=\"37.58\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"49.2\" x2=\"86.2\" y2=\"47.26\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.2\" y1=\"47.26\" x2=\"85.74\" y2=\"46.18\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"85.74\" y1=\"46.18\" x2=\"84.58\" y2=\"46.32\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"84.58\" y1=\"46.32\" x2=\"82.92\" y2=\"47.33\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"82.92\" y1=\"47.33\" x2=\"81.25\" y2=\"48.33\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"81.25\" y1=\"48.33\" x2=\"80.09\" y2=\"48.47\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"80.09\" y1=\"48.47\" x2=\"79.63\" y2=\"47.39\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"79.63\" y1=\"47.39\" x2=\"79.67\" y2=\"45.45\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"79.67\" y1=\"45.45\" x2=\"79.7\" y2=\"43.51\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"79.7\" y1=\"43.51\" x2=\"79.24\" y2=\"42.43\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"79.24\" y1=\"42.43\" x2=\"78.08\" y2=\"42.57\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"78.08\" y1=\"42.57\" x2=\"76.42\" y2=\"43.58\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"76.42\" y1=\"43.58\" x2=\"74.76\" y2=\"44.58\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"74.76\" y1=\"44.58\" x2=\"73.6\" y2=\"44.72\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"73.6\" y1=\"44.72\" x2=\"73.13\" y2=\"43.64\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"73.13\" y1=\"43.64\" x2=\"73.17\" y2=\"41.7\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"73.17\" y1=\"41.7\" x2=\"73.21\" y2=\"39.76\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"73.21\" y1=\"39.76\" x2=\"72.75\" y2=\"38.68\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"72.75\" y1=\"38.68\" x2=\"71.58\" y2=\"38.82\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"71.58\" y1=\"38.82\" x2=\"69.92\" y2=\"39.83\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"69.92\" y1=\"39.83\" x2=\"68.26\" y2=\"40.83\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"68.26\" y1=\"40.83\" x2=\"67.1\" y2=\"40.97\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"67.1\" y1=\"40.97\" x2=\"66.64\" y2=\"39.89\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"66.64\" y1=\"39.89\" x2=\"66.68\" y2=\"37.95\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"66.68\" y1=\"37.95\" x2=\"66.71\" y2=\"36.01\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"66.71\" y1=\"36.01\" x2=\"66.25\" y2=\"34.93\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"66.25\" y1=\"34.93\" x2=\"65.09\" y2=\"35.07\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"65.09\" y1=\"35.07\" x2=\"63.43\" y2=\"36.08\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"63.43\" y1=\"36.08\" x2=\"61.77\" y2=\"37.08\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"61.77\" y1=\"37.08\" x2=\"60.6\" y2=\"37.22\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.6\" y1=\"37.22\" x2=\"60.14\" y2=\"36.14\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.14\" y1=\"36.14\" x2=\"60.18\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n</svg>\n"
+      },
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "bond": 4
+            },
+            "key": "2"
+          },
+          {
+            "hover": {
+              "bond": 5
+            },
+            "key": "w"
+          },
+          {
+            "hover": {
+              "bond": 5
+            },
+            "key": "w"
+          },
+          {
+            "hover": {
+              "bond": 5
+            },
+            "key": "w",
+            "mods": 1
+          },
+          {
+            "hover": {
+              "bond": 5
+            },
+            "key": "y"
+          },
+          {
+            "hover": {
+              "bond": 4
+            },
+            "key": "3"
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "hover keys on the ends of a pentane chain: Me, Et, then CF3 and OH over them",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 45.00\" Element=\"8\" NumHydrogens=\"1\"><t><s font=\"3\" size=\"10\" face=\"0\">OH</s></t></n>\n<n id=\"3\" p=\"55.98 30.00\"/>\n<n id=\"4\" p=\"81.96 45.00\"/>\n<n id=\"5\" p=\"107.94 30.00\"/>\n<n id=\"6\" p=\"133.92 45.00\"/>\n<n id=\"7\" p=\"148.92 70.98\" Element=\"9\" NumHydrogens=\"0\"><t><s font=\"3\" size=\"10\" face=\"0\">F</s></t></n>\n<n id=\"8\" p=\"103.92 45.00\" Element=\"9\" NumHydrogens=\"0\"><t><s font=\"3\" size=\"10\" face=\"0\">F</s></t></n>\n<n id=\"9\" p=\"148.92 19.02\" Element=\"9\" NumHydrogens=\"0\"><t><s font=\"3\" size=\"10\" face=\"0\">F</s></t></n>\n<b id=\"10\" B=\"2\" E=\"3\"/>\n<b id=\"11\" B=\"3\" E=\"4\"/>\n<b id=\"12\" B=\"4\" E=\"5\"/>\n<b id=\"13\" B=\"5\" E=\"6\"/>\n<b id=\"14\" B=\"6\" E=\"7\"/>\n<b id=\"15\" B=\"6\" E=\"8\"/>\n<b id=\"16\" B=\"6\" E=\"9\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"O\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"C\" x2=\"1.7321\" y2=\"0.0000\"/>\n<atom id=\"a4\" elementType=\"C\" x2=\"2.5981\" y2=\"0.5000\"/>\n<atom id=\"a5\" elementType=\"C\" x2=\"3.4641\" y2=\"0.0000\"/>\n<atom id=\"a6\" elementType=\"F\" x2=\"3.9641\" y2=\"-0.8660\"/>\n<atom id=\"a7\" elementType=\"F\" x2=\"2.4641\" y2=\"0.0000\"/>\n<atom id=\"a8\" elementType=\"F\" x2=\"3.9641\" y2=\"0.8660\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"S\"/>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n<bond id=\"b3\" atomRefs2=\"a3 a4\" order=\"S\"/>\n<bond id=\"b4\" atomRefs2=\"a4 a5\" order=\"S\"/>\n<bond id=\"b5\" atomRefs2=\"a5 a6\" order=\"S\"/>\n<bond id=\"b6\" atomRefs2=\"a5 a7\" order=\"S\"/>\n<bond id=\"b7\" atomRefs2=\"a5 a8\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"O\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"C\",\"location\":[1.7321,0.0,0]},{\"label\":\"C\",\"location\":[2.5981,0.5,0]},{\"label\":\"C\",\"location\":[3.4641,0.0,0]},{\"label\":\"F\",\"location\":[3.9641,-0.866,0]},{\"label\":\"F\",\"location\":[2.4641,0.0,0]},{\"label\":\"F\",\"location\":[3.9641,0.866,0]}],\"bonds\":[{\"type\":1,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]},{\"type\":1,\"atoms\":[2,3]},{\"type\":1,\"atoms\":[3,4]},{\"type\":1,\"atoms\":[4,5]},{\"type\":1,\"atoms\":[4,6]},{\"type\":1,\"atoms\":[4,7]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"op\":\"atom.add\",\"id\":4,\"el\":\"C\",\"x\":2.5981,\"y\":0.5},{\"op\":\"atom.add\",\"id\":5,\"el\":\"C\",\"x\":3.4641,\"y\":0.0},{\"op\":\"bond.add\",\"id\":6,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":7,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"bond.add\",\"id\":8,\"a\":3,\"b\":4,\"o\":1},{\"op\":\"bond.add\",\"id\":9,\"a\":4,\"b\":5,\"o\":1},{\"op\":\"atom.set\",\"id\":1,\"lab\":\"Me\"},{\"op\":\"atom.set\",\"id\":5,\"lab\":\"Et\"},{\"op\":\"atom.set\",\"id\":5,\"lab\":\"CF3\"},{\"op\":\"atom.set\",\"id\":1,\"lab\":\"OH\"}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  8  7  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    2.5981    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.4641    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.9641   -0.8660    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n    2.4641    0.0000    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n    3.9641    0.8660    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\n  3  4  1  0  0  0  0\n  4  5  1  0  0  0  0\n  5  6  1  0  0  0  0\n  5  7  1  0  0  0  0\n  5  8  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 8 7 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 O 0.000000 0.000000 0.000000 0\nM  V30 2 C 0.866000 0.500000 0.000000 0\nM  V30 3 C 1.732100 0.000000 0.000000 0\nM  V30 4 C 2.598100 0.500000 0.000000 0\nM  V30 5 C 3.464100 0.000000 0.000000 0\nM  V30 6 F 3.964100 -0.866000 0.000000 0\nM  V30 7 F 2.464100 0.000000 0.000000 0\nM  V30 8 F 3.964100 0.866000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 1 2\nM  V30 2 1 2 3\nM  V30 3 1 3 4\nM  V30 4 1 4 5\nM  V30 5 1 5 6\nM  V30 6 1 5 7\nM  V30 7 1 5 8\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":10,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0,\"lab\":\"OH\"},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"id\":4,\"el\":\"C\",\"x\":2.5981,\"y\":0.5},{\"id\":5,\"el\":\"C\",\"x\":3.4641,\"y\":0.0,\"lab\":\"CF3\"}],\"bonds\":[{\"id\":6,\"a\":1,\"b\":2,\"o\":1},{\"id\":7,\"a\":2,\"b\":3,\"o\":1},{\"id\":8,\"a\":3,\"b\":4,\"o\":1},{\"id\":9,\"a\":4,\"b\":5,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  8  7  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    2.5981    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.4641    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.9641   -0.8660    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n    2.4641    0.0000    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n    3.9641    0.8660    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\n  3  4  1  0  0  0  0\n  4  5  1  0  0  0  0\n  5  6  1  0  0  0  0\n  5  7  1  0  0  0  0\n  5  8  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "OCCCC(F)(F)F",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"172.32pt\" height=\"83.4pt\" viewBox=\"0 0 172.32 83.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-a3cd4b4e d-a3cd4b4e\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":10,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0,\"lab\":\"OH\"},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"id\":4,\"el\":\"C\",\"x\":2.5981,\"y\":0.5},{\"id\":5,\"el\":\"C\",\"x\":3.4641,\"y\":0.0,\"lab\":\"CF3\"}],\"bonds\":[{\"id\":6,\"a\":1,\"b\":2,\"o\":1},{\"id\":7,\"a\":2,\"b\":3,\"o\":1},{\"id\":8,\"a\":3,\"b\":4,\"o\":1},{\"id\":9,\"a\":4,\"b\":5,\"o\":1}]}</metadata>\n<title id=\"t-a3cd4b4e\">C4H7F3O</title>\n<desc id=\"d-a3cd4b4e\">C4H7F3O.</desc>\n<line x1=\"40.64\" y1=\"45.48\" x2=\"60.18\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"34.2\" x2=\"86.16\" y2=\"49.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"49.2\" x2=\"112.14\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"112.14\" y1=\"34.2\" x2=\"131.68\" y2=\"45.48\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"21.6\" y=\"49.2\" font-size=\"12\" fill=\"#000000\" text-anchor=\"start\" dominant-baseline=\"central\">HO</text>\n<text x=\"133.92\" y=\"49.2\" font-size=\"12\" fill=\"#000000\" text-anchor=\"start\" dominant-baseline=\"central\">CF</text>\n<text x=\"150.72\" y=\"52.8\" font-size=\"8.4\" fill=\"#000000\" text-anchor=\"start\" dominant-baseline=\"central\">3</text>\n</svg>\n"
+      },
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "atom": 1
+            },
+            "key": "m"
+          },
+          {
+            "hover": {
+              "atom": 5
+            },
+            "key": "e"
+          },
+          {
+            "hover": {
+              "atom": 5
+            },
+            "key": "f",
+            "mods": 1
+          },
+          {
+            "hover": {
+              "atom": 1
+            },
+            "key": "o",
+            "mods": 1
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 4,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "hover keys on benzene atoms: a chain of three with Alt+3 and a ring of six with Shift+6",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"55.98 105.00\"/>\n<n id=\"3\" p=\"30.00 120.00\"/>\n<n id=\"4\" p=\"30.00 150.00\"/>\n<n id=\"5\" p=\"55.98 165.00\"/>\n<n id=\"6\" p=\"81.96 150.00\"/>\n<n id=\"7\" p=\"81.96 120.00\"/>\n<n id=\"8\" p=\"55.98 75.00\"/>\n<n id=\"9\" p=\"81.96 60.00\"/>\n<n id=\"10\" p=\"81.96 30.00\"/>\n<b id=\"11\" B=\"2\" E=\"3\" Order=\"2\"/>\n<b id=\"12\" B=\"3\" E=\"4\"/>\n<b id=\"13\" B=\"4\" E=\"5\" Order=\"2\"/>\n<b id=\"14\" B=\"5\" E=\"6\"/>\n<b id=\"15\" B=\"6\" E=\"7\" Order=\"2\"/>\n<b id=\"16\" B=\"2\" E=\"7\"/>\n<b id=\"17\" B=\"2\" E=\"8\"/>\n<b id=\"18\" B=\"8\" E=\"9\"/>\n<b id=\"19\" B=\"9\" E=\"10\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"1.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"-0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"C\" x2=\"-0.8660\" y2=\"-0.5000\"/>\n<atom id=\"a4\" elementType=\"C\" x2=\"0.0000\" y2=\"-1.0000\"/>\n<atom id=\"a5\" elementType=\"C\" x2=\"0.8660\" y2=\"-0.5000\"/>\n<atom id=\"a6\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a7\" elementType=\"C\" x2=\"0.0000\" y2=\"2.0000\"/>\n<atom id=\"a8\" elementType=\"C\" x2=\"0.8660\" y2=\"2.5000\"/>\n<atom id=\"a9\" elementType=\"C\" x2=\"0.8660\" y2=\"3.5000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"D\"/>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n<bond id=\"b3\" atomRefs2=\"a3 a4\" order=\"D\"/>\n<bond id=\"b4\" atomRefs2=\"a4 a5\" order=\"S\"/>\n<bond id=\"b5\" atomRefs2=\"a5 a6\" order=\"D\"/>\n<bond id=\"b6\" atomRefs2=\"a1 a6\" order=\"S\"/>\n<bond id=\"b7\" atomRefs2=\"a1 a7\" order=\"S\"/>\n<bond id=\"b8\" atomRefs2=\"a7 a8\" order=\"S\"/>\n<bond id=\"b9\" atomRefs2=\"a8 a9\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,1.0,0]},{\"label\":\"C\",\"location\":[-0.866,0.5,0]},{\"label\":\"C\",\"location\":[-0.866,-0.5,0]},{\"label\":\"C\",\"location\":[0.0,-1.0,0]},{\"label\":\"C\",\"location\":[0.866,-0.5,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"C\",\"location\":[0.0,2.0,0]},{\"label\":\"C\",\"location\":[0.866,2.5,0]},{\"label\":\"C\",\"location\":[0.866,3.5,0]}],\"bonds\":[{\"type\":2,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]},{\"type\":2,\"atoms\":[2,3]},{\"type\":1,\"atoms\":[3,4]},{\"type\":2,\"atoms\":[4,5]},{\"type\":1,\"atoms\":[0,5]},{\"type\":1,\"atoms\":[0,6]},{\"type\":1,\"atoms\":[6,7]},{\"type\":1,\"atoms\":[7,8]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":1.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":-0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"C\",\"x\":-0.866,\"y\":-0.5},{\"op\":\"atom.add\",\"id\":4,\"el\":\"C\",\"x\":0.0,\"y\":-1.0},{\"op\":\"atom.add\",\"id\":5,\"el\":\"C\",\"x\":0.866,\"y\":-0.5},{\"op\":\"atom.add\",\"id\":6,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"bond.add\",\"id\":7,\"a\":1,\"b\":2,\"o\":2},{\"op\":\"bond.add\",\"id\":8,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"bond.add\",\"id\":9,\"a\":3,\"b\":4,\"o\":2},{\"op\":\"bond.add\",\"id\":10,\"a\":4,\"b\":5,\"o\":1},{\"op\":\"bond.add\",\"id\":11,\"a\":5,\"b\":6,\"o\":2},{\"op\":\"bond.add\",\"id\":12,\"a\":6,\"b\":1,\"o\":1},{\"op\":\"atom.add\",\"id\":13,\"el\":\"C\",\"x\":0.0,\"y\":2.0},{\"op\":\"atom.add\",\"id\":14,\"el\":\"C\",\"x\":0.866,\"y\":2.5},{\"op\":\"atom.add\",\"id\":15,\"el\":\"C\",\"x\":0.866,\"y\":3.5},{\"op\":\"bond.add\",\"id\":16,\"a\":1,\"b\":13,\"o\":1},{\"op\":\"bond.add\",\"id\":17,\"a\":13,\"b\":14,\"o\":1},{\"op\":\"bond.add\",\"id\":18,\"a\":14,\"b\":15,\"o\":1}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  9  9  0  0  0  0  0  0  0  0999 V2000\n    0.0000    1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660   -0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.0000   -1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660   -0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.0000    2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    2.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    3.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  2  0  0  0  0\n  2  3  1  0  0  0  0\n  3  4  2  0  0  0  0\n  4  5  1  0  0  0  0\n  5  6  2  0  0  0  0\n  1  6  1  0  0  0  0\n  1  7  1  0  0  0  0\n  7  8  1  0  0  0  0\n  8  9  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 9 9 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 1.000000 0.000000 0\nM  V30 2 C -0.866000 0.500000 0.000000 0\nM  V30 3 C -0.866000 -0.500000 0.000000 0\nM  V30 4 C 0.000000 -1.000000 0.000000 0\nM  V30 5 C 0.866000 -0.500000 0.000000 0\nM  V30 6 C 0.866000 0.500000 0.000000 0\nM  V30 7 C 0.000000 2.000000 0.000000 0\nM  V30 8 C 0.866000 2.500000 0.000000 0\nM  V30 9 C 0.866000 3.500000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 2 1 2\nM  V30 2 1 2 3\nM  V30 3 2 3 4\nM  V30 4 1 4 5\nM  V30 5 2 5 6\nM  V30 6 1 1 6\nM  V30 7 1 1 7\nM  V30 8 1 7 8\nM  V30 9 1 8 9\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":19,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":1.0},{\"id\":2,\"el\":\"C\",\"x\":-0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":-0.866,\"y\":-0.5},{\"id\":4,\"el\":\"C\",\"x\":0.0,\"y\":-1.0},{\"id\":5,\"el\":\"C\",\"x\":0.866,\"y\":-0.5},{\"id\":6,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":13,\"el\":\"C\",\"x\":0.0,\"y\":2.0},{\"id\":14,\"el\":\"C\",\"x\":0.866,\"y\":2.5},{\"id\":15,\"el\":\"C\",\"x\":0.866,\"y\":3.5}],\"bonds\":[{\"id\":7,\"a\":1,\"b\":2,\"o\":2},{\"id\":8,\"a\":2,\"b\":3,\"o\":1},{\"id\":9,\"a\":3,\"b\":4,\"o\":2},{\"id\":10,\"a\":4,\"b\":5,\"o\":1},{\"id\":11,\"a\":5,\"b\":6,\"o\":2},{\"id\":12,\"a\":6,\"b\":1,\"o\":1},{\"id\":16,\"a\":1,\"b\":13,\"o\":1},{\"id\":17,\"a\":13,\"b\":14,\"o\":1},{\"id\":18,\"a\":14,\"b\":15,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  9  9  0  0  0  0  0  0  0  0999 V2000\n    0.0000    1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660   -0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.0000   -1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660   -0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.0000    2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    2.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    3.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  2  0  0  0  0\n  2  3  1  0  0  0  0\n  3  4  2  0  0  0  0\n  4  5  1  0  0  0  0\n  5  6  2  0  0  0  0\n  1  6  1  0  0  0  0\n  1  7  1  0  0  0  0\n  7  8  1  0  0  0  0\n  8  9  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "C1(=CC=CC=C1)CCC",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120.36pt\" height=\"203.4pt\" viewBox=\"0 0 120.36 203.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-1bb366ba d-1bb366ba\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":19,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":1.0},{\"id\":2,\"el\":\"C\",\"x\":-0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":-0.866,\"y\":-0.5},{\"id\":4,\"el\":\"C\",\"x\":0.0,\"y\":-1.0},{\"id\":5,\"el\":\"C\",\"x\":0.866,\"y\":-0.5},{\"id\":6,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":13,\"el\":\"C\",\"x\":0.0,\"y\":2.0},{\"id\":14,\"el\":\"C\",\"x\":0.866,\"y\":2.5},{\"id\":15,\"el\":\"C\",\"x\":0.866,\"y\":3.5}],\"bonds\":[{\"id\":7,\"a\":1,\"b\":2,\"o\":2},{\"id\":8,\"a\":2,\"b\":3,\"o\":1},{\"id\":9,\"a\":3,\"b\":4,\"o\":2},{\"id\":10,\"a\":4,\"b\":5,\"o\":1},{\"id\":11,\"a\":5,\"b\":6,\"o\":2},{\"id\":12,\"a\":6,\"b\":1,\"o\":1},{\"id\":16,\"a\":1,\"b\":13,\"o\":1},{\"id\":17,\"a\":13,\"b\":14,\"o\":1},{\"id\":18,\"a\":14,\"b\":15,\"o\":1}]}</metadata>\n<title id=\"t-1bb366ba\">C9H12</title>\n<desc id=\"d-1bb366ba\">C9H12.</desc>\n<line x1=\"60.18\" y1=\"109.2\" x2=\"34.2\" y2=\"124.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"59.01\" y1=\"114.38\" x2=\"39.27\" y2=\"125.78\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"34.2\" y1=\"124.2\" x2=\"34.2\" y2=\"154.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"34.2\" y1=\"154.2\" x2=\"60.18\" y2=\"169.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"39.27\" y1=\"152.62\" x2=\"59.01\" y2=\"164.02\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"169.2\" x2=\"86.16\" y2=\"154.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"154.2\" x2=\"86.16\" y2=\"124.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"82.26\" y1=\"150.6\" x2=\"82.26\" y2=\"127.8\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"124.2\" x2=\"60.18\" y2=\"109.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"109.2\" x2=\"60.18\" y2=\"79.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"79.2\" x2=\"86.16\" y2=\"64.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"64.2\" x2=\"86.16\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n</svg>\n"
+      },
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "atom": 1
+            },
+            "key": "3",
+            "mods": 8
+          },
+          {
+            "hover": {
+              "atom": 4
+            },
+            "key": "6",
+            "mods": 1
+          }
+        ],
+        "log": [
+          {
+            "arom": true,
+            "n": 6,
+            "op": "ring",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "the keyboard route: the focus walked from atom 1 to atom 2 gives the walked bond; Alt+M, Alt+Shift+F and Alt+4 act on the focused atom",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"81.96 120.00\"/>\n<n id=\"3\" p=\"107.94 105.00\"/>\n<n id=\"4\" p=\"133.93 120.00\"/>\n<n id=\"5\" p=\"55.98 105.00\"/>\n<n id=\"6\" p=\"55.98 75.00\"/>\n<n id=\"7\" p=\"30.00 60.00\"/>\n<n id=\"8\" p=\"30.00 30.00\"/>\n<n id=\"9\" p=\"148.93 145.98\" Element=\"9\" NumHydrogens=\"0\"><t><s font=\"3\" size=\"10\" face=\"0\">F</s></t></n>\n<n id=\"10\" p=\"103.93 120.00\" Element=\"9\" NumHydrogens=\"0\"><t><s font=\"3\" size=\"10\" face=\"0\">F</s></t></n>\n<n id=\"11\" p=\"148.93 94.02\" Element=\"9\" NumHydrogens=\"0\"><t><s font=\"3\" size=\"10\" face=\"0\">F</s></t></n>\n<b id=\"12\" B=\"2\" E=\"3\" Order=\"2\"/>\n<b id=\"13\" B=\"3\" E=\"4\"/>\n<b id=\"14\" B=\"2\" E=\"5\"/>\n<b id=\"15\" B=\"5\" E=\"6\"/>\n<b id=\"16\" B=\"6\" E=\"7\"/>\n<b id=\"17\" B=\"7\" E=\"8\"/>\n<b id=\"18\" B=\"4\" E=\"9\"/>\n<b id=\"19\" B=\"4\" E=\"10\"/>\n<b id=\"20\" B=\"4\" E=\"11\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"C\" x2=\"1.7321\" y2=\"0.0000\"/>\n<atom id=\"a4\" elementType=\"C\" x2=\"-0.8660\" y2=\"0.5000\"/>\n<atom id=\"a5\" elementType=\"C\" x2=\"-0.8660\" y2=\"1.5000\"/>\n<atom id=\"a6\" elementType=\"C\" x2=\"-1.7321\" y2=\"2.0000\"/>\n<atom id=\"a7\" elementType=\"C\" x2=\"-1.7321\" y2=\"3.0000\"/>\n<atom id=\"a8\" elementType=\"F\" x2=\"2.2321\" y2=\"-0.8660\"/>\n<atom id=\"a9\" elementType=\"F\" x2=\"0.7321\" y2=\"0.0000\"/>\n<atom id=\"a10\" elementType=\"F\" x2=\"2.2321\" y2=\"0.8660\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"D\"/>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n<bond id=\"b3\" atomRefs2=\"a1 a4\" order=\"S\"/>\n<bond id=\"b4\" atomRefs2=\"a4 a5\" order=\"S\"/>\n<bond id=\"b5\" atomRefs2=\"a5 a6\" order=\"S\"/>\n<bond id=\"b6\" atomRefs2=\"a6 a7\" order=\"S\"/>\n<bond id=\"b7\" atomRefs2=\"a3 a8\" order=\"S\"/>\n<bond id=\"b8\" atomRefs2=\"a3 a9\" order=\"S\"/>\n<bond id=\"b9\" atomRefs2=\"a3 a10\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"C\",\"location\":[1.7321,0.0,0]},{\"label\":\"C\",\"location\":[-0.866,0.5,0]},{\"label\":\"C\",\"location\":[-0.866,1.5,0]},{\"label\":\"C\",\"location\":[-1.7321,2.0,0]},{\"label\":\"C\",\"location\":[-1.7321,3.0,0]},{\"label\":\"F\",\"location\":[2.2321,-0.866,0]},{\"label\":\"F\",\"location\":[0.7321,0.0,0]},{\"label\":\"F\",\"location\":[2.2321,0.866,0]}],\"bonds\":[{\"type\":2,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]},{\"type\":1,\"atoms\":[0,3]},{\"type\":1,\"atoms\":[3,4]},{\"type\":1,\"atoms\":[4,5]},{\"type\":1,\"atoms\":[5,6]},{\"type\":1,\"atoms\":[2,7]},{\"type\":1,\"atoms\":[2,8]},{\"type\":1,\"atoms\":[2,9]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"bond.set\",\"id\":4,\"o\":2},{\"op\":\"atom.set\",\"id\":3,\"lab\":\"Me\"},{\"op\":\"atom.set\",\"id\":3,\"lab\":\"CF3\"},{\"op\":\"atom.add\",\"id\":6,\"el\":\"C\",\"x\":-0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":7,\"el\":\"C\",\"x\":-0.866,\"y\":1.5},{\"op\":\"atom.add\",\"id\":8,\"el\":\"C\",\"x\":-1.7321,\"y\":2.0},{\"op\":\"atom.add\",\"id\":9,\"el\":\"C\",\"x\":-1.7321,\"y\":3.0},{\"op\":\"bond.add\",\"id\":10,\"a\":1,\"b\":6,\"o\":1},{\"op\":\"bond.add\",\"id\":11,\"a\":6,\"b\":7,\"o\":1},{\"op\":\"bond.add\",\"id\":12,\"a\":7,\"b\":8,\"o\":1},{\"op\":\"bond.add\",\"id\":13,\"a\":8,\"b\":9,\"o\":1}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n 10  9  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -1.7321    2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -1.7321    3.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    2.2321   -0.8660    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n    0.7321    0.0000    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n    2.2321    0.8660    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  2  0  0  0  0\n  2  3  1  0  0  0  0\n  1  4  1  0  0  0  0\n  4  5  1  0  0  0  0\n  5  6  1  0  0  0  0\n  6  7  1  0  0  0  0\n  3  8  1  0  0  0  0\n  3  9  1  0  0  0  0\n  3 10  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 10 9 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0\nM  V30 2 C 0.866000 0.500000 0.000000 0\nM  V30 3 C 1.732100 0.000000 0.000000 0\nM  V30 4 C -0.866000 0.500000 0.000000 0\nM  V30 5 C -0.866000 1.500000 0.000000 0\nM  V30 6 C -1.732100 2.000000 0.000000 0\nM  V30 7 C -1.732100 3.000000 0.000000 0\nM  V30 8 F 2.232100 -0.866000 0.000000 0\nM  V30 9 F 0.732100 0.000000 0.000000 0\nM  V30 10 F 2.232100 0.866000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 2 1 2\nM  V30 2 1 2 3\nM  V30 3 1 1 4\nM  V30 4 1 4 5\nM  V30 5 1 5 6\nM  V30 6 1 6 7\nM  V30 7 1 3 8\nM  V30 8 1 3 9\nM  V30 9 1 3 10\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":14,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0,\"lab\":\"CF3\"},{\"id\":6,\"el\":\"C\",\"x\":-0.866,\"y\":0.5},{\"id\":7,\"el\":\"C\",\"x\":-0.866,\"y\":1.5},{\"id\":8,\"el\":\"C\",\"x\":-1.7321,\"y\":2.0},{\"id\":9,\"el\":\"C\",\"x\":-1.7321,\"y\":3.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":2},{\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"id\":10,\"a\":1,\"b\":6,\"o\":1},{\"id\":11,\"a\":6,\"b\":7,\"o\":1},{\"id\":12,\"a\":7,\"b\":8,\"o\":1},{\"id\":13,\"a\":8,\"b\":9,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n 10  9  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -1.7321    2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -1.7321    3.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    2.2321   -0.8660    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n    0.7321    0.0000    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n    2.2321    0.8660    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  2  0  0  0  0\n  2  3  1  0  0  0  0\n  1  4  1  0  0  0  0\n  4  5  1  0  0  0  0\n  5  6  1  0  0  0  0\n  6  7  1  0  0  0  0\n  3  8  1  0  0  0  0\n  3  9  1  0  0  0  0\n  3 10  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "C(=C\\C(F)(F)F)/CCCC",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"172.33pt\" height=\"158.4pt\" viewBox=\"0 0 172.33 158.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-a0c61ea5 d-a0c61ea5\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":14,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0,\"lab\":\"CF3\"},{\"id\":6,\"el\":\"C\",\"x\":-0.866,\"y\":0.5},{\"id\":7,\"el\":\"C\",\"x\":-0.866,\"y\":1.5},{\"id\":8,\"el\":\"C\",\"x\":-1.7321,\"y\":2.0},{\"id\":9,\"el\":\"C\",\"x\":-1.7321,\"y\":3.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":2},{\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"id\":10,\"a\":1,\"b\":6,\"o\":1},{\"id\":11,\"a\":6,\"b\":7,\"o\":1},{\"id\":12,\"a\":7,\"b\":8,\"o\":1},{\"id\":13,\"a\":8,\"b\":9,\"o\":1}]}</metadata>\n<title id=\"t-a0c61ea5\">C7H11F3</title>\n<desc id=\"d-a0c61ea5\">C7H11F3.</desc>\n<line x1=\"86.16\" y1=\"124.2\" x2=\"112.14\" y2=\"109.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"91.23\" y1=\"125.78\" x2=\"110.98\" y2=\"114.38\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"112.14\" y1=\"109.2\" x2=\"131.68\" y2=\"120.48\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"124.2\" x2=\"60.18\" y2=\"109.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"109.2\" x2=\"60.18\" y2=\"79.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"79.2\" x2=\"34.2\" y2=\"64.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"34.2\" y1=\"64.2\" x2=\"34.2\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"133.93\" y=\"124.2\" font-size=\"12\" fill=\"#000000\" text-anchor=\"start\" dominant-baseline=\"central\">CF</text>\n<text x=\"150.73\" y=\"127.8\" font-size=\"8.4\" fill=\"#000000\" text-anchor=\"start\" dominant-baseline=\"central\">3</text>\n</svg>\n"
+      },
+      "request": {
+        "keys": [
+          {
+            "focus": {
+              "atom": 2,
+              "from": 1
+            },
+            "key": "2"
+          },
+          {
+            "focus": {
+              "atom": 3
+            },
+            "key": "m",
+            "mods": 8
+          },
+          {
+            "focus": {
+              "atom": 3
+            },
+            "key": "f",
+            "mods": 9
+          },
+          {
+            "focus": {
+              "atom": 1
+            },
+            "key": "4",
+            "mods": 8
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "W over a double bond makes it a single wedge bond in one step",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 45.00\"/>\n<n id=\"3\" p=\"55.98 30.00\"/>\n<n id=\"4\" p=\"81.96 45.00\"/>\n<b id=\"5\" B=\"2\" E=\"3\" Display=\"WedgeBegin\"/>\n<b id=\"6\" B=\"3\" E=\"4\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"C\" x2=\"1.7321\" y2=\"0.0000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"S\"><bondStereo atomRefs2=\"a1 a2\">W</bondStereo></bond>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"C\",\"location\":[1.7321,0.0,0]}],\"bonds\":[{\"type\":1,\"atoms\":[0,1],\"stereo\":1},{\"type\":1,\"atoms\":[1,2]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"bond.set\",\"id\":4,\"o\":2},{\"op\":\"bond.set\",\"id\":4,\"o\":1,\"s\":1}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  1  0  0  0\n  2  3  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 3 2 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0\nM  V30 2 C 0.866000 0.500000 0.000000 0\nM  V30 3 C 1.732100 0.000000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 1 2 CFG=1\nM  V30 2 1 2 3\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1,\"s\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  1  0  0  0\n  2  3  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "CCC",
+        "std": "{\"format\":\"std/1\",\"checks\":[{\"key\":\"std.stereo.notCentre\",\"grade\":\"warn\",\"atoms\":[1],\"bonds\":[4]}]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120.36pt\" height=\"83.4pt\" viewBox=\"0 0 120.36 83.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-945b8792 d-945b8792\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1,\"s\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1}]}</metadata>\n<title id=\"t-945b8792\">C3H8</title>\n<desc id=\"d-945b8792\">C3H8.</desc>\n<polygon points=\"34.2,49.2 61.68,36.8 58.68,31.6\" fill=\"#000000\"/>\n<line x1=\"60.18\" y1=\"34.2\" x2=\"86.16\" y2=\"49.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n</svg>\n"
+      },
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "bond": 4
+            },
+            "key": "w"
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "id": 4,
+            "o": 2,
+            "op": "bond.set"
+          }
+        ]
+      }
+    },
+    {
+      "name": "keys that change nothing take no step: 1 over a single bond, 2 twice, M twice",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 45.00\"/>\n<n id=\"3\" p=\"55.98 30.00\"/>\n<n id=\"4\" p=\"81.96 45.00\"/>\n<b id=\"5\" B=\"2\" E=\"3\" Order=\"2\"/>\n<b id=\"6\" B=\"3\" E=\"4\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"C\" x2=\"1.7321\" y2=\"0.0000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"D\"/>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"C\",\"location\":[1.7321,0.0,0]}],\"bonds\":[{\"type\":2,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"bond.set\",\"id\":4,\"o\":2},{\"op\":\"atom.set\",\"id\":1,\"lab\":\"Me\"}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  2  0  0  0  0\n  2  3  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 3 2 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0\nM  V30 2 C 0.866000 0.500000 0.000000 0\nM  V30 3 C 1.732100 0.000000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 2 1 2\nM  V30 2 1 2 3\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0,\"lab\":\"Me\"},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":2},{\"id\":5,\"a\":2,\"b\":3,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  2  0  0  0  0\n  2  3  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "C=CC",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120.36pt\" height=\"83.4pt\" viewBox=\"0 0 120.36 83.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-6c13e0e2 d-6c13e0e2\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0,\"lab\":\"Me\"},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":2},{\"id\":5,\"a\":2,\"b\":3,\"o\":1}]}</metadata>\n<title id=\"t-6c13e0e2\">C3H6</title>\n<desc id=\"d-6c13e0e2\">C3H6.</desc>\n<line x1=\"41.62\" y1=\"47.17\" x2=\"61.16\" y2=\"35.89\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"39.67\" y1=\"43.79\" x2=\"59.2\" y2=\"32.51\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"34.2\" x2=\"86.16\" y2=\"49.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"20.4\" y=\"49.2\" font-size=\"12\" fill=\"#000000\" text-anchor=\"start\" dominant-baseline=\"central\">Me</text>\n</svg>\n"
+      },
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "bond": 4
+            },
+            "key": "1"
+          },
+          {
+            "hover": {
+              "bond": 4
+            },
+            "key": "2"
+          },
+          {
+            "hover": {
+              "bond": 4
+            },
+            "key": "2"
+          },
+          {
+            "hover": {
+              "atom": 1
+            },
+            "key": "m"
+          },
+          {
+            "hover": {
+              "atom": 1
+            },
+            "key": "m"
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "a key over nothing picks its tool and changes nothing",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 45.00\"/>\n<n id=\"3\" p=\"55.98 30.00\"/>\n<n id=\"4\" p=\"81.96 45.00\"/>\n<b id=\"5\" B=\"2\" E=\"3\"/>\n<b id=\"6\" B=\"3\" E=\"4\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"C\" x2=\"1.7321\" y2=\"0.0000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"S\"/>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"C\",\"location\":[1.7321,0.0,0]}],\"bonds\":[{\"type\":1,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":1}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 3 2 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0\nM  V30 2 C 0.866000 0.500000 0.000000 0\nM  V30 3 C 1.732100 0.000000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 1 2\nM  V30 2 1 2 3\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "CCC",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120.36pt\" height=\"83.4pt\" viewBox=\"0 0 120.36 83.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-98271174 d-98271174\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":6,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1}]}</metadata>\n<title id=\"t-98271174\">C3H8</title>\n<desc id=\"d-98271174\">C3H8.</desc>\n<line x1=\"34.2\" y1=\"49.2\" x2=\"60.18\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"34.2\" x2=\"86.16\" y2=\"49.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n</svg>\n"
+      },
+      "request": {
+        "keys": [
+          {
+            "key": "2"
+          },
+          {
+            "key": "m"
+          },
+          {
+            "key": "3",
+            "mods": 8
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "with a wedge tool active the keys pick tools: 2 over a bond leaves the drawing, Alt+2 over an atom still sprouts a chain",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"55.98 75.00\"/>\n<n id=\"3\" p=\"81.96 60.00\"/>\n<n id=\"4\" p=\"107.94 75.00\"/>\n<n id=\"5\" p=\"30.00 60.00\"/>\n<n id=\"6\" p=\"30.00 30.00\"/>\n<b id=\"7\" B=\"2\" E=\"3\"/>\n<b id=\"8\" B=\"3\" E=\"4\"/>\n<b id=\"9\" B=\"2\" E=\"5\"/>\n<b id=\"10\" B=\"5\" E=\"6\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"C\" x2=\"1.7321\" y2=\"0.0000\"/>\n<atom id=\"a4\" elementType=\"C\" x2=\"-0.8660\" y2=\"0.5000\"/>\n<atom id=\"a5\" elementType=\"C\" x2=\"-0.8660\" y2=\"1.5000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"S\"/>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n<bond id=\"b3\" atomRefs2=\"a1 a4\" order=\"S\"/>\n<bond id=\"b4\" atomRefs2=\"a4 a5\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"C\",\"location\":[1.7321,0.0,0]},{\"label\":\"C\",\"location\":[-0.866,0.5,0]},{\"label\":\"C\",\"location\":[-0.866,1.5,0]}],\"bonds\":[{\"type\":1,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]},{\"type\":1,\"atoms\":[0,3]},{\"type\":1,\"atoms\":[3,4]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"atom.add\",\"id\":6,\"el\":\"C\",\"x\":-0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":7,\"el\":\"C\",\"x\":-0.866,\"y\":1.5},{\"op\":\"bond.add\",\"id\":8,\"a\":1,\"b\":6,\"o\":1},{\"op\":\"bond.add\",\"id\":9,\"a\":6,\"b\":7,\"o\":1}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  5  4  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\n  1  4  1  0  0  0  0\n  4  5  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 5 4 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0\nM  V30 2 C 0.866000 0.500000 0.000000 0\nM  V30 3 C 1.732100 0.000000 0.000000 0\nM  V30 4 C -0.866000 0.500000 0.000000 0\nM  V30 5 C -0.866000 1.500000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 1 2\nM  V30 2 1 2 3\nM  V30 3 1 1 4\nM  V30 4 1 4 5\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":10,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"id\":6,\"el\":\"C\",\"x\":-0.866,\"y\":0.5},{\"id\":7,\"el\":\"C\",\"x\":-0.866,\"y\":1.5}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"id\":8,\"a\":1,\"b\":6,\"o\":1},{\"id\":9,\"a\":6,\"b\":7,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  5  4  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    0.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.8660    1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\n  1  4  1  0  0  0  0\n  4  5  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "C(CC)CC",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"146.34pt\" height=\"113.4pt\" viewBox=\"0 0 146.34 113.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-d88491e0 d-d88491e0\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":10,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"id\":6,\"el\":\"C\",\"x\":-0.866,\"y\":0.5},{\"id\":7,\"el\":\"C\",\"x\":-0.866,\"y\":1.5}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"id\":8,\"a\":1,\"b\":6,\"o\":1},{\"id\":9,\"a\":6,\"b\":7,\"o\":1}]}</metadata>\n<title id=\"t-d88491e0\">C5H12</title>\n<desc id=\"d-d88491e0\">C5H12.</desc>\n<line x1=\"60.18\" y1=\"79.2\" x2=\"86.16\" y2=\"64.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"64.2\" x2=\"112.14\" y2=\"79.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"79.2\" x2=\"34.2\" y2=\"64.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"34.2\" y1=\"64.2\" x2=\"34.2\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n</svg>\n"
+      },
+      "request": {
+        "events": [
+          [
+            "key",
+            "w",
+            0,
+            0
+          ]
+        ],
+        "keys": [
+          {
+            "hover": {
+              "bond": 4
+            },
+            "key": "2"
+          },
+          {
+            "hover": {
+              "atom": 1
+            },
+            "key": "2",
+            "mods": 8
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "refused keys change nothing: a group on a middle atom, a wedge and an order on a dative bond; a ring on the middle atom is allowed",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 105.00\"/>\n<n id=\"3\" p=\"55.98 90.00\"/>\n<n id=\"4\" p=\"81.97 105.00\"/>\n<n id=\"5\" p=\"81.96 75.00\"/>\n<n id=\"6\" p=\"81.96 45.00\"/>\n<n id=\"7\" p=\"55.98 30.00\"/>\n<n id=\"8\" p=\"30.00 45.00\"/>\n<n id=\"9\" p=\"30.00 75.00\"/>\n<b id=\"10\" B=\"2\" E=\"3\" Order=\"dative\"/>\n<b id=\"11\" B=\"3\" E=\"4\"/>\n<b id=\"12\" B=\"3\" E=\"5\"/>\n<b id=\"13\" B=\"5\" E=\"6\"/>\n<b id=\"14\" B=\"6\" E=\"7\"/>\n<b id=\"15\" B=\"7\" E=\"8\"/>\n<b id=\"16\" B=\"8\" E=\"9\"/>\n<b id=\"17\" B=\"3\" E=\"9\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"0.8660\" y2=\"0.5000\"/>\n<atom id=\"a3\" elementType=\"C\" x2=\"1.7321\" y2=\"0.0000\"/>\n<atom id=\"a4\" elementType=\"C\" x2=\"1.7320\" y2=\"1.0000\"/>\n<atom id=\"a5\" elementType=\"C\" x2=\"1.7320\" y2=\"2.0000\"/>\n<atom id=\"a6\" elementType=\"C\" x2=\"0.8660\" y2=\"2.5000\"/>\n<atom id=\"a7\" elementType=\"C\" x2=\"-0.0001\" y2=\"2.0000\"/>\n<atom id=\"a8\" elementType=\"C\" x2=\"0.0000\" y2=\"1.0000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"S\"/>\n<bond id=\"b2\" atomRefs2=\"a2 a3\" order=\"S\"/>\n<bond id=\"b3\" atomRefs2=\"a2 a4\" order=\"S\"/>\n<bond id=\"b4\" atomRefs2=\"a4 a5\" order=\"S\"/>\n<bond id=\"b5\" atomRefs2=\"a5 a6\" order=\"S\"/>\n<bond id=\"b6\" atomRefs2=\"a6 a7\" order=\"S\"/>\n<bond id=\"b7\" atomRefs2=\"a7 a8\" order=\"S\"/>\n<bond id=\"b8\" atomRefs2=\"a2 a8\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[0.866,0.5,0]},{\"label\":\"C\",\"location\":[1.7321,0.0,0]},{\"label\":\"C\",\"location\":[1.732,1.0,0]},{\"label\":\"C\",\"location\":[1.732,2.0,0]},{\"label\":\"C\",\"location\":[0.866,2.5,0]},{\"label\":\"C\",\"location\":[-0.0001,2.0,0]},{\"label\":\"C\",\"location\":[0.0,1.0,0]}],\"bonds\":[{\"type\":9,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]},{\"type\":1,\"atoms\":[1,3]},{\"type\":1,\"atoms\":[3,4]},{\"type\":1,\"atoms\":[4,5]},{\"type\":1,\"atoms\":[5,6]},{\"type\":1,\"atoms\":[6,7]},{\"type\":1,\"atoms\":[1,7]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"op\":\"atom.add\",\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"op\":\"bond.add\",\"id\":4,\"a\":1,\"b\":2,\"o\":1},{\"op\":\"bond.add\",\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"op\":\"bond.set\",\"id\":4,\"k\":\"dative\"},{\"op\":\"atom.add\",\"id\":6,\"el\":\"C\",\"x\":1.732,\"y\":1.0},{\"op\":\"atom.add\",\"id\":7,\"el\":\"C\",\"x\":1.732,\"y\":2.0},{\"op\":\"atom.add\",\"id\":8,\"el\":\"C\",\"x\":0.866,\"y\":2.5},{\"op\":\"atom.add\",\"id\":9,\"el\":\"C\",\"x\":-0.0001,\"y\":2.0},{\"op\":\"atom.add\",\"id\":10,\"el\":\"C\",\"x\":0.0,\"y\":1.0},{\"op\":\"bond.add\",\"id\":11,\"a\":2,\"b\":6,\"o\":1},{\"op\":\"bond.add\",\"id\":12,\"a\":6,\"b\":7,\"o\":1},{\"op\":\"bond.add\",\"id\":13,\"a\":7,\"b\":8,\"o\":1},{\"op\":\"bond.add\",\"id\":14,\"a\":8,\"b\":9,\"o\":1},{\"op\":\"bond.add\",\"id\":15,\"a\":9,\"b\":10,\"o\":1},{\"op\":\"bond.add\",\"id\":16,\"a\":10,\"b\":2,\"o\":1}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  8  8  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  5  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  5  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7320    1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7320    2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    2.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.0001    2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.0000    1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\n  2  4  1  0  0  0  0\n  4  5  1  0  0  0  0\n  5  6  1  0  0  0  0\n  6  7  1  0  0  0  0\n  7  8  1  0  0  0  0\n  2  8  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 8 8 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0 VAL=5\nM  V30 2 C 0.866000 0.500000 0.000000 0 VAL=5\nM  V30 3 C 1.732100 0.000000 0.000000 0\nM  V30 4 C 1.732000 1.000000 0.000000 0\nM  V30 5 C 1.732000 2.000000 0.000000 0\nM  V30 6 C 0.866000 2.500000 0.000000 0\nM  V30 7 C -0.000100 2.000000 0.000000 0\nM  V30 8 C 0.000000 1.000000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 9 1 2\nM  V30 2 1 2 3\nM  V30 3 1 2 4\nM  V30 4 1 4 5\nM  V30 5 1 5 6\nM  V30 6 1 6 7\nM  V30 7 1 7 8\nM  V30 8 1 2 8\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":17,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"id\":6,\"el\":\"C\",\"x\":1.732,\"y\":1.0},{\"id\":7,\"el\":\"C\",\"x\":1.732,\"y\":2.0},{\"id\":8,\"el\":\"C\",\"x\":0.866,\"y\":2.5},{\"id\":9,\"el\":\"C\",\"x\":-0.0001,\"y\":2.0},{\"id\":10,\"el\":\"C\",\"x\":0.0,\"y\":1.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1,\"k\":\"dative\"},{\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"id\":11,\"a\":2,\"b\":6,\"o\":1},{\"id\":12,\"a\":6,\"b\":7,\"o\":1},{\"id\":13,\"a\":7,\"b\":8,\"o\":1},{\"id\":14,\"a\":8,\"b\":9,\"o\":1},{\"id\":15,\"a\":9,\"b\":10,\"o\":1},{\"id\":16,\"a\":10,\"b\":2,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  8  8  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  5  0  0  0  0  0  0\n    0.8660    0.5000    0.0000 C   0  0  0  0  0  5  0  0  0  0  0  0\n    1.7321    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7320    1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.7320    2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8660    2.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.0001    2.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.0000    1.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\n  2  4  1  0  0  0  0\n  4  5  1  0  0  0  0\n  5  6  1  0  0  0  0\n  6  7  1  0  0  0  0\n  7  8  1  0  0  0  0\n  2  8  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "[CH4][CH]1(C)CCCCC1",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120.37pt\" height=\"143.4pt\" viewBox=\"0 0 120.37 143.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-191be2af d-191be2af\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":17,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":0.5},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":0.0},{\"id\":6,\"el\":\"C\",\"x\":1.732,\"y\":1.0},{\"id\":7,\"el\":\"C\",\"x\":1.732,\"y\":2.0},{\"id\":8,\"el\":\"C\",\"x\":0.866,\"y\":2.5},{\"id\":9,\"el\":\"C\",\"x\":-0.0001,\"y\":2.0},{\"id\":10,\"el\":\"C\",\"x\":0.0,\"y\":1.0}],\"bonds\":[{\"id\":4,\"a\":1,\"b\":2,\"o\":1,\"k\":\"dative\"},{\"id\":5,\"a\":2,\"b\":3,\"o\":1},{\"id\":11,\"a\":2,\"b\":6,\"o\":1},{\"id\":12,\"a\":6,\"b\":7,\"o\":1},{\"id\":13,\"a\":7,\"b\":8,\"o\":1},{\"id\":14,\"a\":8,\"b\":9,\"o\":1},{\"id\":15,\"a\":9,\"b\":10,\"o\":1},{\"id\":16,\"a\":10,\"b\":2,\"o\":1}]}</metadata>\n<title id=\"t-191be2af\">C8H18</title>\n<desc id=\"d-191be2af\">C8H18.</desc>\n<line x1=\"40.65\" y1=\"105.48\" x2=\"55.97\" y2=\"96.63\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<polygon points=\"60.18,94.2 56.59,98.77 54.43,95.03\" fill=\"#000000\"/>\n<line x1=\"60.18\" y1=\"94.2\" x2=\"86.17\" y2=\"109.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"94.2\" x2=\"86.16\" y2=\"79.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"79.2\" x2=\"86.16\" y2=\"49.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"49.2\" x2=\"60.18\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"34.2\" x2=\"34.2\" y2=\"49.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"34.2\" y1=\"49.2\" x2=\"34.2\" y2=\"79.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"34.2\" y1=\"79.2\" x2=\"60.18\" y2=\"94.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"34.2\" y=\"109.2\" font-size=\"12\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">C</text>\n<text x=\"16.9\" y=\"109.2\" font-size=\"12\" fill=\"#000000\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"25.3\" y=\"112.8\" font-size=\"8.4\" fill=\"#000000\" text-anchor=\"start\" dominant-baseline=\"central\">4</text>\n</svg>\n"
+      },
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "atom": 2
+            },
+            "key": "m"
+          },
+          {
+            "hover": {
+              "bond": 4
+            },
+            "key": "w"
+          },
+          {
+            "hover": {
+              "bond": 4
+            },
+            "key": "2"
+          },
+          {
+            "hover": {
+              "atom": 2
+            },
+            "key": "6",
+            "mods": 1
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "id": 4,
+            "k": "dative",
+            "op": "bond.set"
+          }
+        ]
+      }
+    }
+  ],
+  "refused": [
+    {
+      "error_key": "error.draw2.keys",
+      "name": "a hover that names an atom and a bond",
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "atom": 1,
+              "bond": 4
+            },
+            "key": "2"
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.keys",
+      "name": "a key entry with no key",
+      "request": {
+        "keys": [
+          {
+            "mods": 1
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.keys",
+      "name": "a hover on a bond that does not exist",
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "bond": 99
+            },
+            "key": "2"
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.keys",
+      "name": "a hover on an atom that does not exist",
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "atom": 99
+            },
+            "key": "m"
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.keys",
+      "name": "a focus on an atom that does not exist",
+      "request": {
+        "keys": [
+          {
+            "focus": {
+              "atom": 1,
+              "from": 99
+            },
+            "key": "2"
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.keys",
+      "name": "an id that is not a number",
+      "request": {
+        "keys": [
+          {
+            "hover": {
+              "bond": "4"
+            },
+            "key": "2"
+          }
+        ],
+        "log": [
+          {
+            "deg": 30,
+            "n": 2,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    }
+  ]
+}

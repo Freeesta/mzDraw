@@ -48,6 +48,9 @@ struct Request {
     /// kind, mods, t]` (`Editor::pointer_event`) and `["key", key, mods, t]` (`Editor::key_at`). Their flags are kept for the
     /// output `context-state:<w>,<h>`.
     events: Vec<Event>,
+    /// `keys`: keys pressed over an object, run after `events` and before `out`, each through `Editor::key_over`: `{"key", "mods",
+    /// "hover": {"atom": id} or {"bond": id}, "focus": {"atom": id, "from": id}}` (`mods` 0 when absent; `hover` and `focus` optional).
+    keys: Vec<KeyReq>,
     /// `values`: the answer is `values/1` (`values::document_json`): the calculated values of every structure and, when `atoms` is
     /// given, of those atoms as one selection. `true` is no selection. It stands alone with the editing fields (no `out`, no `report`).
     values: Option<Option<Vec<u32>>>,
@@ -58,6 +61,14 @@ struct Request {
     feedback: Option<(String, bool, String, String)>,
 }
 
+/// One entry of the request field `keys`: the key, its modifiers, the pointer (atom: true, else bond) and the focus (atom and origin).
+struct KeyReq {
+    key: String,
+    mods: u32,
+    hover: Option<(bool, u32)>,
+    focus: Option<(u32, Option<u32>)>,
+}
+
 /// One event of the request field `events`.
 enum Event {
     Pointer([f64; 7]),
@@ -65,7 +76,8 @@ enum Event {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 22] = [
+const FIELDS: [&str; 23] = [
+    "keys",
     "propose",
     "accept",
     "diff",
@@ -245,6 +257,58 @@ impl Request {
                 })
                 .collect::<Result<Vec<Event>, _>>()?,
         };
+        let keys = match v.get("keys") {
+            None => Vec::new(),
+            Some(l) => (l.as_array().ok_or(BAD)?.iter())
+                .map(|k| {
+                    let bad = "error.draw2.keys";
+                    let o = k.as_object().ok_or(bad)?;
+                    if o.keys()
+                        .any(|x| !["key", "mods", "hover", "focus"].contains(&x.as_str()))
+                    {
+                        return Err(bad);
+                    }
+                    let id = |x: &serde_json::Value| {
+                        x.as_u64().and_then(|n| u32::try_from(n).ok()).ok_or(bad)
+                    };
+                    let hover = match o.get("hover") {
+                        None => None,
+                        Some(h) => {
+                            match (h.get("atom"), h.get("bond"), h.as_object().map(|h| h.len())) {
+                                (Some(a), None, Some(1)) => Some((true, id(a)?)),
+                                (None, Some(b), Some(1)) => Some((false, id(b)?)),
+                                _ => return Err(bad),
+                            }
+                        }
+                    };
+                    let focus = match o.get("focus") {
+                        None => None,
+                        Some(f) => {
+                            let f = f
+                                .as_object()
+                                .filter(|f| f.keys().all(|k| k == "atom" || k == "from"))
+                                .ok_or(bad)?;
+                            let from = f.get("from").map(id).transpose()?;
+                            Some((id(f.get("atom").ok_or(bad)?)?, from))
+                        }
+                    };
+                    let mods = match o.get("mods") {
+                        None => 0,
+                        Some(m) => u32::try_from(m.as_u64().ok_or(bad)?).map_err(|_| bad)?,
+                    };
+                    Ok(KeyReq {
+                        key: o
+                            .get("key")
+                            .and_then(|k| k.as_str())
+                            .ok_or(bad)?
+                            .to_string(),
+                        mods,
+                        hover,
+                        focus,
+                    })
+                })
+                .collect::<Result<Vec<KeyReq>, _>>()?,
+        };
         let values = match v.get("values") {
             None | Some(serde_json::Value::Bool(false)) => None,
             Some(serde_json::Value::Bool(true)) => Some(None),
@@ -358,6 +422,7 @@ impl Request {
             propose,
             accept,
             events,
+            keys,
             commands,
             report: flag("report")?,
             dry_run: flag("dry_run")?,
@@ -588,6 +653,22 @@ pub fn replay_with(
             Event::Key(key, mods, t) => e.key_at(key, *mods, *t),
         })
         .collect();
+    let mut flags = flags;
+    for k in &r.keys {
+        // an id that is not in the drawing (as the keys before it left it) is a bad entry, never a silent fall-through to the tool keys
+        let d = e.doc();
+        let known = match k.hover {
+            Some((true, id)) => d.atom(id).is_some(),
+            Some((false, id)) => d.bond(id).is_some(),
+            None => true,
+        } && k.focus.is_none_or(|(a, from)| {
+            d.atom(a).is_some() && from.is_none_or(|f| d.atom(f).is_some())
+        });
+        if !known {
+            return Err(fail("error.draw2.keys"));
+        }
+        flags.push(e.key_over(&k.key, k.mods, k.hover, k.focus));
+    }
     if let Some((kind, with_log, agent, lang)) = &r.feedback {
         let log = e.session.log_json();
         let params = crate::feedback::Params {

@@ -889,6 +889,14 @@ impl Editor {
                     };
                     self.nudge(dx, dy, t)
                 }
+                // Alt+digit over an atom: a chain of that many bonds (the page sends the digit, not the character the layout types);
+                // Alt+M, Alt+E, Alt+Shift+F, Alt+Shift+O: a group on the hovered or the focused atom
+                d if d.len() == 1 && d.as_bytes()[0].is_ascii_alphanumeric() => {
+                    match self.hot_key(d, shift, true) {
+                        Some(f) => f,
+                        None => return 0,
+                    }
+                }
                 "[" | "{" => self.turn(TURN_STEP, t),
                 "]" | "}" => self.turn(-TURN_STEP, t),
                 _ => return 0,
@@ -915,6 +923,10 @@ impl Editor {
             && self.tool == Tool::Chain
             && let Some(f) = self.chain_key(&lower, shift)
         {
+            return f | HANDLED;
+        }
+        // hover keys: the object under the pointer (else the focused atom, the walked bond) takes the key before the tool keys
+        if !ctrl && let Some(f) = self.hot_key(&lower, shift, false) {
             return f | HANDLED;
         }
         if !ctrl && let Some(f) = self.focus_key(&lower, shift) {
