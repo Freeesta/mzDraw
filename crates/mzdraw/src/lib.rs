@@ -4,6 +4,7 @@
 
 pub mod ann;
 pub mod arrange;
+pub mod bonddisp;
 pub mod brand;
 pub mod build;
 pub mod cdx;

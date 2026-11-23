@@ -10,14 +10,14 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, RUNNING 0, QUEUED 54, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, RUNNING 1, QUEUED 53, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
 | `arch-cd-01-clean-up` | Clean Up Structure: the 2D layout of mzlab-mol on a drawing, stereo kept | SUPERSEDED | by arch-std-15 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-02-cip-labels` | CIP labels on the canvas (R/S, r/s, E/Z) from cip/1, live | SUPERSEDED | by arch-web-16 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-03-hover-hotkeys` | Hotkeys over the hovered bond and group hotkeys over an atom | QUEUED | no merged commit or built note names it | arch-std-06 (the command table of shortcuts) if it is on `main`: put the hover keys into that table | - |
-| `arch-cd-04-bond-display` | Double-bond position (centre, left, right) and dashed bond displays | QUEUED | no merged commit or built note names it | the bond field `k` (one field for bold, dashed, dative, hbond; V3000 types 9 and 10: COO decision 16), from... | - |
+| `arch-cd-04-bond-display` | Double-bond position (centre, left, right) and dashed bond displays | RUNNING | PR #108 (docs/built/bond-display.md) | the bond field `k` (one field for bold, dashed, dative, hbond; V3000 types 9 and 10: COO decision 16), from... | - |
 | `arch-cd-05-chain-tool` | Chain tool: drag out a zigzag, the carbon count shown while dragging | SUPERSEDED | by arch-web-08 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-06-arrow-kinds` | Arrow kinds, heads and conditions under the arrow | SUPERSEDED | by arch-web-13 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-07-rich-text` | Rich text: several lines, sub- and superscript runs, bold, italic, formula style | SUPERSEDED | by arch-web-14 (itself withdrawn for arch-std-21) (top of the prompt: "superseded: do not run") | - | - |
@@ -80,7 +80,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, 
 | `arch-web-17-values` | Calculated values: formula, masses, m/z of adducts | MERGED | PR #88, `c713c2b`; built/arch-web-17-values.md; `values.rs` | - | - |
 | `arch-web-18-abbreviations` | Abbreviations: expand and contract in place, user abbreviations | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-19-templates` | Template library and user templates: the op `tmpl` | QUEUED | no merged commit or built note names it | - | - |
-| `arch-web-20-bond-kinds` | Bond kinds: bold, dative, hydrogen bond | QUEUED | no merged commit or built note names it | - | - |
+| `arch-web-20-bond-kinds` | Bond kinds: bold, dative, hydrogen bond | QUEUED | no merged commit or built note names it | - | the field `k` and `bonddisp.rs` (`k_canon`, `KINDS`) already exist from arch-cd-04 (PR #108) with `dash`, `bdash`, `hash`: extend them with `bold`, `dative`, `hbond`, do not add a second field |
 | `arch-web-21-drop-copy-as` | Drop a file on the canvas; copy as MOL / KET / SMILES / image; PNG and HTML on the clip... | QUEUED | no merged commit or built note names it | - | - |
 | `plan-01-op-table` | one table of the `draw_edit/1` operations, served as JSON | MERGED | PR #52, `fd41029`; `schema.rs`; built/edit-schema.md | none (COO 16 agreement on ownership, backlog D1) | - |
 | `plan-02-velocity-bench` | drawing-speed benchmark `velocity/1` on a fixed task set | MERGED | PR #50, `2510e86`; built/velocity.md; `tools/velocity` | none | - |

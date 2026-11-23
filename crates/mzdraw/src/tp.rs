@@ -295,10 +295,19 @@ pub fn derive_expecting(
                     map: *map,
                 }
             }
-            Op::BondSet { id, o, s, rev } => Op::BondSet {
+            Op::BondSet {
+                id,
+                o,
+                s,
+                pos,
+                k,
+                rev,
+            } => Op::BondSet {
                 id: *bond_copy.get(id).ok_or(PATCH)?,
                 o: *o,
                 s: *s,
+                pos: pos.clone(),
+                k: k.clone(),
                 rev: *rev,
             },
             Op::AtomData { id, data } => Op::AtomData {

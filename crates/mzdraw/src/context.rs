@@ -96,6 +96,18 @@ fn item(id: &str, label: &str, key: &str, enabled: bool) -> Value {
     v
 }
 
+/// A `bond.set` of the side or the display kind alone.
+pub(crate) fn bond_set(id: u32, pos: Option<String>, k: Option<String>) -> Op {
+    Op::BondSet {
+        id,
+        o: None,
+        s: None,
+        pos,
+        k,
+        rev: false,
+    }
+}
+
 fn checked(mut v: Value, on: bool) -> Value {
     v["checked"] = json!(on);
     v
@@ -282,6 +294,8 @@ impl Editor {
                         id: b,
                         o: None,
                         s: None,
+                        pos: None,
+                        k: None,
                         rev: true,
                     }],
                     "draw2.say.wedge",
@@ -391,9 +405,29 @@ impl Editor {
                     id: b,
                     o: Some(o),
                     s: Some(0),
+                    pos: None,
+                    k: None,
                     rev: false,
                 };
                 return self.run(&[set], "draw2.say.order", &o.to_string());
+            }
+            if let Some(v) = id.strip_prefix("bond.pos.") {
+                let Some(side) = crate::bonddisp::pos_canon(v) else {
+                    return 0;
+                };
+                if now != 2 || self.doc().bond(b).is_some_and(|x| x.pos() == side) {
+                    return 0;
+                }
+                return self.run(&[bond_set(b, Some(side), None)], "draw2.say.side", v);
+            }
+            if let Some(v) = id.strip_prefix("bond.k.") {
+                let Some(kind) = crate::bonddisp::k_canon(v) else {
+                    return 0;
+                };
+                if mark != 0 || self.doc().bond(b).is_some_and(|x| x.kind() == kind) {
+                    return 0;
+                }
+                return self.run(&[bond_set(b, None, Some(kind))], "draw2.say.kind", v);
             }
             let s = match id.strip_prefix("bond.s.") {
                 Some("up") => WEDGE_UP,
@@ -406,6 +440,8 @@ impl Editor {
                     id: b,
                     o: Some(1),
                     s: Some(s),
+                    pos: None,
+                    k: None,
                     rev: false,
                 };
                 return self.run(&[set], "draw2.say.wedge", "");
@@ -588,7 +624,19 @@ impl Editor {
 
     fn bond_items(&self, b: u32) -> Vec<Value> {
         let (o, s) = self.doc().bond(b).map_or((1, 0), |x| (x.o, x.s));
-        vec![
+        let (pos, kind) = self
+            .doc()
+            .bond(b)
+            .map_or_else(Default::default, |x| (x.pos(), x.kind()));
+        let side = ["auto", "c", "l", "r"].map(|k| {
+            let now = if pos.is_empty() { "auto" } else { &pos };
+            checked(item(&format!("bond.pos.{k}"), k, "", true), now == k)
+        });
+        let kinds = ["solid", "dash", "bdash", "hash"].map(|k| {
+            let now = if kind.is_empty() { "solid" } else { &kind };
+            checked(item(&format!("bond.k.{k}"), k, "", s == 0), now == k)
+        });
+        let mut items = vec![
             checked(item("bond.o.1", "Single", "1", true), (o, s) == (1, 0)),
             checked(item("bond.o.2", "Double", "2", true), (o, s) == (2, 0)),
             checked(item("bond.o.3", "Triple", "3", true), (o, s) == (3, 0)),
@@ -599,9 +647,15 @@ impl Editor {
             ),
             checked(item("bond.s.wavy", "Wavy", "Y", true), s == WEDGE_WAVY),
             item("bond.reverse", "Reverse direction", "", s != 0),
-            self.colour_group(self.doc().bond(b).map(|x| x.col())),
-            item("bond.delete", "Delete", "Del", true),
-        ]
+        ];
+        // the side of the second line is a choice of a double bond; the display of the line one of a bond without a mark
+        if o == 2 {
+            items.push(group("bond.pos", "Double bond side", side.to_vec()));
+        }
+        items.push(group("bond.k", "Line style", kinds.to_vec()));
+        items.push(self.colour_group(self.doc().bond(b).map(|x| x.col())));
+        items.push(item("bond.delete", "Delete", "Del", true));
+        items
     }
 
     fn selection_items(&self) -> Vec<Value> {
