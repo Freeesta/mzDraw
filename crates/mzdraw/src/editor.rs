@@ -54,6 +54,8 @@ pub enum Tool {
     Bond(u8, u8),
     Erase,
     Ring(u8, bool),
+    /// A zigzag chain: dragged from an atom or from empty space, or two bonds on a click.
+    Chain,
     Charge(i8),
     /// An abbreviation or an R group of `label`.
     Label(String),
@@ -66,7 +68,7 @@ pub enum Tool {
 
 impl Tool {
     /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `erase`, `ring:6`, `ring:6a` (alternating
-    /// double bonds), `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
+    /// double bonds), `chain`, `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
     /// `text:<one line>`.
     pub fn parse(s: &str) -> Option<Tool> {
         let (name, arg) = s.split_once(':').unwrap_or((s, ""));
@@ -80,6 +82,7 @@ impl Tool {
                 "wavy" => Tool::Bond(1, WEDGE_WAVY),
                 _ => Tool::Bond(arg.parse().ok().filter(|o| (1..=3).contains(o))?, 0),
             },
+            "chain" => Tool::Chain,
             "ring" => {
                 let n = arg
                     .trim_end_matches('a')
@@ -110,6 +113,7 @@ impl Tool {
             Tool::Bond(_, WEDGE_DOWN) => "bond:down".into(),
             Tool::Bond(_, WEDGE_WAVY) => "bond:wavy".into(),
             Tool::Bond(o, _) => format!("bond:{o}"),
+            Tool::Chain => "chain".into(),
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),
             Tool::Charge(c) => format!("charge:{}", if *c < 0 { "-" } else { "+" }),
             Tool::Label(l) => format!("label:{l}"),
@@ -465,6 +469,7 @@ impl Editor {
                 self.tool = t;
                 self.press = None;
                 self.over.preview = None;
+                self.over.chain = None;
                 self.over.band = None;
                 REPAINT | TOOL
             }

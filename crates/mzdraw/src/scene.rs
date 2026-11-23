@@ -113,6 +113,8 @@ pub struct Overlay {
     pub drag: (f64, f64),
     /// A bond being drawn, in document units.
     pub preview: Option<(f64, f64, f64, f64)>,
+    /// A chain being drawn: its points in document units, first to last (the bonds are `points - 1`, the number shown at the end).
+    pub chain: Option<Vec<(f64, f64)>>,
     /// A rubber band, in pixels (x, y, w, h).
     pub band: Option<(f64, f64, f64, f64)>,
     /// The marks of an open proposal, laid over the drawing (filled by `Editor::scene`).
@@ -951,6 +953,28 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
             m.line,
             colour::PREVIEW,
         );
+    }
+    if let Some(pts) = &over.chain {
+        for w in pts.windows(2) {
+            p.line(
+                view.to_px(w[0].0, w[0].1),
+                view.to_px(w[1].0, w[1].1),
+                m.line,
+                colour::PREVIEW,
+            );
+        }
+        if let Some(&(x, y)) = pts.last() {
+            let (x, y) = view.to_px(x, y);
+            let f = p.font;
+            p.text(
+                x + f * 0.9,
+                y - f * 0.9,
+                f,
+                colour::PREVIEW,
+                &(pts.len() - 1).to_string(),
+                0.0,
+            );
+        }
     }
     if let Some((x, y, w, h)) = over.band {
         p.push(&[RECT as f64, x, y, w, h, colour::SELECT as f64]);

@@ -252,7 +252,7 @@ function refresh() {
   textBar(st);
   for (const b of document.querySelectorAll("button[data-cmd]")) {
     const c = /** @type {HTMLElement} */ (b).dataset.cmd || "";
-    if (c.includes(":") || ["select", "erase", "arrow", "plus"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
+    if (c.includes(":") || ["select", "erase", "arrow", "plus", "chain"].includes(c)) b.setAttribute("aria-pressed", String(c === st.tool));
     if (c === "move-here") b.setAttribute("aria-pressed", String(st.moveHere));
     if (c === "undo") /** @type {HTMLButtonElement} */ (b).disabled = !st.undo;
     if (c === "redo") /** @type {HTMLButtonElement} */ (b).disabled = !st.redo;

@@ -536,7 +536,7 @@ pub fn hunks(a: &Document, ops: &[Op]) -> Vec<Hunk> {
 /// Whether the hunks can tell what an operation touches: an operation `diff` writes, with its ids named.
 fn splittable(op: &Op) -> bool {
     match op {
-        Op::Rotate { .. } | Op::Flip { .. } | Op::Ring { .. } => false,
+        Op::Rotate { .. } | Op::Flip { .. } | Op::Ring { .. } | Op::Chain { .. } => false,
         Op::AtomAdd { id, .. } | Op::BondAdd { id, .. } | Op::ObjAdd { id, .. } => id.is_some(),
         _ => !touched(op).is_empty(),
     }
@@ -568,6 +568,7 @@ pub(crate) fn touched(op: &Op) -> Vec<u32> {
             objects,
         } => atoms.iter().chain(bonds).chain(objects).copied().collect(),
         Op::Ring { atom, bond, .. } => atom.iter().chain(bond).copied().collect(),
+        Op::Chain { atom, .. } => atom.iter().copied().collect(),
     }
 }
 

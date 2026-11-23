@@ -380,6 +380,20 @@ pub const OPS: &[OpSpec] = &[
         mzdraw: true,
         mzlab: false,
     },
+    OpSpec {
+        name: "chain",
+        fields: &[
+            f("n", "uint", true, "", "bonds, 1..=50"),
+            f("atom", "uint", false, "", "the atom the chain starts from; without it the chain starts at `x`,`y`"),
+            f("x", "number", false, BL, "the start when there is no `atom`, default 0"),
+            f("y", "number", false, BL, "the start when there is no `atom`, default 0"),
+            f("deg", "number", false, "degree", "the direction of the first bond, 0 = right, 90 = up, default 0; the next bond turns by -60, the one after by +60 (120 degrees at every atom)"),
+        ],
+        inverse: "DropAtom and DropBond per new item, Next",
+        since: crate::brand::FIRST_DOCUMENT_ID,
+        mzdraw: true,
+        mzlab: false,
+    },
     // Not read here yet (arch-web-09 adds it); the fields are those mzLab reads.
     OpSpec {
         name: "merge",

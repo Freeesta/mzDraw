@@ -68,7 +68,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, 
 | `arch-web-04-theme-i18n` | Host text and colours: the `t` hook, host theme tokens into the palette, reduced motion | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-05-viewer-form` | Read-only viewer and form association | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-07-selection` | Lasso, fragment selection, a band without dragging, focus on bonds and objects | QUEUED | no merged commit or built note names it | - | - |
-| `arch-web-08-chain` | Chain tool and the op `chain` | QUEUED | no merged commit or built note names it | - | - |
+| `arch-web-08-chain` | Chain tool and the op `chain` | RUNNING | PR PRNUM (built/chain.md) | - | - |
 | `arch-web-09-merge` | Merge atoms on drop and join pieces: the op `merge` | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-10-clean-up` | Clean up the drawing or the selection: the op `place` | WITHDRAWN | = arch-std-15 (one op `atoms.xy`) (backlog section 3) | - | - |
 | `arch-web-11-atom-popover` | Atom properties popover (any element, isotope, radical, hydrogens, charge, label); doub... | QUEUED | no merged commit or built note names it | - | - |

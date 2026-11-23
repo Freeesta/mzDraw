@@ -192,3 +192,83 @@ pub(crate) fn ring(doc: &Document, op: &Op) -> Result<Vec<Op>, OpError> {
     }
     Ok(ops)
 }
+
+/// The most bonds of one `chain` operation.
+pub const CHAIN_MAX: u8 = 50;
+
+/// The points of a zigzag chain of `n` bonds from (`x`, `y`): the first bond leaves at `deg` degrees, then the direction turns by
+/// -60 and +60 in turn (120 degrees at every atom). Bonds are one length long.
+pub fn chain_points(x: f64, y: f64, deg: f64, n: usize) -> Vec<(f64, f64)> {
+    let mut pts = vec![(x, y)];
+    for k in 0..n {
+        let t = (deg - if k % 2 == 1 { 60.0 } else { 0.0 }) * PI / 180.0;
+        let (px, py) = pts[k];
+        pts.push((px + m::cos(t), py + m::sin(t)));
+    }
+    pts
+}
+
+/// The primitive operations of a `chain` operation. A point that falls on an existing atom reuses it; a bond that exists is kept.
+pub(crate) fn chain(doc: &Document, op: &Op) -> Result<Vec<Op>, OpError> {
+    let Op::Chain { n, atom, x, y, deg } = op else {
+        return Ok(Vec::new());
+    };
+    if !(1..=CHAIN_MAX).contains(n) || !deg.is_finite() || !x.is_finite() || !y.is_finite() {
+        return Err(OpError {
+            key: "error.draw2.chain",
+            id: u32::from(*n),
+        });
+    }
+    let start = match atom {
+        Some(id) => {
+            let a = doc.atom(*id).ok_or(OpError {
+                key: "error.draw2.noAtom",
+                id: *id,
+            })?;
+            (a.x, a.y)
+        }
+        None => (*x, *y),
+    };
+    let pts = chain_points(start.0, start.1, *deg, *n as usize);
+    let mut ops = Vec::new();
+    let mut next = doc.next;
+    let mut ids: Vec<u32> = Vec::with_capacity(pts.len());
+    for (i, &(px, py)) in pts.iter().enumerate() {
+        let near = || {
+            doc.atoms
+                .iter()
+                .find(|a| m::hypot(a.x - px, a.y - py) < MERGE)
+                .map(|a| a.id)
+        };
+        let id = match (i, atom) {
+            (0, Some(id)) => *id,
+            _ => near().unwrap_or_else(|| {
+                ops.push(Op::AtomAdd {
+                    map: None,
+                    id: Some(next),
+                    el: "C".into(),
+                    x: px,
+                    y: py,
+                });
+                next += 1;
+                next - 1
+            }),
+        };
+        ids.push(id);
+    }
+    for w in ids.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        if a == b || doc.bond_between(a, b).is_some() {
+            continue;
+        }
+        ops.push(Op::BondAdd {
+            id: Some(next),
+            a,
+            b,
+            o: 1,
+            s: 0,
+        });
+        next += 1;
+    }
+    Ok(ops)
+}

@@ -139,6 +139,15 @@ pub enum Op {
         x: f64,
         y: f64,
     },
+    /// A zigzag chain of `n` bonds (1-50, 120 degrees at every atom): from the atom `atom`, or from the point (`x`, `y`). The first
+    /// bond leaves at `deg` degrees (0 = right, 90 = up), the next one turns by -60, the one after by +60, and so on.
+    Chain {
+        n: u8,
+        atom: Option<u32>,
+        x: f64,
+        y: f64,
+        deg: f64,
+    },
 }
 
 /// The operations as the JSON text of a command log. Written by hand (`Op::write`), as the reader is: the derived writer of the
@@ -395,6 +404,14 @@ impl Op {
                 w.num("x", *x);
                 w.num("y", *y);
             }
+            Op::Chain { n, atom, x, y, deg } => {
+                w.text("op", "chain");
+                w.int("n", i64::from(*n));
+                int(&mut w, "atom", id(atom));
+                w.num("x", *x);
+                w.num("y", *y);
+                w.num("deg", *deg);
+            }
         }
         *out = w.0;
         out.push('}');
@@ -597,6 +614,13 @@ impl Op {
                 bond: g.u("bond")?,
                 x: g.f("x")?.unwrap_or(0.0),
                 y: g.f("y")?.unwrap_or(0.0),
+            },
+            "chain" => Op::Chain {
+                n: g.u("n")?.ok_or(())?,
+                atom: g.u("atom")?,
+                x: g.f("x")?.unwrap_or(0.0),
+                y: g.f("y")?.unwrap_or(0.0),
+                deg: g.f("deg")?.unwrap_or(0.0),
             },
             _ => return Err(()),
         })
@@ -1100,6 +1124,11 @@ impl Document {
             }
             Op::Ring { .. } => {
                 for p in build::ring(self, op)? {
+                    self.apply_one(&p, done, inv)?;
+                }
+            }
+            Op::Chain { .. } => {
+                for p in build::chain(self, op)? {
                     self.apply_one(&p, done, inv)?;
                 }
             }
