@@ -41,7 +41,7 @@ impl Grade {
 
 /// The checks of this slice, in the order of the study: key and grade. The page, the documentation and the tests read this list;
 /// the text of a key is the i18n key `draw2.` + the key (`draw2.std.stereo.notCentre`).
-pub const CHECKS: [(&str, Grade); 15] = [
+pub const CHECKS: [(&str, Grade); 16] = [
     ("std.stereo.wideEndCentre", Grade::Warn),
     ("std.stereo.notCentre", Grade::Warn),
     ("std.stereo.opposite", Grade::Warn),
@@ -51,6 +51,7 @@ pub const CHECKS: [(&str, Grade); 15] = [
     ("std.stereo.undefined", Grade::Info),
     ("std.stereo.doubleCollinear", Grade::Warn),
     ("std.stereo.allene", Grade::Warn),
+    ("std.stereo.hashLines", Grade::Warn),
     ("std.scheme.anchor", Grade::Warn),
     ("std.scheme.gapRaised", Grade::Info),
     ("std.scheme.free", Grade::Info),
@@ -289,6 +290,13 @@ fn three_fixed(nbs: &[(f64, bool)], up: bool) -> bool {
 
 /// The drawing checks of a document, never changing it.
 pub fn report(doc: &Document) -> Report {
+    report_with(doc, false)
+}
+
+/// `report` for a drawing printed with a hash style: with `hash_lines` (`style.hash_style=lines`) a hashed wedge whose wide end
+/// is not on a terminal atom is a `std.stereo.hashLines` (IUPAC 2008 ST-0.3 allows parallel hashed lines only towards a terminal
+/// atom).
+pub fn report_with(doc: &Document, hash_lines: bool) -> Report {
     let mut out: Vec<Finding> = Vec::new();
     let ctx = sites(doc);
     let allenes = ctx.allenes();
@@ -301,6 +309,9 @@ pub fn report(doc: &Document) -> Report {
         }
         if wedge && !ctx.is_centre(b.a) && !at_allene_end(b.a) {
             out.push(Finding::new("std.stereo.notCentre", &[b.a], &[b.id]));
+        }
+        if hash_lines && b.s == WEDGE_DOWN && doc.neighbours(b.b).len() > 1 {
+            out.push(Finding::new("std.stereo.hashLines", &[b.b], &[b.id]));
         }
         if b.s == WEDGE_WAVY
             && !ctx.is_centre(b.a)

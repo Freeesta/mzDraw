@@ -49,6 +49,12 @@ pub struct Style {
     pub pathway_derive: bool,
     /// One ink for every element instead of the element colours.
     pub mono: bool,
+    /// `style.carbon_labels`: which carbons are drawn as text (`none` today, `terminal`, `all`).
+    pub carbon_labels: CarbonLabels,
+    /// `style.hydrogens`: `true` for `all` (the hydrogens are also written on every carbon the style labels), `false` for `hetero`.
+    pub hydrogens_all: bool,
+    /// `style.hash_style`: `true` for `lines` (a hashed wedge is a row of parallel lines of one length), `false` for `wedge`.
+    pub hash_lines: bool,
     /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
     pub maps: bool,
     /// What is drawn under each structure (`display.values`): nothing (default), the formula, the formula and the monoisotopic mass,
@@ -216,6 +222,9 @@ fn known(key: &str) -> bool {
         key,
         "preset"
             | "colour"
+            | "carbon_labels"
+            | "hydrogens"
+            | "hash_style"
             | "maps"
             | "display.values"
             | "display.adducts"
@@ -231,7 +240,7 @@ fn known(key: &str) -> bool {
 
 /// The keys of the settings that take a word: the key, the words (the first is the default) as `--set` and the settings file read
 /// them (`pathway.label` is not offered here: only `delta` can run, and a select of words that always fail is not shown). `pathway.order` has `id`, `mz` and `rt` here; `reverse-id` is for the tests of the layout and is not offered.
-const CHOICES: &str = r#"{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"},{"key":"pathway.number","values":["layout","mz","rt"],"default":"layout"}"#;
+const CHOICES: &str = r#"{"key":"style.carbon_labels","values":["none","terminal","all"],"default":"none"},{"key":"style.hydrogens","values":["hetero","all"],"default":"hetero"},{"key":"style.hash_style","values":["wedge","lines"],"default":"wedge"},{"key":"pathway.dir","values":["right","down"],"default":"right"},{"key":"pathway.order","values":["id","mz","rt"],"default":"id"},{"key":"pathway.number","values":["layout","mz","rt"],"default":"layout"}"#;
 
 /// The schema of the settings file as JSON, for the surfaces that show or document it (the fields of the page, the help of the
 /// CLI): `{"format", "presets", "colours", "fields": [{"key", "unit", "min", "max", "default"}]}`, the defaults being the ones of
@@ -301,6 +310,9 @@ impl Default for Style {
             pathway_adduct: String::new(),
             pathway_derive: false,
             mono: false,
+            carbon_labels: CarbonLabels::None,
+            hydrogens_all: false,
+            hash_lines: false,
             maps: true,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
@@ -324,10 +336,47 @@ pub struct Metrics {
     pub font: f64,
     pub small: f64,
     pub mono: bool,
+    /// Which carbons are drawn as text (`style.carbon_labels`).
+    pub carbons: CarbonLabels,
+    /// Whether the hydrogens are written on every labelled carbon (`style.hydrogens=all`).
+    pub h_all: bool,
+    /// Whether a hashed wedge is drawn as parallel lines (`style.hash_style=lines`).
+    pub hash_lines: bool,
     /// Whether the map numbers of the atoms are drawn.
     pub maps: bool,
     /// The diff lens mode (`display.lens`).
     pub lens: LensMode,
+}
+
+/// Which carbons are drawn as text (`style.carbon_labels`): `none` (a carbon is a bare vertex unless the rules of `scene::has_label`
+/// ask for a label), `terminal` (also a carbon with one bond: `CH3`, `CH2`) or `all`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum CarbonLabels {
+    #[default]
+    None,
+    Terminal,
+    All,
+}
+
+impl CarbonLabels {
+    /// The word of the setting.
+    pub fn name(self) -> &'static str {
+        match self {
+            CarbonLabels::None => "none",
+            CarbonLabels::Terminal => "terminal",
+            CarbonLabels::All => "all",
+        }
+    }
+
+    pub fn parse(v: &str) -> Option<CarbonLabels> {
+        [
+            CarbonLabels::None,
+            CarbonLabels::Terminal,
+            CarbonLabels::All,
+        ]
+        .into_iter()
+        .find(|m| m.name() == v)
+    }
 }
 
 /// What the diff lens draws on the product of an anchored arrow (`display.lens`): `off`, `tint` (what was added or changed, in the
@@ -382,6 +431,9 @@ impl Style {
             pathway_adduct: String::new(),
             pathway_derive: false,
             mono: true,
+            carbon_labels: CarbonLabels::None,
+            hydrogens_all: false,
+            hash_lines: false,
             maps: true,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
@@ -427,6 +479,15 @@ impl Style {
             ("colour", "mono") => next.mono = true,
             ("colour", "element") => next.mono = false,
             ("colour", _) => return Err("error.draw2.styleValue"),
+            ("carbon_labels", v) => {
+                next.carbon_labels = CarbonLabels::parse(v).ok_or("error.draw2.styleValue")?
+            }
+            ("hydrogens", "hetero") => next.hydrogens_all = false,
+            ("hydrogens", "all") => next.hydrogens_all = true,
+            ("hydrogens", _) => return Err("error.draw2.styleValue"),
+            ("hash_style", "wedge") => next.hash_lines = false,
+            ("hash_style", "lines") => next.hash_lines = true,
+            ("hash_style", _) => return Err("error.draw2.styleValue"),
             (key, v) => {
                 let field = FIELDS
                     .iter()
@@ -521,6 +582,9 @@ impl Style {
         match name {
             "style.preset" => Some(self.name.clone()),
             "style.colour" => Some(if self.mono { "mono" } else { "element" }.into()),
+            "style.carbon_labels" => Some(self.carbon_labels.name().into()),
+            "style.hydrogens" => Some(if self.hydrogens_all { "all" } else { "hetero" }.into()),
+            "style.hash_style" => Some(if self.hash_lines { "lines" } else { "wedge" }.into()),
             "display.maps" => Some(on(self.maps)),
             "display.values" => Some(self.values.name().into()),
             "display.adducts" => Some(self.adducts.join(",")),
@@ -542,6 +606,9 @@ impl Style {
     /// The effective word of a key of `CHOICES` (`pathway.dir`, `pathway.order`), the default when the file leaves it out; `None` for any other key.
     pub fn choice(&self, key: &str) -> Option<&'static str> {
         match key {
+            "style.carbon_labels" => Some(self.carbon_labels.name()),
+            "style.hydrogens" => Some(if self.hydrogens_all { "all" } else { "hetero" }),
+            "style.hash_style" => Some(if self.hash_lines { "lines" } else { "wedge" }),
             "pathway.dir" => Some(if self.pathway_down { "down" } else { "right" }),
             "pathway.order" => Some(self.pathway_order.name()),
             "display.lens" => Some(self.lens.name()),
@@ -598,6 +665,22 @@ impl Style {
             Some("element") => false,
             Some(_) => return None,
         };
+        let carbon_labels = match g.s("carbon_labels").ok()?.as_deref() {
+            None => base.carbon_labels,
+            Some(v) => CarbonLabels::parse(v)?,
+        };
+        let hydrogens_all = match g.s("hydrogens").ok()?.as_deref() {
+            None => base.hydrogens_all,
+            Some("hetero") => false,
+            Some("all") => true,
+            Some(_) => return None,
+        };
+        let hash_lines = match g.s("hash_style").ok()?.as_deref() {
+            None => base.hash_lines,
+            Some("wedge") => false,
+            Some("lines") => true,
+            Some(_) => return None,
+        };
         let maps = match g.s("maps").ok()?.as_deref() {
             None => base.maps,
             Some("on") => true,
@@ -648,6 +731,9 @@ impl Style {
             pathway_adduct: adduct,
             pathway_number: number,
             mono: colour,
+            carbon_labels,
+            hydrogens_all,
+            hash_lines,
             maps,
             values,
             adducts,
@@ -679,7 +765,16 @@ impl Style {
             "colour".to_string(),
             text(if self.mono { "mono" } else { "element" }),
         ));
-        // written only when off, so that a file that never mentions it keeps its bytes
+        // written only when not the default, so that a file that never mentions them keeps its bytes
+        if self.carbon_labels != CarbonLabels::None {
+            style.push(("carbon_labels".to_string(), text(self.carbon_labels.name())));
+        }
+        if self.hydrogens_all {
+            style.push(("hydrogens".to_string(), text("all")));
+        }
+        if self.hash_lines {
+            style.push(("hash_style".to_string(), text("lines")));
+        }
         if !self.maps {
             style.push(("maps".to_string(), text("off")));
         }
@@ -743,6 +838,9 @@ impl Style {
             font,
             small: font * self.subscript_scale,
             mono: self.mono,
+            carbons: self.carbon_labels,
+            h_all: self.hydrogens_all,
+            hash_lines: self.hash_lines,
             maps: self.maps,
             lens: self.lens,
         }
