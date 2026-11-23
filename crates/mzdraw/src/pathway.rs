@@ -875,41 +875,47 @@ pub fn long_gaps(
             ) else {
                 continue;
             };
-            // the first box the arrow meets: by layer, then by how far the box centre is from the arrow, then by index
-            let mut first: Option<(usize, f64, usize)> = None;
+            // the first layer with a box the arrow meets; in it the boxes whose centre is nearest the arrow (all of them when
+            // several are equally near: no index decides, so a layout and its mirror image give the same result)
+            let mut found: Vec<(usize, f64)> = Vec::new();
+            let mut layer = la;
             for l in la..=lb {
+                layer = l;
                 for j in near(&cols[l], &order[l], xs[l], widths[l], tall[l], margin, p, q) {
                     if (l == la && j == ia) || (l == lb && j == ib) {
                         continue;
                     }
                     if meets(p, q, rect(cols[l][j], xs[l]), margin) {
-                        let off = (cols[l][j].0 - line_y(p, q, xs[l])).abs();
-                        let better = first.is_none_or(|f| {
-                            (off, j).partial_cmp(&(f.1, f.2)).is_some_and(|o| o.is_lt())
-                        });
-                        if better {
-                            first = Some((l, off, j));
-                        }
+                        found.push((j, line_y(p, q, xs[l]) - cols[l][j].0));
                     }
                 }
-                if first.is_some() {
+                if !found.is_empty() {
                     break;
                 }
             }
-            if let Some((l, _, j)) = first {
+            let nearest = found.iter().map(|f| f.1.abs()).fold(f64::MAX, f64::min);
+            let mut range: Option<std::ops::Range<usize>> = None;
+            let rise = q.1 - p.1;
+            for &(_, off) in found.iter().filter(|f| f.1.abs() <= nearest + 1e-9) {
                 // which gaps move the arrow off that box: a box in an end column is cleared by a flatter arrow (all spanned gaps
-                // wider); a box in a layer between is cleared by moving the arrow's height at that layer away from the box centre,
-                // which is a wider part before the layer (the arrow is nearer its end) or after it (nearer its start). The sign of
-                // (rise of the arrow) x (arrow minus box centre) is the same for an arrow and its mirror image in y.
-                let (rise, off) = (q.1 - p.1, line_y(p, q, xs[l]) - cols[l][j].0);
-                let range = if l == la || l == lb {
+                // wider); a box in a layer between is cleared by moving the height of the arrow at that layer away from the box
+                // centre, which is a wider part before the layer (the arrow is nearer its end) or after it (nearer its start).
+                // The sign of (rise) x (arrow minus box centre) is the same for an arrow and its mirror image in y; a horizontal
+                // arrow, or one through the centre, has no such side: every spanned gap grows.
+                let r = if layer == la || layer == lb || rise.abs() < 1e-9 || off.abs() < 1e-9 {
                     la..lb
-                } else if rise * off > 0.0 || (rise * off == 0.0 && off >= 0.0) {
-                    la..l
+                } else if rise * off > 0.0 {
+                    la..layer
                 } else {
-                    l..lb
+                    layer..lb
                 };
-                hits.push((i, range));
+                range = Some(match range {
+                    None => r,
+                    Some(o) => o.start.min(r.start)..o.end.max(r.end),
+                });
+            }
+            if let Some(r) = range {
+                hits.push((i, r));
             }
         }
         // the state kept is the first with the fewest arrows still meeting a box (round 0, the gaps as they were, is a candidate)

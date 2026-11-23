@@ -723,11 +723,13 @@ fn the_key_table_file_says_what_the_module_writes() {
     let text = e.save("lens").unwrap();
     let (_, skipped) = text.split_once(r#""skipped":"#).unwrap();
     assert!(strictly_increasing(&order(skip_node, skipped)), "{text}");
-    // the reasons the module writes are the enum of the file
-    let why = skip_node["properties"]["why"]["enum"].as_array().unwrap();
-    assert!(
-        why.contains(&json!("no maps"))
-            && why.contains(&json!("unmapped"))
-            && why.contains(&json!("over cap"))
-    );
+    // the reasons the module writes are exactly the enum of the file
+    let mut why: Vec<&str> = skip_node["properties"]["why"]["enum"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w.as_str().unwrap())
+        .collect();
+    why.sort_unstable();
+    assert_eq!(why, ["no maps", "over cap", "unmapped"]);
 }

@@ -474,3 +474,99 @@ fn scaling_the_long_rule_alone_is_linear_in_the_arrows() {
     println!("long rule at its bound: 250 -> {small:.4} s, 1000 -> {big:.4} s, ratio {ratio:.2}");
     assert!(ratio < 7.0, "ratio {ratio}");
 }
+
+fn mirrored(cols: &[Vec<Col>]) -> Vec<Vec<Col>> {
+    cols.iter()
+        .map(|c| c.iter().map(|b| (-b.0, b.1, b.2)).collect())
+        .collect()
+}
+
+/// The rule on a set of columns and on their mirror image in y: the same steps for every gap and the same number of arrows left.
+fn same_in_the_mirror(cols: &[Vec<Col>], long: &[Long]) -> LongGaps {
+    let (w, g) = (vec![1.0; cols.len()], vec![2.5; cols.len() - 1]);
+    let a = pathway::long_gaps(cols, &w, &g, long, 0.35);
+    let b = pathway::long_gaps(&mirrored(cols), &w, &g, long, 0.35);
+    assert_eq!(a, b, "{cols:?}");
+    a
+}
+
+#[test]
+fn the_long_rule_is_the_same_in_the_mirror_for_every_branch() {
+    let bx = |y: f64| (y, 1.0, 0.74);
+    let long: Vec<Long> = vec![((0, 0), (2, 0))];
+    // (a) a horizontal arrow, a box off its centre above, below, and both: every spanned gap is the answer, whatever the side
+    for mid in [vec![bx(0.3)], vec![bx(-0.3)], vec![bx(0.3), bx(-0.3)]] {
+        let r = same_in_the_mirror(&[vec![bx(0.0)], mid, vec![bx(0.0)]], &long);
+        assert_eq!(
+            r.left,
+            vec![0],
+            "a horizontal arrow cannot leave a box at its own height"
+        );
+    }
+    // (b) the arrow rises and the box is above it: the gap after the box grows (the arrow stays low), and it is cleared
+    let r = same_in_the_mirror(
+        &[vec![bx(0.0)], vec![bx(2.0), bx(-3.0)], vec![bx(3.0)]],
+        &long,
+    );
+    assert!(r.left.is_empty() && r.add[0] == 0 && r.add[1] > 0, "{r:?}");
+    // (c) the arrow rises and the box is below it: the gap before the box grows
+    let r = same_in_the_mirror(
+        &[vec![bx(0.0)], vec![bx(1.0), bx(-3.0)], vec![bx(3.0)]],
+        &long,
+    );
+    assert!(r.left.is_empty() && r.add[0] > 0 && r.add[1] == 0, "{r:?}");
+    // (d) two boxes equally near, one above and one below the arrow: no index decides, both gaps grow
+    let r = same_in_the_mirror(
+        &[vec![bx(0.0)], vec![bx(0.5), bx(-0.5)], vec![bx(0.0)]],
+        &long,
+    );
+    assert_eq!(r.left, vec![0]);
+}
+
+#[test]
+fn the_layout_of_long_arrows_is_the_same_in_the_mirror() {
+    // `reverse-id` lays the children of every structure out bottom to top: the layout is the mirror image in y of the one by id
+    let rows = |lay: &Layout| -> Vec<(usize, u64, &'static str, usize)> {
+        lay.gaps
+            .iter()
+            .map(|g| (g.k, (g.gap * 1e6).round() as u64, g.rule, g.arrows.len()))
+            .collect()
+    };
+    let (mut widened, mut limited, mut compared) = (0, 0, 0);
+    for seed in 1..=200u64 {
+        let d = dag(5 + (seed as usize % 9), seed);
+        let a = pathway::layout(&d, &style(&[])).unwrap();
+        let b = pathway::layout(&d, &style(&["order=reverse-id"])).unwrap();
+        // the primary parent of a structure with two parents of one layer is decided by the order, which the mirror reverses:
+        // such a layout has another forest, not the mirror image, and is not compared
+        let forest = |l: &Layout| {
+            l.edges
+                .iter()
+                .map(|e| (e.arrow, e.primary))
+                .collect::<Vec<_>>()
+        };
+        if forest(&a) != forest(&b) {
+            continue;
+        }
+        compared += 1;
+        assert_eq!(rows(&a), rows(&b), "seed {seed}: gaps");
+        let lim = |l: &Layout| {
+            l.limits
+                .iter()
+                .map(|g| (g.k, g.arrows.len()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(lim(&a), lim(&b), "seed {seed}: limits");
+        assert_eq!(
+            a.crossings.len(),
+            b.crossings.len(),
+            "seed {seed}: crossings"
+        );
+        widened += usize::from(a.gaps.iter().any(|g| g.rule == "crossing"));
+        limited += usize::from(!a.limits.is_empty());
+    }
+    assert!(
+        compared > 40 && widened > 5 && limited > 5,
+        "{compared} {widened} {limited}"
+    );
+}
