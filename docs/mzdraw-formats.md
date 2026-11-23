@@ -111,7 +111,10 @@ Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms 
 | `atom.map` | yes | yes | yes | yes | yes | no | no | yes | yes | yes |
 | `atom.radical` | yes | yes | drawing | yes | yes | yes | yes | yes | yes | yes |
 | `bond.bdash` | no | no | no | no | no | no | no | no | yes | yes |
+| `bond.bold` | no | no | no | no | no | yes | no | no | yes | yes |
 | `bond.dash` | no | no | no | no | no | yes | no | no | yes | yes |
+| `bond.dative` | no | yes | no | no | yes | yes | no | no | yes | yes |
+| `bond.hbond` | no | yes | no | no | yes | yes | no | no | yes | yes |
 | `bond.hash` | no | no | no | no | no | yes | no | no | yes | yes |
 | `bond.pos` | no | no | no | no | no | yes | no | no | yes | yes |
 | `caption` | no | no | no | no | no | drawing | no | no | yes | yes |
@@ -136,6 +139,8 @@ Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms 
 | `wedge.solid` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |
 | `wedge.wavy` | drawing | drawing | drawing | drawing | drawing | drawing | drawing | drawing | yes | yes |
 <!-- loss-table:end -->
+
+What "no" means for the three bond kinds of arch-web-20 (`bond.bold`, `bond.dative`, `bond.hbond`): the kind is lost, AND the file is written from the record, where a dative and a hydrogen bond are single bonds. The file therefore holds (1) a covalent single bond between two things that are two species (one connected SMILES, `[NH3][BH3]`, `[OH2][NH3]`, in place of a complex or two molecules held by a hydrogen bond); (2) the hydrogens of the drawing on atoms that now have one more bond than their usual valence, so the V2000 and SDF atom lines carry the valence column (N 4, B 4, O 3 in the two fixtures of `crates/mzdraw/tests/bond_kinds.rs`) and a reader that derives hydrogens from bonds reads other hydrogens than the ones drawn; (3) in an SDF or a layout, one record for what is two species. Only V3000 (types 9 and 10), KET (types 9 and 10) and CDXML (`Order="dative"` / `"hydrogen"`, `Display="Bold"`) keep the kind. The convention differs from RDKit's (a dative bond counts for the acceptor there): see `docs/built/arch-web-20-bond-kinds.md`.
 
 ## 2. Images that carry their molecule, clipboard
 - **SVG**: `<metadata>` holds `<mzdraw:doc xmlns:mzdraw="https://freeesta.github.io/mzlab/ns/mzdraw/1">` with the `mzdraw/1` JSON in CDATA, plus `<mzdraw:molfile>` with the V3000 molfile of each molecule for other programs. Opening an SVG reads the document; an SVG without it is refused ("not a structure file"), never traced. Idea from RDKit (`<rdkit:mol>` in metadata) and Open Babel (`-e`, CML in the SVG).

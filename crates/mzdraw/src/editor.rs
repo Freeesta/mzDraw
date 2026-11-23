@@ -75,6 +75,9 @@ pub enum Tool {
 pub const KIND_DASH: u8 = 4;
 pub const KIND_BDASH: u8 = 5;
 pub const KIND_HASH: u8 = 6;
+pub const KIND_BOLD: u8 = 7;
+pub const KIND_DATIVE: u8 = 8;
+pub const KIND_HBOND: u8 = 9;
 
 /// The display kind (`bonddisp::KINDS`) a `Tool::Bond` mark field stands for, empty for a wedge mark or none.
 pub(crate) fn kind_of_tool(s: u8) -> &'static str {
@@ -82,12 +85,15 @@ pub(crate) fn kind_of_tool(s: u8) -> &'static str {
         KIND_DASH => "dash",
         KIND_BDASH => "bdash",
         KIND_HASH => "hash",
+        KIND_BOLD => "bold",
+        KIND_DATIVE => "dative",
+        KIND_HBOND => "hbond",
         _ => "",
     }
 }
 
 impl Tool {
-    /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `bond:dash` / `bond:bdash` / `bond:hash` (display kinds), `erase`, `ring:6`, `ring:6a` (alternating
+    /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `bond:dash` / `bond:bdash` / `bond:hash` / `bond:bold` / `bond:dative` / `bond:hbond` (display kinds), `erase`, `ring:6`, `ring:6a` (alternating
     /// double bonds), `chain`, `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
     /// `text:<one line>`.
     pub fn parse(s: &str) -> Option<Tool> {
@@ -103,6 +109,9 @@ impl Tool {
                 "dash" => Tool::Bond(1, KIND_DASH),
                 "bdash" => Tool::Bond(1, KIND_BDASH),
                 "hash" => Tool::Bond(1, KIND_HASH),
+                "bold" => Tool::Bond(1, KIND_BOLD),
+                "dative" => Tool::Bond(1, KIND_DATIVE),
+                "hbond" => Tool::Bond(1, KIND_HBOND),
                 _ => Tool::Bond(arg.parse().ok().filter(|o| (1..=3).contains(o))?, 0),
             },
             "chain" => Tool::Chain,
@@ -140,6 +149,9 @@ impl Tool {
             Tool::Bond(_, KIND_DASH) => "bond:dash".into(),
             Tool::Bond(_, KIND_BDASH) => "bond:bdash".into(),
             Tool::Bond(_, KIND_HASH) => "bond:hash".into(),
+            Tool::Bond(_, KIND_BOLD) => "bond:bold".into(),
+            Tool::Bond(_, KIND_DATIVE) => "bond:dative".into(),
+            Tool::Bond(_, KIND_HBOND) => "bond:hbond".into(),
             Tool::Bond(o, _) => format!("bond:{o}"),
             Tool::Chain => "chain".into(),
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),

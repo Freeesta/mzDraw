@@ -736,11 +736,11 @@ impl Document {
             .collect()
     }
 
-    /// Sum of the bond orders on an atom.
+    /// Sum of the bond orders on an atom (a dative or hydrogen bond adds nothing: it takes no part in the valence).
     pub fn order_sum(&self, id: u32) -> u32 {
         self.bonds
             .iter()
-            .filter(|b| b.a == id || b.b == id)
+            .filter(|b| (b.a == id || b.b == id) && !b.is_link())
             .map(|b| b.o as u32)
             .sum()
     }
@@ -781,7 +781,8 @@ impl Document {
     /// The sum of the orders of the bonds at each atom id (an atom without a bond is absent).
     pub(crate) fn order_sums(&self) -> std::collections::HashMap<u32, u32> {
         let mut sums = std::collections::HashMap::with_capacity(self.atoms.len());
-        for b in &self.bonds {
+        // a dative or hydrogen bond takes no part in the valence of its ends
+        for b in self.bonds.iter().filter(|b| !b.is_link()) {
             *sums.entry(b.a).or_insert(0) += b.o as u32;
             if b.b != b.a {
                 *sums.entry(b.b).or_insert(0) += b.o as u32;

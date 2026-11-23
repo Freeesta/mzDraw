@@ -119,6 +119,18 @@ impl Document {
         for (k, b) in m.bonds.iter().enumerate() {
             let ends = (self.bonds.get(k).filter(|d| d.s != 0))
                 .and_then(|d| Some((d.s, *index.get(&d.a)?, *index.get(&d.b)?)));
+            // a dative (type 9) and a hydrogen bond (type 10) run from the first atom to the second
+            let link = (self.bonds.get(k)).and_then(|d| match d.kind().as_str() {
+                "dative" => Some((9, d)),
+                "hbond" => Some((10, d)),
+                _ => None,
+            });
+            if let Some((t, d)) = link
+                && let (Some(i), Some(j)) = (index.get(&d.a), index.get(&d.b))
+            {
+                bonds.push(format!(r#"{{"type":{t},"atoms":[{i},{j}]}}"#));
+                continue;
+            }
             bonds.push(match ends {
                 // a wedge starts at its narrow end
                 Some((s, narrow, wide)) => {
@@ -316,10 +328,10 @@ pub(crate) fn from_ket(v: &Value, info: &mut Imported) -> Result<Document, &'sta
                 let (Some(i), Some(j)) = (end(0), end(1)) else {
                     return Err("error.draw2.ket");
                 };
-                // a bond without a type, or of a type beyond the molfile ones, is a query bond
+                // a bond without a type, or of a type beyond the molfile ones (and the dative 9 and the hydrogen 10), is a query bond
                 let order = b["type"]
                     .as_u64()
-                    .filter(|t| (1..=8).contains(t))
+                    .filter(|t| (1..=10).contains(t))
                     .unwrap_or(8);
                 let cfg = match b["stereo"].as_u64() {
                     Some(1) => " CFG=1",

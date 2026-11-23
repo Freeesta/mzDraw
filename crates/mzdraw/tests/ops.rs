@@ -626,8 +626,12 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             o: (r.next(2) == 1).then(|| 1 + r.next(3) as u8),
             s: (r.next(3) > 0).then(|| r.next(4) as u8),
             pos: (r.next(3) == 0).then(|| ["auto", "c", "l", "r", ""][r.next(5)].to_string()),
-            k: (r.next(3) == 0)
-                .then(|| ["solid", "dash", "bdash", "hash", ""][r.next(5)].to_string()),
+            k: (r.next(3) == 0).then(|| {
+                [
+                    "solid", "dash", "bdash", "hash", "bold", "dative", "hbond", "",
+                ][r.next(8)]
+                .to_string()
+            }),
             rev: r.next(2) == 1,
         }],
         10 => {

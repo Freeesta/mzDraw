@@ -100,7 +100,10 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("atom.map", [Y, Y, Y, Y, Y, N, N, Y, Y, Y]),
     ("atom.radical", [Y, Y, P, Y, Y, Y, Y, Y, Y, Y]),
     ("bond.bdash", [N, N, N, N, N, N, N, N, Y, Y]),
+    ("bond.bold", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("bond.dash", [N, N, N, N, N, Y, N, N, Y, Y]),
+    ("bond.dative", [N, Y, N, N, Y, Y, N, N, Y, Y]),
+    ("bond.hbond", [N, Y, N, N, Y, Y, N, N, Y, Y]),
     ("bond.hash", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("bond.pos", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("caption", [N, N, N, N, N, P, N, N, Y, Y]),
@@ -226,6 +229,9 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         match b.kind().as_str() {
             "dash" => push("bond.dash", String::new(), 0, b.id, 0),
             "bdash" => push("bond.bdash", String::new(), 0, b.id, 0),
+            "bold" => push("bond.bold", String::new(), 0, b.id, 0),
+            "dative" => push("bond.dative", String::new(), 0, b.id, 0),
+            "hbond" => push("bond.hbond", String::new(), 0, b.id, 0),
             "hash" => push("bond.hash", String::new(), 0, b.id, 0),
             _ => {}
         }

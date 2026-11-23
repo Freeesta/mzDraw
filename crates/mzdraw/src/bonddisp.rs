@@ -11,17 +11,23 @@
 //! - `c` centred (two lines astride the axis), `l` left, `r` right. Only a double bond has a `pos`; a new order other than 2
 //!   takes it away.
 //!
-//! `k` is the one field of the display of the line (COO decision 16). This slice defines `dash` (a dashed line), `bdash` (a bold
-//! dashed line) and `hash` (plain hashed: short ticks across the line, not a stereo mark). `bold`, `dative` and `hbond` come with
-//! arch-web-20 on the same field and the same reader and writer. A bond with a wedge mark has no `k` (the mark is its display).
-//! A value this version does not know is kept as it is and drawn as a plain line.
+//! `k` is the one field of the display of the line (COO decision 16): `dash` (a dashed line), `bdash` (a bold dashed line), `hash`
+//! (plain hashed: short ticks across the line, not a stereo mark), `bold` (a heavy line), `dative` (an arrow from the donor `a` to
+//! the acceptor `b`) and `hbond` (a dotted line, a hydrogen bond). `dative` and `hbond` are bonds of order 1 only; a new order
+//! other than 1 takes them away, and neither counts for the implicit hydrogens of its ends. A bond with a wedge mark has no `k`
+//! (the mark is its display). A value this version does not know is kept as it is and drawn as a plain line.
 
 use crate::doc::More;
 
 /// The values of `pos` that are written (`auto` is the absence of the field).
 pub const POS: [&str; 3] = ["c", "l", "r"];
 /// The values of `k` of this slice.
-pub const KINDS: [&str; 3] = ["dash", "bdash", "hash"];
+pub const KINDS: [&str; 6] = ["dash", "bdash", "hash", "bold", "dative", "hbond"];
+
+/// Whether the kind is a bond of its own (order 1 only, and it does not count for the valence of its ends): `dative`, `hbond`.
+pub fn single_only(k: &str) -> bool {
+    matches!(k, "dative" | "hbond")
+}
 
 fn get(more: &More, key: &str) -> String {
     more.iter()
@@ -77,11 +83,18 @@ pub fn k_canon(v: &str) -> Option<String> {
 }
 
 impl crate::doc::Bond {
+    /// Whether the bond is a dative or a hydrogen bond: it takes no part in the valence of its ends.
+    pub fn is_link(&self) -> bool {
+        single_only(&self.kind())
+    }
+}
+
+impl crate::doc::Bond {
     /// `c`, `l` or `r`: where the second line of a double bond goes; empty for auto.
     pub fn pos(&self) -> String {
         pos_get(&self.more)
     }
-    /// The display of the line: `dash`, `bdash`, `hash`; empty for a plain line.
+    /// The display of the line (one of `KINDS`); empty for a plain line.
     pub fn kind(&self) -> String {
         k_get(&self.more)
     }
