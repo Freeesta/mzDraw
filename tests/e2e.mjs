@@ -619,7 +619,7 @@ try {
     assert(await lines() > plain, "a dashed line is more lines");
     await pg.mouse.click(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === undefined");
     // keyboard: the palette entry takes Enter, then the canvas takes the click
-    await pg.focus('[data-testid="d2-bond:bdash"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "bond:bdash" });
+    await reveal(pg, '[data-testid="d2-bond:bdash"]'); await pg.focus('[data-testid="d2-bond:bdash"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "bond:bdash" });
     await pg.mouse.click(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'bdash'");
     await shot(pg, "bond-display");
     // the context menu of a double bond: the side and the line style
@@ -2024,7 +2024,7 @@ try {
     await pg.focus("#d2-canvas");
     // a bond: its order and its wedge; the item that is already the state is checked
     await open(...bond, "bond");
-    eq((await menuNow(pg)).ids, ["bond.o.1", "bond.o.2", "bond.o.3", "bond.s.up", "bond.s.down", "bond.s.wavy", "bond.reverse", "edit.colour", "colour.auto", "colour.black", "colour.red", "colour.orange", "colour.yellow", "colour.green", "colour.teal", "colour.blue", "colour.purple", "colour.magenta", "colour.brown", "colour.grey", "colour.custom", "bond.delete"]);   // the group Colour of colour-selection is folded in the menu and listed here with its children
+    eq((await menuNow(pg)).ids, ["bond.o.1", "bond.o.2", "bond.o.3", "bond.s.up", "bond.s.down", "bond.s.wavy", "bond.reverse", "bond.pos", "bond.pos.auto", "bond.pos.c", "bond.pos.l", "bond.pos.r", "bond.k", "bond.k.solid", "bond.k.dash", "bond.k.bdash", "bond.k.hash", "edit.colour", "colour.auto", "colour.black", "colour.red", "colour.orange", "colour.yellow", "colour.green", "colour.teal", "colour.blue", "colour.purple", "colour.magenta", "colour.brown", "colour.grey", "colour.custom", "bond.delete"]);   // the group Colour of colour-selection is folded in the menu and listed here with its children
     // an item that is not offered is not on the keyboard walk
     await pg.focus("#d2-menu .ctx"); const walk = [];
     for (let i = 0; i < 9; i++) { await pg.keyboard.press("ArrowDown"); walk.push((await menuNow(pg)).active); }
