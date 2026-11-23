@@ -69,12 +69,16 @@ pub enum Op {
         objects: Vec<u32>,
         col: String,
     },
-    /// Sets the order and/or the wedge mark of a bond; a new order other than 1 drops the mark. `rev` swaps the two ends (the narrow
+    /// Sets the order, the wedge mark, the side of the second line (`pos`) and/or the display kind (`k`) of a bond; a new order
+    /// other than 1 drops the mark, a new order other than 2 drops `pos`, a new mark drops `k`. `pos` is `auto`, `c`, `l` or `r`
+    /// (double bonds only) and `k` is `solid`, `dash`, `bdash` or `hash` (see `bonddisp`). `rev` swaps the two ends (the narrow
     /// end of a wedge moves to the other atom).
     BondSet {
         id: u32,
         o: Option<u8>,
         s: Option<u8>,
+        pos: Option<String>,
+        k: Option<String>,
         rev: bool,
     },
     /// Turns the atoms by `deg` degrees counter-clockwise around (`x`, `y`).
@@ -284,11 +288,24 @@ impl Op {
                 ids(&mut w, "objects", objects, false);
                 w.text("col", col);
             }
-            Op::BondSet { id: i, o, s, rev } => {
+            Op::BondSet {
+                id: i,
+                o,
+                s,
+                pos,
+                k,
+                rev,
+            } => {
                 w.text("op", "bond.set");
                 w.int("id", i64::from(*i));
                 int(&mut w, "o", o.map(i64::from));
                 int(&mut w, "s", s.map(i64::from));
+                if let Some(v) = pos {
+                    w.text("pos", v);
+                }
+                if let Some(v) = k {
+                    w.text("k", v);
+                }
                 flag(&mut w, "rev", *rev);
             }
             Op::Rotate { atoms, deg, x, y } => {
@@ -558,6 +575,17 @@ impl Op {
                 id: g.u("id")?.ok_or(())?,
                 o: g.u("o")?,
                 s: g.u("s")?,
+                // kept as written (`auto` stays `auto`): the value is judged here, canonical when it is applied
+                pos: match g.s("pos")? {
+                    Some(v) if crate::bonddisp::pos_canon(&v).is_some() => Some(v),
+                    Some(_) => return Err(()),
+                    None => None,
+                },
+                k: match g.s("k")? {
+                    Some(v) if crate::bonddisp::k_canon(&v).is_some() => Some(v),
+                    Some(_) => return Err(()),
+                    None => None,
+                },
                 rev: g.b("rev")?,
             },
             "rotate" => Op::Rotate {
@@ -997,7 +1025,14 @@ impl Document {
                     col,
                 });
             }
-            Op::BondSet { id, o, s, rev } => {
+            Op::BondSet {
+                id,
+                o,
+                s,
+                pos,
+                k,
+                rev,
+            } => {
                 let Some(i) = self.bond_index(*id) else {
                     return err("error.draw2.noBond", *id);
                 };
@@ -1005,12 +1040,35 @@ impl Document {
                 let order = o.unwrap_or(now.o);
                 // a new order other than single drops the wedge mark
                 let mark = s.unwrap_or(if order == 1 { now.s } else { 0 });
-                if !(1..=3).contains(&order) || !wedge_fits(order, mark) {
+                // a new order other than double drops the side; a new mark drops the display kind
+                let side = match pos {
+                    Some(v) => match crate::bonddisp::pos_canon(v) {
+                        Some(v) => v,
+                        None => return err("error.draw2.bond", *id),
+                    },
+                    None if order == 2 => now.pos(),
+                    None => String::new(),
+                };
+                let kind = match k {
+                    Some(v) => match crate::bonddisp::k_canon(v) {
+                        Some(v) => v,
+                        None => return err("error.draw2.bond", *id),
+                    },
+                    None if mark == 0 => now.kind(),
+                    None => String::new(),
+                };
+                let fits = (1..=3).contains(&order)
+                    && wedge_fits(order, mark)
+                    && (side.is_empty() || order == 2)
+                    && (kind.is_empty() || mark == 0);
+                if !fits {
                     return err("error.draw2.bond", *id);
                 }
                 inv.push(Inv::SetBond(now.clone()));
                 let b = &mut self.bonds[i];
                 (b.o, b.s) = (order, mark);
+                crate::bonddisp::pos_put(&mut b.more, &side);
+                crate::bonddisp::k_put(&mut b.more, &kind);
                 if *rev {
                     (b.a, b.b) = (b.b, b.a);
                 }

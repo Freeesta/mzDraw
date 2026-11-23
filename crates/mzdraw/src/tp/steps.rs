@@ -664,6 +664,8 @@ fn dehydrogenation(v: &View, b: usize) -> Vec<Op> {
         id: v.bond(b).id,
         o: Some(2),
         s: None,
+        pos: None,
+        k: None,
         rev: false,
     }];
     ops.extend(v.hydrogens(p, -1));
@@ -684,6 +686,8 @@ fn hydration(v: &View, b: usize) -> Vec<Op> {
             id: v.bond(b).id,
             o: Some(1),
             s: None,
+            pos: None,
+            k: None,
             rev: false,
         },
         add_atom("O", v.free(o_end, None)),

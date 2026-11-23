@@ -206,6 +206,8 @@ struct Painter<'a> {
     lens: LensPaint,
     /// The ink of the bond being painted: ink, or the accent when the lens tints it.
     ink: f32,
+    /// The display of the line of the bond being painted: 0 plain, 1 dash, 2 bold dash, 3 hash (`bonddisp`).
+    kind: u8,
 }
 
 /// What the diff lens paints: the atoms and bonds of the products to tint (accent) and the cleaved bonds, as the two atoms of the
@@ -313,22 +315,34 @@ impl Painter<'_> {
         let off = self.m.spacing;
         let (nx, ny) = (-uy * off, ux * off);
         let shift = |p: (f64, f64), k: f64| (p.0 + nx * k, p.1 + ny * k);
+        self.kind = match b.kind().as_str() {
+            "dash" => 1,
+            "bdash" => 2,
+            "hash" => 3,
+            _ => 0,
+        };
         if b.s != 0 {
             if lq && b.s != crate::doc::WEDGE_WAVY {
                 // the wide end of a wedge needs more room in front of a label than a line does
                 let more = (self.m.wedge * 0.5).min(len * 0.1);
                 e = (e.0 - ux * more, e.1 - uy * more);
             }
+            self.kind = 0;
             return self.wedge(b.s, s, e, w);
         }
         match b.o {
             2 => {
-                let side = self.double_side(b, (ux, uy));
+                let side = match b.pos().as_str() {
+                    "c" => 0.0,
+                    "l" => -1.0,
+                    "r" => 1.0,
+                    _ => self.double_side(b, (ux, uy)),
+                };
                 if side == 0.0 {
-                    self.line(shift(s, 0.5), shift(e, 0.5), w, self.ink);
-                    self.line(shift(s, -0.5), shift(e, -0.5), w, self.ink);
+                    self.seg(shift(s, 0.5), shift(e, 0.5), w);
+                    self.seg(shift(s, -0.5), shift(e, -0.5), w);
                 } else {
-                    self.line(s, e, w, self.ink);
+                    self.seg(s, e, w);
                     // the second line sits inside, a little shorter unless it ends at a label
                     let trim = len * 0.12;
                     let s2 = if lp {
@@ -341,15 +355,46 @@ impl Painter<'_> {
                     } else {
                         (e.0 - ux * trim, e.1 - uy * trim)
                     };
-                    self.line(shift(s2, side), shift(e2, side), w, self.ink);
+                    self.seg(shift(s2, side), shift(e2, side), w);
                 }
             }
             3 => {
                 for k in [-1.0, 0.0, 1.0] {
-                    self.line(shift(s, k), shift(e, k), w, self.ink);
+                    self.seg(shift(s, k), shift(e, k), w);
                 }
             }
-            _ => self.line(s, e, w, self.ink),
+            _ => self.seg(s, e, w),
+        }
+    }
+
+    /// A line of the bond being painted, in its display: plain, dashed (dashes as long as the hash spacing, bold ones heavier) or
+    /// hashed (short ticks across the line).
+    fn seg(&mut self, p: (f64, f64), q: (f64, f64), w: f64) {
+        let (dx, dy) = (q.0 - p.0, q.1 - p.1);
+        let len = m::hypot(dx, dy);
+        if self.kind == 0 || len < 1e-6 {
+            return self.line(p, q, w, self.ink);
+        }
+        let at = |t: f64| (p.0 + dx * t, p.1 + dy * t);
+        let c = self.ink;
+        if self.kind == 3 {
+            // ticks across the line, as long as the plain stroke of a hashed wedge is wide at its middle
+            let n = ((len / self.m.hash).round() as usize).clamp(2, 40);
+            let half = self.m.wedge * 0.5;
+            let (nx, ny) = (-dy / len * half, dx / len * half);
+            for i in 0..n {
+                let t = (i as f64 + 0.5) / n as f64;
+                let m = at(t);
+                self.line((m.0 - nx, m.1 - ny), (m.0 + nx, m.1 + ny), w, c);
+            }
+            return;
+        }
+        // n segments, every other one drawn, starting and ending with a dash
+        let n = ((len / self.m.hash).round() as usize).clamp(1, 80);
+        let n = if n.is_multiple_of(2) { n + 1 } else { n };
+        let w = if self.kind == 2 { w * 2.5 } else { w };
+        for i in (0..n).step_by(2) {
+            self.line(at(i as f64 / n as f64), at((i + 1) as f64 / n as f64), w, c);
         }
     }
 
@@ -934,6 +979,7 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
         out: Scene::default(),
         lens: lens_paint(doc, m.lens),
         ink: colour::INK,
+        kind: 0,
     };
     p.ghosts();
     for b in &doc.bonds {
@@ -1006,6 +1052,7 @@ pub fn label_extent(doc: &Document, a: &Atom, style: &crate::settings::Style) ->
         out: Scene::default(),
         lens: LensPaint::default(),
         ink: colour::INK,
+        kind: 0,
     };
     let (f, small) = (m.font, m.small);
     let line = f * 0.6;
@@ -1132,6 +1179,7 @@ mod tests {
                         ..LensPaint::default()
                     },
                     ink: colour::INK,
+                    kind: 0,
                 };
                 p.ghosts();
                 assert!(!p.out.data.is_empty());

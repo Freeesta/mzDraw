@@ -52,7 +52,7 @@ Docs: keep the Built state true: add your note as `docs/built/<slice>.md` (one f
 
 CLI route and native replay (rule 15): `bond.set pos` and the bond kind of arch-web-20 are `draw_edit/1` ops; the parity log gets a step with both; `mzlab-cli mol draw --set edit=<log>` gives the same SVG.
 
-Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: measure with `tools/build_site.sh`, there is no `measured` to write (the build prints the size); give the delta in the PR.
+Size: the owner lifted the wasm size limit (the cap in `tools/wasm-cap.toml` is now only a runaway guard); rule 8 still holds: `tools/build_site.sh` must stay under the cap; write no size figure (rule 8).
 
 ## Acceptance
 
@@ -70,7 +70,7 @@ If a golden output changes because of this slice (and only then), rewrite it wit
 ## Messages
 
 - To COO-MZDRAW (session `session_01Ly8Apn8UoWuqCEhqt2snjF`; reach it with the `send_message` tool of the claude-code-remote server, by session id, not by name) only. Start: the confirm line above. Blocked (a test you cannot make pass, a decision that is not yours, a host refused): one message with the exact error, then wait or continue with the rest.
-- Done: one message with the PR link, the full head SHA, the module size before → after, and the study rows now built.
+- Done: one message with the PR link, the full head SHA, and the study rows now built.
 - The PR is in English, ready for review (not a draft), titled after the feature, its body following the repository's usual sections, with the screenshots for UI changes.
 
 ## Handoff at 200k tokens

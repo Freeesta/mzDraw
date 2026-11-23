@@ -55,6 +55,9 @@ pub struct Imported {
     pub text_cut: usize,
     /// SDF records that carry the name of a TP (`TP_ID`): an SDF has no arrows, so they were read without a pathway.
     pub no_pathway: usize,
+    /// CDXML: bonds that carried a display (`Dash`, `Hash`) or the side of a double bond, in a file where the reader refused a bond
+    /// (so the bonds of the file and of the drawing cannot be paired): the display of every bond is left out, counted.
+    pub bond_display_left: usize,
 }
 
 impl Imported {
@@ -80,6 +83,7 @@ impl Imported {
             ("draw2.import.codePage", self.code_page_runs),
             ("draw2.import.tpTableIgnored", self.table_ignored),
             ("draw2.import.tpNoPathway", self.no_pathway),
+            ("draw2.import.bondDisplay", self.bond_display_left),
         ]
         .into_iter()
         .filter(|n| n.1 > 0)
