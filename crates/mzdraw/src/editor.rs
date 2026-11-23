@@ -260,6 +260,12 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
                 ann,
             });
         }
+        if !a.title().is_empty() {
+            ops.push(Op::AtomTitle {
+                id: base + a.id,
+                title: a.title(),
+            });
+        }
         if !a.cap().is_empty() {
             ops.push(Op::AtomCap {
                 id: base + a.id,

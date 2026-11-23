@@ -54,6 +54,9 @@ pub enum Op {
     /// Replaces the annotation kept on an atom (the annotation of its structure: `ann` is the JSON text of a list of entries,
     /// `ann::canon`); the empty list takes it away.
     AtomAnn { id: u32, ann: String },
+    /// Replaces the title kept on an atom (the name of its structure, the title line of the files it is written as: one line of at
+    /// most `doc::MAX_TITLE` characters, no control character); the empty text takes it away.
+    AtomTitle { id: u32, title: String },
     /// Replaces the lines kept under the molecule this atom holds the choice of (`props`: line keys in the order they are written);
     /// the empty list takes the choice away (the molecule follows `display.values` again).
     AtomCap { id: u32, lines: Vec<String> },
@@ -250,6 +253,11 @@ impl Op {
                 w.text("op", "atom.ann");
                 w.int("id", i64::from(*i));
                 w.raw("ann", ann);
+            }
+            Op::AtomTitle { id: i, title } => {
+                w.text("op", "atom.title");
+                w.int("id", i64::from(*i));
+                w.text("title", title);
             }
             Op::AtomCap { id: i, lines } => {
                 w.text("op", "atom.cap");
@@ -518,6 +526,10 @@ impl Op {
             "atom.ann" => Op::AtomAnn {
                 id: g.u("id")?.ok_or(())?,
                 ann: (g.0.get("ann").filter(|a| a.is_array()).ok_or(())?).to_string(),
+            },
+            "atom.title" => Op::AtomTitle {
+                id: g.u("id")?.ok_or(())?,
+                title: g.s("title")?.ok_or(())?,
             },
             "atom.cap" => Op::AtomCap {
                 id: g.u("id")?.ok_or(())?,
@@ -904,6 +916,17 @@ impl Document {
                 inv.push(Inv::SetAtom(self.atoms[i].clone()));
                 self.atoms[i].set_ann(&text);
                 done.push(Op::AtomAnn { id: *id, ann: text });
+            }
+            Op::AtomTitle { id, title } => {
+                let Some(i) = self.atom_index(*id) else {
+                    return err("error.draw2.noAtom", *id);
+                };
+                if !crate::doc::title_valid(title) {
+                    return err("error.draw2.title", *id);
+                }
+                inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                self.atoms[i].set_title(title);
+                done.push(op.clone());
             }
             Op::AtomCap { id, lines } => {
                 let Some(i) = self.atom_index(*id) else {

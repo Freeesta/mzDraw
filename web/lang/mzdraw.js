@@ -49,6 +49,8 @@ I18N.add("en", {
   "draw2.import.textCut": "Texts longer than 200 characters were cut to 200: {n}.",
   "draw2.import.other": "Things {app} does not draw (shapes, images, curves, R-group definitions) were left out: {n}.",
   "draw2.import.mapsLeft": "Atom map fields that are no whole number from 1 to 999 were read as no map: {n}.",
+  "draw2.import.smilesLine": "Line {n} is not a SMILES; it was not read, the other lines were.",
+  "draw2.import.smilesMore": "More lines that are not a SMILES (not named one by one): {n}.",
   "draw2.import.mapsDuplicate": "Structures with the same atom map number on more than one atom (kept as read): {n}.",
   "draw2.export.tpEngine": "No mass engine in this run: the mass, m/z, ppm and mass difference cells are empty for structures: {n}.",
   "draw2.export.tpMass": "Structures the mass engine refused (an R group, an element it has no valence rule for, 1000 atoms or more), left with empty mass cells: {n}.",

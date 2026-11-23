@@ -217,6 +217,12 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                 ann: if ann.is_empty() { "[]".into() } else { ann },
             });
         }
+        if x.title() != y.title() {
+            out.push(Op::AtomTitle {
+                id: y.id,
+                title: y.title(),
+            });
+        }
         if x.cap() != y.cap() {
             out.push(Op::AtomCap {
                 id: y.id,
@@ -551,6 +557,7 @@ pub(crate) fn touched(op: &Op) -> Vec<u32> {
         | Op::AtomData { id, .. }
         | Op::AtomAnn { id, .. }
         | Op::AtomCap { id, .. }
+        | Op::AtomTitle { id, .. }
         | Op::BondSet { id, .. }
         | Op::ObjSet { id, .. } => vec![*id],
         Op::Colour {

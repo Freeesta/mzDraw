@@ -108,9 +108,86 @@ fn smiles_arrive_one_per_line_with_their_names() {
     // a helium is a helium, a class beyond R32 is a bare R
     assert_eq!(import("[He]").unwrap().0.atoms[0].lab, "");
     assert_eq!(import("C[*:99]").unwrap().0.atoms[1].lab, "R");
-    for bad in ["", "   \n", "not a smiles at all", "CC(\nCC", "C[*", "*("] {
+    for bad in ["", "   \n", "not a smiles at all", "CC(\nC(", "C[*", "*("] {
         assert!(import(bad).is_err(), "{bad:?}");
     }
+}
+
+/// The "SMILES Files" rules of OpenSMILES 1.0, written as tests with SMILES of our own.
+#[test]
+fn a_smiles_file_follows_the_rules_of_the_format() {
+    // CR/LF and LF end a line, a blank line and an indented line are ignored, a tab or a space ends the SMILES, the name keeps its spaces
+    let text =
+        "CCO\tethanol sample\r\n\r\n  CC(=O)O ignored\r\n\tN#N\nc1ccccc1 benzene ring  \nC#N\r\n";
+    let (d, info) = import(text).unwrap();
+    assert_eq!((info.format, info.records), ("smiles", 3));
+    assert!(
+        info.smiles_lines.is_empty()
+            && info
+                .notes()
+                .iter()
+                .all(|n| n.0 != "draw2.import.smilesLine")
+    );
+    assert_eq!(
+        canonical(&d.to_smiles().unwrap()),
+        canonical("CCO.c1ccccc1.C#N")
+    );
+    // the name of each record is the title of its structure, and the title line of the file it is written as
+    let titles: Vec<String> = d
+        .atoms
+        .iter()
+        .map(|a| a.title())
+        .filter(|t| !t.is_empty())
+        .collect();
+    assert_eq!(titles, ["ethanol sample", "benzene ring"]);
+    assert!(d.to_molfile().starts_with("ethanol sample\n"));
+    let sdf = d.to_sdf();
+    let heads: Vec<&str> = sdf
+        .split("$$$$\n")
+        .filter(|r| !r.is_empty())
+        .map(|r| r.lines().next().unwrap())
+        .collect();
+    assert_eq!(heads, ["ethanol sample", "benzene ring", "mzDraw"]);
+    // a drawing with no name is written as before
+    assert!(import("CCO")
+        .unwrap()
+        .0
+        .to_molfile()
+        .starts_with("mzDraw\n"));
+    // the title is part of the document and survives its text
+    let back = Document::from_json(&d.to_json()).unwrap();
+    assert_eq!(back.title(), "ethanol sample");
+    // a broken line between two good ones: both open, the line is said with its number (counting blank lines)
+    let (d, info) = import("CCO\n\nC(C\nCC=O\n").unwrap();
+    assert_eq!(
+        (d.atoms.len(), info.records, info.smiles_lines.clone()),
+        (6, 2, vec![3])
+    );
+    assert!(info.notes().contains(&("draw2.import.smilesLine", 3)));
+    // no leading whitespace is stripped into the SMILES: an indented single line is not read
+    assert_eq!(import("  CCO").unwrap_err(), "error.draw2.import");
+    assert_eq!(import("CCO\n C(").unwrap().1.records, 1);
+    // only broken lines: the key of a SMILES that does not read
+    assert_eq!(import("C(\nC)").unwrap_err(), "error.draw2.smiles");
+    // a CXSMILES tail stays with its SMILES and the name follows it
+    let (d, _) = import("N[C@@H](C)C(=O)O |&1:1| alanine\nCC").unwrap();
+    assert_eq!(d.title(), "alanine");
+    // the 64-record window holds for a SMILES file, and says what it left out
+    let many = "C\n".repeat(MAX_RECORDS + 3);
+    let (_, info) = import(&many).unwrap();
+    assert_eq!((info.records, info.skipped), (MAX_RECORDS, 3));
+    // many broken lines: the first are named, the rest counted
+    let bad = "C(\n".repeat(14);
+    let (_, info) = import(&format!("C\n{bad}")).unwrap();
+    let notes = info.notes();
+    assert_eq!(
+        notes
+            .iter()
+            .filter(|n| n.0 == "draw2.import.smilesLine")
+            .count(),
+        10
+    );
+    assert!(notes.contains(&("draw2.import.smilesMore", 4)));
 }
 
 #[test]
@@ -363,4 +440,46 @@ fn a_damaged_molfile_is_refused_or_read_but_never_a_panic() {
         }
     }
     assert!(read > 100, "the damage leaves some files readable ({read})");
+}
+
+#[test]
+fn a_title_is_an_operation_with_an_exact_inverse_and_the_import_makes_it() {
+    use mzdraw::ops::Op;
+    let mut e = Editor::default();
+    e.import("CCO ethanol\nCC=O\n").unwrap();
+    let titles = |e: &Editor| -> Vec<String> {
+        (e.doc().atoms.iter().map(|a| a.title()))
+            .filter(|t| !t.is_empty())
+            .collect()
+    };
+    assert_eq!(titles(&e), ["ethanol"]);
+    let before = e.doc().to_json();
+    let mut s = mzdraw::Session::new(e.doc().clone());
+    for bad in ["two\nlines", "tab\there", &"x".repeat(81)] {
+        let err = s
+            .run(&[Op::AtomTitle {
+                id: 1,
+                title: bad.into(),
+            }])
+            .unwrap_err();
+        assert_eq!(err.key, "error.draw2.title", "{bad:?}");
+    }
+    let second = e.doc().atoms[3].id;
+    s.run(&[Op::AtomTitle {
+        id: second,
+        title: "acetaldehyde".into(),
+    }])
+    .unwrap();
+    assert_eq!(s.doc.file_title(), "ethanol");
+    s.undo();
+    assert_eq!(s.doc.to_json(), before);
+    // the operation's text form
+    let op = Op::AtomTitle {
+        id: 1,
+        title: "a \"b\"".into(),
+    };
+    assert_eq!(
+        op.to_json(),
+        r#"{"op":"atom.title","id":1,"title":"a \"b\""}"#
+    );
 }
