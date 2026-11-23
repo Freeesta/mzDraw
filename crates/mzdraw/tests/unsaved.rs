@@ -189,3 +189,50 @@ fn the_replay_says_dirty_and_the_commands_follow_the_same_rules() {
         );
     }
 }
+
+#[test]
+fn only_the_native_document_is_a_saved_point() {
+    let native = Editor::save_kind();
+    for lossy in [
+        "molfile",
+        "molfile-v3000",
+        "smiles",
+        "sdf",
+        "svg",
+        "png",
+        "pdf",
+        "ket",
+        "cdxml",
+        "cml",
+        "log",
+    ] {
+        let mut e = Editor::default();
+        draw(&mut e, 100.0, 100.0);
+        assert!(!e.exported(lossy), "{lossy}");
+        assert!(
+            e.dirty() && e.unsaved(),
+            "a {lossy} file leaves the drawing unsaved"
+        );
+    }
+    let mut e = Editor::default();
+    draw(&mut e, 100.0, 100.0);
+    assert!(e.exported(native));
+    assert!(!e.dirty(), "the native document is the saved point");
+    // the command: no format is the native document; a named lossy format changes nothing
+    let atom = json!({"op":"atom.add","el":"N","x":3.0,"y":0.0});
+    for (format, clean) in [
+        (json!(null), true),
+        (json!("svg"), false),
+        (json!("smiles"), false),
+    ] {
+        let args = if format.is_null() {
+            json!({})
+        } else {
+            json!({ "format": format })
+        };
+        let r = result(
+            json!({"import":"CC","log":[atom],"commands":[{"command":"save","args":args}],"report":true}),
+        );
+        assert_eq!(r["dirty"], !clean, "{format}");
+    }
+}

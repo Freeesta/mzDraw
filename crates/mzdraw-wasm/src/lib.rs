@@ -915,13 +915,20 @@ pub fn unsaved_choice(answer: &str) -> Result<String, JsValue> {
         .ok_or_else(|| js_err("error.draw2.request"))
 }
 
-/// The drawing as it is now was written to a file or exported: it is the saved point (`dirty` is false until the next edit).
+/// A file of this kind was written (`save` kinds, `png` and `pdf` too). Only the native document is the saved point (`dirty` is false
+/// until the next edit); any other export is lossy and leaves the drawing dirty. The module decides.
 #[wasm_bindgen]
-pub fn mark_saved() -> u32 {
+pub fn mark_saved(kind: &str) -> u32 {
     act(|e| {
-        e.mark_saved();
+        e.exported(kind);
         0
     })
+}
+
+/// The file kind the question's Save writes (the native document).
+#[wasm_bindgen]
+pub fn unsaved_format() -> String {
+    Editor::save_kind().to_string()
 }
 
 /// A new, empty drawing as one undo step (the command `new`); unsaved work is `error.draw2.unsaved` unless `discard`. Flags as `command`.

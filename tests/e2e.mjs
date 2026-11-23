@@ -1565,6 +1565,15 @@ try {
     eq(order, ["d2-unsaved-discard", "d2-unsaved-cancel", "d2-unsaved-save", "d2-unsaved-discard"]);
     await pg.keyboard.press("Shift+Tab"); eq(await focused(), "d2-unsaved-save"); await pg.keyboard.press("Shift+Tab"); eq(await focused(), "d2-unsaved-cancel");
     await pg.focus("#d2-canvas"); eq(await focused(), "d2-unsaved-save");
+    // one question at a time, and the rest of the page is inert while it is open: a second New asked for now is refused (one file, not two)
+    let files = 0; const count = () => files++; pg.on("download", count);
+    eq(await pg.evaluate("[...document.body.children].filter(el => el.id !== 'd2-unsaved' && el.tagName !== 'SCRIPT').every(el => el.inert)"), true);
+    await pg.evaluate(s => document.querySelector(s).click(), NEW); eq(await dlg(), true);
+    await pg.click("#d2-unsaved-save"); await want(pg, { atoms: 0 }); await pg.waitForTimeout(500);
+    eq(files, 1); pg.off("download", count); eq(await dlg(), false);
+    eq(await pg.evaluate("[...document.body.children].some(el => el.inert)"), false);                // the page is live again
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, dirty: true });
+    await press.mouse(NEW); eq(await dlg(), true);
     // Cancel (click) and Escape do nothing, and the focus leaves the dialog
     await pg.click("#d2-unsaved-cancel"); eq(await dlg(), false); await want(pg, { atoms: 3, dirty: true });
     eq(await pg.evaluate("!!document.activeElement.closest('#d2-unsaved')"), false);
@@ -1576,10 +1585,16 @@ try {
     // Save (mouse): the file is downloaded, then the new drawing is empty and clean
     await press.mouse(NEW);
     const [d1] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-unsaved-save")]);
-    assert(readFileSync(await d1.path(), "utf8").includes("<svg"), "the default export was written (a picture that carries the drawing)");
+    eq(JSON.parse(readFileSync(await d1.path(), "utf8")).atoms.length, 3);          // Save writes the native document, whatever the default export is
     await want(pg, { atoms: 0, dirty: false }); eq(await dlg(), false);
     // a saved drawing is clean: a download is the saved point, an edit after it is not, and undo back to it is clean again
-    await drawn(); await tool(pg, "save"); await want(pg, { atoms: 3, dirty: false, unsaved: false });
+    // only the native document is a saved point: a lossy export (SVG, molfile, SMILES, PNG, PDF) leaves the drawing unsaved
+    await drawn();
+    for (const id of ["svg", "molfile", "smiles"]) { await saveAs(pg, `#d2-ex-${id}`); await want(pg, { atoms: 3, dirty: true, unsaved: true }); }
+    await saveAs(pg, "#d2-ex-png"); await pg.waitForTimeout(300); await want(pg, { atoms: 3, dirty: true });
+    await saveAs(pg, "#d2-ex-pdf"); await pg.waitForTimeout(300); await want(pg, { atoms: 3, dirty: true });
+    await press.mouse(NEW); eq(await dlg(), true); await pg.click("#d2-unsaved-cancel");                // still asks after the exports
+    await saveAs(pg, "#d2-ex-doc"); await want(pg, { atoms: 3, dirty: false, unsaved: false });
     await press.mouse(NEW); eq(await dlg(), false); await want(pg, { atoms: 0, dirty: false });       // saved: no question
     await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, dirty: true });                 // the saved drawing is back: it differs from the new one
     // keyboard: Enter on New, Save has the focus, Enter on it saves and goes on

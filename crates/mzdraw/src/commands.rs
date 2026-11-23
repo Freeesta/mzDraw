@@ -126,7 +126,7 @@ fn file_args(name: &str, args: &Value) -> Result<(String, bool), &'static str> {
     let allowed: &[&str] = match name {
         "new" => &["discard"],
         "open" => &["text", "discard"],
-        _ => &[],
+        _ => &["format"],
     };
     if obj.keys().any(|k| !allowed.contains(&k.as_str())) {
         return Err(BAD);
@@ -135,7 +135,7 @@ fn file_args(name: &str, args: &Value) -> Result<(String, bool), &'static str> {
         None => false,
         Some(v) => v.as_bool().ok_or(BAD)?,
     };
-    let text = match obj.get("text") {
+    let text = match obj.get("text").or_else(|| obj.get("format")) {
         None if name == "open" => return Err(BAD),
         None => String::new(),
         Some(v) => v.as_str().ok_or(BAD)?.to_string(),
@@ -350,7 +350,12 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     if matches!(name, "new" | "open" | "save") {
         let (text, discard) = file_args(name, args).map_err(bad)?;
         if name == "save" {
-            e.mark_saved();
+            // the native document unless a format is named; only the native document is the saved point
+            e.exported(if text.is_empty() {
+                Editor::save_kind()
+            } else {
+                &text
+            });
             return Ok(());
         }
         return match name {

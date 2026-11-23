@@ -66,9 +66,24 @@ impl Editor {
         }
     }
 
-    /// The drawing as it is now was saved or exported (the page calls it after a download, the command `save` is the same).
+    /// The drawing as it is now is the saved point (opened, made new, or the native document written).
     pub fn mark_saved(&mut self) {
         self.session.mark_saved();
+    }
+
+    /// The file kind the question's Save writes: the native document, which holds everything.
+    pub fn save_kind() -> &'static str {
+        crate::brand::SLUG
+    }
+
+    /// A file of this kind (the names of `save`) was written. Only the native document is loss-free, so only it is the saved point;
+    /// a molfile, SMILES, SVG, PNG, PDF or any other export leaves the drawing dirty. Returns whether the point was set.
+    pub fn exported(&mut self, kind: &str) -> bool {
+        let native = crate::brand::is_doc_kind(kind);
+        if native {
+            self.mark_saved();
+        }
+        native
     }
 
     /// A new, empty drawing, as one undo step (Undo brings the old one back); the new state is the saved point. Unsaved work is

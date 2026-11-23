@@ -7,16 +7,21 @@ const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.get
 /** @type {Promise<string> | null} */ let open = null;
 
 /** shows the question; resolves with the answer @param {{ t: (k: string, p?: any) => string, fallback: () => void }} ctx @returns {Promise<string>} */
+export const unsavedOpen = () => open !== null;
+
 export function unsavedDialog(ctx) {
-  if (open) return open;
+  if (open) return Promise.resolve("cancel");   // never a second question: the caller of a second one does nothing
   const root = $("d2-unsaved"), save = $("d2-unsaved-save"), discard = $("d2-unsaved-discard"), cancel = $("d2-unsaved-cancel");
   const buttons = [save, discard, cancel];
   let prior = /** @type {HTMLElement | null} */ (document.activeElement);
+  // the rest of the page is inert while the question is open (no pointer, key or assistive-technology route to it)
+  const away = /** @type {HTMLElement[]} */ ([...document.body.children]).filter(el => el !== root && !el.inert && el.tagName !== "SCRIPT");
   open = new Promise(resolve => {
     /** @param {string} answer */
     const done = answer => {
       root.removeEventListener("keydown", key);
       document.removeEventListener("focusin", keep, true);
+      for (const el of away) el.inert = false;
       root.hidden = true; open = null;
       // back to where it was; when that is gone (a flyout that closed with the click) the canvas takes it
       if (prior && prior.isConnected && typeof prior.focus === "function") prior.focus({ preventScroll: true });
@@ -37,7 +42,7 @@ export function unsavedDialog(ctx) {
     save.onclick = () => done("save"); discard.onclick = () => done("discard"); cancel.onclick = () => done("cancel");
     root.addEventListener("keydown", key);
     document.addEventListener("focusin", keep, true);
-    root.hidden = false; save.focus();
+    root.hidden = false; for (const el of away) el.inert = true; save.focus();
   });
   return open;
 }

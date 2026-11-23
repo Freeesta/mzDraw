@@ -6,7 +6,7 @@ import { NAMES } from "./names.js";
 import { contextMenu } from "./context.js";
 import { feedbackBoxes } from "./feedback.js";
 import { buildPrefs, applyTheme } from "./prefs.js";
-import { unsavedDialog } from "./unsaved.js";
+import { unsavedDialog, unsavedOpen } from "./unsaved.js";
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
@@ -707,7 +707,7 @@ function saveDefault() {
 function save(what, name, type) {
   const note = $("d2-ex-note"); note.textContent = "";
   try {
-    download(ed.save(what), name, type); after(ed.mark_saved());
+    download(ed.save(what), name, type); after(ed.mark_saved(what));
     const lost = ed.maps_lost(what);   // the module says what the format cannot hold; nothing is dropped in silence
     // the TP table says what it left empty (cells with no engine, no adduct, no name...), each with its text
     const left = what.startsWith("tptable") ? JSON.parse(ed.save_notes()).map((/** @type {[string, number]} */ [key, n]) => t(key, { n })) : [];
@@ -742,7 +742,7 @@ async function drawPng(plan) {
 /** downloads the PDF the module writes (bytes, not text) @returns {boolean} whether it was written */
 function savePdf() {
   const note = $("d2-ex-note"); note.textContent = "";
-  try { download(ed.save_pdf(), "drawing.pdf", "application/pdf"); after(ed.mark_saved()); open("saveas", false); return true; } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; return false; }
+  try { download(ed.save_pdf(), "drawing.pdf", "application/pdf"); after(ed.mark_saved("pdf")); open("saveas", false); return true; } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; return false; }
 }
 
 /** saves a PNG: the SVG the module writes is drawn on a canvas of the size the module asks for; the module finishes the file @returns {Promise<boolean>} whether it was written */
@@ -750,7 +750,7 @@ async function savePng() {
   const note = $("d2-ex-note"); note.textContent = "";
   try {
     const blob = await drawPng(JSON.parse(ed.png_plan()));
-    download(ed.png_finish(new Uint8Array(await blob.arrayBuffer())), "drawing.png", "image/png"); after(ed.mark_saved()); open("saveas", false);
+    download(ed.png_finish(new Uint8Array(await blob.arrayBuffer())), "drawing.png", "image/png"); after(ed.mark_saved("png")); open("saveas", false);
     return true;
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; return false; }
 }
@@ -759,11 +759,13 @@ async function savePng() {
  * `stop`); this only shows the question and forwards the answer. `go(discard)` is the action that replaces the drawing; it is run
  * after a Save (the drawing is then clean) or after "Don't save" (with `discard` true), never after Cancel. @param {(discard: boolean) => void} go */
 async function guarded(go) {
+  if (unsavedOpen()) return;   // one question at a time: a second action asked for while it is open is refused
   if (ed.unsaved_guard() === "go") { go(false); return; }
   const answer = await unsavedDialog({ t, fallback: () => cv.focus({ preventScroll: true }) });
   const does = ed.unsaved_choice(answer);
   if (does === "stop") { $("d2-live").textContent = t("draw2.unsaved.cancelled"); return; }
-  if (does === "save" && !(await saveDefault())) return;   // a refused save keeps the drawing and says why in the export note
+  // Save writes the native document (the module names it): the only file that holds everything, so the only one that is a saved point
+  if (does === "save") { const kind = ed.unsaved_format(); if (!save(kind, ...FILES[kind])) return; }   // a refused save keeps the drawing and says why in the export note
   go(does === "go");
 }
 

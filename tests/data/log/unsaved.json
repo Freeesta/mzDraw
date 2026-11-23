@@ -280,6 +280,58 @@
         "import": "CC",
         "report": true
       }
+    },
+    {
+      "name": "a lossy export is not a saved point: new after a save of an SVG is refused",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{\"atoms\":[4]},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":1,\"key\":\"error.draw2.unsaved\",\"id\":0},\"dirty\":true}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "format": "svg"
+            },
+            "command": "save"
+          },
+          {
+            "args": {},
+            "command": "new"
+          }
+        ],
+        "import": "CC",
+        "log": [
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 3.0,
+            "y": 0.0
+          }
+        ],
+        "report": true
+      }
+    },
+    {
+      "name": "a molfile is not a saved point either, and a drawing it left dirty stays dirty",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":5,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0},{\\\"id\\\":4,\\\"el\\\":\\\"N\\\",\\\"x\\\":3.0,\\\"y\\\":0.0}],\\\"bonds\\\":[{\\\"id\\\":3,\\\"a\\\":1,\\\"b\\\":2,\\\"o\\\":1}]}\",\"created\":{\"atoms\":[4]},\"removed\":{},\"dirty\":true}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "format": "molfile"
+            },
+            "command": "save"
+          }
+        ],
+        "import": "CC",
+        "log": [
+          {
+            "el": "N",
+            "op": "atom.add",
+            "x": 3.0,
+            "y": 0.0
+          }
+        ],
+        "report": true
+      }
     }
   ]
 }
