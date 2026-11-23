@@ -202,3 +202,22 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | UI declutter 2 leftovers: a setting to choose which tools stay in view (`keep` is a constant of `tool_groups.rs`), user-made groups, a peek of a group on hover or long press | `docs/built/ui-declutter-2.md` Not built | QUEUED | no prompt file |
 | Unsaved-changes guard: saved point in the history, "Save changes?" before New and Restore, `new`/`open`/`save` commands | built/unsaved-guard.md | RUNNING | PR #120 |
 | Unsaved-changes guard: a template or example library whose loading replaces the drawing must use `guarded`; the CLI `open` reads a saved document only | built/unsaved-guard.md "Not built" | QUEUED | no prompt file |
+| rdkit-compare: lone pairs in the SVG and the PDF (the writers skip the `DISC` primitive; `built/curved-arrows.md` says the SVG has them) | `docs/study/rdkit-compare.md` F1, rank 1; `crates/mzdraw/src/svg.rs` `drawn_with`, `pdf.rs` | QUEUED | a bug in a built feature; golden in `curve.json` |
+| rdkit-compare: enhanced stereo (CXSMILES `&n`/`on`, V3000 `STEABS`/`STERAC`/`STEREL`) reported as lost on the CLI route (`report` `lost`, `out loss:FORMAT`; the page's import note `draw2.import.stereoGroups` already says it), then kept and drawn as group labels | study F2, rank 2, matrix #5 #38 | QUEUED | the loss item first (small); keeping it needs a field in the document |
+| rdkit-compare: an unspecified stereogenic double bond written as "either" (bond stereo 3) in molfile V2000/V3000 and CDXML | study F3, rank 3, matrix #25 | QUEUED | polyene of `tools/rdkit_compare/set.tsv` is the test case |
+| rdkit-compare: atom and bond ids drawn in the picture (`display.ids` off/atoms/bonds/both) | study rank 4, matrix #36 | QUEUED | display only, like `display.maps` |
+| rdkit-compare: CIP labels drawn (`display.cip`), from the engine `cip` of the glue | study rank 5, matrix #37 | QUEUED | the core replay has no engine: the glue replay draws them, the core says so |
+| rdkit-compare: reaction SMILES (`A>>B`, agents between) and dative SMILES (`->`, `<-`) read | study F4 F5, rank 6, matrix #6 #7 | QUEUED | the SMILES reader is `mzlab-mol` (rule 9: a pin move, or a pre-pass here) |
+| rdkit-compare: the title of a structure (`atom.title`) drawn as its legend, under the structure | study rank 7, matrix #45 | QUEUED | display setting, default off so the goldens keep their bytes |
+| rdkit-compare: a `grid` command (columns, gap, order) that lays structures out in rows with their legends | study rank 8, matrix #48 | QUEUED | one undo step of `move` operations, as `scheme:row` |
+| rdkit-compare: PNG pixels from the CLI without a browser | study rank 9, matrix #64 | QUEUED | a rasteriser and a font in Rust is large; a decision of the owner (size, dependency, rule 3) |
+| rdkit-compare: align structures to a template or a given core; clean up of a drawn structure (`layout::clean_up`) | study rank 10, matrix #14 #16 | QUEUED | needs the layout of `mzlab-mol` with fixed atoms |
+| rdkit-compare: halo highlight with a radius and several colours per atom (display, not the ink colour) | study rank 11, matrix #42 | QUEUED | |
+| rdkit-compare: aromatic bonds drawn dashed or with a circle, as a style | study rank 12, matrix #31 | QUEUED | `built/label-display-modes.md` names circles out of scope: the owner decides |
+| rdkit-compare: an atom data value drawn at its atom (atom notes) | study rank 13, matrix #39 | QUEUED | |
+| rdkit-compare: zero-order bond (`bond.set o 0`, drawn dashed, written as order 0 / V3000 type 10) | study rank 14, matrix #29 | QUEUED | |
+| rdkit-compare: cage and crowded polycycle layouts without atom clashes (ring templates) | study rank 15, matrix #10 #15 | GATED | `mzlab-mol` layout (D1), mzLab side |
+| rdkit-compare: CXSMILES coordinates `\|(...)\|` kept on import | study F6, rank 16, matrix #4 | QUEUED | |
+| rdkit-compare: automatic condensation of abbreviations | study rank 17, matrix #33 | QUEUED | |
+| rdkit-compare: small style options (canonical orientation, background colour, element palettes, D/T labels, chiral flag, a wedge on a centre that is not stereogenic) | study rank 18, F7, matrix #12 #13 #56 #58 | QUEUED | one row; split when one is taken |
+| rdkit-compare: guard test for the spacing of separate pieces (salt, phosphate of the comparison set) so a layout change cannot lose it | study §5, matrix #11 | QUEUED | test-only |
