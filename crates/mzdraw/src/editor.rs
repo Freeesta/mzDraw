@@ -1163,7 +1163,7 @@ impl Editor {
             // a face of a group that a stored file names but this version cannot show (a member that was removed or is in view on its
             // own now, a group with no memory) is dropped; the other faces and the rest of the file are taken. `--set` stays strict.
             if let Some(heads) = v.pointer_mut("/layout/heads") {
-                let before = heads.to_string();
+                let before = heads.clone();
                 match heads.as_object_mut() {
                     Some(o) => o.retain(|g, m| {
                         crate::tool_groups::Group::named(g).is_none()
@@ -1173,7 +1173,7 @@ impl Editor {
                     }),
                     None => *heads = serde_json::json!({}),
                 }
-                if heads.to_string() != before {
+                if *heads != before {
                     text = v.to_string();
                     notes.push("draw2.layout.heads");
                 }
