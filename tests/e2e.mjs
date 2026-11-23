@@ -1271,6 +1271,14 @@ try {
     await pg.locator("#d2-style-more summary").tap(); await pg.locator("#d2-style-more summary").tap();       // a tap on the summary: open, shut
     await displayModes(pg, pick, () => pg.touchscreen.tap(cx, cy));
   });
+  await step("display modes by pen: the hashed bond is drawn with the pen and shown as parallel lines of one length", async () => {
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const pick = async (id, word) => { await pg.locator(`[id="d2-style-${id}"]`).selectOption(word); };
+    pick.how = "pen";
+    await displayModes(pg, pick, async () => { await pen("mouseMoved", cx, cy); await pen("mousePressed", cx, cy); await pen("mouseReleased", cx, cy); });
+  });
+
   await ctx.close();
   // the desktop palettes in a context with a mouse and keyboard only (a touch screen gets the 44 px handles, tested on the tablet)
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
@@ -2063,14 +2071,6 @@ try {
     assert((await g.smiles()) !== was, "the pen drag changed the configuration"); eq(await shown(), await say(g.centre));
     // (last step of this context: the tap that follows a synthetic drag is dropped, so nothing that needs a tap comes after it)
   });
-  await step("display modes by pen: the hashed bond is drawn with the pen and shown as parallel lines of one length", async () => {
-    const cdp = await pg.context().newCDPSession(pg);
-    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
-    const pick = async (id, word) => { await pg.locator(`[id="d2-style-${id}"]`).selectOption(word); };
-    pick.how = "pen";
-    await displayModes(pg, pick, async () => { await pen("mouseMoved", cx, cy); await pen("mousePressed", cx, cy); await pen("mouseReleased", cx, cy); });
-  });
-
   await ctx.close();
   // The context menu of the canvas (web/context.js paints what Editor::context_menu builds; Rust decides every item)
   const ring = async (pg, cx, cy) => { await tool(pg, "clear"); await tool(pg, "ring:6a"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 6, bonds: 6 }); await tool(pg, "select"); };
