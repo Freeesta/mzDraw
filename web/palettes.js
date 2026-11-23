@@ -12,15 +12,10 @@ const P = NAMES.id;
  * collapsed (then its head stands for them); `tool`: the head shows the kind last used; `owns`: the tools whose name starts so
  * count as the palette's (the head is pressed); `fields`: typed entries, always in the flyout; `more`: the icon of the head of an
  * expanded palette that has fields; `head`: the icon of the head of a collapsed palette that is not a tool palette. The six side
- * palettes are written in index.html. */
+ * palettes are written in index.html. The tools palette is not here: it is one general palette whose places and groups the module
+ * answers (`slots` of `palettes`, `tool_groups.rs`), see `general`. */
 const SPEC = /** @type {Record<string, any>} */ ({
-  tools: { items: ["select", "move-here", "erase"], tool: true },
-  // the kinds drawn most (single and double bond, the wedges, benzene, cyclohexane, cyclopentane, a charge, an arrow, a plus) stay in view when the palette is collapsed
-  bonds: { keep: ["bond:1", "bond:2", "bond:up", "bond:down", "chain"], items: ["bond:3", "bond:wavy", "bond:dash", "bond:bdash", "bond:hash", "bond:bold", "bond:dative", "bond:hbond"], tool: true },
-  rings: { keep: ["ring:6a", "ring:6", "ring:5"], items: ["ring:3", "ring:4", "ring:7", "ring:8"], tool: true },
-  atoms: { keep: ["atom:C", "atom:N", "atom:O"], items: ["atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "atom:B", "atom:Si"], head: "elements", more: "elements", owns: "atom:", fields: ["atom"], grid: true },
-  charges: { keep: ["charge:+", "charge:-"], items: [], head: "label", owns: "label:", fields: ["label"], more: "label" },
-  objects: { keep: ["arrow", "plus", "scheme-row", "pathway-tree", "pathway-label"], items: ["lonepair", "curve:full", "curve:half", "lonepairs-place"], head: "text", owns: "text:", fields: ["text"], more: "text" },
+  tools: { general: true },
   file: { items: ["open", "save", "saveas", "clear", "prefs", "palettes"], head: "open" },
   history: { items: ["undo", "redo"], head: "undo" },
   edit: { items: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v", "colour", "arrange", "scheme-orient"], head: "more" },
@@ -51,10 +46,11 @@ function face(c) {
   return s;
 }
 
-/** one button of a palette or a flyout @param {string} c @param {string} pal */
-function button(c, pal) {
+/** one button of a palette or a flyout; a clone is the second button of a tool that is in view on its own, listed in its group too
+ * (it has no test id: the one in view keeps it) @param {string} c @param {string} pal @param {boolean} [clone] */
+function button(c, pal, clone = false) {
   const b = document.createElement("button"), k = keyOf(c), t = ctx.t;
-  b.type = "button"; b.dataset.testid = P + c;
+  b.type = "button"; if (!clone) b.dataset.testid = P + c;
   if (c in OPENERS) { b.dataset.opens = c; b.setAttribute("aria-expanded", "false"); b.setAttribute("aria-controls", P + "fly-" + c); }
   else b.dataset.cmd = c;
   b.append(c in OPENERS ? icon(OPENERS[/** @type {"saveas" | "palettes" | "prefs" | "colour" | "arrange"} */ (c)]) : face(c));
@@ -106,7 +102,8 @@ export function open(name, show, focus = false) {
   f.fly.hidden = !show; f.btn.setAttribute("aria-expanded", String(show));
   if (!show) return;
   const r = f.btn.getBoundingClientRect(), el = pals[f.pal].el, dock = el.dataset.dock, row = el.dataset.orient === "h", w = f.fly.offsetWidth, h = f.fly.offsetHeight;
-  const [x, y] = dock === "right" ? [r.left - w - 6, r.top] : dock === "bottom" ? [r.left, r.top - h - 6] : row || f.btn.closest(".fly") ? [r.left, r.bottom + 6] : [r.right + 6, r.top];
+  const pr = el.getBoundingClientRect();       // beside the whole palette, which may be two columns wide
+  const [x, y] = dock === "right" ? [pr.left - w - 6, r.top] : dock === "bottom" ? [r.left, r.top - h - 6] : row || f.btn.closest(".fly") ? [r.left, r.bottom + 6] : [pr.right + 6, r.top];
   f.fly.style.left = Math.max(4, Math.min(x, innerWidth - w - 4)) + "px"; f.fly.style.top = Math.max(4, Math.min(y, innerHeight - h - 4)) + "px";
   if (focus) /** @type {HTMLElement} */ (f.fly.querySelector('[aria-pressed="true"]') || f.fly.querySelector("button:not(:disabled), input"))?.focus();
 }
@@ -173,6 +170,7 @@ function after(f, keep) {
 
 /** a palette of tools or commands @param {string} id */
 function palette(id) {
+  if (SPEC[id].general) return general(id);
   const spec = SPEC[id], el = document.createElement("div"), items = document.createElement("div"), head = document.createElement("button");
   el.className = "pal"; el.id = P + "pal-" + id; el.dataset.pal = id;
   el.setAttribute("role", "toolbar"); el.setAttribute("aria-label", ctx.t(`draw2.pal.${id}`));
@@ -196,8 +194,7 @@ function palette(id) {
   items.addEventListener("keydown", e => {
     const all = /** @type {HTMLElement[]} */ ([...items.children]).filter(b => !(/** @type {HTMLButtonElement} */ (b).disabled)), i = all.indexOf(/** @type {HTMLElement} */ (e.target));
     if (i < 0) return;
-    const row = el.dataset.orient === "h", [next, prev] = row ? ["ArrowRight", "ArrowLeft"] : ["ArrowDown", "ArrowUp"];
-    const across = row ? (el.dataset.dock === "bottom" ? "ArrowUp" : "ArrowDown") : (el.dataset.dock === "right" ? "ArrowLeft" : "ArrowRight");
+    const { next, prev, across } = el.dataset;          // the keys of this palette, as the module says
     const to = e.key === next ? all[(i + 1) % all.length] : e.key === prev ? all[(i - 1 + all.length) % all.length] : e.key === "Home" ? all[0] : e.key === "End" ? all[all.length - 1] : null;
     const name = /** @type {HTMLElement} */ (e.target).dataset.opens || (e.target === head ? id : "");
     if (to) { e.preventDefault(); to.focus(); }
@@ -209,6 +206,66 @@ function palette(id) {
   const arrange = flys.arrange?.fly;
   if (id === "edit" && arrange) arrange.append(...ARRANGE.map(c => button(c, id)), ...ctx.field("rotate"));
   return el;
+}
+
+/** the general tools palette: the tools used most, each on its own, and one button per group of tools (bonds, rings, more elements,
+ * charges, reaction objects, text). The module says what is in it, in which order and which member stands for each group (`slots`);
+ * a click on a group selects the member shown and opens the list of every member; the member picked from the list is the one shown
+ * from then on. @param {string} id */
+function general(id) {
+  const el = document.createElement("div"), items = document.createElement("div"), a = JSON.parse(ed().palettes(innerWidth, innerHeight, ""));
+  el.className = "pal"; el.id = P + "pal-" + id; el.dataset.pal = id;
+  el.setAttribute("role", "toolbar"); el.setAttribute("aria-label", ctx.t(`draw2.pal.${id}`));
+  items.className = "items general"; items.style.setProperty("--rows", a.rows);
+  const p = { id, el, items, spec: null, general: true, groups: /** @type {Record<string, any>} */ ({}), collapsed: false };
+  pals[id] = p;
+  for (const s of a.slots) {
+    if (s.cmd) { items.append(button(s.cmd, id)); continue; }
+    const head = document.createElement("button"), fly = flyout(s.group, head, id), name = s.group, g = { ...s, head, fly };
+    head.type = "button"; head.className = "head"; head.dataset.testid = P + "head-" + name; head.dataset.head = name;
+    head.setAttribute("aria-expanded", "false"); head.setAttribute("aria-controls", P + "fly-" + name);
+    head.setAttribute("aria-haspopup", "true");          // the list; the group in use is `aria-current`, not a pressed state beside an expanded one
+    // the list holds every member (a kind in view on its own is listed again, without its test id) and the typed entries
+    fly.append(...s.members.map((/** @type {string} */ c) => button(c, id, s.keep.includes(c))), ...s.fields.flatMap((/** @type {string} */ k) => ctx.field(k)));
+    if (s.grid) fly.classList.add("grid");
+    // a click on a closed list asks the module to select the member shown (it decides whether that is the tool already, and whether the
+    // group has a member to show) and opens the list; a click on a list that is open shuts it
+    head.addEventListener("click", e => {
+      if (fly.hidden) ctx.run("group:" + name);
+      open(name, fly.hidden, !e.detail);
+    });
+    // Escape on the button of a list that a pointer opened shuts it (the keys of a list that is entered by keyboard are the list's own)
+    head.addEventListener("keydown", e => { if (e.key === "Escape" && !fly.hidden) { e.preventDefault(); e.stopPropagation(); open(name, false); } });
+    p.groups[name] = g; items.append(head);
+  }
+  // one tab stop: the arrow keys move along the palette (column after column), and across it they open the list of a group
+  items.addEventListener("keydown", e => {
+    const all = /** @type {HTMLElement[]} */ ([...items.children]).filter(b => !(/** @type {HTMLButtonElement} */ (b).disabled)), i = all.indexOf(/** @type {HTMLElement} */ (e.target));
+    if (i < 0) return;
+    const { next, prev, across } = el.dataset;          // the keys of this palette, as the module says
+    const to = e.key === next ? all[(i + 1) % all.length] : e.key === prev ? all[(i - 1 + all.length) % all.length] : e.key === "Home" ? all[0] : e.key === "End" ? all[all.length - 1] : null;
+    const name = /** @type {HTMLElement} */ (e.target).dataset.head || "";
+    if (to) { e.preventDefault(); to.focus(); }
+    else if (e.key === across && name) { e.preventDefault(); open(name, true, true); }
+  });
+  items.addEventListener("focusin", e => rove(p, /** @type {HTMLElement} */ (e.target)));
+  el.append(grip(id), items); altKeys(el, id);
+  faces(a.slots); rove(p);
+  return el;
+}
+
+/** the face of each group button as the module says: the member used last, or the icon of the group @param {any[]} slots */
+function faces(slots) {
+  const p = pals.tools;
+  for (const s of slots) {
+    const g = s.group && p?.groups[s.group];
+    if (!g || g.face === s.face && g.head.firstChild) continue;
+    g.face = s.face;
+    g.head.replaceChildren(s.face ? face(s.face) : icon(s.icon));
+    // the button names the group and its face: "Bonds: Single bond", then what it does
+    const t = ctx.t, label = t(`draw2.fly.${s.group}`), what = s.face ? `${label}: ${t(`draw2.tool.${keyOf(s.face)}`)}` : label;
+    g.head.setAttribute("aria-label", what); g.head.title = `${what} ${t(`draw2.pal.${s.group}.head`)}`;
+  }
 }
 
 /** one tab stop per palette: the item that had the focus last @param {any} p @param {HTMLElement} [to] */
@@ -236,6 +293,8 @@ function fold(p, collapsed) {
  * @param {any} st */
 export function show(st) {
   for (const p of Object.values(pals)) {
+    // a group button is pressed when the tool is a member that is not in view on its own, or one the group owns (a typed element, a label, a text)
+    if (p.groups) { const on = JSON.parse(ed().pressed_groups()); for (const [n, g] of Object.entries(p.groups)) { if (on.includes(n)) g.head.setAttribute("aria-current", "true"); else g.head.removeAttribute("aria-current"); } }
     if (!p.spec) continue;
     // the head shows, and runs, the kind last used, whether that kind is kept in view or in the flyout
     if (p.spec.tool && [...(p.spec.keep || []), ...p.spec.items].includes(st.tool) && p.last !== st.tool) { p.last = st.tool; if (p.collapsed) p.head.replaceChildren(face(p.last)); }
@@ -258,6 +317,7 @@ export function layout() {
   for (const r of a.palettes) shape(r);
   a = JSON.parse(ed().palettes(w, h, JSON.stringify(measure())));
   last = a;
+  faces(a.slots);
   for (const r of a.palettes) { shape(r); const el = pals[r.id]?.el; if (el) { el.style.left = r.x + "px"; el.style.top = r.y + "px"; } }
   // the module says which palette is being dragged and the edge it docks on if it is let go now; the page paints both
   const hint = $(P + "dock-hint");
@@ -273,8 +333,10 @@ export function layout() {
 function shape(r) {
   const p = pals[r.id];
   if (!p) return;
+  p.el.dataset.next = r.next; p.el.dataset.prev = r.prev; p.el.dataset.across = r.across;
   p.el.hidden = r.hidden; p.el.style.maxHeight = r.capped ? r.h + "px" : ""; p.el.dataset.dock = r.dock; p.el.dataset.orient = r.horizontal ? "h" : "v";
   p.el.setAttribute("aria-orientation", r.horizontal ? "horizontal" : "vertical");
+  if (p.general) return;
   if (p.spec) fold(p, r.collapsed);
   else if (!p.pending && p.body.open === r.collapsed) p.body.open = !r.collapsed;
 }
@@ -330,7 +392,7 @@ function menuState(a) {
     const r = a.palettes.find((/** @type {any} */ x) => x.id === c.dataset.pal);
     if (!r) continue;
     c.checked = c.dataset.act === "hidden" ? !r.hidden : c.dataset.act === "collapsed" ? r.collapsed : r.horizontal;
-    c.disabled = c.dataset.act === "orient" && !r.can_turn;
+    c.disabled = (c.dataset.act === "orient" && !r.can_turn) || (c.dataset.act === "collapsed" && !r.can_collapse);
   }
 }
 

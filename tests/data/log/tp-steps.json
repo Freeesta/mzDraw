@@ -131,7 +131,7 @@
   "results": [
     {
       "name": "tp-10: out steps is the table (steps/1)",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"steps/1\\\",\\\"steps\\\":[{\\\"delta\\\":\\\"+O\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"hydroxylation\\\"},{\\\"delta\\\":\\\"-CH2\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"n-demethylation\\\"},{\\\"delta\\\":\\\"-CH2\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"o-demethylation\\\"},{\\\"delta\\\":\\\"+O\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"n-oxidation\\\"},{\\\"delta\\\":\\\"-H2\\\",\\\"kind\\\":\\\"bond\\\",\\\"name\\\":\\\"dehydrogenation\\\"},{\\\"delta\\\":\\\"+H2O\\\",\\\"kind\\\":\\\"bond\\\",\\\"name\\\":\\\"hydration\\\"},{\\\"delta\\\":\\\"+H-Cl\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"dechlorination\\\"},{\\\"delta\\\":\\\"+H-Br\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"debromination\\\"},{\\\"delta\\\":\\\"+H2O\\\",\\\"kind\\\":\\\"bond\\\",\\\"name\\\":\\\"hydrolysis\\\"},{\\\"delta\\\":\\\"+C2H2O\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"acetylation\\\"},{\\\"delta\\\":\\\"+O3S\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"sulfation\\\"},{\\\"delta\\\":\\\"+C6H8O6\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"glucuronidation\\\"},{\\\"delta\\\":\\\"-CO2\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"decarboxylation\\\"}]}\",\"created\":{},\"removed\":{}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"steps/1\\\",\\\"steps\\\":[{\\\"delta\\\":\\\"+O\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"hydroxylation\\\"},{\\\"delta\\\":\\\"-CH2\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"n-demethylation\\\"},{\\\"delta\\\":\\\"-CH2\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"o-demethylation\\\"},{\\\"delta\\\":\\\"+O\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"n-oxidation\\\"},{\\\"delta\\\":\\\"-H2\\\",\\\"kind\\\":\\\"bond\\\",\\\"name\\\":\\\"dehydrogenation\\\"},{\\\"delta\\\":\\\"+H2O\\\",\\\"kind\\\":\\\"bond\\\",\\\"name\\\":\\\"hydration\\\"},{\\\"delta\\\":\\\"+H-Cl\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"dechlorination\\\"},{\\\"delta\\\":\\\"+H-Br\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"debromination\\\"},{\\\"delta\\\":\\\"+H2O\\\",\\\"kind\\\":\\\"bond\\\",\\\"name\\\":\\\"hydrolysis\\\"},{\\\"delta\\\":\\\"+C2H2O\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"acetylation\\\"},{\\\"delta\\\":\\\"+O3S\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"sulfation\\\"},{\\\"delta\\\":\\\"+C6H8O6\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"glucuronidation\\\"},{\\\"delta\\\":\\\"-CO2\\\",\\\"kind\\\":\\\"atom\\\",\\\"name\\\":\\\"decarboxylation\\\"}]}\",\"created\":{},\"removed\":{},\"dirty\":false}",
       "request": {
         "out": "steps",
         "report": true
@@ -139,7 +139,7 @@
     },
     {
       "name": "tp-10: out sites lists the atom ids of a step (sites/1)",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"delta\\\":\\\"+O\\\",\\\"format\\\":\\\"sites/1\\\",\\\"ids\\\":[1,3,5,6,7,8,13],\\\"kind\\\":\\\"atom\\\",\\\"step\\\":\\\"hydroxylation\\\"}\",\"created\":{},\"removed\":{}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"delta\\\":\\\"+O\\\",\\\"format\\\":\\\"sites/1\\\",\\\"ids\\\":[1,3,5,6,7,8,13],\\\"kind\\\":\\\"atom\\\",\\\"step\\\":\\\"hydroxylation\\\"}\",\"created\":{},\"removed\":{},\"dirty\":false}",
       "request": {
         "args": {
           "of": 1,
@@ -152,7 +152,7 @@
     },
     {
       "name": "tp-10: out sites lists the bond ids of a bond step",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"delta\\\":\\\"+H2O\\\",\\\"format\\\":\\\"sites/1\\\",\\\"ids\\\":[25],\\\"kind\\\":\\\"bond\\\",\\\"step\\\":\\\"hydrolysis\\\"}\",\"created\":{},\"removed\":{}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"delta\\\":\\\"+H2O\\\",\\\"format\\\":\\\"sites/1\\\",\\\"ids\\\":[25],\\\"kind\\\":\\\"bond\\\",\\\"step\\\":\\\"hydrolysis\\\"}\",\"created\":{},\"removed\":{},\"dirty\":false}",
       "request": {
         "args": {
           "of": 1,
@@ -165,7 +165,7 @@
     },
     {
       "name": "tp-10: a step at an atom that is not a site is error.draw2.tpSite (a verdict, stage command)",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.tpSite\",\"id\":0}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.tpSite\",\"id\":0},\"dirty\":false}",
       "request": {
         "commands": [
           {
@@ -183,7 +183,7 @@
     },
     {
       "name": "tp-10: derive by step then pathway.label=name+delta writes the step name and the delta on the arrow",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":8,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0,\\\"map\\\":1},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0,\\\"map\\\":2},{\\\"id\\\":4,\\\"el\\\":\\\"C\\\",\\\"x\\\":3.5,\\\"y\\\":0.0,\\\"map\\\":1},{\\\"id\\\":5,\\\"el\\\":\\\"C\\\",\\\"x\\\":4.5,\\\"y\\\":0.0,\\\"map\\\":2}],\\\"bonds\\\":[{\\\"id\\\":3,\\\"a\\\":1,\\\"b\\\":2,\\\"o\\\":1},{\\\"id\\\":6,\\\"a\\\":4,\\\"b\\\":5,\\\"o\\\":2}],\\\"objects\\\":[{\\\"id\\\":7,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.35,\\\"y\\\":0.0,\\\"x2\\\":3.15,\\\"text\\\":\\\"dehydrogenation -H2\\\",\\\"from\\\":1,\\\"to\\\":4}]}\",\"created\":{\"atoms\":[4,5],\"bonds\":[6],\"objects\":[7]},\"removed\":{},\"changed\":true}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":8,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0,\\\"map\\\":1},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0,\\\"map\\\":2},{\\\"id\\\":4,\\\"el\\\":\\\"C\\\",\\\"x\\\":3.5,\\\"y\\\":0.0,\\\"map\\\":1},{\\\"id\\\":5,\\\"el\\\":\\\"C\\\",\\\"x\\\":4.5,\\\"y\\\":0.0,\\\"map\\\":2}],\\\"bonds\\\":[{\\\"id\\\":3,\\\"a\\\":1,\\\"b\\\":2,\\\"o\\\":1},{\\\"id\\\":6,\\\"a\\\":4,\\\"b\\\":5,\\\"o\\\":2}],\\\"objects\\\":[{\\\"id\\\":7,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.35,\\\"y\\\":0.0,\\\"x2\\\":3.15,\\\"text\\\":\\\"dehydrogenation -H2\\\",\\\"from\\\":1,\\\"to\\\":4}]}\",\"created\":{\"atoms\":[4,5],\"bonds\":[6],\"objects\":[7]},\"removed\":{},\"changed\":true,\"dirty\":true}",
       "request": {
         "commands": [
           {

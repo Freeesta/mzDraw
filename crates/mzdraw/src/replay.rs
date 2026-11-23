@@ -504,6 +504,8 @@ pub fn replay_with(
     if let Some(bytes) = &r.import_base64 {
         e.import_bytes(bytes).map_err(fail)?;
     }
+    // a start text or file is an opened drawing: clean, until something is done to it
+    e.mark_saved();
     if let Some(style) = &r.style {
         e.set_style(style).map_err(fail)?;
     }
@@ -682,6 +684,7 @@ pub fn replay_with(
         lost: Vec::new(),
         failed,
         changed: before_commands.map(|b| b != e.doc().to_json()),
+        dirty: e.dirty(),
         orient: orients.then(|| e.orient_steps.clone()),
         expect,
     };

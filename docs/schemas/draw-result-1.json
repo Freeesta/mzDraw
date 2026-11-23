@@ -4,8 +4,8 @@
   "title": "draw-result/1: the verdict of a replay request (mzdraw::outcome)",
   "description": "Checked by crates/mzdraw/tests/outcome.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text, also inside failed, created, removed and each expect item), the required keys, the types and the stage values are asserted by hand; the other constraints here are documentation. The request `diff` (plan-15) is not answered by this document: it stands alone and any of `report`, `dry_run`, `expect`, `id` with it is the keyed error `error.draw2.diffAlone`.",
   "type": "object",
-  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed", "changed", "orient", "expect"],
-  "required": ["format", "id", "ok", "created", "removed"],
+  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed", "changed", "dirty", "orient", "expect"],
+  "required": ["format", "id", "ok", "created", "removed", "dirty"],
   "additionalProperties": false,
   "$defs": {
     "ids": {
@@ -41,6 +41,7 @@
       }
     },
     "changed": { "type": "boolean", "description": "present when a command of the request reports whether it changed the drawing (today scheme:orient, pathway:anchor and pathway:route): whether the commands changed it (false: a no-op, nothing was changed)" },
+    "dirty": { "type": "boolean", "description": "whether the final drawing differs from the saved point: a start text or file (import) and the command save set the point, any edit clears it, undo back to it makes the drawing clean again; the commands new and open refuse a dirty drawing unless their args say discard true (error.draw2.unsaved)" },
     "orient": {
       "type": "array",
       "description": "only when a command was scheme:orient: one item per product structure of its last run, in the order the plan took them",

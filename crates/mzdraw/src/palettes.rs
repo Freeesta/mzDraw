@@ -8,6 +8,7 @@
 //! user did not move. Keys and palette ids this version does not know are kept and written back.
 
 use crate::doc::Writer;
+use crate::tool_groups::{Group, Heads, Slot, ROWS, SLOTS};
 use serde_json::Value;
 
 /// An edge of the page a palette is docked on, or none (`Float`).
@@ -115,13 +116,8 @@ fn point(x: f64, y: f64) -> Option<(f64, f64)> {
 }
 
 /// The palettes of the page in their desktop place: id, edge, order along it, collapsed to its head.
-pub const PALETTES: [(&str, Dock, u32, bool); 16] = [
+pub const PALETTES: [(&str, Dock, u32, bool); 11] = [
     ("tools", Dock::Left, 1, false),
-    ("bonds", Dock::Left, 2, true),
-    ("rings", Dock::Left, 3, true),
-    ("atoms", Dock::Left, 4, true),
-    ("charges", Dock::Left, 5, true),
-    ("objects", Dock::Left, 6, true),
     ("file", Dock::Top, 1, false),
     ("history", Dock::Top, 2, false),
     ("edit", Dock::Top, 3, true),
@@ -158,6 +154,10 @@ fn water_level(hs: &[f64], room: f64) -> f64 {
         (left / n).floor().max(MIN_CUT)
     }
 }
+
+/// The palettes of the layouts before the general tools palette: their tools are groups of `tools` now (`tool_groups`). A stored
+/// layout that names them is read as the new default for the tools, with the note `draw2.layout.migrated`.
+pub const LEGACY: [&str; 5] = ["bonds", "rings", "atoms", "charges", "objects"];
 
 const SIDE: [&str; 6] = ["structure", "style", "data", "annotation", "check", "keys"];
 
@@ -278,6 +278,15 @@ pub struct Layout {
     /// Entries of palettes this version does not know and keys of the object it does not know, as JSON text.
     unknown_entries: Vec<String>,
     unknown_keys: Vec<(String, String)>,
+    /// The face of each group of the tools palette: the member used last (`tool_groups`); and the faces of groups this version
+    /// does not know, as JSON text.
+    heads: Heads,
+    unknown_heads: Vec<(String, String)>,
+    /// `slots_json` for the faces it was written with: a layout runs on every frame of a drag, the faces change rarely.
+    slots_cache: Option<(Heads, String)>,
+    /// The layout read had palettes of the layouts before the general tools palette: they were dropped and the tools take their
+    /// default place (the page says so once, with `draw2.layout.migrated`).
+    pub migrated: bool,
     /// The viewport and the sizes of the palettes the page measured last.
     view: (f64, f64),
     sizes: Vec<(String, f64, f64)>,
@@ -293,6 +302,10 @@ impl Default for Layout {
             changed: Vec::new(),
             unknown_entries: Vec::new(),
             unknown_keys: Vec::new(),
+            heads: Heads::default(),
+            unknown_heads: Vec::new(),
+            slots_cache: None,
+            migrated: false,
             view: (1280.0, 800.0),
             sizes: Vec::new(),
             grab: None,
@@ -383,9 +396,23 @@ impl Layout {
                 }
                 "snap" => l.snap = x.as_f64().filter(|s| (0.0..=64.0).contains(s)).ok_or(ERR)?,
                 "all_hidden" => l.all_hidden = x.as_bool().ok_or(ERR)?,
+                "heads" => {
+                    for (g, m) in x.as_object().ok_or(ERR)? {
+                        if Group::named(g).is_none() {
+                            l.unknown_heads.push((g.clone(), m.to_string()));
+                        } else {
+                            l.heads.set(g, m.as_str().ok_or(ERR)?)?;
+                        }
+                    }
+                }
                 "palettes" => {
                     for e in x.as_array().ok_or(ERR)? {
                         let id = e.get("id").and_then(Value::as_str).ok_or(ERR)?;
+                        // a palette of the layouts before the general tools palette: its tools are groups of `tools` now
+                        if LEGACY.contains(&id) {
+                            l.migrated = true;
+                            continue;
+                        }
                         if PALETTES.iter().all(|p| p.0 != id) {
                             l.unknown_entries.push(e.to_string());
                             continue;
@@ -438,6 +465,18 @@ impl Layout {
                 _ => l.unknown_keys.push((k.clone(), x.to_string())),
             }
         }
+        // the old tools palette could be collapsed to its head; the general one never is
+        if l.migrated {
+            for c in l.changed.iter_mut().filter(|c| c.id == "tools") {
+                c.collapsed = None;
+            }
+            l.changed.retain(|c| {
+                *c != Change {
+                    id: c.id.clone(),
+                    ..Default::default()
+                }
+            });
+        }
         Ok(l)
     }
 
@@ -456,6 +495,16 @@ impl Layout {
         }
         if self.all_hidden {
             o.raw("all_hidden", "true");
+        }
+        if !self.heads.is_empty() || !self.unknown_heads.is_empty() {
+            let mut h = Writer("{".into());
+            for (g, m) in self.heads.entries() {
+                h.text(g, m);
+            }
+            for (g, m) in &self.unknown_heads {
+                h.raw(g, m);
+            }
+            o.raw("heads", &(h.0 + "}"));
         }
         let mut list: Vec<String> = Vec::new();
         for c in &self.changed {
@@ -507,6 +556,10 @@ impl Layout {
                     .ok_or(ERR)?
             }
             "reset" => self.reset(),
+            // the face of a group of the tools palette: `heads.bonds=bond:wavy`
+            k if k.starts_with("heads.") => {
+                self.heads.set(&k["heads.".len()..], v)?;
+            }
             _ => return Err("error.draw2.set"),
         }
         Ok(())
@@ -516,6 +569,7 @@ impl Layout {
     pub fn reset(&mut self) {
         self.changed.clear();
         self.all_hidden = false;
+        self.heads.clear();
         self.grab = None;
     }
 
@@ -640,72 +694,97 @@ impl Layout {
         let left = column(Dock::Left, 0.0, &mut out);
         let right = column(Dock::Right, left, &mut out).min(w - left);
         // a floating palette stays where it was dropped, inside the viewport; where that lies over another palette it moves to the nearest
-        // place beside it (flush against an edge of what it overlaps) that is free, so that no two palettes ever overlap
+        // place beside it (flush against an edge of what it overlaps, else the nearest free spot of an 8 px grid) that is free, so that no two
+        // palettes ever overlap. The largest go first (a small one finds a place between the others more easily). If some palette finds no
+        // place that way, they are all put again in the first free spot from the top left, row by row.
         let held = self.grab.as_ref().map(|g| g.id.clone());
-        for p in all.iter().filter(|p| p.dock == Dock::Float && shown(p)) {
-            let s = size(&p.id);
-            let (mx, my) = ((w - s.0).max(0.0), (h - s.1).max(0.0));
-            let (x, y) = (within(p.x, 0.0, mx), within(p.y, 0.0, my));
-            let hit = |x: f64, y: f64, out: &[Rect]| {
-                out.iter().any(|r| {
-                    !r.hidden
-                        && x < r.x + r.w - 0.01
-                        && r.x < x + s.0 - 0.01
-                        && y < r.y + r.h - 0.01
-                        && r.y < y + s.1 - 0.01
-                })
-            };
-            let (mut bx, mut by) = (x, y);
-            // the palette in the hand follows the pointer wherever it is, over others too; it is placed when it is let go
-            if hit(x, y, &out) && held.as_deref() != Some(p.id.as_str()) {
-                let mut cands: Vec<(f64, f64)> = vec![(0.0, 0.0), (mx, 0.0), (0.0, my), (mx, my)];
-                for r in out.iter().filter(|r| !r.hidden) {
-                    for (cx, cy) in [
-                        (r.x + r.w, y),
-                        (r.x - s.0, y),
-                        (x, r.y + r.h),
-                        (x, r.y - s.1),
-                    ] {
-                        cands.push((within(cx, 0.0, mx), within(cy, 0.0, my)));
-                    }
-                    for (cx, cy) in [
-                        (r.x + r.w, r.y),
-                        (r.x - s.0, r.y),
-                        (r.x, r.y + r.h),
-                        (r.x, r.y - s.1),
-                    ] {
-                        cands.push((within(cx, 0.0, mx), within(cy, 0.0, my)));
-                    }
-                }
-                let mut best: Option<(f64, f64, f64)> = None;
-                for (cx, cy) in cands {
-                    let d = (cx - x) * (cx - x) + (cy - y) * (cy - y);
-                    if best.is_none_or(|b| d < b.0) && !hit(cx, cy, &out) {
-                        best = Some((d, cx, cy));
-                    }
-                }
-                if best.is_none() {
-                    // no place flush against a neighbour: the nearest free place on a grid of 8 pixels
-                    let (mut gy, mut gx);
-                    gy = 0.0;
-                    while gy <= my + 0.001 {
-                        gx = 0.0;
-                        while gx <= mx + 0.001 {
-                            let (cx, cy) = (gx.min(mx), gy.min(my));
+        let mut floats: Vec<&Palette> = all
+            .iter()
+            .filter(|p| p.dock == Dock::Float && shown(p))
+            .collect();
+        floats.sort_by(|a, b| {
+            let (sa, sb) = (size(&a.id), size(&b.id));
+            (sb.0 * sb.1).total_cmp(&(sa.0 * sa.1))
+        });
+        let hits = |s: (f64, f64), x: f64, y: f64, out: &[Rect]| {
+            out.iter().any(|r| {
+                !r.hidden
+                    && x < r.x + r.w - 0.01
+                    && r.x < x + s.0 - 0.01
+                    && y < r.y + r.h - 0.01
+                    && r.y < y + s.1 - 0.01
+            })
+        };
+        // `scan`: the first free place from the top left instead of the nearest one; returns whether every palette found a free place
+        let place = |scan: bool, out: &mut Vec<Rect>| -> bool {
+            let mut ok = true;
+            for p in &floats {
+                let s = size(&p.id);
+                let (mx, my) = ((w - s.0).max(0.0), (h - s.1).max(0.0));
+                let (x, y) = (within(p.x, 0.0, mx), within(p.y, 0.0, my));
+                let (mut bx, mut by) = (x, y);
+                // the palette in the hand follows the pointer wherever it is, over others too; it is placed when it is let go
+                let free = held.as_deref() == Some(p.id.as_str()) || !hits(s, x, y, out);
+                if !free || scan {
+                    let mut best: Option<(f64, f64, f64)> = None;
+                    if !scan {
+                        let mut cands: Vec<(f64, f64)> =
+                            vec![(0.0, 0.0), (mx, 0.0), (0.0, my), (mx, my)];
+                        for r in out.iter().filter(|r| !r.hidden) {
+                            for (cx, cy) in [
+                                (r.x + r.w, y),
+                                (r.x - s.0, y),
+                                (x, r.y + r.h),
+                                (x, r.y - s.1),
+                                (r.x + r.w, r.y),
+                                (r.x - s.0, r.y),
+                                (r.x, r.y + r.h),
+                                (r.x, r.y - s.1),
+                            ] {
+                                cands.push((within(cx, 0.0, mx), within(cy, 0.0, my)));
+                            }
+                        }
+                        for (cx, cy) in cands {
                             let d = (cx - x) * (cx - x) + (cy - y) * (cy - y);
-                            if best.is_none_or(|b| d < b.0) && !hit(cx, cy, &out) {
+                            if best.is_none_or(|b| d < b.0) && !hits(s, cx, cy, out) {
                                 best = Some((d, cx, cy));
                             }
-                            gx += 8.0;
                         }
-                        gy += 8.0;
+                    }
+                    if best.is_none() {
+                        let mut gy = 0.0;
+                        'rows: while gy <= my + 0.001 {
+                            let mut gx = 0.0;
+                            while gx <= mx + 0.001 {
+                                let (cx, cy) = (gx.min(mx), gy.min(my));
+                                let d = (cx - x) * (cx - x) + (cy - y) * (cy - y);
+                                if !hits(s, cx, cy, out) {
+                                    if scan {
+                                        best = Some((d, cx, cy));
+                                        break 'rows;
+                                    }
+                                    if best.is_none_or(|b| d < b.0) {
+                                        best = Some((d, cx, cy));
+                                    }
+                                }
+                                gx += 8.0;
+                            }
+                            gy += 8.0;
+                        }
+                    }
+                    match best {
+                        Some((_, cx, cy)) => (bx, by) = (cx, cy),
+                        None => ok = false,
                     }
                 }
-                if let Some((_, cx, cy)) = best {
-                    (bx, by) = (cx, cy);
-                }
+                out.push(rect(p, bx, by, s));
             }
-            out.push(rect(p, bx, by, s));
+            ok
+        };
+        let docked = out.len();
+        if !place(false, &mut out) {
+            out.truncate(docked);
+            place(true, &mut out);
         }
         // a viewport too small for every edge to wrap in: the palettes overlap rather than leave it
         for r in out.iter_mut() {
@@ -1021,7 +1100,8 @@ impl Layout {
         };
         match what {
             "hidden" => p.hidden = !p.hidden,
-            "collapsed" => p.collapsed = !p.collapsed,
+            // the general tools palette is always whole: its groups fold into their own lists
+            "collapsed" if p.id != "tools" => p.collapsed = !p.collapsed,
             "orient" if p.dock == Dock::Float => p.horizontal = !p.horizontal,
             _ => return false,
         }
@@ -1054,6 +1134,17 @@ impl Layout {
                 e.raw("capped", bool(r.capped));
                 // only a floating palette turns between a row and a column
                 e.raw("can_turn", bool(r.dock == Dock::Float));
+                e.raw("can_collapse", bool(r.id != "tools"));
+                // the keys of the palette: along it, and across it to open the list of a group (along the edge it is docked on)
+                let (next, prev, across) = match (r.horizontal, r.dock) {
+                    (true, Dock::Bottom) => ("ArrowRight", "ArrowLeft", "ArrowUp"),
+                    (true, _) => ("ArrowRight", "ArrowLeft", "ArrowDown"),
+                    (false, Dock::Right) => ("ArrowDown", "ArrowUp", "ArrowLeft"),
+                    (false, _) => ("ArrowDown", "ArrowUp", "ArrowRight"),
+                };
+                e.text("next", next);
+                e.text("prev", prev);
+                e.text("across", across);
                 e.0 + "}"
             })
             .collect();
@@ -1065,7 +1156,60 @@ impl Layout {
         o.text("held", held.as_deref().unwrap_or(""));
         o.text("hint_edge", hint.map_or("", |d| d.name()));
         o.raw("palettes", &format!("[{}]", list.join(",")));
+        if self.slots_cache.as_ref().is_none_or(|c| c.0 != self.heads) {
+            self.slots_cache = Some((self.heads.clone(), self.slots_json()));
+        }
+        let slots = self.slots_cache.as_ref().map_or("[]", |c| c.1.as_str());
+        o.raw("slots", slots);
+        o.int("rows", ROWS as i64);
         o.0 + "}"
+    }
+
+    /// What the general tools palette holds, place by place, column after column: `{"cmd"}` for a tool on its own, or `{"group",
+    /// "face", "icon", "members", "keep", "fields", "owns"}` for a group (`tool_groups`), with the face it shows now.
+    pub fn slots_json(&self) -> String {
+        let strs = |l: &[&str]| Value::from(l.to_vec()).to_string();
+        let list: Vec<String> = SLOTS
+            .iter()
+            .map(|s| {
+                let mut e = Writer("{".into());
+                match s {
+                    Slot::Tool(t) => e.text("cmd", t),
+                    Slot::Group(g) => {
+                        e.text("group", g.id);
+                        e.text("face", &self.heads.face(g));
+                        e.text("icon", g.icon);
+                        e.raw("members", &strs(g.members));
+                        e.raw("keep", &strs(g.keep));
+                        e.raw("fields", &strs(g.fields));
+                        e.text("owns", g.owns);
+                        e.raw("grid", if g.grid { "true" } else { "false" });
+                    }
+                }
+                e.0 + "}"
+            })
+            .collect();
+        format!("[{}]", list.join(","))
+    }
+
+    /// A tool has been chosen: when it is a member of a group of the tools palette, it becomes the face of its group. True when a
+    /// face changed (the page lays the palettes out again and keeps the settings).
+    pub fn note_tool(&mut self, tool: &str) -> bool {
+        self.heads.note(tool)
+    }
+
+    /// The groups whose button stands for the tool in use (the page marks them with `aria-current`).
+    pub fn pressed(&self, tool: &str) -> Vec<&'static str> {
+        crate::tool_groups::GROUPS
+            .into_iter()
+            .filter(|g| g.pressed(tool))
+            .map(|g| g.id)
+            .collect()
+    }
+
+    /// The face of a group now (its first when none was used), `None` for a name that is no group.
+    pub fn face(&self, group: &str) -> Option<String> {
+        Group::named(group).map(|g| self.heads.face(g))
     }
 }
 

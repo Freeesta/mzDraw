@@ -68,6 +68,18 @@
     <button id="d2-restore-no" type="button" data-i18n="draw2.restore.no" title="Delete the saved drawing" data-i18n-title="draw2.restore.no.title">Discard</button>
   </div>
 </main>
+<!-- the unsaved-changes guard (web/unsaved.js): asked before an action that replaces the drawing when it holds unsaved work -->
+<div id="d2-unsaved" hidden>
+  <div id="d2-unsaved-box" role="alertdialog" aria-modal="true" aria-labelledby="d2-unsaved-title" aria-describedby="d2-unsaved-text">
+    <h2 id="d2-unsaved-title" data-i18n="draw2.unsaved.title">Save changes?</h2>
+    <p id="d2-unsaved-text" data-i18n="draw2.unsaved.text">The drawing has changes that were not saved. Save them before you go on?</p>
+    <div class="row">
+      <button id="d2-unsaved-save" type="button" data-i18n="draw2.unsaved.save" title="Save the drawing, then go on" data-i18n-title="draw2.unsaved.save.title">Save</button>
+      <button id="d2-unsaved-discard" type="button" data-i18n="draw2.unsaved.discard" title="Go on without saving; the changes are lost" data-i18n-title="draw2.unsaved.discard.title">Don't save</button>
+      <button id="d2-unsaved-cancel" type="button" data-i18n="draw2.unsaved.cancel" title="Do nothing; keep the drawing as it is" data-i18n-title="draw2.unsaved.cancel.title">Cancel</button>
+    </div>
+  </div>
+</div>
 <input id="d2-file" type="file" hidden accept=".mol,.sdf,.sd,.rxn,.rdf,.rd,.smi,.smiles,.txt,.csv,.json,.ket,.cdxml,.cdx,.cml,.mrv,.svg,.png,.pdf">
 <!-- the palettes: the tools and commands are built by palettes.js; the six side palettes are here. Where each one is, is decided by the module. -->
 <div id="d2-palettes">

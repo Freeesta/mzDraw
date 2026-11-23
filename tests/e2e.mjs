@@ -122,12 +122,14 @@ async function reveal(pg, sel) {
   await pg.focus(o.opener); await pg.keyboard.press(o.key);
   await until(pg, `!!document.querySelector(${JSON.stringify(sel)}).offsetParent`);
 }
+/** the unsaved-changes question: when it opens, "Don't save" is chosen (the steps that press New to start from an empty canvas keep what they assert) */
+const dontSave = async pg => { if (await pg.isVisible("#d2-unsaved")) await pg.click("#d2-unsaved-discard"); };
 /** a flyout left open that covers the button: a person clicks away from it first (a pointer press outside it closes it) */
 const clearAway = async (pg, sel) => {
   const covered = await pg.evaluate(s => { const e = document.querySelector(s), r = e.getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!t && !e.contains(t) && !!t.closest(".fly"); }, sel);
   if (covered) await pg.evaluate(() => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
 };
-const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; await reveal(pg, sel); await clearAway(pg, sel); await pg.click(sel); };
+const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; await reveal(pg, sel); await clearAway(pg, sel); await pg.click(sel); if (name === "clear") await dontSave(pg); };
 const fillIn = async (pg, sel, text) => { await reveal(pg, sel); await pg.fill(sel, text); };
 const saveAs = async (pg, sel) => { await reveal(pg, sel); await pg.click(sel); };
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
@@ -1566,6 +1568,87 @@ try {
     pick.how = "pen";
     await displayModes(pg, pick, async () => { await pen("mouseMoved", cx, cy); await pen("mousePressed", cx, cy); await pen("mouseReleased", cx, cy); });
   });
+  await step("the unsaved-changes guard: New asks \"Save changes?\" when the drawing holds unsaved work, by mouse, keyboard, finger and pen; an empty or saved drawing does not ask", async () => {
+    const NEW = '[data-testid="d2-clear"]', dlg = () => pg.isVisible("#d2-unsaved"), focused = () => pg.evaluate("document.activeElement.id");
+    // the guard's state is the module's own (`state().dirty`, `state().unsaved`); the mirror of the page is left as it is
+    const want = (pg, kv) => until(pg, `(() => { const s = JSON.parse(window.MZDRAW.state()), w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
+    const drawn = async () => { await pg.fill("#d2-text", "CCO"); await pg.click("#d2-add"); await want(pg, { atoms: 3, dirty: true, unsaved: true }); };
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    // the ways to press a button: mouse, keyboard (focus and Enter), a finger, the pen
+    const press = {
+      mouse: async sel => { await reveal(pg, sel); await pg.click(sel); },
+      keyboard: async sel => { await reveal(pg, sel); await pg.focus(sel); await pg.keyboard.press("Enter"); },
+      finger: async sel => { await reveal(pg, sel); const b = await pg.locator(sel).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); },
+      pen: async sel => { await reveal(pg, sel); const b = await pg.locator(sel).boundingBox(), x = b.x + b.width / 2, y = b.y + b.height / 2; await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); },
+    };
+    await tool(pg, "clear"); await want(pg, { atoms: 0, dirty: false, unsaved: false });
+    await press.mouse(NEW); eq(await dlg(), false);                                    // nothing is drawn: no question
+    await drawn();
+    // the question: an alert dialog, labelled, with the focus on Save, the drawing untouched while it waits
+    await press.mouse(NEW);
+    eq(await dlg(), true); eq(await pg.getAttribute("#d2-unsaved-box", "role"), "alertdialog"); eq(await pg.getAttribute("#d2-unsaved-box", "aria-modal"), "true");
+    eq(await pg.innerText("#d2-unsaved-title"), await pg.evaluate("I18N.t('draw2.unsaved.title')"));
+    eq(await focused(), "d2-unsaved-save"); await want(pg, { atoms: 3, dirty: true });
+    for (const id of ["save", "discard", "cancel"]) { const b = await pg.locator(`#d2-unsaved-${id}`).boundingBox(); assert(b.height >= 44 && b.width >= 44, `${id} is a 44 px target: ${b.width} x ${b.height}`); }
+    await shot(pg, "unsaved-guard-light");
+    await pg.emulateMedia({ colorScheme: "dark" }); await shot(pg, "unsaved-guard-dark"); await pg.emulateMedia({ colorScheme: "light" });
+    // the focus cannot leave the dialog: Tab and Shift+Tab go round its three buttons, a click elsewhere gives it back
+    const order = []; for (let i = 0; i < 4; i++) { await pg.keyboard.press("Tab"); order.push(await focused()); }
+    eq(order, ["d2-unsaved-discard", "d2-unsaved-cancel", "d2-unsaved-save", "d2-unsaved-discard"]);
+    await pg.keyboard.press("Shift+Tab"); eq(await focused(), "d2-unsaved-save"); await pg.keyboard.press("Shift+Tab"); eq(await focused(), "d2-unsaved-cancel");
+    await pg.evaluate("document.getElementById('d2-canvas').focus()"); eq(await focused(), "d2-unsaved-cancel");     // the canvas is inert: the focus stays in the dialog
+    // one question at a time, and the rest of the page is inert while it is open: a second New asked for now is refused (one file, not two)
+    let files = 0; const count = () => files++; pg.on("download", count);
+    eq(await pg.evaluate("[...document.body.children].filter(el => el.id !== 'd2-unsaved' && el.tagName !== 'SCRIPT').every(el => el.inert)"), true);
+    await pg.evaluate(s => document.querySelector(s).click(), NEW); eq(await dlg(), true);
+    await pg.click("#d2-unsaved-save"); await want(pg, { atoms: 0 }); await pg.waitForTimeout(500);
+    eq(files, 1); pg.off("download", count); eq(await dlg(), false);
+    eq(await pg.evaluate("[...document.body.children].some(el => el.inert)"), false);                // the page is live again
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, dirty: true });
+    await press.mouse(NEW); eq(await dlg(), true);
+    // Cancel (click) and Escape do nothing, and the focus leaves the dialog
+    await pg.click("#d2-unsaved-cancel"); eq(await dlg(), false); await want(pg, { atoms: 3, dirty: true });
+    eq(await pg.evaluate("!!document.activeElement.closest('#d2-unsaved')"), false);
+    await press.mouse(NEW); await pg.keyboard.press("Escape"); eq(await dlg(), false); await want(pg, { atoms: 3, dirty: true });
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.unsaved.cancelled')"));
+    // Don't save (mouse): the new drawing is empty and clean; Undo brings the old one back, which is then unsaved again
+    await press.mouse(NEW); await pg.click("#d2-unsaved-discard"); eq(await dlg(), false); await want(pg, { atoms: 0, dirty: false, unsaved: false });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, dirty: true, unsaved: true });
+    // Save (mouse): the file is downloaded, then the new drawing is empty and clean
+    await press.mouse(NEW);
+    const [d1] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-unsaved-save")]);
+    eq(JSON.parse(readFileSync(await d1.path(), "utf8")).atoms.length, 3);          // Save writes the native document, whatever the default export is
+    await want(pg, { atoms: 0, dirty: false }); eq(await dlg(), false);
+    // a saved drawing is clean: a download is the saved point, an edit after it is not, and undo back to it is clean again
+    // only the native document is a saved point: a lossy export (SVG, molfile, SMILES, PNG, PDF) leaves the drawing unsaved
+    await drawn();
+    for (const id of ["svg", "molfile", "smiles"]) { await saveAs(pg, `#d2-ex-${id}`); await want(pg, { atoms: 3, dirty: true, unsaved: true }); }
+    for (const id of ["png", "pdf"]) { await Promise.all([pg.waitForEvent("download"), saveAs(pg, `#d2-ex-${id}`)]); await want(pg, { atoms: 3, dirty: true }); }
+    await press.mouse(NEW); eq(await dlg(), true); await pg.click("#d2-unsaved-cancel");                // still asks after the exports
+    await saveAs(pg, "#d2-ex-doc"); await want(pg, { atoms: 3, dirty: false, unsaved: false });
+    await press.mouse(NEW); eq(await dlg(), false); await want(pg, { atoms: 0, dirty: false });       // saved: no question
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, dirty: true });                 // the saved drawing is back: it differs from the new one
+    // keyboard: Enter on New, Save has the focus, Enter on it saves and goes on
+    await tool(pg, "clear"); await drawn();
+    await press.keyboard(NEW); eq(await dlg(), true); eq(await focused(), "d2-unsaved-save");
+    const [d2] = await Promise.all([pg.waitForEvent("download"), pg.keyboard.press("Enter")]);
+    assert(d2.suggestedFilename().length > 0, "a file was downloaded"); await want(pg, { atoms: 0, dirty: false });
+    // keyboard: Tab to Cancel and Enter, then Tab to Don't save and Enter
+    await drawn(); await press.keyboard(NEW); await pg.keyboard.press("Tab"); await pg.keyboard.press("Tab"); eq(await focused(), "d2-unsaved-cancel"); await pg.keyboard.press("Enter");
+    eq(await dlg(), false); await want(pg, { atoms: 3 });
+    await press.keyboard(NEW); await pg.keyboard.press("Tab"); eq(await focused(), "d2-unsaved-discard"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 0, dirty: false });
+    // a finger and the pen: the same three answers
+    for (const how of ["finger", "pen"]) {
+      await drawn();
+      await press[how](NEW); eq(await dlg(), true);
+      await press[how]("#d2-unsaved-cancel"); eq(await dlg(), false); await want(pg, { atoms: 3, dirty: true });
+      await press[how](NEW); await press[how]("#d2-unsaved-discard"); eq(await dlg(), false); await want(pg, { atoms: 0, dirty: false });
+      await drawn(); await press[how](NEW);
+      const [d3] = await Promise.all([pg.waitForEvent("download"), press[how]("#d2-unsaved-save")]);
+      assert(d3.suggestedFilename().length > 0, how + ": a file was downloaded"); await want(pg, { atoms: 0, dirty: false });
+    }
+  });
 
   await ctx.close();
   // the desktop palettes in a context with a mouse and keyboard only (a touch screen gets the 44 px handles, tested on the tablet)
@@ -1575,15 +1658,15 @@ try {
     await tool(pg, "ring:6a"); await pg.mouse.click(cx - 150, cy - 60); await want(pg, { atoms: 6, bonds: 6 }); await tool(pg, "select");
     await pg.mouse.move(cx, cy); await frames(pg);
     const home = await rects(pg);
-    eq(Object.keys(home).length, 16);
+    eq(Object.keys(home).length, 11);       // the general tools palette holds what were six; the tools of the five others are its groups
     eq([home.tools.dock, home.tools.orient, home.file.dock, home.file.orient, home.structure.dock], ["left", "v", "top", "h", "right"]);
     await tidy(pg, 1280, 720);
-    // the kinds drawn most are in view in the collapsed palettes, and no palette overlaps another or the canvas at 720 px
-    const KEPT = ["bond:1", "bond:2", "bond:up", "bond:down", "ring:6a", "ring:6", "ring:5", "charge:+", "charge:-", "arrow", "plus"];
+    // the tools drawn most are in view in the one tools palette, each group is one button, and no palette overlaps another or the canvas at 720 px
+    const KEPT = ["select", "erase", "bond:2", "ring:6", "ring:5", "atom:C", "atom:N", "atom:O", "plus", "head-bonds", "head-rings", "head-atoms", "head-charges", "head-objects", "head-text"];
     eq(await pg.evaluate(k => k.filter(c => { const b = document.querySelector(`[data-testid="d2-${c}"]`); return !b || !b.offsetParent; }), KEPT), []);
     // by keyboard: a kept button is a stop of its palette, Enter runs it
     await pg.focus('[data-testid="d2-ring:5"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "ring:5" });
-    await pg.focus('[data-testid="d2-bond:down"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "bond:down" });
+    await pg.focus('[data-testid="d2-bond:2"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "bond:2" });
     await tool(pg, "select");
     // every button of the palettes says what it does; a key in brackets is a key the module binds
     const titles = await pg.evaluate(`[...document.querySelectorAll("#d2-palettes .items button, #d2-palettes .grip, #d2-flys button[data-cmd], #d2-flys button[data-opens], #d2-show-all, .menu ~ .row button")].map(b => [b.dataset.testid || b.id, b.title, b.getAttribute("aria-label") || b.textContent])`);
@@ -1626,20 +1709,20 @@ try {
     // a full right column wraps: the palette stands at the right edge, or flush against the column beside it
     assert(r.history.x + r.history.w === 1280 || Object.values(r).some(q => q && q.dock === "right" && q.x === r.history.x + r.history.w), "docked in the right column");
     // two floating palettes: one dropped 6 px from the other snaps flush to it, on the same line
-    // a spot for the top of "rings" such that no line a palette snaps to (the edges of the others, the page) lies within the snap distance of it
-    // or of the top of "charges" dropped 4 px lower: the snap of the two to each other is then the only one at work
-    const others = Object.entries(await rects(pg)).filter(([id, q]) => q && id !== "rings" && id !== "charges").map(([, q]) => q);
+    // a spot for the top of "view" such that no line a palette snaps to (the edges of the others, the page) lies within the snap distance of it
+    // or of the top of "history" dropped 4 px lower: the snap of the two to each other is then the only one at work
+    const others = Object.entries(await rects(pg)).filter(([id, q]) => q && id !== "view" && id !== "history").map(([, q]) => q);
     const apart = (ph, v) => Math.min(...others.flatMap(q => [q.y + q.h, q.y - ph, q.y, q.y + q.h - ph]).concat([0, 720 - ph]).map(l => Math.abs(v - l)));
     let rt = -1;
-    for (let t = 150; t < 500 && rt < 0; t++) if (apart((await rects(pg)).rings.h, t) > 14 && apart((await rects(pg)).charges.h, t + 4) > 14) rt = t;
+    for (let t = 150; t < 500 && rt < 0; t++) if (apart((await rects(pg)).view.h, t) > 14 && apart((await rects(pg)).history.h, t + 4) > 14) rt = t;
     assert(rt > 0, "a free spot to drop the two palettes on");
-    const [, gyr] = await margin(pg, '[data-testid="d2-grip-rings"]');
-    await drag("rings", 500, rt + (gyr - (await rects(pg)).rings.y));
+    const [, gyr] = await margin(pg, '[data-testid="d2-grip-view"]');
+    await drag("view", 500, rt + (gyr - (await rects(pg)).view.y));
     r = await rects(pg);
-    const [kx, ky] = await margin(pg, '[data-testid="d2-grip-charges"]');
-    await drag("charges", r.rings.x + r.rings.w + 6 + (kx - r.charges.x), r.rings.y + 4 + (ky - r.charges.y));
+    const [kx, ky] = await margin(pg, '[data-testid="d2-grip-history"]');
+    await drag("history", r.view.x + r.view.w + 6 + (kx - r.history.x), r.view.y + 4 + (ky - r.history.y));
     const s2 = await rects(pg);
-    eq([s2.charges.dock, s2.charges.x, s2.charges.y], ["float", s2.rings.x + s2.rings.w, s2.rings.y]);
+    eq([s2.history.dock, s2.history.x, s2.history.y], ["float", s2.view.x + s2.view.w, s2.view.y]);
     await tidy(pg, 1280, 720);
     await shot(pg, "palettes-moved");
     await setTheme(pg, "dark"); await shot(pg, "palettes-moved-dark"); await setTheme(pg, "light");
@@ -1650,8 +1733,8 @@ try {
     const layout = JSON.parse(await pg.evaluate("window.MZDRAW.style()")).layout;
     // (docking a palette in a column numbers that column again: its neighbours are written too)
     const ids = layout.palettes.map(p => p.id);
-    eq(["charges", "edit", "history", "rings", "view"].filter(id => !ids.includes(id)), []);
-    eq(layout.palettes.filter(p => p.dock === "float").map(p => p.id).sort(), ["charges", "edit", "rings"]);
+    eq(["edit", "history", "view"].filter(id => !ids.includes(id)), []);
+    eq(layout.palettes.filter(p => p.dock === "float").map(p => p.id).sort(), ["edit", "history", "view"]);
     // the keyboard: the arrows move a palette 8 px (32 with Shift), Escape puts it back, Enter floats it and docks it again
     await pg.focus('[data-testid="d2-grip-tools"]');
     await pg.keyboard.press("ArrowRight"); await pg.keyboard.press("Shift+ArrowDown"); await frames(pg);
@@ -1662,15 +1745,18 @@ try {
     await pg.keyboard.press("Enter"); await frames(pg); eq((await rects(pg)).tools.dock, "float");
     await pg.keyboard.press("Enter"); await frames(pg); eq((await rects(pg)).tools, home.tools);
     eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-grip-tools");
-    // a double click on the handle expands a collapsed palette: every bond kind is in view
-    await pg.dblclick('[data-testid="d2-grip-bonds"]', { position: { x: 20, y: 3 } }); await frames(pg);
-    assert(await pg.isVisible('#d2-pal-bonds [data-testid="d2-bond:wavy"]'), "the bonds palette expanded");
+    // a double click on the handle expands a collapsed palette: every edit command is in view; the general tools palette has no collapsed state
+    await pg.dblclick('[data-testid="d2-grip-edit"]', { position: { x: 20, y: 3 } }); await frames(pg);
+    assert(await pg.isVisible('#d2-pal-edit [data-testid="d2-cut"]'), "the edit palette expanded");
+    await pg.dblclick('[data-testid="d2-grip-tools"]', { position: { x: 20, y: 3 } }); await frames(pg);
+    assert(await pg.isVisible('#d2-pal-tools [data-testid="d2-head-bonds"]') && !(await rects(pg)).tools.collapsed, "the tools palette stays whole");
     // the Palettes menu: hide one, collapse one again, then hide all and show them, then reset the layout
     await pg.click('[data-testid="d2-palettes"]');
     await pg.click('[data-testid="d2-menu-hidden-keys"]'); await frames(pg);
     eq((await rects(pg)).keys, null);
-    await pg.click('[data-testid="d2-menu-collapsed-bonds"]'); await frames(pg);
-    assert(await pg.isHidden('[data-testid="d2-bond:wavy"]'), "the bonds palette collapsed");
+    await pg.click('[data-testid="d2-menu-collapsed-edit"]'); await frames(pg);
+    assert(await pg.isHidden('[data-testid="d2-cut"]'), "the edit palette collapsed");
+    assert(await pg.isDisabled('[data-testid="d2-menu-collapsed-tools"]') && await pg.isEnabled('[data-testid="d2-menu-collapsed-edit"]'), "the general tools palette cannot collapse");
     assert(await pg.isDisabled('[data-testid="d2-menu-orient-tools"]') && await pg.isEnabled('[data-testid="d2-menu-orient-edit"]'), "only a floating palette turns");
     const was = (await rects(pg)).edit.orient;       // a floating palette keeps the orientation of its edge: the edit row
     await pg.click('[data-testid="d2-menu-orient-edit"]'); await frames(pg); eq([was, (await rects(pg)).edit.orient], ["h", "v"]);
@@ -1693,21 +1779,106 @@ try {
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
-  await step("collapsed palettes: the head of a fresh page runs the single bond and benzene, then the kind used last, kept in view or not", async () => {
-    // a fresh page: nothing has been chosen yet, so the head shows what the palette was made to offer first
+  await step("tool groups: one button per group selects the member it shows and lists every member; a member picked becomes the one shown, a kind in view on its own never does", async () => {
+    // a fresh page: nothing has been chosen yet, so each button shows what its group was made to offer first
     eq((await state(pg)).tool, "bond:1");
+    const listed = group => pg.evaluate(g => [...document.querySelectorAll(`#d2-fly-${g} button[data-cmd]`)].filter(b => b.offsetParent).map(b => b.dataset.cmd), group);
+    const faceOf = group => pg.evaluate(g => document.querySelector(`[data-testid="d2-head-${g}"] svg`)?.dataset.icon || document.querySelector(`[data-testid="d2-head-${g}"]`).textContent, group);
+    eq([await faceOf("bonds"), await faceOf("rings"), await faceOf("charges"), await faceOf("objects")], ["bond:1", "ring:6a", "charge:+", "arrow"]);
     await tool(pg, "select"); await want(pg, { tool: "select" });
-    await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });          // not the triple bond that heads the flyout
+    // one click: the tool is selected AND every member is listed, the single bond first, the double bond (in view on its own) listed again
+    await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });
+    eq(await listed("bonds"), ["bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "bond:dash", "bond:bdash", "bond:hash", "bond:bold", "bond:dative", "bond:hbond", "chain"]);
+    eq(await pg.evaluate("document.querySelectorAll('[data-testid=\"d2-bond:2\"]').length"), 1);          // one test id: the one in view
+    eq(await pg.getAttribute('[data-testid="d2-head-bonds"]', "aria-expanded"), "true");
+    // the button names its group and its face, says it opens a list, and marks the group of the tool in use (not a pressed state beside an expanded one)
+    eq(await pg.evaluate("(b => [b.getAttribute('aria-label'), b.title.startsWith(b.getAttribute('aria-label') + ' '), b.getAttribute('aria-haspopup'), b.hasAttribute('aria-pressed'), b.getAttribute('aria-current')])(document.querySelector('[data-testid=\"d2-head-bonds\"]'))"),
+      [await pg.evaluate("I18N.t('draw2.fly.bonds') + ': ' + I18N.t('draw2.tool.bond.1')"), true, "true", false, "true"]);
+    // every row of a list is a target of 44 px or more, the lists of names too
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-fly-bonds button[data-cmd]')].filter(b => Math.min(b.offsetWidth, b.offsetHeight) < 44).length"), 0);
+    // a press outside the list shuts it (on the canvas); a press inside does not
+    await pg.mouse.click(cx, cy + 200); eq(await listed("bonds"), []); await want(pg, { tool: "bond:1" });
+    await pg.click('[data-testid="d2-head-bonds"]'); eq((await listed("bonds")).length, 13);
+    // a click on the button of a list that is open shuts it, and the tool stays
+    await pg.click('[data-testid="d2-head-bonds"]'); eq(await listed("bonds"), []); await want(pg, { tool: "bond:1" });
     await tool(pg, "select"); await pg.click('[data-testid="d2-head-rings"]'); await want(pg, { tool: "ring:6a" });          // benzene, not the ring of three
-    // the head follows the last used kind: one kept in view, then one from the flyout, then back
+    eq(await listed("rings"), ["ring:6a", "ring:6", "ring:5", "ring:3", "ring:4", "ring:7", "ring:8"]);
+    await pg.keyboard.press("Escape"); eq(await listed("rings"), []);
+    // the button follows the member picked from the list; the double bond, in view on its own, is not taken for it
     await pg.click('[data-testid="d2-bond:2"]'); await want(pg, { tool: "bond:2" });
-    await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:2" });
-    await tool(pg, "bond:wavy"); await want(pg, { tool: "bond:wavy" });
+    await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });
+    await pg.click('[data-testid="d2-bond:wavy"]'); await want(pg, { tool: "bond:wavy" });
+    eq(await listed("bonds"), []);          // picking closes the list
+    eq(await faceOf("bonds"), "bond:wavy");
     await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:wavy" });
     await pg.click('[data-testid="d2-bond:1"]'); await want(pg, { tool: "bond:1" });
-    await tool(pg, "select"); await pg.click('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });
-    await tool(pg, "bond:1"); await want(pg, { tool: "bond:1" });
+    eq(await faceOf("bonds"), "bond:1");
+    // the face is the module's memory: it is in the settings file, and a reload brings it back
+    await tool(pg, "bond:hash"); await until(pg, "Number(document.documentElement.dataset.d2Style || 0) >= 1");
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.style()")).layout.heads, { bonds: "bond:hash" });
+    await pg.reload(); await until(pg, "document.documentElement.dataset.d2Ready === '1'"); await frames(pg);
+    eq(await faceOf("bonds"), "bond:hash");
+    // a group with a face of its own icon (the elements, the text) selects nothing and opens its list with the typed entry
+    const before = (await state(pg)).tool;
+    await pg.click('[data-testid="d2-head-atoms"]'); eq((await state(pg)).tool, before);
+    assert(await pg.isVisible("#d2-element"), "the element field is listed");
+    await pg.keyboard.press("Escape");
+    // the lists of names (charges, labels; arrows, reaction objects) have rows of 44 px too, and the new tool is named in the button
+    for (const g of ["charges", "objects"]) {
+      await pg.click(`[data-testid="d2-head-${g}"]`);
+      eq(await pg.evaluate(id => [...document.querySelectorAll(`#d2-fly-${id} button[data-cmd]`)].filter(b => b.offsetParent && Math.min(b.offsetWidth, b.offsetHeight) < 44).length, g), 0);
+      assert((await listed(g)).length >= 2, g + " lists its members");
+      await pg.keyboard.press("Escape");
+    }
+    // the Palettes menu does not list the old tool palettes, and the settings file never names them
+    eq(await pg.evaluate("[...document.querySelectorAll('.menu input[data-act=\"hidden\"]')].map(c => c.dataset.pal).filter(id => ['bonds', 'rings', 'atoms', 'charges', 'objects'].includes(id))"), []);
+    await pg.click('[data-testid="d2-palettes"]'); await pg.click('[data-testid="d2-menu-reset"]'); await frames(pg);
+    eq(await faceOf("bonds"), "bond:1");
   });
+  await step("tool groups by keyboard: Enter on a group selects its member and lists them with the focus on it, the arrows walk the list, Enter picks, Escape closes, the focus comes back; Tab leaves", async () => {
+    await tool(pg, "select");
+    await pg.focus('[data-testid="d2-head-rings"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "ring:6a" });
+    eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-ring:6a");          // the focus on the member in use
+    await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("ArrowDown");
+    eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-ring:3");
+    await pg.keyboard.press("Enter"); await want(pg, { tool: "ring:3" });
+    eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-head-rings");          // picked: the list is shut and the focus is back
+    await pg.keyboard.press("Enter"); await want(pg, { tool: "ring:3" });          // the button now shows the ring of three
+    await pg.keyboard.press("Escape");
+    eq(await pg.evaluate("[document.activeElement.dataset.testid, document.querySelector('#d2-fly-rings').hidden]"), ["d2-head-rings", true]);
+    // the arrow key across the palette lists the members without selecting anything else
+    await tool(pg, "select"); await pg.focus('[data-testid="d2-head-charges"]'); await pg.keyboard.press("ArrowRight");
+    assert(await pg.isVisible('[data-testid="d2-charge:-"]'), "the list is open"); eq((await state(pg)).tool, "select");
+    await pg.keyboard.press("Escape");
+    await tool(pg, "ring:6a");
+  });
+  await ctx.close();
+  // by touch and by pen: the same, with 44 px targets
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  await step("tool groups by touch and by pen: a tap or a pen press on a group selects its member and lists them, a tap on a member picks it; 44 px targets", async () => {
+    const box = async sel => pg.locator(sel).boundingBox();
+    for (const sel of ['[data-testid="d2-head-bonds"]', '[data-testid="d2-head-rings"]', '[data-testid="d2-head-atoms"]', '[data-testid="d2-head-charges"]', '[data-testid="d2-head-objects"]', '[data-testid="d2-head-text"]', '[data-testid="d2-bond:2"]', '[data-testid="d2-atom:C"]']) {
+      const b = await box(sel); assert(b.width >= 44 && b.height >= 44, sel + " is a target for a finger: " + JSON.stringify(b));
+    }
+    const tap = async sel => { const b = await box(sel); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+    await tap('[data-testid="d2-head-bonds"]'); await want(pg, { tool: "bond:1" });
+    assert(await pg.isVisible('[data-testid="d2-bond:dative"]'), "a tap lists every bond kind");
+    const b = await box('[data-testid="d2-bond:dative"]'); assert(b.width >= 40 && b.height >= 40, "a member is a target for a finger: " + JSON.stringify(b));
+    await tap('[data-testid="d2-bond:3"]'); await want(pg, { tool: "bond:3" });
+    assert(await pg.isHidden('[data-testid="d2-bond:dative"]'), "the list is shut once a member is picked");
+    // a tap on the canvas draws with the tool picked
+    await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    // a pen: press on the button of the rings, pick the cyclopentane from the list
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = async sel => { const [x, y] = await center(pg, sel); for (const [type, buttons] of [["mouseMoved", 0], ["mousePressed", 1], ["mouseReleased", 0]]) await cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons, clickCount: 1 }); await frames(pg); };
+    await pen('[data-testid="d2-head-rings"]'); await want(pg, { tool: "ring:6a" });
+    assert(await pg.isVisible('[data-testid="d2-ring:3"]'), "a pen press lists every ring");
+    await pen('[data-testid="d2-ring:3"]'); await want(pg, { tool: "ring:3" });
+    eq(await pg.evaluate("document.querySelector('[data-testid=\"d2-head-rings\"] svg').dataset.icon"), "ring:3");
+  });
+  await ctx.close();
+  // the steps after these go on in a context with a mouse and keyboard only, as they did
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
   await step("side palette: a click on its title is not undone by a layout that runs before the toggle event arrives", async () => {
     // The disclosure changes at once when the title is clicked, but the module hears of it in the `toggle` event, which comes in a later task.
     // A layout that runs in between (a resize, here) must not put the old state back. All in one evaluate, so there is no timing to hope for.
@@ -1754,7 +1925,9 @@ try {
     await pg.waitForTimeout(1500);
     eq(await saves(), 0);
     await shot(pg, "restore");
-    await pg.click("#d2-restore-yes"); await want(pg, { atoms: 6, bonds: 5, objects: 1 });
+    // the saved drawing replaces the stray one, which was not saved: the question comes first, and "Don't save" lets the restore go on
+    await pg.click("#d2-restore-yes"); eq(await pg.isVisible("#d2-unsaved"), true); await want(pg, { atoms: 2, bonds: 1 }); await dontSave(pg);
+    await want(pg, { atoms: 6, bonds: 5, objects: 1 });
     assert(await pg.isHidden("#d2-restore"), "the offer is gone");
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), doc);       // the same bytes, ids included
     assert(await pg.isDisabled('[data-testid="d2-undo"]'), "an opened drawing has no history");
@@ -2401,13 +2574,13 @@ try {
     const cdp = await ctx.newCDPSession(pg);
     await tool(pg, "clear"); await frames(pg);
     const home = await rects(pg);
-    eq(Object.entries(home).filter(([, r]) => r).map(([id]) => id).sort(), ["atoms", "bonds", "charges", "edit", "file", "history", "objects", "rings", "tools", "view"]);
+    eq(Object.entries(home).filter(([, r]) => r).map(([id]) => id).sort(), ["edit", "file", "history", "tools", "view"]);
     eq(await pg.evaluate("[...document.querySelectorAll('.grip')].filter(g => g.offsetParent && Math.min(g.offsetWidth, g.offsetHeight) < 44).map(g => g.dataset.testid)"), []);
     await tidy(pg, 768, 1024);
     // the kept kinds are in view here too, 44 px each, and a finger runs them
-    const KEPT = ["bond:1", "bond:2", "bond:up", "bond:down", "ring:6a", "ring:6", "ring:5", "charge:+", "charge:-", "arrow", "plus"];
+    const KEPT = ["select", "erase", "bond:2", "ring:6", "ring:5", "atom:C", "atom:N", "atom:O", "plus", "head-bonds", "head-rings", "head-atoms", "head-charges", "head-objects", "head-text"];
     eq(await pg.evaluate(k => k.filter(c => { const b = document.querySelector(`[data-testid="d2-${c}"]`); return !b || !b.offsetParent || Math.min(b.offsetWidth, b.offsetHeight) < 44; }), KEPT), []);
-    for (const [c, tl] of [["ring:6", "ring:6"], ["bond:up", "bond:up"], ["plus", "plus"]]) {
+    for (const [c, tl] of [["ring:6", "ring:6"], ["bond:2", "bond:2"], ["plus", "plus"], ["head-bonds", "bond:1"], ["head-rings", "ring:6a"]]) {
       const b = await pg.locator(`[data-testid="d2-${c}"]`).boundingBox();
       await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await want(pg, { tool: tl });
     }
@@ -2443,9 +2616,9 @@ try {
     };
     await finger("edit", 384, 500);
     await finger("view", 384, 1023);
-    await pen("rings", 767, 400);
+    await pen("history", 767, 400);
     const r = await rects(pg);
-    eq([r.edit.dock, r.view.dock, r.view.orient, r.view.y + r.view.h, r.rings.dock, r.rings.orient, r.rings.x + r.rings.w], ["float", "bottom", "h", 1024, "right", "v", 768]);
+    eq([r.edit.dock, r.view.dock, r.view.orient, r.view.y + r.view.h, r.history.dock, r.history.orient, r.history.x + r.history.w], ["float", "bottom", "h", 1024, "right", "v", 768]);
     await tidy(pg, 768, 1024);
     await shot(pg, "palettes-tablet-moved");
     // a tap on the canvas still draws: the palettes take nothing from it

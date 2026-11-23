@@ -68,7 +68,7 @@
   "results": [
     {
       "name": "mapped SMILES written as CDXML: the maps are lost and the report says so",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"<?xml version=\\\"1.0\\\" encoding=\\\"UTF-8\\\" ?>\\n<!DOCTYPE CDXML SYSTEM \\\"http://www.camsoft.com/xml/cdxml.dtd\\\">\\n<CDXML CreationProgram=\\\"mzDraw\\\" BondLength=\\\"30\\\">\\n<fonttable><font id=\\\"3\\\" charset=\\\"iso-8859-1\\\" name=\\\"Arial\\\"/></fonttable>\\n<page>\\n<fragment id=\\\"1\\\">\\n<n id=\\\"2\\\" p=\\\"30.00 30.00\\\"/>\\n<n id=\\\"3\\\" p=\\\"60.00 30.00\\\" Element=\\\"8\\\" NumHydrogens=\\\"1\\\"><t><s font=\\\"3\\\" size=\\\"10\\\" face=\\\"0\\\">OH</s></t></n>\\n<b id=\\\"4\\\" B=\\\"2\\\" E=\\\"3\\\"/>\\n</fragment>\\n</page>\\n</CDXML>\\n\",\"created\":{},\"removed\":{},\"lost\":[{\"key\":\"draw2.export.mapsLost\",\"n\":2}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"<?xml version=\\\"1.0\\\" encoding=\\\"UTF-8\\\" ?>\\n<!DOCTYPE CDXML SYSTEM \\\"http://www.camsoft.com/xml/cdxml.dtd\\\">\\n<CDXML CreationProgram=\\\"mzDraw\\\" BondLength=\\\"30\\\">\\n<fonttable><font id=\\\"3\\\" charset=\\\"iso-8859-1\\\" name=\\\"Arial\\\"/></fonttable>\\n<page>\\n<fragment id=\\\"1\\\">\\n<n id=\\\"2\\\" p=\\\"30.00 30.00\\\"/>\\n<n id=\\\"3\\\" p=\\\"60.00 30.00\\\" Element=\\\"8\\\" NumHydrogens=\\\"1\\\"><t><s font=\\\"3\\\" size=\\\"10\\\" face=\\\"0\\\">OH</s></t></n>\\n<b id=\\\"4\\\" B=\\\"2\\\" E=\\\"3\\\"/>\\n</fragment>\\n</page>\\n</CDXML>\\n\",\"created\":{},\"removed\":{},\"lost\":[{\"key\":\"draw2.export.mapsLost\",\"n\":2}],\"dirty\":false}",
       "request": {
         "import": "[CH3:1][OH:2]",
         "out": "cdxml",
@@ -77,7 +77,7 @@
     },
     {
       "name": "the same drawing as a molfile: nothing is lost",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"mzDraw\\n  mzLab             2D\\n\\n  2  1  0  0  0  0  0  0  0  0999 V2000\\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\\n    1.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  2  0  0\\n  1  2  1  0  0  0  0\\nM  END\\n\",\"created\":{},\"removed\":{}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"mzDraw\\n  mzLab             2D\\n\\n  2  1  0  0  0  0  0  0  0  0999 V2000\\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  1  0  0\\n    1.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  2  0  0\\n  1  2  1  0  0  0  0\\nM  END\\n\",\"created\":{},\"removed\":{},\"dirty\":false}",
       "request": {
         "import": "[CH3:1][OH:2]",
         "out": "molfile",
@@ -86,7 +86,7 @@
     },
     {
       "name": "a map of 1000 is refused with its key",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"log\",\"op\":0,\"key\":\"error.draw2.map\",\"id\":1}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"log\",\"op\":0,\"key\":\"error.draw2.map\",\"id\":1},\"dirty\":false}",
       "request": {
         "import": "CO",
         "log": [
@@ -101,7 +101,7 @@
     },
     {
       "name": "an atom added with a map of 1000 is refused",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"log\",\"op\":0,\"key\":\"error.draw2.map\",\"id\":0}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"log\",\"op\":0,\"key\":\"error.draw2.map\",\"id\":0},\"dirty\":false}",
       "request": {
         "log": [
           {

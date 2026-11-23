@@ -361,7 +361,7 @@
   "results": [
     {
       "name": "a refused command is a verdict of stage command",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":1,\"key\":\"error.draw2.noAtom\",\"id\":99}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":1,\"key\":\"error.draw2.noAtom\",\"id\":99},\"dirty\":true}",
       "request": {
         "commands": [
           {
@@ -392,7 +392,7 @@
     },
     {
       "name": "the singular command refused gives failed.op 0",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.noAtom\",\"id\":99}}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.noAtom\",\"id\":99},\"dirty\":false}",
       "request": {
         "args": {
           "atoms": [
