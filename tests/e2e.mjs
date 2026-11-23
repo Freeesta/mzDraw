@@ -3741,15 +3741,15 @@ try {
       const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
       await pg.click(row(2)); const byClick = await doc(); await pg.click(row(4));
       await pg.evaluate("window.MZDRAW.command('jump:2')"); eq(await doc(), byClick);
-      await pg.evaluate("window.MZDRAW.command('jump:9')"); eq(await doc(), byClick); eq(await pg.evaluate(`${STATE}.error`), "error.draw2.request");
+      await pg.evaluate("window.MZDRAW.command('jump:9')"); eq(await doc(), byClick); eq(await pg.evaluate("JSON.parse(window.MZDRAW.state()).error"), "error.draw2.request");
       await pg.evaluate("window.MZDRAW.command('undo:1')"); await want(pg, { atoms: 1 });
       await pg.evaluate("window.MZDRAW.command('redo:3')"); await want(pg, { atoms: 4 });
       await setOpen(pg, "#d2-history", false);
     });
     await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
     await step("history panel by touch: tap the summary, tap the second step, tap the newest; the rows are targets for a finger", async () => {
-      await tapPalette(pg, "check", true);
       await five(pg, async (x, y) => { await pg.touchscreen.tap(x, y); });
+      await tapPalette(pg, "check", true);
       const tap = async sel => { const [x, y] = await center(pg, sel); await pg.touchscreen.tap(x, y); };
       await tap("#d2-history summary"); await until(pg, "document.querySelector('#d2-history').open === true");
       await until(pg, "document.querySelectorAll('#d2-history-list li').length === 6");
