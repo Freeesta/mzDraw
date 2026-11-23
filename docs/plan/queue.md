@@ -38,7 +38,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, 
 | `arch-cd-22-desktop-shell` | Desktop app, first slice: one window for macOS and Windows around the same module | QUEUED | no merged commit or built note names it | a decision of the owner on the shell (see work 1) | - |
 | `arch-cd-23-dative-hbond` | Dative (coordinate) and hydrogen bonds | SUPERSEDED | by arch-web-20 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-24-enhanced-stereo` | Enhanced stereo groups (ABS, AND, OR): assign, show, V3000 in and out | SUPERSEDED | by arch-std-12 (top of the prompt: "superseded: do not run") | - | - |
-| `arch-cd-25-curved-arrows` | Electron-pushing curved arrows anchored to atoms, bonds and lone pairs | RUNNING | no merge evidence yet; PR open (docs/built/curved-arrows.md) | arch-web-13 (arrow kinds) if merged | - |
+| `arch-cd-25-curved-arrows` | Electron-pushing curved arrows anchored to atoms, bonds and lone pairs | RUNNING | PR #116 (docs/built/curved-arrows.md) | arch-web-13 (arrow kinds) if merged | - |
 | `arch-cd-26-history-panel` | History panel: every step of the session, jump back to any | QUEUED | no merged commit or built note names it | nothing | - |
 | `arch-std-01-std-report-stereo` | conformance report `std/1`, stereo checks | MERGED | PR #46, `89011cc`; built/std-stereo.md; `conform.rs` | - | - |
 | `arch-std-02-std-report-geometry` | conformance report, geometry and label checks | QUEUED | no merged commit or built note names it | - | - |
