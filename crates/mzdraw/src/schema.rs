@@ -272,7 +272,7 @@ pub const OPS: &[OpSpec] = &[
                 "string",
                 false,
                 "",
-                "how the line is drawn: `solid` (the default), `dash`, `bdash` (bold dashed) or `hash` (short ticks across the line, not a stereo mark); a bond with a wedge mark has none, and a new mark takes it away",
+                "how the line is drawn: `solid` (the default), `dash`, `bdash` (bold dashed), `hash` (short ticks across the line, not a stereo mark), `bold` (a heavy line), `dative` (an arrow from the atom `a`, the donor, to the atom `b`) or `hbond` (a dotted line, a hydrogen bond); `dative` and `hbond` are for a single bond (a new order other than 1 takes them away); a bond with a wedge mark has none, and a new mark takes it away",
             ),
             f("rev", "bool", false, "", "default false"),
         ],

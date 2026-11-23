@@ -10,7 +10,7 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, RUNNING 1, QUEUED 53, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, RUNNING 3, QUEUED 51, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
@@ -80,7 +80,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, 
 | `arch-web-17-values` | Calculated values: formula, masses, m/z of adducts | MERGED | PR #88, `c713c2b`; built/arch-web-17-values.md; `values.rs` | - | - |
 | `arch-web-18-abbreviations` | Abbreviations: expand and contract in place, user abbreviations | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-19-templates` | Template library and user templates: the op `tmpl` | QUEUED | no merged commit or built note names it | - | - |
-| `arch-web-20-bond-kinds` | Bond kinds: bold, dative, hydrogen bond | QUEUED | no merged commit or built note names it | - | the field `k` and `bonddisp.rs` (`k_canon`, `KINDS`) already exist from arch-cd-04 (PR #108) with `dash`, `bdash`, `hash`: extend them with `bold`, `dative`, `hbond`, do not add a second field |
+| `arch-web-20-bond-kinds` | Bond kinds: bold, dative, hydrogen bond | RUNNING | PR #PRNUM (docs/built/arch-web-20-bond-kinds.md) | - | the field `k` and `bonddisp.rs` (`k_canon`, `KINDS`) already exist from arch-cd-04 (PR #108) with `dash`, `bdash`, `hash`: extend them with `bold`, `dative`, `hbond`, do not add a second field |
 | `arch-web-21-drop-copy-as` | Drop a file on the canvas; copy as MOL / KET / SMILES / image; PNG and HTML on the clip... | QUEUED | no merged commit or built note names it | - | - |
 | `plan-01-op-table` | one table of the `draw_edit/1` operations, served as JSON | MERGED | PR #52, `fd41029`; `schema.rs`; built/edit-schema.md | none (COO 16 agreement on ownership, backlog D1) | - |
 | `plan-02-velocity-bench` | drawing-speed benchmark `velocity/1` on a fixed task set | MERGED | PR #50, `2510e86`; built/velocity.md; `tools/velocity` | none | - |

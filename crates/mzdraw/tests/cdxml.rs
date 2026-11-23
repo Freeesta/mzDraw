@@ -247,12 +247,13 @@ fn a_foreign_cdxml_opens_with_what_is_out_of_scope_listed() {
     );
     assert_eq!(
         info.notes(),
-        [
-            ("draw2.import.queryAtoms", 2),
-            ("draw2.import.queryBonds", 1),
-            ("draw2.import.other", 3)
-        ]
+        [("draw2.import.queryAtoms", 2), ("draw2.import.other", 3)]
     );
+    // the bond `Order="dative"` of the file is no query bond any more (arch-web-20): a dative bond from its begin atom, and the
+    // `Display="Bold"` one a bold line
+    let kinds: Vec<String> = d.bonds.iter().map(|b| b.kind()).collect();
+    assert_eq!(kinds.iter().filter(|k| *k == "dative").count(), 1);
+    assert_eq!(kinds.iter().filter(|k| *k == "bold").count(), 1);
     // objects: the arrow points from the plus side to the second fragment; the caption is one formatted text (its style runs
     // and its line break are kept as runs of one object, text-runs slice)
     let kinds: Vec<ObjKind> = d.objects.iter().map(|o| o.t).collect();

@@ -160,11 +160,15 @@ fn a_foreign_ket_opens_with_what_is_out_of_scope_listed() {
         info.notes(),
         [
             ("draw2.import.queryAtoms", 1),
-            ("draw2.import.queryBonds", 2),
+            ("draw2.import.queryBonds", 1),
             ("draw2.import.sgroups", 2),
             ("draw2.import.other", 3)
         ]
     );
+    // the bond of type 9 is no query bond (arch-web-20): a dative bond from the first atom of the bond to the second
+    let dative: Vec<_> = d.bonds.iter().filter(|b| b.kind() == "dative").collect();
+    assert_eq!(dative.len(), 1);
+    assert_eq!((dative[0].a, dative[0].b, dative[0].o), (1, 8, 1));
     // the bond length of the file was 1.5: everything is scaled together, the arrow stays between the molecules
     let (ring_right, other_left) = (d.atoms[6].x, d.atoms[8].x);
     // (the ring of the fixture is drawn with rounded coordinates: its bonds are 1.5 within a thousandth)

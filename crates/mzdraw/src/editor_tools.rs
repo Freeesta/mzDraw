@@ -485,14 +485,16 @@ impl Editor {
                 Some(x) if !kind.is_empty() => {
                     // on a bond that has the kind already it takes the kind away
                     let now = if x.kind() == kind { "" } else { kind };
-                    // a bond with a wedge mark loses the mark (the click on a bond does the same)
+                    // a bond with a wedge mark loses the mark (the click on a bond does the same); a dative or hydrogen bond is
+                    // a single bond, and a dative one runs from the atom the tool started at
+                    let link = !now.is_empty() && crate::bonddisp::single_only(now);
                     vec![Op::BondSet {
                         id: x.id,
-                        o: None,
+                        o: (link && x.o != 1).then_some(1),
                         s: (x.s != 0).then_some(0),
                         pos: None,
                         k: Some(now.into()),
-                        rev: false,
+                        rev: now == "dative" && x.a != a,
                     }]
                 }
                 Some(x) => vec![Op::BondSet {
@@ -557,9 +559,12 @@ impl Editor {
                 let (mark, now) =
                     (self.session.doc.bond(b)).map_or((0, String::new()), |x| (x.s, x.kind()));
                 let next = if now == kind { "" } else { kind };
+                let order = self.session.doc.bond(b).map_or(1, |x| x.o);
                 let set = Op::BondSet {
                     id: b,
-                    o: None,
+                    // a dative or hydrogen bond is a single bond
+                    o: (!next.is_empty() && crate::bonddisp::single_only(next) && order != 1)
+                        .then_some(1),
                     s: (mark != 0).then_some(0),
                     pos: None,
                     k: Some(next.into()),

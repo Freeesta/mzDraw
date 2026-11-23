@@ -658,6 +658,57 @@ try {
     assert(!(await pg.evaluate("window.MZDRAW.save('molfile')")).includes("dash"), "no dashes in a molfile");
   });
 
+  await step("bond kinds: bold, dative and hydrogen bonds by the tools, the keyboard and the menu; a dative bond needs a single bond; each press is one undo step", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    const bond = async () => (await doc()).bonds[0];
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1, tool: "bond:1" });
+    const mid = [cx + 17, cy - 10], first = await bond(), svgOf = () => pg.evaluate("window.MZDRAW.save('svg')");
+    const plain = await svgOf();
+    await tool(pg, "bond:bold"); await want(pg, { tool: "bond:bold" });
+    await pg.mouse.click(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'bold'");
+    const bold = await svgOf(); assert(bold !== plain, "a bold bond is drawn heavier");
+    // keyboard: the palette entry takes Enter, then the canvas takes the click; the kind of a bond is the one of the tool (not a toggle)
+    await reveal(pg, '[data-testid="d2-bond:dative"]'); await pg.focus('[data-testid="d2-bond:dative"]'); await pg.keyboard.press("Enter"); await want(pg, { tool: "bond:dative" });
+    await pg.mouse.click(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'dative'");
+    const dative = await svgOf(); assert(dative.includes("<polygon") && !plain.includes("<polygon"), "the arrow head is a filled triangle");
+    // the files that have a place for it: V3000 type 9 from the donor, KET type 9, CDXML Order="dative"; a V2000 molfile writes a single bond
+    assert((await pg.evaluate("window.MZDRAW.save('molfile-v3000')")).includes(" 9 1 2"), "V3000 type 9, donor first");
+    assert((await pg.evaluate("window.MZDRAW.save('ket')")).includes('"type":9'), "KET type 9");
+    assert((await pg.evaluate("window.MZDRAW.save('cdxml')")).includes('Order="dative"'), "CDXML dative");
+    assert(!(await pg.evaluate("window.MZDRAW.save('molfile')")).includes("V3000"), "a V2000 molfile");
+    // the menu: the kinds the bond can take, then the choice, then the reverse (offered for a dative bond)
+    await tool(pg, "select");
+    await pg.mouse.click(...mid, { button: "right" });
+    await pg.click('[data-testid="d2-ctx-bond.k"]'); await pg.click('[data-testid="d2-ctx-bond.k.hbond"]'); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'hbond'");
+    const dots = await svgOf(); assert(dots.split("<line").length > plain.split("<line").length + 3, "a hydrogen bond is dots");
+    assert((await pg.evaluate("window.MZDRAW.save('molfile-v3000')")).includes(" 10 1 2"), "V3000 type 10");
+    await pg.mouse.click(...mid, { button: "right" });
+    await pg.click('[data-testid="d2-ctx-bond.k"]'); await pg.click('[data-testid="d2-ctx-bond.k.dative"]'); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'dative'");
+    await pg.mouse.click(...mid, { button: "right" });
+    await pg.click('[data-testid="d2-ctx-bond.reverse"]'); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].a === ${first.b}`);
+    assert((await svgOf()) !== dative, "the head moves to the other atom");
+    assert((await pg.evaluate("window.MZDRAW.save('molfile-v3000')")).includes(" 9 2 1"), "V3000 type 9, the other atom first");
+    // a dative bond is single: the double-bond tool makes it double and the kind goes; the dative tool on a double bond makes it single
+    await tool(pg, "bond:2"); await pg.mouse.click(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].o === 2");
+    eq((await bond()).k, undefined);
+    await tool(pg, "bond:dative"); await pg.mouse.click(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'dative'");
+    eq((await bond()).o, 1);
+    // the command log says each press once, and undo takes them back one by one
+    const log = JSON.parse(await pg.evaluate("window.MZDRAW.save('log')"));
+    eq(log.slice(-4).map(o => [o.op, o.k, o.rev, o.o]), [["bond.set", "dative", undefined, undefined], ["bond.set", undefined, true, undefined], ["bond.set", undefined, undefined, 2], ["bond.set", "dative", undefined, 1]]);
+    const steps = [[undefined, 2], ["dative", 1], ["dative", 1], ["hbond", 1], ["dative", 1], ["bold", 1], [undefined, 1]];
+    for (const [k, o] of steps) { await tool(pg, "undo"); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === ${JSON.stringify(k) ?? "undefined"}`); eq((await bond()).o ?? 1, o); }
+    eq(await bond(), first);
+    // the drawing of the three kinds on one canvas, as a document opened from a file
+    const kinds = { format: "mzdraw/1", next: 14, atoms: [{ id: 1, el: "N", x: 0, y: 0 }, { id: 2, el: "B", x: 2, y: 0 }, { id: 3, el: "O", x: 4, y: 0 }, { id: 4, el: "C", x: 6, y: 0 }, { id: 5, el: "C", x: 8, y: 0 }],
+      bonds: [{ id: 10, a: 1, b: 2, o: 1, k: "dative" }, { id: 11, a: 3, b: 2, o: 1, k: "hbond" }, { id: 12, a: 3, b: 4, o: 1, k: "bold" }, { id: 13, a: 4, b: 5, o: 1 }] };
+    await pg.evaluate(t => /** @type {any} */ (window).MZDRAW.open(t), JSON.stringify(kinds)); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg);
+    await want(pg, { atoms: 5, bonds: 4 });
+    eq((await doc()).bonds.map(b => b.k), ["dative", "hbond", "bold", undefined]);
+    await shot(pg, "bond-kinds");
+  });
+
   await step("wedge tools, rotate and flip, copy, cut, paste and duplicate by keyboard and by buttons", async () => {
     const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
     /** per bond: the position of its narrow-end atom in the atom list, and its mark (ids go on after a cleared canvas) */
@@ -1501,6 +1552,35 @@ try {
     eq((await doc()).bonds[0].k, undefined);
   });
 
+  await step("tablet with touch and a pen: bold, dative and hydrogen bonds by a tap and by a pen, each press one undo step", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); console.log("DEBUG", await pg.evaluate("document.documentElement.dataset.d2")); await want(pg, { atoms: 2, bonds: 1 });
+    const mid = [cx + 17, cy - 10];
+    for (const [t, k] of [["bond:bold", "bold"], ["bond:dative", "dative"], ["bond:hbond", "hbond"]]) {
+      await tool(pg, t); await pg.touchscreen.tap(...mid); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === '${k}'`);
+    }
+    await shot(pg, "bond-kinds-touch");
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    await tool(pg, "bond:dative");
+    await pen("mouseMoved", ...mid); await pen("mousePressed", ...mid); await pen("mouseReleased", ...mid);
+    await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'dative'");
+    await tool(pg, "bond:bold");
+    await pen("mouseMoved", ...mid); await pen("mousePressed", ...mid); await pen("mouseReleased", ...mid);
+    await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'bold'");
+    // a pen pressed on the first atom (where the first click drew it) with the dative tool draws a new bond that starts there: the donor is its first atom
+    await tool(pg, "bond:dative");
+    const atoms = (await doc()).atoms;
+    await pen("mouseMoved", cx, cy); await pen("mousePressed", cx, cy); await pen("mouseReleased", cx, cy);
+    await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).bonds.length === 2`);
+    eq([(await doc()).bonds[1].a, (await doc()).bonds[1].k], [atoms[0].id, "dative"]);
+    // the taps and the pen presses: 3 kinds by tap, dative and bold by pen, one bond by pen: six undo steps leave the one plain bond
+    for (let i = 0; i < 6; i++) await tool(pg, "undo");
+    eq((await doc()).bonds.length, 1);
+    eq((await doc()).bonds[0].k, undefined);
+  });
+
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
     const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)
@@ -2051,7 +2131,7 @@ try {
     await pg.focus("#d2-canvas");
     // a bond: its order and its wedge; the item that is already the state is checked
     await open(...bond, "bond");
-    eq((await menuNow(pg)).ids, ["bond.o.1", "bond.o.2", "bond.o.3", "bond.s.up", "bond.s.down", "bond.s.wavy", "bond.reverse", "bond.pos", "bond.pos.auto", "bond.pos.c", "bond.pos.l", "bond.pos.r", "bond.k", "bond.k.solid", "bond.k.dash", "bond.k.bdash", "bond.k.hash", "edit.colour", "colour.auto", "colour.black", "colour.red", "colour.orange", "colour.yellow", "colour.green", "colour.teal", "colour.blue", "colour.purple", "colour.magenta", "colour.brown", "colour.grey", "colour.custom", "bond.delete"]);   // the group Colour of colour-selection is folded in the menu and listed here with its children
+    eq((await menuNow(pg)).ids, ["bond.o.1", "bond.o.2", "bond.o.3", "bond.s.up", "bond.s.down", "bond.s.wavy", "bond.reverse", "bond.pos", "bond.pos.auto", "bond.pos.c", "bond.pos.l", "bond.pos.r", "bond.k", "bond.k.solid", "bond.k.dash", "bond.k.bdash", "bond.k.hash", "bond.k.bold", "bond.k.dative", "bond.k.hbond", "edit.colour", "colour.auto", "colour.black", "colour.red", "colour.orange", "colour.yellow", "colour.green", "colour.teal", "colour.blue", "colour.purple", "colour.magenta", "colour.brown", "colour.grey", "colour.custom", "bond.delete"]);   // the group Colour of colour-selection is folded in the menu and listed here with its children
     // an item that is not offered is not on the keyboard walk
     await pg.focus("#d2-menu .ctx"); const walk = [];
     for (let i = 0; i < 12; i++) { await pg.keyboard.press("ArrowDown"); walk.push((await menuNow(pg)).active); }
