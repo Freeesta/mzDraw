@@ -140,7 +140,8 @@ pub struct GapNote {
     pub k: usize,
     pub gap: f64,
     pub rule: &'static str,
-    /// The primary arrows between the two layers.
+    /// The arrows the gap is about: the primary arrows between the two layers; for the rule `crossing` also the secondary arrows
+    /// and the arrows that skip a layer and span the gap.
     pub arrows: Vec<u32>,
 }
 
@@ -154,7 +155,8 @@ pub struct Layout {
     pub centres: Vec<(f64, f64)>,
     /// The raised gaps.
     pub gaps: Vec<GapNote>,
-    /// The gaps where the rule `crossing` reached its bound (`CROSSING_STEPS`) with arrows still meeting a box: `gap` is the value kept.
+    /// The gaps where the rule `crossing` reached its bound (`CROSSING_STEPS`) with arrows still meeting a box (primary arrows, or
+    /// the secondary and skipping arrows that span the gap): `gap` is the value kept.
     pub limits: Vec<GapNote>,
     /// Objects that are not moved: the arrows without two structures, the plus signs and the texts (ids ascending).
     pub free: Vec<u32>,
@@ -474,6 +476,7 @@ pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
             })
             .collect();
         let mut xs = vec![0.0; layers + 1];
+        let mut gk: Vec<f64> = Vec::with_capacity(layers);
         for k in 0..layers {
             let between: Vec<&Edge> = edges
                 .iter()
@@ -573,7 +576,63 @@ pub fn layout(doc: &Document, style: &Style) -> Result<Layout, Refusal> {
                     arrows: between.iter().map(|e| e.arrow).collect(),
                 });
             }
+            gk.push(gap);
             xs[k + 1] = xs[k] + wk[k] / 2.0 + gap + wk[k + 1] / 2.0;
+        }
+        // the rule `crossing` for the secondary arrows and the arrows that skip a layer (`long_gaps`), on the columns as the gaps
+        // above left them: the gaps that move such an arrow off a box it meets grow together until none meets a box; at the bound the state
+        // with the fewest arrows still meeting a box is kept and the rest is the finding `std.scheme.gapLimit`
+        {
+            let mut cols: Vec<Vec<Col>> = vec![Vec::new(); layers + 1];
+            let mut at: HashMap<usize, (usize, usize)> = HashMap::new();
+            for &v in g {
+                let l = nodes[v].layer;
+                at.insert(v, (l, cols[l].len()));
+                cols[l].push((ys[local[&v]], fw[v], fh[v]));
+            }
+            let spans: Vec<(&Edge, Long)> = edges
+                .iter()
+                .filter(|e| !e.primary && local.contains_key(&e.from))
+                .map(|e| (e, (at[&e.from], at[&e.to])))
+                .collect();
+            let long: Vec<Long> = spans.iter().map(|s| s.1).collect();
+            let note = |k: usize, rule: &'static str, gap: f64, arrows: Vec<u32>| GapNote {
+                comp: ci,
+                k,
+                gap,
+                rule,
+                arrows,
+            };
+            let res = long_gaps(&cols, &wk, &gk, &long, o.margin);
+            for (k, &n) in res.add.iter().enumerate().filter(|a| *a.1 > 0) {
+                gk[k] += f64::from(n) * CROSSING_STEP;
+                // the arrows of a widened gap: every arrow of the component that spans it
+                let mut arrows: Vec<u32> = (edges.iter())
+                    .filter(|e| local.contains_key(&e.from))
+                    .filter(|e| nodes[e.from].layer <= k && nodes[e.to].layer > k)
+                    .map(|e| e.arrow)
+                    .collect();
+                arrows.sort_unstable();
+                match gaps.iter_mut().find(|n| n.comp == ci && n.k == k) {
+                    Some(n) => *n = note(k, "crossing", gk[k], arrows),
+                    None => gaps.push(note(k, "crossing", gk[k], arrows)),
+                }
+            }
+            for k in 0..layers {
+                xs[k + 1] = xs[k] + wk[k] / 2.0 + gk[k] + wk[k + 1] / 2.0;
+            }
+            gaps.sort_by_key(|n| (n.comp, n.k));
+            // what the widening did not clear: the finding of the bound, per gap, with the arrows that span it and still meet a box
+            for (k, &gap) in gk.iter().enumerate() {
+                let mut arrows: Vec<u32> = (res.left.iter())
+                    .filter(|&&i| long[i].0 .0 <= k && long[i].1 .0 > k)
+                    .map(|&i| spans[i].0.arrow)
+                    .collect();
+                if !arrows.is_empty() {
+                    arrows.sort_unstable();
+                    limits.push(note(k, "crossing", gap, arrows));
+                }
+            }
         }
         // anchor and stacking: the first root of the first component keeps its place, the others go below
         let r0 = local[&roots[0]];
@@ -668,12 +727,7 @@ pub fn crossing_gap(
     gap: f64,
     margin: f64,
 ) -> Gap {
-    let sorted = |c: &[Col]| -> Vec<usize> {
-        let mut o: Vec<usize> = (0..c.len()).collect();
-        o.sort_by(|&a, &b| c[a].0.total_cmp(&c[b].0).then(a.cmp(&b)));
-        o
-    };
-    let (ol, or) = (sorted(left), sorted(right));
+    let (ol, or) = (sorted_by_y(left), sorted_by_y(right));
     let tall = |c: &[Col]| c.iter().map(|b| b.2).fold(0.0, f64::max) / 2.0 + margin;
     let (hl, hr) = (tall(left), tall(right));
     let rect = |b: Col, x: f64| {
@@ -684,49 +738,17 @@ pub fn crossing_gap(
             b.0 + b.2 / 2.0,
         ]
     };
-    // the candidates of one column: the boxes whose y is within reach of the part of the segment inside the column's x slab
-    let near = |col: &[Col],
-                order: &[usize],
-                x: f64,
-                w: f64,
-                h: f64,
-                p: (f64, f64),
-                q: (f64, f64)|
-     -> Vec<usize> {
-        let (lo, hi) = (x - w / 2.0 - margin, x + w / 2.0 + margin);
-        let dx = q.0 - p.0;
-        let (t0, t1) = if dx.abs() < 1e-12 {
-            if p.0 < lo || p.0 > hi {
-                return Vec::new();
-            }
-            (0.0, 1.0)
-        } else {
-            let (a, b) = ((lo - p.0) / dx, (hi - p.0) / dx);
-            (a.min(b).max(0.0), a.max(b).min(1.0))
-        };
-        if t0 > t1 {
-            return Vec::new();
-        }
-        let (y0, y1) = (p.1 + t0 * (q.1 - p.1), p.1 + t1 * (q.1 - p.1));
-        let (ylo, yhi) = (y0.min(y1) - h, y0.max(y1) + h);
-        let first = order.partition_point(|&i| col[i].0 < ylo);
-        order[first..]
-            .iter()
-            .copied()
-            .take_while(|&i| col[i].0 <= yhi)
-            .collect()
-    };
     let clean = |gap: f64| -> bool {
         let x1 = widths.0 / 2.0 + gap + widths.1 / 2.0;
         edges.iter().all(|&(u, v)| {
             let Some((p, q)) = clip(rect(left[u], 0.0), rect(right[v], x1), margin) else {
                 return true;
             };
-            near(left, &ol, 0.0, widths.0, hl, p, q)
+            near(left, &ol, 0.0, widths.0, hl, margin, p, q)
                 .into_iter()
                 .filter(|&i| i != u)
                 .all(|i| !meets(p, q, rect(left[i], 0.0), margin))
-                && near(right, &or, x1, widths.1, hr, p, q)
+                && near(right, &or, x1, widths.1, hr, margin, p, q)
                     .into_iter()
                     .filter(|&i| i != v)
                     .all(|i| !meets(p, q, rect(right[i], x1), margin))
@@ -735,6 +757,200 @@ pub fn crossing_gap(
     (0..=CROSSING_STEPS)
         .find(|&n| clean(gap + f64::from(n) * CROSSING_STEP))
         .map_or(Gap::Bound, Gap::Clean)
+}
+
+/// The candidates of one column: the indices of the boxes whose y is within reach (`h`: half the tallest box plus the margin) of the
+/// part of the segment `p`–`q` inside the x slab of the column (centred at `x`, `w` wide), by a binary search in the column sorted
+/// by y (`order`).
+#[allow(clippy::too_many_arguments)]
+fn near(
+    col: &[Col],
+    order: &[usize],
+    x: f64,
+    w: f64,
+    h: f64,
+    margin: f64,
+    p: (f64, f64),
+    q: (f64, f64),
+) -> Vec<usize> {
+    let (lo, hi) = (x - w / 2.0 - margin, x + w / 2.0 + margin);
+    let dx = q.0 - p.0;
+    let (t0, t1) = if dx.abs() < 1e-12 {
+        if p.0 < lo || p.0 > hi {
+            return Vec::new();
+        }
+        (0.0, 1.0)
+    } else {
+        let (a, b) = ((lo - p.0) / dx, (hi - p.0) / dx);
+        (a.min(b).max(0.0), a.max(b).min(1.0))
+    };
+    if t0 > t1 {
+        return Vec::new();
+    }
+    let (y0, y1) = (p.1 + t0 * (q.1 - p.1), p.1 + t1 * (q.1 - p.1));
+    let (ylo, yhi) = (y0.min(y1) - h, y0.max(y1) + h);
+    let first = order.partition_point(|&i| col[i].0 < ylo);
+    order[first..]
+        .iter()
+        .copied()
+        .take_while(|&i| col[i].0 <= yhi)
+        .collect()
+}
+
+/// The indices of a column in the order of the centre y (ties by index).
+fn sorted_by_y(c: &[Col]) -> Vec<usize> {
+    let mut o: Vec<usize> = (0..c.len()).collect();
+    o.sort_by(|&a, &b| c[a].0.total_cmp(&c[b].0).then(a.cmp(&b)));
+    o
+}
+
+/// An arrow the rule `crossing` of the long arrows looks at: a secondary arrow, or one that skips a layer, as
+/// (layer, index in that column) of its two ends; `a < b` always (a layer is the longest path from a root).
+pub type Long = ((usize, usize), (usize, usize));
+
+/// What `long_gaps` found: the steps to add to each gap (`add[k]` steps of `CROSSING_STEP` to the gap between layers `k` and `k + 1`,
+/// all zero when nothing helps or nothing was wrong) and the long arrows (indices into the list given) that still meet a box with
+/// those gaps.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LongGaps {
+    pub add: Vec<u32>,
+    pub left: Vec<usize>,
+}
+
+/// The gaps (as a range of `k`, the gap between layers `k` and `k + 1`) that move an arrow from layer `ends.0` to layer `ends.1` off
+/// the boxes it meets in layer `layer`, the nearest ones: `offs` are, for each, the height of the arrow at that layer minus the
+/// centre of the box; `rise` is the arrow's rise. A box in an end column is cleared by a flatter arrow (all spanned gaps wider); a
+/// box in a layer between by moving the height of the arrow at that layer away from the box centre, which is a wider part before
+/// the layer (the arrow is nearer its end) or after it (nearer its start). The sign of `rise * off` is the same for an arrow and
+/// its mirror image in y; a horizontal arrow, or one through the centre, has no side, so every spanned gap grows; boxes on both
+/// sides give the union, so no index decides.
+pub fn widen_range(
+    ends: (usize, usize),
+    layer: usize,
+    rise: f64,
+    offs: &[f64],
+) -> std::ops::Range<usize> {
+    let (la, lb) = ends;
+    let mut range: Option<std::ops::Range<usize>> = None;
+    for &off in offs {
+        let r = if layer == la || layer == lb || rise.abs() < 1e-9 || off.abs() < 1e-9 {
+            la..lb
+        } else if rise * off > 0.0 {
+            la..layer
+        } else {
+            layer..lb
+        };
+        range = Some(match range {
+            None => r,
+            Some(o) => o.start.min(r.start)..o.end.max(r.end),
+        });
+    }
+    range.unwrap_or(la..la)
+}
+
+/// The y of the line through `p` and `q` at `x`.
+fn line_y(p: (f64, f64), q: (f64, f64), x: f64) -> f64 {
+    if (q.0 - p.0).abs() < 1e-12 {
+        p.1
+    } else {
+        p.1 + (x - p.0) / (q.0 - p.0) * (q.1 - p.1)
+    }
+}
+
+/// The rule `crossing` for the secondary arrows and the arrows that skip a layer, on its own so that its cost can be tested. `cols`
+/// are the columns (layer by layer), `widths` the widest box of each, `gaps` the gaps between them as the other rules left them
+/// (`gaps[k]` between `k` and `k + 1`), `long` the arrows. In each round every arrow, clipped at the route boxes of its two ends,
+/// is tested against the route box (inflated by `margin`) of every other box of the columns it spans, ends included; the arrows
+/// that meet one widen every gap they span by one `CROSSING_STEP` together, so the result does not depend on the order of the
+/// arrows, and a layout and its mirror image in y get the same gaps. Arrows that do not meet a box are not looked at again once
+/// they clear (but are checked again each round: a wider gap can bring a box into the way). At most `CROSSING_STEPS` rounds.
+/// The columns are sorted by y once; a test costs O(log P + hits) per spanned column.
+pub fn long_gaps(
+    cols: &[Vec<Col>],
+    widths: &[f64],
+    gaps: &[f64],
+    long: &[Long],
+    margin: f64,
+) -> LongGaps {
+    let order: Vec<Vec<usize>> = cols.iter().map(|c| sorted_by_y(c)).collect();
+    let tall: Vec<f64> = cols
+        .iter()
+        .map(|c| c.iter().map(|b| b.2).fold(0.0, f64::max) / 2.0 + margin)
+        .collect();
+    let mut add = vec![0u32; gaps.len()];
+    let rect = |b: Col, x: f64| {
+        [
+            x - b.1 / 2.0,
+            b.0 - b.2 / 2.0,
+            x + b.1 / 2.0,
+            b.0 + b.2 / 2.0,
+        ]
+    };
+    let mut hits: Vec<(usize, std::ops::Range<usize>)> = Vec::new();
+    let mut best: Option<(Vec<u32>, Vec<usize>)> = None;
+    for round in 0..=CROSSING_STEPS {
+        let mut xs = vec![0.0; cols.len()];
+        for k in 1..cols.len() {
+            xs[k] = xs[k - 1]
+                + widths[k - 1] / 2.0
+                + gaps[k - 1]
+                + f64::from(add[k - 1]) * CROSSING_STEP
+                + widths[k] / 2.0;
+        }
+        hits.clear();
+        for (i, &((la, ia), (lb, ib))) in long.iter().enumerate() {
+            let Some((p, q)) = clip(
+                rect(cols[la][ia], xs[la]),
+                rect(cols[lb][ib], xs[lb]),
+                margin,
+            ) else {
+                continue;
+            };
+            // the first layer with a box the arrow meets; in it the boxes whose centre is nearest the arrow (all of them when
+            // several are equally near: no index decides, so a layout and its mirror image give the same result)
+            let mut found: Vec<(usize, f64)> = Vec::new();
+            let mut layer = la;
+            for l in la..=lb {
+                layer = l;
+                for j in near(&cols[l], &order[l], xs[l], widths[l], tall[l], margin, p, q) {
+                    if (l == la && j == ia) || (l == lb && j == ib) {
+                        continue;
+                    }
+                    if meets(p, q, rect(cols[l][j], xs[l]), margin) {
+                        found.push((j, line_y(p, q, xs[l]) - cols[l][j].0));
+                    }
+                }
+                if !found.is_empty() {
+                    break;
+                }
+            }
+            let nearest = found.iter().map(|f| f.1.abs()).fold(f64::MAX, f64::min);
+            let offs: Vec<f64> = (found.iter())
+                .map(|f| f.1)
+                .filter(|o| o.abs() <= nearest + 1e-9)
+                .collect();
+            let range = widen_range((la, lb), layer, q.1 - p.1, &offs);
+            if !range.is_empty() {
+                hits.push((i, range));
+            }
+        }
+        // the state kept is the first with the fewest arrows still meeting a box (round 0, the gaps as they were, is a candidate)
+        if best.as_ref().is_none_or(|b| hits.len() < b.1.len()) {
+            best = Some((add.clone(), hits.iter().map(|h| h.0).collect()));
+        }
+        if hits.is_empty() || round == CROSSING_STEPS {
+            break;
+        }
+        let mut spanned = vec![false; gaps.len()];
+        for (_, r) in &hits {
+            spanned[r.clone()].iter_mut().for_each(|s| *s = true);
+        }
+        for (a, s) in add.iter_mut().zip(&spanned) {
+            *a += u32::from(*s);
+        }
+    }
+    let (add, left) = best.unwrap_or_default();
+    LongGaps { add, left }
 }
 
 /// The length of the visible segment between two boxes (0 when nothing is left).

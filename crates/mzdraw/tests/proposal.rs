@@ -157,9 +157,31 @@ fn a_patch_that_does_not_apply_or_is_too_big_is_refused_and_nothing_is_held() {
             Op::parse(&json!({"op":"atom.add","id":100 + i,"el":"C","x":0.0,"y":0.0})).unwrap()
         })
         .collect();
-    let at = timing::Watch::start();
+    // a refusal is cheaper than the work it saves: the same number of operations, one fewer, is held and marked for real
+    let valid: Vec<Op> = big[..mzdraw::proposal::MAX_OPS].to_vec();
+    let refused = best_with(
+        1,
+        5,
+        || (drawing(), big.clone()),
+        |(mut e, big)| {
+            assert_eq!(e.propose(big).unwrap_err().key, "error.draw2.proposalSize");
+        },
+    );
+    let held = best_with(
+        1,
+        5,
+        || (drawing(), valid.clone()),
+        |(mut e, v)| {
+            e.propose(v).unwrap();
+        },
+    );
+    assert!(
+        refused <= held,
+        "refusing {} operations cost {refused:.3} ms, holding {} cost {held:.3} ms",
+        big.len(),
+        valid.len()
+    );
     assert_eq!(e.propose(big).unwrap_err().key, "error.draw2.proposalSize");
-    assert!(at.elapsed().as_millis() < 500);
     assert_eq!(e.proposal_json(), "null");
     // a hunk that is not there
     e.propose(patch()).unwrap();
@@ -328,6 +350,22 @@ fn best(mut f: impl FnMut()) -> f64 {
     timing::best_of(1, 7, &mut f).as_secs_f64() * 1000.0
 }
 
+/// The least CPU time, in milliseconds, of `runs` runs of `run` after `warm` that are not timed. Each run gets a fresh input from
+/// `setup`, built outside the clock (a run may consume or change its input). Noise only ever adds time, so the least is the cost.
+fn best_with<S>(warm: usize, runs: usize, setup: impl Fn() -> S, run: impl Fn(S)) -> f64 {
+    for _ in 0..warm {
+        run(setup());
+    }
+    (0..runs)
+        .map(|_| {
+            let s = setup();
+            let w = timing::Watch::start();
+            run(s);
+            w.elapsed().as_secs_f64() * 1000.0
+        })
+        .fold(f64::MAX, f64::min)
+}
+
 /// The time of `run` on the input of `n` and of `4n` (built by `setup`, outside the clock) must not differ by more than a factor 8:
 /// linear work gives 4 and quadratic work 16, and the bound has no floor, so it is the same at every speed; `n` is large enough that
 /// quadratic work is seconds in a release build too.
@@ -341,62 +379,121 @@ fn scales<T>(what: &str, n: u32, setup: impl Fn(u32) -> T, run: impl Fn(&T)) {
     );
 }
 
-#[test]
-fn one_remove_naming_every_atom_of_a_big_drawing_is_held_marked_and_accepted() {
-    let n = 20_000;
-    let mut e = editor(grid(n, true));
+/// One remove naming `n` atoms: held, marked (scene, words) and accepted, on a drawing of `n` atoms.
+fn remove_all(n: u32) -> (Editor, Op) {
     let remove = Op::Remove {
         atoms: (1..=n).collect(),
         bonds: Vec::new(),
         objects: Vec::new(),
     };
-    let at = timing::Watch::start();
+    (editor(grid(n, true)), remove)
+}
+
+#[test]
+fn one_remove_naming_every_atom_of_a_big_drawing_is_held_marked_and_accepted() {
+    // the result, once, on the big drawing
+    let n = 20_000;
+    let (mut e, remove) = remove_all(n);
     assert_eq!(e.propose(vec![remove]).unwrap(), 1);
     let _ = (e.scene(), e.proposal_json());
     e.accept_hunk(1).unwrap();
     assert!(e.doc().atoms.is_empty());
-    let ms = at.elapsed().as_millis();
-    assert!(ms < 20_000, "{ms} ms for one remove of {n} atoms");
+    // the cost of the proposal layer: four times the atoms may cost at most eight times as much (linear work gives 4, quadratic work
+    // 16); a ratio of two CPU times of this thread, so the speed or the load of the machine is not in it. `scene()` is called above
+    // for its result and left out of the clock: drawing a plain chain of this many atoms is not linear in a debug build (it takes
+    // as long without any proposal, see docs/built/flaky-tests-2.md); the marks and words of the proposal, which are the layer's own
+    // share of the scene, are timed.
+    let run = |(mut e, remove): (Editor, Op)| {
+        assert_eq!(e.propose(vec![remove]).unwrap(), 1);
+        let _ = (e.proposal_marks(), e.proposal_json());
+        e.accept_hunk(1).unwrap();
+    };
+    let small = best_with(1, 3, || remove_all(n / 4), run);
+    let big = best_with(1, 3, || remove_all(n), run);
+    assert!(
+        big <= small * 8.0,
+        "one remove: {small:.1} ms for {} atoms, {big:.1} ms for {n}",
+        n / 4
+    );
 }
 
-#[test]
-fn one_move_of_all_atoms_is_one_hunk_and_the_ids_are_capped() {
-    let n = 20_000;
-    let mut e = editor(grid(n, true));
-    let mv = Op::Move {
+/// One move of `n` atoms, over a drawing of `n` atoms (held, accepted, undone are timed apart): the three times in milliseconds.
+fn move_all_times(n: u32) -> [f64; 3] {
+    let mv = || Op::Move {
         atoms: (1..=n).collect(),
         objects: Vec::new(),
         dx: 1.0,
         dy: 0.0,
     };
-    let at = timing::Watch::start();
-    assert_eq!(e.propose(vec![mv]).unwrap(), 1);
-    let held = at.elapsed().as_millis();
-    let before = e.doc().to_json();
-    let at = timing::Watch::start();
-    e.accept_all().unwrap();
-    let accepted = at.elapsed().as_millis();
-    let at = timing::Watch::start();
-    assert!(e.undo() != 0);
-    let undone = at.elapsed().as_millis();
-    assert_eq!(e.doc().to_json(), before);
-    assert!(
-        held < 5_000 && accepted < 5_000 && undone < 5_000,
-        "{n} atoms moved: held {held} ms, accepted {accepted} ms, undone {undone} ms"
-    );
-    // more ids than the cap in one operation is refused at once, however few operations there are
-    let mv = Op::Move {
-        atoms: (1..=mzdraw::proposal::MAX_IDS as u32 + 1).collect(),
+    let mut t = [f64::MAX; 3];
+    for run in 0..4 {
+        let mut e = editor(grid(n, true));
+        let at = timing::Watch::start();
+        assert_eq!(e.propose(vec![mv()]).unwrap(), 1);
+        let held = at.elapsed().as_secs_f64() * 1000.0;
+        let before = e.doc().to_json();
+        let at = timing::Watch::start();
+        e.accept_all().unwrap();
+        let accepted = at.elapsed().as_secs_f64() * 1000.0;
+        let at = timing::Watch::start();
+        assert!(e.undo() != 0);
+        let undone = at.elapsed().as_secs_f64() * 1000.0;
+        assert_eq!(e.doc().to_json(), before);
+        if run > 0 {
+            // the first run is a warm-up
+            t = [t[0].min(held), t[1].min(accepted), t[2].min(undone)];
+        }
+    }
+    t
+}
+
+#[test]
+fn one_move_of_all_atoms_is_one_hunk_and_the_ids_are_capped() {
+    let n = 20_000;
+    // four times the atoms: each of the three steps may cost at most eight times as much (linear 4, quadratic 16)
+    let (small, big) = (move_all_times(n / 4), move_all_times(n));
+    for (step, (a, b)) in ["held", "accepted", "undone"]
+        .iter()
+        .zip(small.iter().zip(big.iter()))
+    {
+        assert!(
+            b <= &(a * 8.0),
+            "{step}: {a:.1} ms for {} atoms moved, {b:.1} ms for {n}",
+            n / 4
+        );
+    }
+    // more ids than the cap in one operation is refused at once, however few operations there are: it costs less than holding a move
+    // of as many ids as the drawing has atoms (the work it saves)
+    let big_move = |k: u32| Op::Move {
+        atoms: (1..=k).collect(),
         objects: Vec::new(),
         dx: 1.0,
         dy: 0.0,
     };
-    let at = timing::Watch::start();
-    assert_eq!(
-        e.propose(vec![mv]).unwrap_err().key,
-        "error.draw2.proposalIds"
+    let over = mzdraw::proposal::MAX_IDS as u32 + 1;
+    let refused = best_with(
+        1,
+        5,
+        || (editor(grid(n, true)), big_move(over)),
+        |(mut e, mv)| {
+            assert_eq!(
+                e.propose(vec![mv]).unwrap_err().key,
+                "error.draw2.proposalIds"
+            );
+        },
     );
-    assert!(at.elapsed().as_millis() < 500);
+    let held = best_with(
+        1,
+        5,
+        || (editor(grid(n, true)), big_move(n)),
+        |(mut e, mv)| {
+            e.propose(vec![mv]).unwrap();
+        },
+    );
+    assert!(
+        refused <= held,
+        "refusing {over} ids cost {refused:.3} ms, holding {n} cost {held:.3} ms"
+    );
 }
 
 #[test]
@@ -544,20 +641,49 @@ fn marking_and_saying_a_proposal_scales() {
     );
 }
 
+/// The request of `hunks` hunks of one atom each on a drawing of 20,000 atoms (given as a document: running the adds is the
+/// language's own cost), accepting all of them one by one.
+fn accept_request(hunks: u32) -> String {
+    let doc = grid(20_000, false).to_json();
+    let set: Vec<Value> = (0..hunks)
+        .map(|i| json!({"op":"atom.set","id":1 + 10 * i,"chg":1}))
+        .collect();
+    let accept: Vec<u32> = (1..=hunks).collect();
+    json!({"import": doc, "propose": set, "accept": accept, "out": "log"}).to_string()
+}
+
 #[test]
 fn two_thousand_separate_accepts_through_the_request_are_fast_and_all_or_none() {
-    // a drawing of 20,000 atoms (given as a document: running 20,000 adds is the language's own cost), 2,000 hunks of one atom each
+    // 2,000 hunks of one atom each on a drawing of 20,000 atoms: the request runs
     let n = mzdraw::proposal::MAX_OPS as u32;
     let doc = grid(20_000, false).to_json();
     let set: Vec<Value> = (0..n)
         .map(|i| json!({"op":"atom.set","id":1 + 10 * i,"chg":1}))
         .collect();
-    let accept: Vec<u32> = (1..=n).collect();
-    let r = json!({"import": doc, "propose": set, "accept": accept, "out": "log"});
-    let at = timing::Watch::start();
-    mzdraw::replay::replay(&r.to_string()).unwrap();
-    let ms = at.elapsed().as_millis();
-    assert!(ms < 20_000, "{ms} ms");
+    mzdraw::replay::replay(&accept_request(n)).unwrap();
+    // and the hunks cost in proportion: over the same drawing, four times the hunks may cost at most eight times as much (linear 4,
+    // quadratic 16). What the drawing alone costs (the same request with one hunk) is taken off, so that the figures are those of the
+    // hunks and not of the import of the drawing (which is not linear in a debug build); the three are taken in turns, so that a slow
+    // phase of the machine falls on all of them, and each is the least of its runs.
+    let texts = [accept_request(1), accept_request(n / 4), accept_request(n)];
+    let mut least = [f64::MAX; 3];
+    for round in 0..5 {
+        for (t, text) in texts.iter().enumerate() {
+            let w = timing::Watch::start();
+            mzdraw::replay::replay(text).unwrap();
+            if round > 0 {
+                // the first round is a warm-up
+                least[t] = least[t].min(w.elapsed().as_secs_f64() * 1000.0);
+            }
+        }
+    }
+    let base = least[0];
+    let (small, big) = ((least[1] - base).max(1.0), least[2] - base);
+    assert!(
+        big <= small * 8.0,
+        "accepting one by one: {small:.1} ms for {} hunks, {big:.1} ms for {n} (drawing alone {base:.1} ms)",
+        n / 4
+    );
     // one number out of range at the end: nothing at all is accepted
     let mut bad: Vec<u32> = (1..n).collect();
     bad.push(n + 1);
