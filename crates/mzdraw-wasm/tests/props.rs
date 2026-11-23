@@ -103,23 +103,24 @@ fn an_element_the_engine_does_not_know_and_a_structure_above_its_limit_leave_no_
             assert_eq!(b["values"][k], json!([]), "{smiles} {k}");
         }
     }
-    // a chain of 1000 carbons: the engine gives a mass of zero, which is no measure: `error.draw2.valuesZero`, nothing written
+    // a chain of 1000 carbons: the engine reads it (V3000 since mzLab #3657) and refuses it with its own size key `error.grafo.tooBig`,
+    // nothing written (before that pin it read the V3000 as nothing and gave a mass of zero: `error.draw2.valuesZero`)
     for n in [1000usize, 4900] {
         let v = props(json!({"import": "C".repeat(n), "props": true}));
         let b = &v["structures"][0];
-        assert_eq!(b["error"], "error.draw2.valuesZero", "{n}");
+        assert_eq!(b["error"], "error.grafo.tooBig", "{n}");
         assert_eq!(b["values"]["exact"], json!([]), "{n}");
         assert_eq!(b["values"]["logp"], json!([]), "{n}");
         let t =
             glue::replay(&json!({"import": "C".repeat(n), "props": {"text": "line"}}).to_string())
                 .unwrap();
         assert!(
-            !t.contains("0.0000") && t.contains("note error.draw2.valuesZero"),
+            !t.contains("0.0000") && t.contains("note error.grafo.tooBig"),
             "{n}: {t}"
         );
         // the panel's values/1 (arch-web-17) no longer says 0.0000 either
         let v = props(json!({"import": "C".repeat(n), "values": true}));
-        assert_eq!(v["structures"][0]["error"], "error.draw2.valuesZero", "{n}");
+        assert_eq!(v["structures"][0]["error"], "error.grafo.tooBig", "{n}");
         assert_eq!(v["structures"][0]["mass"], Value::Null, "{n}");
     }
 }
