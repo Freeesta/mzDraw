@@ -33,5 +33,5 @@ Not caught by a ratio, by its nature: a cost per accept that does not grow with 
 
 ## Wall-clock and absolute bounds that remain (and why)
 
-- Absolute bounds in whole seconds, left as in `flaky-tests.md`: `cdx.rs`, `orient_limits.rs`, `tp_list.rs`, `pathway_tools.rs`, `loss.rs`, `lens.rs`, `tp.rs`, `tptable.rs`. They are listed with their reasons in `timing_guard.rs`. Not rewritten here: some are close to their real time in a debug build (the `pathway_tools.rs` bounds of 20 s and 10 s, the `lens.rs` and `tp.rs` bounds of 5 s), so they may need the same treatment if one of them fails on CI; the evidence so far is only for the proposal tests.
+- Absolute bounds in whole seconds, left as in `flaky-tests.md`: `cdx.rs`, `orient_limits.rs`, `tp_list.rs`, `pathway_tools.rs`, `loss.rs`, `lens.rs`, `tp.rs`, `tptable.rs`. They are listed with their reasons in `timing_guard.rs`. Not rewritten here, and their margin over the real time in a debug build was not measured in this slice: if one of them fails on CI it needs the same treatment; the evidence so far is only for the proposal tests.
 - `pathway.rs` `two_hundred_nodes_in_time` (release only, 100 ms on the CPU clock) and the 100 ms bound of the signature test of `stereo_guard.rs` are absolute figures on the CPU clock, not rewritten.
