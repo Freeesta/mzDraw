@@ -1,6 +1,10 @@
-// The icons of the page: an original set drawn for this page (no icon pack, nothing traced). Stroke icons on a 24x24 grid, 1.5 px stroke,
-// round caps and joins, in currentColor so that they follow the theme; filled parts (the solid wedge) use currentColor too.
-// Bonds are drawn by chemical convention along 30 degrees, rings as regular polygons with a flat bottom.
+// The icons of the page: an original set drawn for this page (no icon pack, nothing traced), all in this one file so the set can be refined
+// in one place. Stroke icons on a 24x24 grid, `WEIGHT` (1.75) px stroke, round caps and joins, in currentColor so that they follow the
+// theme; filled parts (the solid wedge, the dots) use currentColor too. They stay readable at 20 px (a stroke of 1.46 px) in the light and
+// the dark theme. Bonds are drawn by chemical convention along 30 degrees, rings as regular polygons with a flat bottom; the icons of
+// the toolbar (file, settings, palettes, more) share one outline: a 17 x 17 body inside a 2 px margin, corners rounded 1.5 px.
+/** the stroke width of every icon, in the 24 px grid */
+export const WEIGHT = 1.75;
 
 const B = "M5.1 16L18.9 8";                     // the bond axis of every bond icon: 16 px long, 30 degrees up to the right
 /** @type {Record<string, string>} the inner markup of each icon */
@@ -17,9 +21,9 @@ export const ICONS = {
   "bond:dash": '<path d="M5.1 16L7.4 14.7M9.4 13.5L11.7 12.2M13.7 11L16 9.6M18 8.5L19.4 7.7"/>',
   "bond:bdash": '<path d="M5.1 16L7.4 14.7M9.4 13.5L11.7 12.2M13.7 11L16 9.6M18 8.5L19.4 7.7" stroke-width="3.4"/>',
   "bond:hash": '<path d="M5.1 16L19.4 7.7M7.4 16.1L8.6 13.9M10.5 14.3L11.7 12.1M13.6 12.5L14.8 10.3M16.7 10.7L17.9 8.5"/>',
-  "bond:bold": '<path d="M5.1 16L19.4 7.7" stroke-width="4"/>',
+  "bond:bold": '<path d="M5.1 16L19.4 7.7" stroke-width="4.4"/>',
   "bond:dative": '<path d="M4.6 16.3L15 10.2"/><path d="M19.9 7.4L16 12.65L13.4 8.15z" fill="currentColor"/>',
-  "bond:hbond": '<path d="M5.1 16h.01M8.7 13.9h.01M12.3 11.8h.01M15.9 9.7h.01M19.5 7.6h.01" stroke-width="2.6" stroke-linecap="round"/>',
+  "bond:hbond": '<path d="M5.1 16h.01M8.7 13.9h.01M12.3 11.8h.01M15.9 9.7h.01M19.5 7.6h.01" stroke-width="3"/>',
   "ring:3": '<path d="M4.2 18.8L12 5.3l7.8 13.4z"/>',
   "ring:4": '<path d="M6 18V6h12v12z"/>',
   "ring:5": '<path d="M7 19.7L3.9 10.2 12 4.3l8.1 5.9-3.1 9.5z"/>',
@@ -32,7 +36,7 @@ export const ICONS = {
   "charge:-": '<circle cx="12" cy="12" r="8"/><path d="M8.5 12h7"/>',
   label: '<path d="M5.5 19V5h5a4 4 0 0 1 0 8h-5M10 13l4.5 6"/><path d="M17.5 14.5l1.5-1v6"/>',
   chain: '<path d="M3.5 16l4.2-7 4.3 7 4.2-7 4.3 7"/>',
-  arrow: '<path d="M3.5 12h16.5M15 7l5 5-5 5"/>',
+  arrow: '<path d="M4 12h16M14.5 6.5L20 12l-5.5 5.5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   "scheme-row": '<path d="M2.5 12h4M4.5 10v4M9 12h6M12.5 9.5L15 12l-2.5 2.5M19 12h2.5"/>',
   "pathway-label": '<path d="M3 15h18M17 11.5l4 3.5-4 3.5"/><path d="M6 9.5h7M9.5 6.5v6"/>',
@@ -64,15 +68,15 @@ export const ICONS = {
   "zoom-in": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.3 15.3l5.2 5.2M7.5 10.5h6M10.5 7.5v6"/>',
   "zoom-out": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.3 15.3l5.2 5.2M7.5 10.5h6"/>',
   fit: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="8.5" y="8.5" width="7" height="7" rx="1"/>',
-  open: '<path d="M3.5 18.5v-13h6l2 2.5h9v10.5z"/>',
-  save: '<path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4 15.5v4h16v-4"/>',
-  clear: '<path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/>',
+  open: '<path d="M3.5 17.5V6.5a1.5 1.5 0 0 1 1.5-1.5h4.3l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"/>',
+  save: '<path d="M12 4v10.5M7.5 10.5l4.5 4.5 4.5-4.5M4.5 15.5V18a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-2.5"/>',
+  clear: '<path d="M7 3.5h7l4.5 4.5v11A1.5 1.5 0 0 1 17 20.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V8h4.5M12 11.5v5M9.5 14h5"/>',
   panel: '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M14.5 4.5v15M16.75 8.5h1.5M16.75 11h1.5"/>',
-  more: '<circle cx="6" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="18" cy="12" r="1.3" fill="currentColor"/>',
+  more: '<circle cx="5.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
   colour: '<path d="M12 3.5c4.7 5 6.5 7.7 6.5 10.2a6.5 6.5 0 0 1-13 0c0-2.5 1.8-5.2 6.5-10.2z"/><path d="M9 14.5a3 3 0 0 0 3 3"/>',
-  formats: '<path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4M9 11.5h6M9 14.5h6M9 17.5h3.5"/>',
-  palettes: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.2"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.2"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.2"/><path d="M13.5 17h7M17 13.5v7"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3.2l1.6 2.3 2.7-.6.9 2.6 2.6.9-.6 2.7 2.3 1.6-2.3 1.6.6 2.7-2.6.9-.9 2.6-2.7-.6L12 20.8l-1.6-2.3-2.7.6-.9-2.6-2.6-.9.6-2.7L2.5 12l2.3-1.6-.6-2.7 2.6-.9.9-2.6 2.7.6z"/>',
+  formats: '<path d="M7 3.5h7l4.5 4.5v11A1.5 1.5 0 0 1 17 20.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V8h4.5M8.5 12h7M8.5 15h7M8.5 18h4"/>',
+  palettes: '<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.5"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.5"/>',
+  gear: '<path d="M9.6 5L9.76 2.67h4.48L14.4 5l.86.35 1.76-1.54 3.17 3.17-1.54 1.76.35.86 2.33.16v4.48L19 14.4l-.35.86 1.54 1.76-3.17 3.17-1.76-1.54-.86.35-.16 2.33H9.76L9.6 19l-.86-.35-1.76 1.54-3.17-3.17 1.54-1.76L5 14.4l-2.33-.16V9.76L5 9.6l.35-.86L3.81 6.98l3.17-3.17 1.76 1.54z"/><circle cx="12" cy="12" r="3.2"/>',
   all: '<rect x="3.5" y="3.5" width="17" height="17" rx="1" stroke-dasharray="2 2.6"/><path d="M8 12l3 3 5-6"/>',
 };
 
@@ -80,7 +84,7 @@ const NS = "http://www.w3.org/2000/svg";
 /** an icon as an `svg` element (hidden from assistive technology: the button carries the name) @param {string} name */
 export function icon(name) {
   const svg = document.createElementNS(NS, "svg");
-  for (const [k, v] of [["viewBox", "0 0 24 24"], ["width", "24"], ["height", "24"], ["fill", "none"], ["stroke", "currentColor"], ["stroke-width", "1.5"],
+  for (const [k, v] of [["viewBox", "0 0 24 24"], ["width", "24"], ["height", "24"], ["fill", "none"], ["stroke", "currentColor"], ["stroke-width", String(WEIGHT)],
     ["stroke-linecap", "round"], ["stroke-linejoin", "round"], ["aria-hidden", "true"], ["focusable", "false"], ["class", "ico"]]) svg.setAttribute(k, v);
   svg.innerHTML = ICONS[name] || "";
   svg.dataset.icon = name;

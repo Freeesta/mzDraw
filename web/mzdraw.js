@@ -668,7 +668,7 @@ function events() {
     const f = ed.key(e.key, mods(e), e.timeStamp);
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
     if (f & MENU) menu.openAtAnchor();
-    if (f & (ASK_LABEL | ASK_TEXT)) { open(f & ASK_LABEL ? "charges" : "objects", true); const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
+    if (f & (ASK_LABEL | ASK_TEXT)) { open(f & ASK_LABEL ? "charges" : "text", true); const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }
   };
   cv.addEventListener("keydown", key);
   $("d2-text-input").addEventListener("keydown", key);
@@ -878,7 +878,7 @@ async function styles() {
   for (const name of [NAME, ...NAMES.settingsOld]) {       // the file of the name in use, else one an earlier name wrote
     let text = "";
     try { text = await (await (await navigator.storage.getDirectory()).getFileHandle(name)).getFile().then(f => f.text()); } catch { continue; }       // nothing kept, or no storage
-    try { const r = JSON.parse(ed.set_style_stored(text)); if (r.note) stored = t(r.note); break; } catch { /* a file the module refuses */ }
+    try { const r = JSON.parse(ed.set_style_stored(text)); if ((r.notes || []).length) stored = r.notes.map((/** @type {string} */ n) => t(n)).join(" "); break; } catch { /* a file the module refuses */ }
   }
   restyle = show;
   show();

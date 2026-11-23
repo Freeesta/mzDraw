@@ -8,6 +8,7 @@
 //! user did not move. Keys and palette ids this version does not know are kept and written back.
 
 use crate::doc::Writer;
+use crate::tool_groups::{Group, Heads, Slot, ROWS, SLOTS};
 use serde_json::Value;
 
 /// An edge of the page a palette is docked on, or none (`Float`).
@@ -115,13 +116,8 @@ fn point(x: f64, y: f64) -> Option<(f64, f64)> {
 }
 
 /// The palettes of the page in their desktop place: id, edge, order along it, collapsed to its head.
-pub const PALETTES: [(&str, Dock, u32, bool); 16] = [
+pub const PALETTES: [(&str, Dock, u32, bool); 11] = [
     ("tools", Dock::Left, 1, false),
-    ("bonds", Dock::Left, 2, true),
-    ("rings", Dock::Left, 3, true),
-    ("atoms", Dock::Left, 4, true),
-    ("charges", Dock::Left, 5, true),
-    ("objects", Dock::Left, 6, true),
     ("file", Dock::Top, 1, false),
     ("history", Dock::Top, 2, false),
     ("edit", Dock::Top, 3, true),
@@ -133,6 +129,10 @@ pub const PALETTES: [(&str, Dock, u32, bool); 16] = [
     ("check", Dock::Right, 5, false),
     ("keys", Dock::Right, 6, true),
 ];
+
+/// The palettes of the layouts before the general tools palette: their tools are groups of `tools` now (`tool_groups`). A stored
+/// layout that names them is read as the new default for the tools, with the note `draw2.layout.migrated`.
+pub const LEGACY: [&str; 5] = ["bonds", "rings", "atoms", "charges", "objects"];
 
 const SIDE: [&str; 6] = ["structure", "style", "data", "annotation", "check", "keys"];
 
@@ -251,6 +251,15 @@ pub struct Layout {
     /// Entries of palettes this version does not know and keys of the object it does not know, as JSON text.
     unknown_entries: Vec<String>,
     unknown_keys: Vec<(String, String)>,
+    /// The face of each group of the tools palette: the member used last (`tool_groups`); and the faces of groups this version
+    /// does not know, as JSON text.
+    heads: Heads,
+    unknown_heads: Vec<(String, String)>,
+    /// `slots_json` for the faces it was written with: a layout runs on every frame of a drag, the faces change rarely.
+    slots_cache: Option<(Heads, String)>,
+    /// The layout read had palettes of the layouts before the general tools palette: they were dropped and the tools take their
+    /// default place (the page says so once, with `draw2.layout.migrated`).
+    pub migrated: bool,
     /// The viewport and the sizes of the palettes the page measured last.
     view: (f64, f64),
     sizes: Vec<(String, f64, f64)>,
@@ -266,6 +275,10 @@ impl Default for Layout {
             changed: Vec::new(),
             unknown_entries: Vec::new(),
             unknown_keys: Vec::new(),
+            heads: Heads::default(),
+            unknown_heads: Vec::new(),
+            slots_cache: None,
+            migrated: false,
             view: (1280.0, 800.0),
             sizes: Vec::new(),
             grab: None,
@@ -356,9 +369,23 @@ impl Layout {
                 }
                 "snap" => l.snap = x.as_f64().filter(|s| (0.0..=64.0).contains(s)).ok_or(ERR)?,
                 "all_hidden" => l.all_hidden = x.as_bool().ok_or(ERR)?,
+                "heads" => {
+                    for (g, m) in x.as_object().ok_or(ERR)? {
+                        if Group::named(g).is_none() {
+                            l.unknown_heads.push((g.clone(), m.to_string()));
+                        } else {
+                            l.heads.set(g, m.as_str().ok_or(ERR)?)?;
+                        }
+                    }
+                }
                 "palettes" => {
                     for e in x.as_array().ok_or(ERR)? {
                         let id = e.get("id").and_then(Value::as_str).ok_or(ERR)?;
+                        // a palette of the layouts before the general tools palette: its tools are groups of `tools` now
+                        if LEGACY.contains(&id) {
+                            l.migrated = true;
+                            continue;
+                        }
                         if PALETTES.iter().all(|p| p.0 != id) {
                             l.unknown_entries.push(e.to_string());
                             continue;
@@ -411,6 +438,18 @@ impl Layout {
                 _ => l.unknown_keys.push((k.clone(), x.to_string())),
             }
         }
+        // the old tools palette could be collapsed to its head; the general one never is
+        if l.migrated {
+            for c in l.changed.iter_mut().filter(|c| c.id == "tools") {
+                c.collapsed = None;
+            }
+            l.changed.retain(|c| {
+                *c != Change {
+                    id: c.id.clone(),
+                    ..Default::default()
+                }
+            });
+        }
         Ok(l)
     }
 
@@ -429,6 +468,16 @@ impl Layout {
         }
         if self.all_hidden {
             o.raw("all_hidden", "true");
+        }
+        if !self.heads.is_empty() || !self.unknown_heads.is_empty() {
+            let mut h = Writer("{".into());
+            for (g, m) in self.heads.entries() {
+                h.text(g, m);
+            }
+            for (g, m) in &self.unknown_heads {
+                h.raw(g, m);
+            }
+            o.raw("heads", &(h.0 + "}"));
         }
         let mut list: Vec<String> = Vec::new();
         for c in &self.changed {
@@ -480,6 +529,10 @@ impl Layout {
                     .ok_or(ERR)?
             }
             "reset" => self.reset(),
+            // the face of a group of the tools palette: `heads.bonds=bond:wavy`
+            k if k.starts_with("heads.") => {
+                self.heads.set(&k["heads.".len()..], v)?;
+            }
             _ => return Err("error.draw2.set"),
         }
         Ok(())
@@ -489,6 +542,7 @@ impl Layout {
     pub fn reset(&mut self) {
         self.changed.clear();
         self.all_hidden = false;
+        self.heads.clear();
         self.grab = None;
     }
 
@@ -873,7 +927,8 @@ impl Layout {
         };
         match what {
             "hidden" => p.hidden = !p.hidden,
-            "collapsed" => p.collapsed = !p.collapsed,
+            // the general tools palette is always whole: its groups fold into their own lists
+            "collapsed" if p.id != "tools" => p.collapsed = !p.collapsed,
             "orient" if p.dock == Dock::Float => p.horizontal = !p.horizontal,
             _ => return false,
         }
@@ -905,6 +960,17 @@ impl Layout {
                 e.raw("hidden", bool(r.hidden));
                 // only a floating palette turns between a row and a column
                 e.raw("can_turn", bool(r.dock == Dock::Float));
+                e.raw("can_collapse", bool(r.id != "tools"));
+                // the keys of the palette: along it, and across it to open the list of a group (along the edge it is docked on)
+                let (next, prev, across) = match (r.horizontal, r.dock) {
+                    (true, Dock::Bottom) => ("ArrowRight", "ArrowLeft", "ArrowUp"),
+                    (true, _) => ("ArrowRight", "ArrowLeft", "ArrowDown"),
+                    (false, Dock::Right) => ("ArrowDown", "ArrowUp", "ArrowLeft"),
+                    (false, _) => ("ArrowDown", "ArrowUp", "ArrowRight"),
+                };
+                e.text("next", next);
+                e.text("prev", prev);
+                e.text("across", across);
                 e.0 + "}"
             })
             .collect();
@@ -916,7 +982,60 @@ impl Layout {
         o.text("held", held.as_deref().unwrap_or(""));
         o.text("hint_edge", hint.map_or("", |d| d.name()));
         o.raw("palettes", &format!("[{}]", list.join(",")));
+        if self.slots_cache.as_ref().is_none_or(|c| c.0 != self.heads) {
+            self.slots_cache = Some((self.heads.clone(), self.slots_json()));
+        }
+        let slots = self.slots_cache.as_ref().map_or("[]", |c| c.1.as_str());
+        o.raw("slots", slots);
+        o.int("rows", ROWS as i64);
         o.0 + "}"
+    }
+
+    /// What the general tools palette holds, place by place, column after column: `{"cmd"}` for a tool on its own, or `{"group",
+    /// "face", "icon", "members", "keep", "fields", "owns"}` for a group (`tool_groups`), with the face it shows now.
+    pub fn slots_json(&self) -> String {
+        let strs = |l: &[&str]| Value::from(l.to_vec()).to_string();
+        let list: Vec<String> = SLOTS
+            .iter()
+            .map(|s| {
+                let mut e = Writer("{".into());
+                match s {
+                    Slot::Tool(t) => e.text("cmd", t),
+                    Slot::Group(g) => {
+                        e.text("group", g.id);
+                        e.text("face", &self.heads.face(g));
+                        e.text("icon", g.icon);
+                        e.raw("members", &strs(g.members));
+                        e.raw("keep", &strs(g.keep));
+                        e.raw("fields", &strs(g.fields));
+                        e.text("owns", g.owns);
+                        e.raw("grid", if g.grid { "true" } else { "false" });
+                    }
+                }
+                e.0 + "}"
+            })
+            .collect();
+        format!("[{}]", list.join(","))
+    }
+
+    /// A tool has been chosen: when it is a member of a group of the tools palette, it becomes the face of its group. True when a
+    /// face changed (the page lays the palettes out again and keeps the settings).
+    pub fn note_tool(&mut self, tool: &str) -> bool {
+        self.heads.note(tool)
+    }
+
+    /// The groups whose button stands for the tool in use (the page marks them with `aria-current`).
+    pub fn pressed(&self, tool: &str) -> Vec<&'static str> {
+        crate::tool_groups::GROUPS
+            .into_iter()
+            .filter(|g| g.pressed(tool))
+            .map(|g| g.id)
+            .collect()
+    }
+
+    /// The face of a group now (its first when none was used), `None` for a name that is no group.
+    pub fn face(&self, group: &str) -> Option<String> {
+        Group::named(group).map(|g| self.heads.face(g))
     }
 }
 
