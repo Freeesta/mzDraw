@@ -154,6 +154,8 @@ pub struct Editor {
     /// The rows `tp:import` refused in its last run, `(line, key)` in line order (`failed.rows` of the result document); empty otherwise.
     pub(crate) failed_rows: Vec<(u32, String)>,
     pub view: View,
+    /// The size of the canvas in pixels as the page last told it (`set_canvas`, `fit`): the view centre a paste lands at.
+    pub(crate) canvas: (f64, f64),
     pub tool: Tool,
     pub over: Overlay,
     pub(crate) press: Option<Press>,
@@ -331,6 +333,7 @@ impl Default for Editor {
                 ox: 200.0,
                 oy: 200.0,
             },
+            canvas: (400.0, 400.0),
             tool: Tool::Bond(1, 0),
             over: Overlay::default(),
             press: None,
@@ -594,8 +597,16 @@ impl Editor {
         REPAINT
     }
 
+    /// Tells the editor the size of the canvas in pixels (a size that is not finite and positive is ignored). The view does not change.
+    pub fn set_canvas(&mut self, w: f64, h: f64) {
+        if w.is_finite() && h.is_finite() && w > 0.0 && h > 0.0 {
+            self.canvas = (w, h);
+        }
+    }
+
     /// Centres the drawing in a `w` x `h` canvas, at most 40 px per bond.
     pub fn fit(&mut self, w: f64, h: f64) -> u32 {
+        self.set_canvas(w, h);
         let Some((x0, y0, x1, y1)) = self.doc().bounds() else {
             self.view = View {
                 scale: 40.0,

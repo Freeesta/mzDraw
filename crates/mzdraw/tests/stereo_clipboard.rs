@@ -224,7 +224,7 @@ fn copy_cut_paste_and_duplicate() {
         rec.stereo
     );
     let before = e.doc().to_json();
-    // a paste is one undo step, lands half a bond away, becomes the selection and picks the Select tool
+    // a paste is one undo step, lands in a free place (not on the drawing), becomes the selection and picks the Select tool
     e.set_tool("bond:1");
     let f = e.paste(None);
     assert_eq!(f & (CHANGED | TOOL), CHANGED | TOOL);
@@ -232,27 +232,43 @@ fn copy_cut_paste_and_duplicate() {
     assert_eq!(e.tool.name(), "select");
     assert_eq!((e.over.sel_atoms.len(), e.over.sel_bonds.len()), (6, 5));
     let (a, b) = (e.doc().atoms[0].clone(), e.doc().atoms[6].clone());
-    assert_eq!((b.x - a.x, b.y - a.y), (0.5, -0.5));
+    let (dx, dy) = (b.x - a.x, b.y - a.y);
+    assert!((dx, dy) != (0.0, 0.0), "the copy is not on the source");
+    for i in 0..6 {
+        let (p, q) = (&e.doc().atoms[i], &e.doc().atoms[6 + i]);
+        assert!(
+            (q.x - p.x - dx).abs() < 1e-9 && (q.y - p.y - dy).abs() < 1e-9,
+            "a translation"
+        );
+    }
+    let apart = |e: &Editor, from: usize| {
+        let at = &e.doc().atoms;
+        at[from..].iter().all(|n| {
+            at[..from]
+                .iter()
+                .all(|o| (n.x - o.x).hypot(n.y - o.y) > 0.5)
+        })
+    };
+    assert!(apart(&e, 6));
     assert_eq!(
         e.doc().bonds.iter().filter(|b| b.s != 0).count(),
         2,
         "the copy keeps its wedge"
     );
-    // the second paste lands a further half bond away
+    // the second paste lands in a free place too
     e.paste(None);
-    assert_eq!(e.doc().atoms[12].x - a.x, 1.0);
+    assert!(apart(&e, 12));
     e.undo();
     e.undo();
     assert_eq!(e.doc().to_json(), before);
-    // the same text coming back from the system clipboard is still our own copy (the paste count is not rewound by undo); a
-    // foreign text lands to the right
+    // the same text coming back from the system clipboard is pasted the same way
     e.paste(Some(&e.clipboard("mzdraw")));
-    assert_eq!(e.doc().atoms[6].x - a.x, 1.5);
+    assert_eq!(e.doc().atoms.len(), 12);
+    assert!(apart(&e, 6));
     e.undo();
-    let right = e.doc().atoms.iter().map(|a| a.x).fold(f64::MIN, f64::max);
     e.paste(Some("CCO"));
     assert_eq!(e.doc().atoms.len(), 9);
-    assert!(e.doc().atoms[6..].iter().all(|a| a.x >= right + 1.9));
+    assert!(apart(&e, 6));
     assert_eq!(e.over.sel_atoms.len(), 3);
     // a text that is no structure changes nothing and says why
     let n = e.doc().to_json();

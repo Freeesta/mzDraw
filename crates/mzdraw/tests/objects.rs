@@ -230,10 +230,10 @@ fn objects_are_selected_dragged_erased_copied_and_pasted() {
     assert_eq!((e.doc().atoms.len(), e.doc().objects.len()), (4, 4));
     assert_eq!(e.over.sel_objs.len(), 2);
     let (o, c) = (e.doc().objects[0].clone(), e.doc().objects[2].clone());
-    assert_eq!(
-        (c.x - o.x, c.y - o.y, c.x2 - o.x2, c.y2 - o.y2),
-        (0.5, -0.5, 0.5, -0.5)
-    );
+    // the copy keeps its shape and lands in a free place (smart paste), not on the source
+    let (dx, dy) = (c.x - o.x, c.y - o.y);
+    assert!((dx, dy) != (0.0, 0.0), "the copy is not on the source");
+    assert!(((c.x2 - o.x2) - dx).abs() < 1e-9 && ((c.y2 - o.y2) - dy).abs() < 1e-9);
     assert_eq!(e.doc().objects[3].text, "reflux");
     e.undo();
     // a band takes the objects whose anchor it holds; Delete removes them with the atoms

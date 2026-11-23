@@ -8,6 +8,38 @@ use crate::ops::{Axis, Op};
 
 /// How far a pasted copy lands from its source, in bond lengths, per paste.
 const PASTE_STEP: f64 = 0.5;
+/// How far (in bond lengths) a pasted part keeps from what is drawn, and how far from the view centre a free place is looked for.
+const FREE_GAP: f64 = 0.5;
+const FREE_RANGE: i32 = 40;
+
+/// The points of a drawing a pasted part must keep away from: the atoms, a sample every quarter bond along each bond, the anchors of
+/// the objects and a sample along each arrow.
+fn line(pts: &mut Vec<(f64, f64)>, a: (f64, f64), b: (f64, f64)) {
+    let n = ((b.0 - a.0).hypot(b.1 - a.1) / 0.25)
+        .ceil()
+        .clamp(1.0, 400.0) as usize;
+    for k in 1..n {
+        let t = k as f64 / n as f64;
+        pts.push((a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t));
+    }
+}
+
+fn occupied(d: &Document) -> Vec<(f64, f64)> {
+    let mut pts: Vec<(f64, f64)> = d.atoms.iter().map(|a| (a.x, a.y)).collect();
+    for b in &d.bonds {
+        if let (Some(a), Some(c)) = (d.atom(b.a), d.atom(b.b)) {
+            line(&mut pts, (a.x, a.y), (c.x, c.y));
+        }
+    }
+    for o in &d.objects {
+        pts.push((o.x, o.y));
+        if o.t == crate::doc::ObjKind::Arrow {
+            pts.push((o.x2, o.y2));
+            line(&mut pts, (o.x, o.y), (o.x2, o.y2));
+        }
+    }
+    pts
+}
 
 impl Editor {
     /// The selected atoms, or every atom when nothing is selected.
@@ -293,24 +325,30 @@ impl Editor {
         }
     }
 
-    /// Pastes a structure text (`None`: the editor's own clipboard) as one undo step. What comes from this editor lands next to its
-    /// source, half a bond further at each paste; a text from elsewhere lands to the right of the drawing. The pasted part becomes
-    /// the selection and the tool becomes Select, so that it can be dragged into place.
+    /// Pastes a structure text (`None`: the editor's own clipboard) as one undo step, in a free place: the centre of the view when
+    /// nothing is drawn within half a bond of the pasted part there, else the nearest free place to its right and below (`free_offset`).
+    /// The view does not change. The pasted part becomes the selection and the tool becomes Select, so that it can be dragged into place.
     pub fn paste(&mut self, text: Option<&str>) -> u32 {
-        let own = text.is_none_or(|t| t == self.clip);
+        self.paste_at(text, false)
+    }
+
+    fn paste_at(&mut self, text: Option<&str>, beside: bool) -> u32 {
         let text = text.map_or(self.clip.clone(), str::to_string);
         if text.trim().is_empty() {
             return 0;
         }
-        let placed = if own {
-            let step = PASTE_STEP * (self.pasted + 1) as f64;
-            io::import(&text).and_then(|(new, _)| self.place(&new, step, -step))
-        } else {
-            self.import_placed(&text).map(|r| r.1)
-        };
+        let placed = io::import(&text).and_then(|(new, _)| {
+            let (dx, dy) = if beside {
+                let step = PASTE_STEP * (self.pasted + 1) as f64;
+                (step, -step)
+            } else {
+                self.free_offset(&new)
+            };
+            self.place(&new, dx, dy)
+        });
         match placed {
             Ok(p) => {
-                if own {
+                if beside {
                     self.pasted += 1;
                 }
                 self.said = (
@@ -329,12 +367,54 @@ impl Editor {
         }
     }
 
+    /// Where a pasted document goes: the shift (`dx`, `dy`) that puts its box at the view centre when no drawn point is within
+    /// `FREE_GAP` of it, else at the nearest free place to the right and below, tried on a grid of one bond length by growing
+    /// distance (ties: the nearer to the right, then the lower); when that quadrant is full, the nearest free place in any direction,
+    /// and last to the right of the drawing. The result depends only on the document, the view and the canvas size.
+    pub(crate) fn free_offset(&self, new: &Document) -> (f64, f64) {
+        let Some((x0, y0, x1, y1)) = new.bounds() else {
+            return (0.0, 0.0);
+        };
+        let (w, h) = self.canvas;
+        let (cx, cy) = self.view.to_doc(w / 2.0, h / 2.0);
+        let (cx, cy) = if cx.is_finite() && cy.is_finite() {
+            (cx, cy)
+        } else {
+            (0.0, 0.0)
+        };
+        let (mx, my) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+        let (hw, hh) = ((x1 - x0) / 2.0 + FREE_GAP, (y1 - y0) / 2.0 + FREE_GAP);
+        let drawn = occupied(self.doc());
+        let free = |i: i32, j: i32| {
+            let (px, py) = (cx + f64::from(i), cy + f64::from(j));
+            !drawn
+                .iter()
+                .any(|p| (p.0 - px).abs() < hw && (p.1 - py).abs() < hh)
+        };
+        let cells = |quadrant: bool| {
+            let r = FREE_RANGE;
+            let mut v: Vec<(i32, i32)> = (-r..=r)
+                .flat_map(|j| (-r..=r).map(move |i| (i, j)))
+                .filter(|&(i, j)| i * i + j * j <= r * r && (!quadrant || (i >= 0 && j <= 0)))
+                .collect();
+            v.sort_by_key(|&(i, j)| (i * i + j * j, -i, j));
+            v
+        };
+        for quadrant in [true, false] {
+            if let Some((i, j)) = cells(quadrant).into_iter().find(|&(i, j)| free(i, j)) {
+                return (cx + f64::from(i) - mx, cy + f64::from(j) - my);
+            }
+        }
+        let right = self.doc().bounds().map_or(cx, |b| b.2);
+        (right + 2.0 - x0, cy - my)
+    }
+
     /// Copies the selection and pastes it at once.
     pub fn duplicate(&mut self) -> u32 {
         if !self.copy() {
             return 0;
         }
-        self.paste(None)
+        self.paste_at(None, true)
     }
 }
 

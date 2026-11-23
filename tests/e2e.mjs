@@ -2080,9 +2080,49 @@ try {
     await shot(pg, "context-menu-dark");
     await pg.keyboard.press("Escape");
   });
+  // smart paste: the pasted part lands in a free place, never on the drawing, and the view does not change
+  const pasted = {
+    atoms: async pg => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms,
+    /** the pixel ends of every line the page paints: a rezoom or a pan would move them */
+    lines: async pg => { const d = await pg.evaluate("window.MZDRAW.scene()"), out = []; for (let i = 0; i < d.length;) { const op = d[i]; if (op === 1) { out.push([d[i + 1], d[i + 2], d[i + 3], d[i + 4]].map(v => Math.round(v * 100) / 100).join(",")); i += 7; } else i += op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : op === 7 ? 13 : 5; } return out; },
+    text: "(() => { const d = new DataTransfer(); d.setData('text/plain', 'c1ccccc1'); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()",
+  };
+  const apart = async pg => { const a = await pasted.atoms(pg); let m = Infinity; for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) m = Math.min(m, Math.hypot(a[i].x - a[j].x, a[i].y - a[j].y)); assert(m > 0.5, "no two atoms closer than half a bond: " + m); };
+  const still = async (pg, before) => { const now = new Set(await pasted.lines(pg)); assert(before.every(l => now.has(l)), "the view did not move: what was drawn is where it was"); };
+  await step("smart paste by keyboard and mouse: a SMILES pasted twice and a copy pasted from the context menu land apart, in a free place, and the view does not move", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 }); await pg.focus("#d2-canvas");
+    await pg.evaluate(pasted.text); await want(pg, { atoms: 6, bonds: 6 });
+    const first = await pasted.lines(pg);
+    await pg.evaluate(pasted.text); await want(pg, { atoms: 12, bonds: 12 });
+    await apart(pg); await still(pg, first);
+    await pg.keyboard.press("Control+a"); await pg.keyboard.press("Control+c");
+    await until(pg, "!document.querySelector('[data-testid=\"d2-paste\"]').disabled");
+    const box = await pg.locator("#d2-canvas").boundingBox(), seen = await pasted.lines(pg);
+    await pg.mouse.click(box.x + 60, box.y + 60, { button: "right" }); await shown(pg);
+    await pg.click(item("edit.paste")); await shown(pg, false); await want(pg, { atoms: 24 });
+    await apart(pg); await still(pg, seen);
+    await shot(pg, "smart-paste");
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 12 });
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+  await step("smart paste by touch: Paste in the context menu, opened by a long press, lands apart and the view does not move", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    await tool(pg, "ring:6a"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 6, bonds: 6 });
+    await tool(pg, "select"); await tool(pg, "all"); await tool(pg, "copy");
+    await tool(pg, "atom:N");        // a tool that draws: the long press opens the menu and draws nothing
+    await pg.keyboard.press("Escape"); await want(pg, { selected: 0 });
+    const seen = await pasted.lines(pg), spot = [cx - 300, cy - 300];
+    await touch("touchStart", [spot]); await hold(pg); await touch("touchEnd", []);
+    await shown(pg); eq((await menuNow(pg)).target, "canvas");
+    const [bx, by] = await center(pg, item("edit.paste")); await pg.touchscreen.tap(bx, by);
+    await shown(pg, false); await want(pg, { atoms: 12 });
+    await apart(pg); await still(pg, seen);
+    await shot(pg, "smart-paste-touch");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  });
   await step("context menu, touch and pen: a long press opens it (on an atom and on an empty canvas), a short tap draws, the items are 44 px and a tap runs one", async () => {
     const cdp = await ctx.newCDPSession(pg);
     const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
@@ -2125,6 +2165,19 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("ContextMenu"); await shown(pg); eq((await menuNow(pg)).kind, "key");
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-menu .ctx button')].filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).length"), 0);
     await pg.keyboard.press("Escape"); await shown(pg, false);
+  });
+  await step("smart paste by pen: Paste in the context menu, opened by the barrel button, lands apart and the view does not move", async () => {
+    const cdp = await ctx.newCDPSession(pg), spot = [cx - 300, cy - 300];
+    await tool(pg, "clear"); await tool(pg, "atom:N"); await want(pg, { atoms: 0 });
+    await pg.evaluate(pasted.text); await want(pg, { atoms: 6, bonds: 6 });
+    await tool(pg, "all"); await tool(pg, "copy"); await tool(pg, "atom:N");
+    const kept = await pasted.lines(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "right", buttons: type === "mousePressed" ? 2 : 0, clickCount: 1 });
+    await pen("mouseMoved", ...spot); await pen("mousePressed", ...spot); await shown(pg); await pen("mouseReleased", ...spot);
+    const tapPen = async sel => { const [x, y] = await center(pg, sel); const p = (type, b) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 }); await p("mouseMoved"); await p("mousePressed"); await p("mouseReleased"); };
+    await tapPen(item("edit.paste")); await shown(pg, false); await want(pg, { atoms: 12 });
+    await apart(pg); await still(pg, kept);
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
   });
   await ctx.close();
 
