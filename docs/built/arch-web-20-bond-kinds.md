@@ -35,7 +35,7 @@ Type numbers read from the Ketcher 3.21.0 source (`packages/ketcher-core/src/dom
 
 ## Tests
 
-`crates/mzdraw/tests/bond_kinds.rs` (the field comes and goes exactly, refusals change nothing, the log form, each kind's drawing against the plain one, the arrow's tip and the reverse, hydrogens of the ends, round trips of V3000, KET and CDXML with their direction, the manifest per format, the tools, the menu); golden parity `tests/data/log/bond-kinds.json` (two cases, losses, refusals); e2e steps "bond kinds" (desktop: tools, keyboard, menu, files, undo) and "tablet with touch and a pen: bold, dative and hydrogen bonds" in `tests/e2e.mjs`. Screenshots at deviceScaleFactor 2: `docs/screenshots/bond-kinds.png` (desktop 1280x720... as the e2e window), `docs/screenshots/bond-kinds-touch.png` (tablet 768x1024). There are no dark-mode tokens on `main` to test.
+`crates/mzdraw/tests/bond_kinds.rs` (the field comes and goes exactly, refusals change nothing, the log form, each kind's drawing against the plain one, the arrow's tip and the reverse, hydrogens of the ends, round trips of V3000, KET and CDXML with their direction, the manifest per format, the tools, the menu); golden parity `tests/data/log/bond-kinds.json` (two cases, losses, refusals); e2e steps "bond kinds" (desktop: tools, keyboard, menu, files, undo) and "tablet with touch and a pen: bold, dative and hydrogen bonds" in `tests/e2e.mjs`. Screenshots at deviceScaleFactor 2: `docs/screenshots/bond-kinds.png` (desktop), `docs/screenshots/bond-kinds-touch.png` (tablet 768x1024). There are no dark-mode tokens on `main` to test.
 
 ## Not built
 
