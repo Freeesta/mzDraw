@@ -36,12 +36,22 @@ pub enum Cmd {
     Nudge(f64, f64),
 }
 
-/// The largest angle or shift a command takes; a larger value is an invalid request.
+/// The largest angle (degrees) or shift (bond lengths) a command takes; a larger one is refused. An angle is taken modulo 360, so
+/// `rotate:360` changes nothing and `rotate:1e6` is a turn by 280 degrees.
 const LIMIT: f64 = MAX_COORD;
-/// Parses `align:left`, `distribute:h`, `rotate:45`, `nudge:0.5,-1`; `None` for anything else (a number that is not finite,
-/// a factor outside `0.01..=100`, an unknown edge).
-pub fn parse(name: &str) -> Option<Cmd> {
-    let (head, rest) = name.split_once(':')?;
+
+/// Whether `name` is written as an arrange command (it may still be refused by `parse`).
+pub fn is_arrange(name: &str) -> bool {
+    ["align:", "distribute:", "rotate:", "nudge:"]
+        .iter()
+        .any(|p| name.starts_with(p))
+}
+
+/// Parses `align:left`, `distribute:h`, `rotate:45`, `nudge:0.5,-1`. An edge or axis that is not known is `error.draw2.command`; an
+/// angle that is not a finite number within the limit is `error.draw2.arrangeAngle`; a shift that is not two such numbers
+/// `error.draw2.arrangeShift`.
+pub fn parse(name: &str) -> Result<Cmd, Refusal> {
+    let (head, rest) = name.split_once(':').ok_or("error.draw2.command")?;
     let num = |s: &str| {
         s.trim()
             .parse::<f64>()
@@ -49,26 +59,29 @@ pub fn parse(name: &str) -> Option<Cmd> {
             .filter(|v| v.is_finite() && v.abs() <= LIMIT)
     };
     match head {
-        "align" => Some(Cmd::Align(match rest {
+        "align" => Ok(Cmd::Align(match rest {
             "left" => Edge::Left,
             "centre" => Edge::Centre,
             "right" => Edge::Right,
             "top" => Edge::Top,
             "middle" => Edge::Middle,
             "bottom" => Edge::Bottom,
-            _ => return None,
+            _ => return Err("error.draw2.command"),
         })),
         "distribute" => match rest {
-            "h" => Some(Cmd::Distribute(true)),
-            "v" => Some(Cmd::Distribute(false)),
-            _ => None,
+            "h" => Ok(Cmd::Distribute(true)),
+            "v" => Ok(Cmd::Distribute(false)),
+            _ => Err("error.draw2.command"),
         },
-        "rotate" => num(rest).map(Cmd::Rotate),
+        "rotate" => num(rest).map(Cmd::Rotate).ok_or("error.draw2.arrangeAngle"),
         "nudge" => {
-            let (dx, dy) = rest.split_once(',')?;
-            Some(Cmd::Nudge(num(dx)?, num(dy)?))
+            let both = rest
+                .split_once(',')
+                .and_then(|(dx, dy)| Some((num(dx)?, num(dy)?)));
+            both.map(|(dx, dy)| Cmd::Nudge(dx, dy))
+                .ok_or("error.draw2.arrangeShift")
         }
-        _ => None,
+        _ => Err("error.draw2.command"),
     }
 }
 
@@ -140,6 +153,7 @@ fn items(doc: &Document, atoms: &[u32], objects: &[u32]) -> Result<Vec<Item>, Re
             key: (1, id),
         });
     }
+    out.sort_by_key(|i| i.key);
     Ok(out)
 }
 
@@ -170,23 +184,42 @@ pub fn plan(doc: &Document, cmd: Cmd, atoms: &[u32], objects: &[u32]) -> Result<
         return Err("error.draw2.arrangeNone");
     }
     match cmd {
-        Cmd::Nudge(dx, dy) => Ok(vec![Op::Move {
-            atoms: atoms.to_vec(),
-            objects: objects.to_vec(),
-            dx: round4(dx),
-            dy: round4(dy),
-        }]),
+        // acts on exactly the atoms and objects named (a part of a structure is moved as given); a shift of nothing changes nothing
+        Cmd::Nudge(dx, dy) => {
+            let (dx, dy) = (round4(dx), round4(dy));
+            Ok(if dx == 0.0 && dy == 0.0 {
+                Vec::new()
+            } else {
+                vec![Op::Move {
+                    atoms: atoms.to_vec(),
+                    objects: objects.to_vec(),
+                    dx,
+                    dy,
+                }]
+            })
+        }
         Cmd::Rotate(deg) => {
             if atoms.is_empty() {
                 return Err("error.draw2.arrangeAtoms");
             }
+            // acts on exactly the atoms named, about the centre of their box; a whole number of turns, or one atom, changes nothing
             let (x, y) = centre(doc, atoms)?;
-            Ok(vec![Op::Rotate {
-                atoms: atoms.to_vec(),
-                deg,
-                x,
-                y,
-            }])
+            let deg = round4(deg % 360.0);
+            let one_point = atoms.iter().all(|&i| {
+                doc.atom(i)
+                    .zip(doc.atom(atoms[0]))
+                    .is_some_and(|(a, b)| (a.x, a.y) == (b.x, b.y))
+            });
+            Ok(if deg == 0.0 || one_point {
+                Vec::new()
+            } else {
+                vec![Op::Rotate {
+                    atoms: atoms.to_vec(),
+                    deg,
+                    x,
+                    y,
+                }]
+            })
         }
         Cmd::Align(edge) => {
             let its = items(doc, atoms, objects)?;
@@ -214,20 +247,24 @@ pub fn plan(doc: &Document, cmd: Cmd, atoms: &[u32], objects: &[u32]) -> Result<
             if its.len() < 3 {
                 return Err("error.draw2.arrangeThree");
             }
-            // by position along the axis, then by id: the same drawing always gives the same order
+            // by the centre along the axis, then by id: the first and the last of that order are the ends and stay where they are, so a
+            // box nested in another is not an end; the same drawing always gives the same order
             let lo = |it: &Item| if h { it.b.0 } else { it.b.1 };
             let hi = |it: &Item| if h { it.b.2 } else { it.b.3 };
             its.sort_by(|a, b| {
-                lo(a)
-                    .partial_cmp(&lo(b))
+                (lo(a) + hi(a))
+                    .partial_cmp(&(lo(b) + hi(b)))
                     .unwrap_or(std::cmp::Ordering::Equal)
                     .then(a.key.cmp(&b.key))
             });
             let n = its.len();
-            let end = its.iter().map(hi).fold(f64::MIN, f64::max);
-            let span = end - lo(&its[0]);
+            let span = hi(&its[n - 1]) - lo(&its[0]);
             let size: f64 = its.iter().map(|it| hi(it) - lo(it)).sum();
             let gap = (span - size) / (n - 1) as f64;
+            // the items are wider together than the room between the ends: equal gaps would overlap them
+            if gap < 0.0 {
+                return Err("error.draw2.arrangeFit");
+            }
             // the first item stays; each next one starts a gap after the end of the one before it
             let mut at = lo(&its[0]);
             let mut ops = Vec::new();
@@ -290,7 +327,7 @@ impl Editor {
         objects: &[u32],
     ) -> Result<(), crate::ops::OpError> {
         let bad = |key| crate::ops::OpError { key, id: 0 };
-        let cmd = parse(name).ok_or(bad("error.draw2.command"))?;
+        let cmd = parse(name).map_err(bad)?;
         let ops = plan(self.doc(), cmd, atoms, objects).map_err(bad)?;
         if ops.is_empty() {
             self.said = ("draw2.say.arrangedSame", String::new());

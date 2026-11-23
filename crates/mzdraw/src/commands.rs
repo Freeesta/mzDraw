@@ -18,7 +18,7 @@ pub(crate) fn reports_change(name: &str) -> bool {
 
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
-    crate::arrange::parse(name).is_some()
+    crate::arrange::is_arrange(name)
         || matches!(
             name,
             "move"
@@ -43,7 +43,8 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     if !known(name) {
         return Err("error.draw2.command");
     }
-    if crate::arrange::parse(name).is_some() {
+    if crate::arrange::is_arrange(name) {
+        crate::arrange::parse(name)?;
         return arrange_args(args).map(|_| ());
     }
     if name == "pathway:anchor" || name == "pathway:route" {
@@ -251,7 +252,7 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     if !known(name) {
         return Err(bad("error.draw2.command"));
     }
-    if crate::arrange::parse(name).is_some() {
+    if crate::arrange::is_arrange(name) {
         let (mut atoms, mut objects) = arrange_args(args).map_err(bad)?;
         if atoms.is_empty() && objects.is_empty() {
             (atoms, objects) = (e.over.sel_atoms.clone(), e.over.sel_objs.clone());

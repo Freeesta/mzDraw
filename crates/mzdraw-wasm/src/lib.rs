@@ -182,7 +182,7 @@ pub fn command(what: &str) -> u32 {
         "pathway-tree" => e.pathway_tree(),
         "scheme-orient" => e.scheme_orient(),
         "pathway-label" => e.pathway_label_page(""),
-        w if mzdraw::arrange::parse(w).is_some() => e.arrange(w),
+        w if mzdraw::arrange::is_arrange(w) => e.arrange(w),
         w if w.starts_with("pathway-label:") => e.pathway_label_page(&w["pathway-label:".len()..]),
         "move-here" => e.set_move_here(!e.move_here),
         tool => e.set_tool(tool),
