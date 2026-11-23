@@ -109,11 +109,13 @@ for (const c of fx.losses) {
 // through the plain replay (no engine: the formulas, never a made-up number), which the `.wasm` and the native example answer alike
 for (const c of fx.values) {
   const request = JSON.stringify(c.request), [onPage, onCli] = c.plain ? [site(request), native(request)] : [siteGlue(request), nativeGlue(request)];
-  check(onPage.status === 0 && onCli.status === 0, `${c.name}: runs on both sides (${onPage.stderr} ${onCli.stderr})`);
+  // a failed pathway check (`ok` false) makes the native example exit 3 (the .wasm and the glue door answer with the text alone, status 0)
+  const exitWanted = c.plain && c.request.out === "pathway-check" && JSON.parse(c.out).ok === false ? 3 : 0;
+  check(onPage.status === 0 && onCli.status === exitWanted, `${c.name}: runs on both sides (${onPage.stderr} ${onCli.stderr}); native exit ${onCli.status}, wanted ${exitWanted}`);
   check(onPage.stdout === onCli.stdout, `${c.name}: wasm == native`);
   check(onPage.stdout === c.out, `${c.name}: the recorded bytes`);
   // the engine was there: `values/1` says so, a table has masses with four decimals, a drawing has the mass text
-  if (!c.plain) check(c.refusal ? /note\W+error\.(grafo|draw2)\.\w+/.test(c.out) && !/\d+\.\d{4}/.test(c.out) : c.request.props ? (c.request.props.text ? /\d+\.\d{4}/.test(c.out) : /"engine":true/.test(c.out)) : c.request.values ? /"engine":true/.test(c.out) : String(c.request.out).startsWith("tptable") ? /\d+\.\d{4}/.test(c.out) : c.request.out === "cdxml" ? /Exact mass \d+\.\d{4}/.test(c.out) : /<text/.test(c.out), `${c.name}: the engine was there`);
+  if (!c.plain) check(c.refusal ? /note\W+error\.(grafo|draw2)\.\w+/.test(c.out) && !/\d+\.\d{4}/.test(c.out) : c.request.props ? (c.request.props.text ? /\d+\.\d{4}/.test(c.out) : /"engine":true/.test(c.out)) : c.request.values ? /"engine":true/.test(c.out) : String(c.request.out).startsWith("tptable") ? /\d+\.\d{4}/.test(c.out) : c.request.out === "pathway-check" ? /"engine":true/.test(c.out) : c.request.out === "cdxml" ? /Exact mass \d+\.\d{4}/.test(c.out) : /<text/.test(c.out), `${c.name}: the engine was there`);
 }
 // the report of a bug or an improvement (`feedback/1`): the same bytes from the page and from the replay, and the recorded ones; the URL
 // stays under 6000 bytes and the log is in it only when the request ticked it and it fits

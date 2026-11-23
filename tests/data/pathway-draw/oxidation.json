@@ -1,0 +1,6 @@
+{"format":"pathway/1","nodes":[
+{"id":"P","smiles":"Cc1ccccc1","label":"Toluene","ion":"[M+H]+","mz":93.0699,"rt":6.1,"status":"observed","generation":0,"branch":"A","formula":"C7H8"},
+{"id":"M1","smiles":"OCc1ccccc1","label":"Benzyl alcohol","ion":"[M+H]+","mz":109.0648,"rt":4.0,"generation":1,"branch":"A","formula":"C7H8O"},
+{"id":"M2","smiles":"OC(=O)c1ccccc1","label":"Benzoic acid","ion":"[M-H]-","mz":121.0295,"rt":3.2,"status":"tentative","generation":2,"branch":"A","formula":"C7H6O2"},
+{"id":"M3","smiles":"Oc1ccc(C)cc1","label":"p-Cresol","status":"not_detected","generation":1,"branch":"B","formula":"C7H8O"}],
+"edges":[{"from":"P","to":"M1","label":"+O"},{"from":"M1","to":"M2","label":"+O-H2"},{"from":"P","to":"M3","label":"+O"}]}

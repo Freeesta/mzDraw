@@ -19,6 +19,10 @@ fn main() {
             if !r.ok {
                 std::process::exit(1);
             }
+            // a failed `pathway-check` has its own code, apart from a refusal (1)
+            if r.check_failed {
+                std::process::exit(3);
+            }
         }
         Err(e) => {
             eprint!(
