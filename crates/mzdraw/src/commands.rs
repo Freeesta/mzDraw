@@ -27,6 +27,7 @@ pub(crate) fn steps_of(name: &str) -> Option<(&str, usize)> {
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
     steps_of(name).is_some()
+        || crate::arrange::is_arrange(name)
         || matches!(
             name,
             "move"
@@ -57,6 +58,10 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
             Some(o) if o.is_empty() && (n > 0 || kind == "jump") => Ok(()),
             _ => Err("error.draw2.request"),
         };
+    }
+    if crate::arrange::is_arrange(name) {
+        crate::arrange::parse(name)?;
+        return arrange_args(args).map(|_| ());
     }
     if name == "pathway:anchor" || name == "pathway:route" {
         return pathway_args(name, args).map(|_| ());
@@ -101,6 +106,32 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
         }
     }
     Op::parse(&v).map(|_| ())
+}
+
+/// The arguments of an arrange command: `{"atoms": [ids], "objects": [ids]}`, both optional (nothing named: the selection, or the
+/// whole drawing).
+type Named = (Vec<u32>, Vec<u32>);
+
+fn arrange_args(args: &Value) -> Result<Named, &'static str> {
+    const BAD: &str = "error.draw2.request";
+    let obj = args.as_object().ok_or(BAD)?;
+    if obj.keys().any(|k| k != "atoms" && k != "objects") {
+        return Err(BAD);
+    }
+    let list = |k: &str| -> Result<Vec<u32>, &'static str> {
+        match obj.get(k) {
+            None => Ok(Vec::new()),
+            Some(v) => (v.as_array().ok_or(BAD)?.iter())
+                .map(|n| {
+                    n.as_u64()
+                        .filter(|&n| n > 0 && n < u64::from(crate::doc::MAX_ID))
+                        .map(|n| n as u32)
+                        .ok_or(BAD)
+                })
+                .collect(),
+        }
+    };
+    Ok((list("atoms")?, list("objects")?))
 }
 
 /// The arrow of `pathway:anchor` (`args` is `{"arrow": id}`); `pathway:route` takes no argument. Anything else is an invalid request.
@@ -244,6 +275,13 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
             _ => e.jump_to(n),
         };
         return ran.map(|_| ()).map_err(bad);
+    }
+    if crate::arrange::is_arrange(name) {
+        let (mut atoms, mut objects) = arrange_args(args).map_err(bad)?;
+        if atoms.is_empty() && objects.is_empty() {
+            (atoms, objects) = (e.over.sel_atoms.clone(), e.over.sel_objs.clone());
+        }
+        return e.arrange_on(name, &atoms, &objects);
     }
     if name == "pathway:anchor" || name == "pathway:route" {
         let id = pathway_args(name, args).map_err(bad)?;
