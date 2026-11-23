@@ -117,6 +117,8 @@ pub struct Overlay {
     pub chain: Option<Vec<(f64, f64)>>,
     /// A rubber band, in pixels (x, y, w, h).
     pub band: Option<(f64, f64, f64, f64)>,
+    /// The bow a curve is being dragged to (its middle handle): the object id and the bow.
+    pub bend: Option<(u32, f64)>,
     /// The marks of an open proposal, laid over the drawing (filled by `Editor::scene`).
     pub marks: Vec<Mark>,
     /// The calculated values drawn under the structures (`display.values`), filled by the editor and by the exports.
@@ -765,6 +767,86 @@ impl Painter<'_> {
         (reach / ux.abs()).min(row.max(0.0))
     }
 
+    /// An electron-pushing curve: a bowed line from its first end to its second, a full head (a pair) or a half head (one electron);
+    /// the anchors are resolved here from the document, with the drag of the atoms they stand on.
+    fn curve(&mut self, o: &Obj, mark: Option<f32>, ink: f32) {
+        let over = self.over;
+        let drag = over.drag;
+        let on = |id: u32| over.sel_atoms.contains(&id);
+        let (p, q) = crate::curve::ends(
+            self.doc,
+            o,
+            &|id| if on(id) { drag } else { (0.0, 0.0) },
+            if over.sel_objs.contains(&o.id) {
+                drag
+            } else {
+                (0.0, 0.0)
+            },
+        );
+        let c = o.curve();
+        let bend = over.bend.filter(|b| b.0 == o.id).map_or(c.bend, |b| b.1);
+        let ctl = crate::curve::control(p, q, bend);
+        let w = self.m.line;
+        let pts: Vec<(f64, f64)> = (0..=crate::curve::CURVE_STEPS)
+            .map(|i| {
+                let d = crate::curve::at(
+                    p,
+                    ctl,
+                    q,
+                    f64::from(i) / f64::from(crate::curve::CURVE_STEPS),
+                );
+                self.view.to_px(d.0, d.1)
+            })
+            .collect();
+        let tip = pts[pts.len() - 1];
+        let (tx, ty) = {
+            let e = self.view.to_px(ctl.0, ctl.1);
+            let (dx, dy) = (tip.0 - e.0, tip.1 - e.1);
+            let l = m::hypot(dx, dy).max(1e-6);
+            (dx / l, dy / l)
+        };
+        let head = (self.view.scale * 0.24).min(m::hypot(tip.0 - pts[0].0, tip.1 - pts[0].1) * 0.5);
+        let neck = (tip.0 - tx * head, tip.1 - ty * head);
+        let n = pts.len() - 1;
+        if let Some(col) = mark {
+            for i in 0..n {
+                self.line(pts[i], pts[i + 1], w * 6.0, col);
+            }
+        }
+        for i in 0..n {
+            let b = if i + 1 == n { neck } else { pts[i + 1] };
+            self.line(pts[i], b, w * 1.3, ink);
+        }
+        let (nx, ny) = (-ty * head * 0.45, tx * head * 0.45);
+        // a pair: both barbs; one electron: the barb on the left of the way it goes
+        let right = if c.half {
+            neck
+        } else {
+            (neck.0 - nx, neck.1 - ny)
+        };
+        self.push(&[
+            TRI as f64,
+            tip.0,
+            tip.1,
+            neck.0 + nx,
+            neck.1 + ny,
+            right.0,
+            right.1,
+            ink as f64,
+        ]);
+        if over.sel_objs.contains(&o.id) {
+            // the handle in the middle: drag it to bend the curve
+            let h = pts[pts.len() / 2];
+            self.push(&[
+                DISC as f64,
+                h.0,
+                h.1,
+                self.view.scale * 0.09,
+                colour::SELECT as f64,
+            ]);
+        }
+    }
+
     /// A reaction arrow (shaft, head, text above), a plus sign or a text; selected or hovered ones get a mark at their anchor.
     fn object(&mut self, o: &Obj) {
         let moving = self.over.drag != (0.0, 0.0) && self.over.sel_objs.contains(&o.id);
@@ -781,6 +863,7 @@ impl Painter<'_> {
         let w = self.m.line;
         let ink = crate::ink::index(&o.col()).unwrap_or(colour::INK);
         match o.t {
+            ObjKind::Curve => self.curve(o, mark, ink),
             ObjKind::Arrow => {
                 let e = self.view.to_px(o.x2 + dx, o.y2 + dy);
                 let len = m::hypot(e.0 - x, e.1 - y).max(1e-6);
@@ -1042,6 +1125,31 @@ impl Painter<'_> {
             }
             if a.map != 0 && self.m.maps {
                 self.map_number(a);
+            }
+            if a.lp() != 0 {
+                self.lone_pairs(a);
+            }
+        }
+    }
+
+    /// The lone pairs of an atom: two dots each, at the free sides of the atom.
+    fn lone_pairs(&mut self, a: &Atom) {
+        let (x, y) = self.pos(a);
+        let s = self.view.scale;
+        let r = (s * 0.035).max(1.2);
+        let dirs = crate::curve::lp_dirs(self.doc, a.id, a.lp());
+        let reach = s * crate::curve::LP_REACH;
+        for d in dirs {
+            let (ux, uy) = (m::cos(d), -m::sin(d));
+            let (cx, cy) = (x + ux * reach, y + uy * reach);
+            for k in [-1.0, 1.0] {
+                self.push(&[
+                    DISC as f64,
+                    cx - uy * s * 0.07 * k,
+                    cy + ux * s * 0.07 * k,
+                    r,
+                    f64::from(crate::ink::index(&a.col()).unwrap_or(colour::INK)),
+                ]);
             }
         }
     }

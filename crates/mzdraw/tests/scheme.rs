@@ -43,6 +43,7 @@ fn boxes(d: &Document, style: &Style) -> (Vec<Rect>, Vec<Rect>) {
             ObjKind::Arrow => {
                 arrows.push([o.x.min(o.x2), o.y.min(o.y2), o.x.max(o.x2), o.y.max(o.y2)])
             }
+            ObjKind::Curve => {}
         }
     }
     (things, arrows)

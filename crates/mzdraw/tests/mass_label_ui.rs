@@ -328,6 +328,8 @@ fn a_mode_that_needs_the_engine_is_refused_with_its_key_and_changes_nothing() {
             y2: None,
             from: None,
             to: None,
+            cv: Default::default(),
+            pt: [None, None],
         }])
         .unwrap();
     open(&mut e, false);

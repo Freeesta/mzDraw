@@ -223,6 +223,8 @@ pub fn route_between(o: &crate::doc::Obj, a: Rect, b: Rect, margin: f64) -> Vec<
             y2: Some(hy),
             from: None,
             to: None,
+            cv: Default::default(),
+            pt: [None, None],
         });
     }
     ops
@@ -340,6 +342,8 @@ pub fn anchor_in(
             y2: None,
             from: Some(now[0]),
             to: Some(now[1]),
+            cv: Default::default(),
+            pt: [None, None],
         });
     }
     let mut after = doc.clone();
