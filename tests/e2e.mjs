@@ -1530,32 +1530,10 @@ try {
     await shot(pg, "arch-std-09-smiles-file-touch");
     await tapPalette(pg, "structure", false);               // as the next steps found it
   });
-  await step("tablet with touch and a pen: the side of a double bond and the dashed tools by a tap and by a pen, each press one undo step", async () => {
-    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
-    await tool(pg, "clear"); await want(pg, { atoms: 0 });
-    await tool(pg, "bond:2"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
-    const mid = [cx + 17, cy - 10];
-    await pg.touchscreen.tap(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === 'l'");
-    await tool(pg, "bond:dash"); await pg.touchscreen.tap(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'dash'");
-    await shot(pg, "bond-display-touch");
-    // a pen
-    const cdp = await pg.context().newCDPSession(pg);
-    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
-    await tool(pg, "bond:2");
-    await pen("mouseMoved", ...mid); await pen("mousePressed", ...mid); await pen("mouseReleased", ...mid);
-    await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === 'c'");
-    await tool(pg, "bond:hash");
-    await pen("mouseMoved", ...mid); await pen("mousePressed", ...mid); await pen("mouseReleased", ...mid);
-    await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'hash'");
-    for (let i = 0; i < 4; i++) await tool(pg, "undo");
-    eq((await doc()).bonds[0].pos, undefined);
-    eq((await doc()).bonds[0].k, undefined);
-  });
-
   await step("tablet with touch and a pen: bold, dative and hydrogen bonds by a tap and by a pen, each press one undo step", async () => {
     const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
-    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); console.log("DEBUG", await pg.evaluate("document.documentElement.dataset.d2")); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
     const mid = [cx + 17, cy - 10];
     for (const [t, k] of [["bond:bold", "bold"], ["bond:dative", "dative"], ["bond:hbond", "hbond"]]) {
       await tool(pg, t); await pg.touchscreen.tap(...mid); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === '${k}'`);
@@ -1578,6 +1556,28 @@ try {
     // the taps and the pen presses: 3 kinds by tap, dative and bold by pen, one bond by pen: six undo steps leave the one plain bond
     for (let i = 0; i < 6; i++) await tool(pg, "undo");
     eq((await doc()).bonds.length, 1);
+    eq((await doc()).bonds[0].k, undefined);
+  });
+
+  await step("tablet with touch and a pen: the side of a double bond and the dashed tools by a tap and by a pen, each press one undo step", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:2"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    const mid = [cx + 17, cy - 10];
+    await pg.touchscreen.tap(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === 'l'");
+    await tool(pg, "bond:dash"); await pg.touchscreen.tap(...mid); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'dash'");
+    await shot(pg, "bond-display-touch");
+    // a pen
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    await tool(pg, "bond:2");
+    await pen("mouseMoved", ...mid); await pen("mousePressed", ...mid); await pen("mouseReleased", ...mid);
+    await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === 'c'");
+    await tool(pg, "bond:hash");
+    await pen("mouseMoved", ...mid); await pen("mousePressed", ...mid); await pen("mouseReleased", ...mid);
+    await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'hash'");
+    for (let i = 0; i < 4; i++) await tool(pg, "undo");
+    eq((await doc()).bonds[0].pos, undefined);
     eq((await doc()).bonds[0].k, undefined);
   });
 
