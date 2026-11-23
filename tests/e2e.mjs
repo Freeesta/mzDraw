@@ -1558,9 +1558,8 @@ try {
     for (let i = 0; i < 6; i++) await tool(pg, "undo");
     eq((await doc()).bonds.length, 1);
     eq((await doc()).bonds[0].k, undefined);
-    // the flyout of the bonds palette that held the tools is left open: close it, so the next step finds the canvas free
-    await tool(pg, "select"); await pg.keyboard.press("Escape"); await frames(pg);
-    console.log("DEBUG", JSON.stringify(await pg.evaluate("[...document.querySelectorAll('.fly')].map(f => [f.dataset.fly, f.hidden, JSON.stringify(f.getBoundingClientRect())])")), cx, cy);
+    // pen presses leave the page of the tablet with a pointer the next canvas tap does not get through: the page is loaded again, as the other pen steps of this part do
+    await pg.reload(); await until(pg, "document.documentElement.dataset.d2Ready === '1'"); await frames(pg);
   });
 
   await step("tablet with touch and a pen: the side of a double bond and the dashed tools by a tap and by a pen, each press one undo step", async () => {
