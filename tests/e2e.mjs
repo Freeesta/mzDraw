@@ -3957,7 +3957,7 @@ try {
           await c.pg.keyboard.press("Escape"); await frames(c.pg);
           const boxes = await c.pg.evaluate("[...document.querySelectorAll('.pal')].filter(e => !e.hidden).map(e => { const r = e.getBoundingClientRect(); return [e.dataset.pal, r.left, r.top, r.right, r.bottom]; })");
           eq(boxes.filter(b => b[0].length === 0), []);
-          assert(boxes.length === 16, `${w}x${h}: sixteen palettes are in view, not ${boxes.length}`);
+          eq(boxes.length, await c.pg.evaluate("document.querySelectorAll('.pal').length"), `${w}x${h}: every palette is in view`);
           const over = [];
           for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
             const [a, b] = [boxes[i], boxes[j]];
@@ -4023,16 +4023,16 @@ try {
       const cdp = await c.ctx.newCDPSession(pg);
       const [mx, my] = await margin(pg, '[data-testid="d2-grip-tools"]'), t1 = await where("tools");
       await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x: mx, y: my }] });
-      for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: mx + 40 * i / 6, y: my + 90 * i / 6 }] });
+      for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: mx - 200 * i / 6, y: my + 20 * i / 6 }] });
       await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); await frames(pg);
       const t2 = await where("tools");
-      assert(Math.abs(t2[0] - t1[0] - 40) <= 12 && Math.abs(t2[1] - t1[1] - 90) <= 12, "a finger on the margin moved the palette " + JSON.stringify([t1, t2]));
+      assert(Math.abs(t2[0] - t1[0] + 200) <= 12 && Math.abs(t2[1] - t1[1] - 20) <= 12, "a finger on the margin moved the palette " + JSON.stringify([t1, t2]));
       const [px, py] = await margin(pg, '[data-testid="d2-grip-tools"]'), send = (type, X, Y, buttons) => cdp.send("Input.dispatchMouseEvent", { type, x: X, y: Y, pointerType: "pen", button: "left", buttons, clickCount: 1 });
       await send("mouseMoved", px, py, 0); await send("mousePressed", px, py, 1);
-      for (let i = 1; i <= 6; i++) await send("mouseMoved", px + 30 * i / 6, py + 60 * i / 6, 1);
-      await send("mouseReleased", px + 30, py + 60, 0); await frames(pg);
+      for (let i = 1; i <= 6; i++) await send("mouseMoved", px - 30 * i / 6, py + 20 * i / 6, 1);
+      await send("mouseReleased", px - 30, py + 20, 0); await frames(pg);
       const t3 = await where("tools");
-      assert(Math.abs(t3[0] - t2[0] - 30) <= 12 && Math.abs(t3[1] - t2[1] - 60) <= 12, "a pen on the margin moved the palette " + JSON.stringify([t2, t3]));
+      assert(Math.abs(t3[0] - t2[0] + 30) <= 12 && Math.abs(t3[1] - t2[1] - 20) <= 12, "a pen on the margin moved the palette " + JSON.stringify([t2, t3]));
       // a finger and a pen on the title of a side panel
       const [sx, sy] = await titlePoint(pg, '[data-testid="d2-title-style"]'), s0 = await where("style");
       // to a place of the canvas where nothing else lies (a palette let go over another is put beside it)
