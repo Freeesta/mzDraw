@@ -39,6 +39,8 @@
         "],\"request\":[",
         "{\"section\":\"request\",\"key\":\"import\",\"type\":\"string\",\"meaning\":\"a structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES\"}",
         ",{\"section\":\"request\",\"key\":\"import_base64\",\"type\":\"string\",\"meaning\":\"the bytes of a file to start from in base64 (a binary CDX, or a PNG or PDF saved by mzDraw), read after `import`\"}",
+        ",{\"section\":\"request\",\"key\":\"paste\",\"type\":\"string\",\"meaning\":\"a structure text pasted as the page pastes it, after `commands`: at the view centre when that place is free, else at the nearest free place to its right and below\"}",
+        ",{\"section\":\"request\",\"key\":\"canvas\",\"type\":\"number[2]\",\"meaning\":\"the canvas size `[w, h]` in pixels the paste takes the view centre from (default `[400, 400]`)\"}",
         ",{\"section\":\"request\",\"key\":\"style\",\"type\":\"string|object\",\"meaning\":\"the style of the SVG: a preset name or a settings file\"}",
         ",{\"section\":\"request\",\"key\":\"set\",\"type\":\"string[]\",\"meaning\":\"settings applied after `style`, each `<section>.<key>=<value>`\"}",
         ",{\"section\":\"set\",\"key\":\"display.maps\",\"type\":\"on|off\",\"meaning\":\"draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file)\"}",

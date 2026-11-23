@@ -10,14 +10,14 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, RUNNING 3, QUEUED 51, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 35, RUNNING 4, QUEUED 49, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
 | `arch-cd-01-clean-up` | Clean Up Structure: the 2D layout of mzlab-mol on a drawing, stereo kept | SUPERSEDED | by arch-std-15 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-02-cip-labels` | CIP labels on the canvas (R/S, r/s, E/Z) from cip/1, live | SUPERSEDED | by arch-web-16 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-03-hover-hotkeys` | Hotkeys over the hovered bond and group hotkeys over an atom | QUEUED | no merged commit or built note names it | arch-std-06 (the command table of shortcuts) if it is on `main`: put the hover keys into that table | - |
-| `arch-cd-04-bond-display` | Double-bond position (centre, left, right) and dashed bond displays | RUNNING | PR #108 (docs/built/bond-display.md) | the bond field `k` (one field for bold, dashed, dative, hbond; V3000 types 9 and 10: COO decision 16), from... | - |
+| `arch-cd-04-bond-display` | Double-bond position (centre, left, right) and dashed bond displays | MERGED | PR #108, `b1916a5`; built/bond-display.md | the bond field `k` (one field for bold, dashed, dative, hbond; V3000 types 9 and 10: COO decision 16), from... | - |
 | `arch-cd-05-chain-tool` | Chain tool: drag out a zigzag, the carbon count shown while dragging | SUPERSEDED | by arch-web-08 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-06-arrow-kinds` | Arrow kinds, heads and conditions under the arrow | SUPERSEDED | by arch-web-13 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-07-rich-text` | Rich text: several lines, sub- and superscript runs, bold, italic, formula style | SUPERSEDED | by arch-web-14 (itself withdrawn for arch-std-21) (top of the prompt: "superseded: do not run") | - | - |
@@ -28,8 +28,8 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, 
 | `arch-cd-12-templates` | Template library: groups of ready fragments placed like rings | SUPERSEDED | by arch-web-19 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-13-user-templates` | User templates: save the selection, rename, remove, share as a file | SUPERSEDED | by arch-web-19 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-14-analysis-panel` | Analysis panel: formula, MW, exact mass, m/z, elemental analysis of the selection | SUPERSEDED | by arch-web-17 (top of the prompt: "superseded: do not run") | - | - |
-| `arch-cd-15-align-distribute` | Align, distribute, rotate by a typed angle and scale the selection | QUEUED | no merged commit or built note names it | arch-std-15 (op `atoms.xy`, PR #45) for scaling | - |
-| `arch-cd-16-smart-paste` | Smart paste: pasted parts land in a free place, never on the drawing, without a rezoom | QUEUED | no merged commit or built note names it | nothing | - |
+| `arch-cd-15-align-distribute` | Align, distribute, rotate by a typed angle and scale the selection | RUNNING | PR #112; built/arch-cd-15-align-distribute.md | arch-std-15 (op `atoms.xy`) for scaling | `scale:<f>` left out until `atoms.xy` is in `main` (follow-up) |
+| `arch-cd-16-smart-paste` | Smart paste: pasted parts land in a free place, never on the drawing, without a rezoom | RUNNING | PR #110 | nothing | - |
 | `arch-cd-17-shortcuts` | Rebindable shortcuts in the settings file, conflicts reported, a printable table | SUPERSEDED | by arch-std-06 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-18-palette-tear-off` | Palettes, refinement 1 on top of R1 (PR #35): tear-off flyouts, home on double-click, t... | QUEUED | no merged commit or built note names it | PR #35 (R1, `crates/mzdraw/src/palettes.rs`, `docs/mzdraw-ui.md` §4-§5) merged on `main` | built/palettes-page.md has floating and dockable palettes but no tear-off flyouts or named layouts |
 | `arch-cd-19-named-layouts` | Palettes, refinement 2 on top of R1 (PR #35): named layouts and icon size | QUEUED | no merged commit or built note names it | PR #35 merged; arch-cd-18 if it touches the same code | built/palettes-page.md has floating and dockable palettes but no tear-off flyouts or named layouts |

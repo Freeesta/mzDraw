@@ -211,10 +211,10 @@ Rows grouped by area; the ID is used by the prompts (§6). Source keys refer to 
 | I03 | style applied to a selection; style sheets merged into a document | CD-UG17, CDD-G §13.2 | | LATER | - | M |
 | I04 | dark mode (interface and drawing) | CD-RN23 (dark style sheet), CDD-G §2.3.2 | | SHOULD: preset `dark` is planned | `style.preset=dark` | S |
 | I05 | page setup, margins, print, several pages | CD-UG17, MS/marvin_creating-a-multipage-document.html, CDD-G §13.4.2 and §17.12 | a page model | LATER (print: SHOULD in the desktop app) | settings `page` | M |
-| I06 | align (left, centre, right, top, middle, bottom), distribute, centre | CD-UG17 (Alt+Shift+Ctrl+letter), M/marvin_sketch-js-comparison.html (guides), CDD-G §12.4 | moves whole structures and objects | MUST: tidy schemes; all have it | `move` ops; commands `align:<edge>`, `distribute:h\|v` | S |
-| I07 | rotate by a typed angle; 1° and 15° steps from the keyboard | CD-UG17 (Ctrl+R), M/marvin_shortcuts-and-tricks.html (Alt+arrow 1°, Shift+Alt+arrow 15°), CDD-G §12.4 | | SHOULD: 15° buttons are built | `rotate deg` | S |
-| I08 | scale the selection | CD-UG17 (Ctrl+K), MS/marvin_geometric-transformation-of-structures-and-objects.html, CDD-G §12.4 | | SHOULD | `atoms.xy` (D01) | S |
-| I09 | nudge the selection with the arrow keys | CDW/demos/2d-sketcher | | SHOULD: arrows walk the focus today | `move` | S |
+| I06 | align (left, centre, right, top, middle, bottom), distribute, centre | CD-UG17 (Alt+Shift+Ctrl+letter), M/marvin_sketch-js-comparison.html (guides), CDD-G §12.4 | moves whole structures and objects | MUST · built (arch-cd-15) | `move` ops; commands `align:<edge>`, `distribute:h\|v` | - |
+| I07 | rotate by a typed angle; 1° and 15° steps from the keyboard | CD-UG17 (Ctrl+R), M/marvin_shortcuts-and-tricks.html (Alt+arrow 1°, Shift+Alt+arrow 15°), CDD-G §12.4 | | SHOULD · built (arch-cd-15: typed angle; the keys are arch-std-05) | `rotate deg` | - |
+| I08 | scale the selection | CD-UG17 (Ctrl+K), MS/marvin_geometric-transformation-of-structures-and-objects.html, CDD-G §12.4 | | SHOULD (waits for `atoms.xy` of arch-std-15) | `atoms.xy` (D01) | S |
+| I09 | nudge the selection with the arrow keys | CDW/demos/2d-sketcher | | SHOULD · built (arch-std-05 keys; arch-cd-15 `nudge:<dx>,<dy>`) | `move` | - |
 | I10 | select inverse, reselect, select a whole piece | CDD-G §12.2 | | SHOULD | - | S |
 | I11 | lasso selection | CDD-G §4.2.2 (key S), CDW/demos/2d-sketcher | free-form selection | SHOULD: a band exists | - | S |
 
@@ -224,7 +224,7 @@ Rows grouped by area; the ID is used by the prompts (§6). Source keys refer to 
 | J01 | MOL V2000/V3000, SDF, SMILES, RXN, RDF, CML, MRV, KET, CDXML | CD-DC26, BD-DS24, MS/formats_index.html, CDD-G §17.6.5 | | MUST · built (see `docs/mzdraw-formats.md` §1a) | `save`, `add` | - |
 | J02 | CDX (binary) read | CD-DC26, BD-DS24 (open only), CDD-G §17.6.5 | | SHOULD: ChemDraw users send CDX | `add` | M |
 | J03 | PDF and EPS out, with the chemistry inside | CD-DC26 (EPS), CDD-G §17.9 (PDF, EPS, ODG, SVG carry chemical data) | vector files | SHOULD (MUST in the desktop app for print): decision 4 of `docs/mzdraw-plan.md` | `save pdf` | M |
-| J04 | smart paste: lands at the view centre or the nearest free place, never over a drawing | CD-RN23, CD-DC26 | placement of pasted parts | MUST: a paste on top of a drawing is the first annoyance | `move` after the paste ops | S |
+| J04 | smart paste: lands at the view centre or the nearest free place, never over a drawing | CD-RN23, CD-DC26 | placement of pasted parts | MUST · built (placement baked into the paste ops; `paste` and `canvas` request fields) | the `atom.add` ops of the paste carry the final coordinates | S |
 | J05 | paste text in any format, sniffed | CD-KB/4408268608660* (17.1), MS/marvin_copy-paste-and-draganddrop.html | | MUST · built (InChI not read) | `add` | - |
 | J06 | copy as SMILES, molfile, CDXML, KET, InChI | CD-DC26, MS/marvin_shortcuts-in-marvinsketch.html (Ctrl+L / Ctrl+M), BD-DS24, CDD-G §17.2 | | MUST: copy writes molfile + `mzdraw/1` today; the rest is one command each | commands `copy:<kind>` | S |
 | J07 | desktop clipboard in native formats (CDXML for ChemDraw, MDLCT on Windows, EMF/PDF pictures) | CD-DC26 (OLE), CDD-G §17.2 (MIME per kind; MDLCT/MDLSK), MS/marvin_copy-paste-and-draganddrop.html (EMF, OLE) | other programs paste chemistry | SHOULD (desktop app) | - | M |

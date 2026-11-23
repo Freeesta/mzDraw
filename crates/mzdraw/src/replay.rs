@@ -16,6 +16,11 @@ struct Request {
     /// The bytes of a file to start from, in base64 (RFC 4648, padding optional, blanks ignored): a binary CDX file, or a PNG or a PDF
     /// saved by mzDraw. Read after `import` when both are given.
     import_base64: Option<Vec<u8>>,
+    /// `paste`: a structure text pasted as the page pastes it (`Editor::paste`: the free place nearest to the view centre), after
+    /// `commands` and before `events`; `canvas`: the size of the canvas in pixels `[w, h]` the view centre is taken from (default 400 x 400,
+    /// which puts the centre at the origin of the default view). A refused paste is the error of the request.
+    paste: Option<String>,
+    canvas: Option<(f64, f64)>,
     log: Vec<Op>,
     /// `propose`: a patch held as a proposal (`Editor::propose`) after `commands`; `accept`: the hunks (1-based, as `diff::hunks` numbers
     /// them) accepted in that order, one undo step each. The log then holds exactly their operations; the hunks left are dropped.
@@ -60,7 +65,7 @@ enum Event {
 }
 
 /// The fields of a request. A field outside this list is refused (`error.draw2.requestField`); `engines` belongs to the glue door.
-const FIELDS: [&str; 20] = [
+const FIELDS: [&str; 22] = [
     "propose",
     "accept",
     "diff",
@@ -81,6 +86,8 @@ const FIELDS: [&str; 20] = [
     "values",
     "props",
     "feedback",
+    "paste",
+    "canvas",
 ];
 
 /// The request field `props`: the atoms of a selection, the form of a copy as text, the line keys to copy.
@@ -165,6 +172,10 @@ impl Request {
             (Some(c), None) => vec![one(c, v.get("args"))?],
             (None, Some(l)) => (l.as_array().ok_or(BAD)?.iter())
                 .map(|c| {
+                    // a bare name is a command without arguments (`"align:left"`)
+                    if c.is_string() {
+                        return one(c, None);
+                    }
                     // an item is `{"command", "args"}` and nothing else
                     let item = c.as_object().ok_or(BAD)?;
                     if item.keys().any(|k| k != "command" && k != "args") {
@@ -196,6 +207,19 @@ impl Request {
         let import_base64 = match text_of("import_base64")? {
             Some(t) => Some(base64(&t).ok_or(BAD)?),
             None => None,
+        };
+        let canvas = match v.get("canvas") {
+            None | Some(serde_json::Value::Null) => None,
+            Some(c) => match c
+                .as_array()
+                .map(|a| a.iter().map(serde_json::Value::as_f64).collect::<Vec<_>>())
+            {
+                Some(n) if n.len() == 2 => match (n[0], n[1]) {
+                    (Some(w), Some(h)) if w > 0.0 && h > 0.0 => Some((w, h)),
+                    _ => return Err(BAD),
+                },
+                _ => return Err(BAD),
+            },
         };
         let events = match v.get("events") {
             None => Vec::new(),
@@ -341,6 +365,8 @@ impl Request {
             id,
             import: text_of("import")?,
             import_base64,
+            paste: text_of("paste")?,
+            canvas,
             log,
             out: text_of("out")?,
             out_args,
@@ -538,6 +564,15 @@ pub fn replay_with(
                 return Err(err);
             }
             failed = Some(Failed::proposal(i, err.key, err.id));
+        }
+    }
+    if let Some((w, h)) = r.canvas {
+        e.set_canvas(w, h);
+    }
+    if let Some(text) = &r.paste {
+        e.paste(Some(text));
+        if !e.error.is_empty() {
+            return Err(fail(e.error));
         }
     }
     let flags: Vec<u32> = (r.events.iter())
