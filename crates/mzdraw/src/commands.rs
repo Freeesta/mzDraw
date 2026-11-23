@@ -16,23 +16,32 @@ pub(crate) fn reports_change(name: &str) -> bool {
     )
 }
 
+/// The history commands `undo:<n>`, `redo:<n>` (n steps, n from 1) and `jump:<n>` (to step number n, 0 is the start): the kind
+/// and the number; `None` for any other name or a number that is not a plain unsigned integer.
+pub(crate) fn steps_of(name: &str) -> Option<(&str, usize)> {
+    let (kind, n) = name.split_once(':')?;
+    let plain = !n.is_empty() && n.len() <= 9 && n.bytes().all(|b| b.is_ascii_digit());
+    (matches!(kind, "undo" | "redo" | "jump") && plain).then(|| (kind, n.parse().unwrap_or(0)))
+}
+
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
-    matches!(
-        name,
-        "move"
-            | "rotate"
-            | "flip"
-            | "scheme:row"
-            | "pathway:anchor"
-            | "pathway:route"
-            | "pathway:tree"
-            | "pathway:label"
-            | "scheme:orient"
-            | "tp:derive"
-            | "tp:import"
-            | "tp:number"
-    )
+    steps_of(name).is_some()
+        || matches!(
+            name,
+            "move"
+                | "rotate"
+                | "flip"
+                | "scheme:row"
+                | "pathway:anchor"
+                | "pathway:route"
+                | "pathway:tree"
+                | "pathway:label"
+                | "scheme:orient"
+                | "tp:derive"
+                | "tp:import"
+                | "tp:number"
+        )
 }
 
 /// Checks the shape of a command before any command runs: a known name, `args` an object whose fields are the fields of the
@@ -41,6 +50,13 @@ pub(crate) fn known(name: &str) -> bool {
 pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     if !known(name) {
         return Err("error.draw2.command");
+    }
+    if let Some((kind, n)) = steps_of(name) {
+        // no argument; undoing or redoing no step at all is no command
+        return match args.as_object() {
+            Some(o) if o.is_empty() && (n > 0 || kind == "jump") => Ok(()),
+            _ => Err("error.draw2.request"),
+        };
     }
     if name == "pathway:anchor" || name == "pathway:route" {
         return pathway_args(name, args).map(|_| ());
@@ -220,6 +236,14 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     let bad = |key| OpError { key, id: 0 };
     if !known(name) {
         return Err(bad("error.draw2.command"));
+    }
+    if let Some((kind, n)) = steps_of(name) {
+        let ran = match kind {
+            "undo" => e.undo_steps(n),
+            "redo" => e.redo_steps(n),
+            _ => e.jump_to(n),
+        };
+        return ran.map(|_| ()).map_err(bad);
     }
     if name == "pathway:anchor" || name == "pathway:route" {
         let id = pathway_args(name, args).map_err(bad)?;

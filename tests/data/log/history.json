@@ -1,0 +1,394 @@
+{
+  "histories": [
+    {
+      "name": "five steps of a log, nothing undone",
+      "out": "{\"format\":\"history/1\",\"at\":5,\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"current\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"done\"}]}",
+      "request": {
+        "log": [
+          {
+            "el": "C",
+            "id": 1,
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "id": 2,
+            "op": "atom.add",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "a": 1,
+            "b": 2,
+            "id": 3,
+            "o": 1,
+            "op": "bond.add"
+          },
+          {
+            "el": "O",
+            "id": 4,
+            "op": "atom.add",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "a": 2,
+            "b": 4,
+            "id": 5,
+            "o": 2,
+            "op": "bond.add"
+          }
+        ],
+        "out": "history"
+      }
+    },
+    {
+      "name": "two undone: the current step is the third, two steps wait for a redo",
+      "out": "{\"format\":\"history/1\",\"at\":3,\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"current\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"done\"}]}",
+      "request": {
+        "commands": [
+          {
+            "command": "undo:2"
+          }
+        ],
+        "log": [
+          {
+            "el": "C",
+            "id": 1,
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "id": 2,
+            "op": "atom.add",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "a": 1,
+            "b": 2,
+            "id": 3,
+            "o": 1,
+            "op": "bond.add"
+          },
+          {
+            "el": "O",
+            "id": 4,
+            "op": "atom.add",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "a": 2,
+            "b": 4,
+            "id": 5,
+            "o": 2,
+            "op": "bond.add"
+          }
+        ],
+        "out": "history"
+      }
+    },
+    {
+      "name": "back to the start: no step is current",
+      "out": "{\"format\":\"history/1\",\"at\":0,\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"undone\"}]}",
+      "request": {
+        "commands": [
+          {
+            "command": "jump:0"
+          }
+        ],
+        "log": [
+          {
+            "el": "C",
+            "id": 1,
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "id": 2,
+            "op": "atom.add",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "a": 1,
+            "b": 2,
+            "id": 3,
+            "o": 1,
+            "op": "bond.add"
+          },
+          {
+            "el": "O",
+            "id": 4,
+            "op": "atom.add",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "a": 2,
+            "b": 4,
+            "id": 5,
+            "o": 2,
+            "op": "bond.add"
+          }
+        ],
+        "out": "history"
+      }
+    },
+    {
+      "name": "undo four, redo one, then jump to the end",
+      "out": "{\"format\":\"history/1\",\"at\":5,\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"current\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"done\"}]}",
+      "request": {
+        "commands": [
+          {
+            "command": "undo:4"
+          },
+          {
+            "command": "redo:1"
+          },
+          {
+            "command": "jump:5"
+          }
+        ],
+        "log": [
+          {
+            "el": "C",
+            "id": 1,
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "id": 2,
+            "op": "atom.add",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "a": 1,
+            "b": 2,
+            "id": 3,
+            "o": 1,
+            "op": "bond.add"
+          },
+          {
+            "el": "O",
+            "id": 4,
+            "op": "atom.add",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "a": 2,
+            "b": 4,
+            "id": 5,
+            "o": 2,
+            "op": "bond.add"
+          }
+        ],
+        "out": "history"
+      }
+    }
+  ],
+  "refused": [
+    {
+      "error_key": "error.draw2.request",
+      "request": {
+        "commands": [
+          {
+            "command": "jump:6"
+          }
+        ],
+        "log": [
+          {
+            "el": "C",
+            "id": 1,
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "id": 2,
+            "op": "atom.add",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "a": 1,
+            "b": 2,
+            "id": 3,
+            "o": 1,
+            "op": "bond.add"
+          },
+          {
+            "el": "O",
+            "id": 4,
+            "op": "atom.add",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "a": 2,
+            "b": 4,
+            "id": 5,
+            "o": 2,
+            "op": "bond.add"
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.request",
+      "request": {
+        "commands": [
+          {
+            "command": "undo:0"
+          }
+        ],
+        "log": [
+          {
+            "el": "C",
+            "id": 1,
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "id": 2,
+            "op": "atom.add",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "a": 1,
+            "b": 2,
+            "id": 3,
+            "o": 1,
+            "op": "bond.add"
+          },
+          {
+            "el": "O",
+            "id": 4,
+            "op": "atom.add",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "a": 2,
+            "b": 4,
+            "id": 5,
+            "o": 2,
+            "op": "bond.add"
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.command",
+      "request": {
+        "commands": [
+          {
+            "command": "undo:-1"
+          }
+        ],
+        "log": [
+          {
+            "el": "C",
+            "id": 1,
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "id": 2,
+            "op": "atom.add",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "a": 1,
+            "b": 2,
+            "id": 3,
+            "o": 1,
+            "op": "bond.add"
+          },
+          {
+            "el": "O",
+            "id": 4,
+            "op": "atom.add",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "a": 2,
+            "b": 4,
+            "id": 5,
+            "o": 2,
+            "op": "bond.add"
+          }
+        ]
+      }
+    },
+    {
+      "error_key": "error.draw2.request",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "n": 1
+            },
+            "command": "jump:1"
+          }
+        ],
+        "log": [
+          {
+            "el": "C",
+            "id": 1,
+            "op": "atom.add",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "el": "C",
+            "id": 2,
+            "op": "atom.add",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "a": 1,
+            "b": 2,
+            "id": 3,
+            "o": 1,
+            "op": "bond.add"
+          },
+          {
+            "el": "O",
+            "id": 4,
+            "op": "atom.add",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "a": 2,
+            "b": 4,
+            "id": 5,
+            "o": 2,
+            "op": "bond.add"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -52,6 +52,7 @@ fn js_err(key: &str) -> JsValue {
 fn act(f: impl FnOnce(&mut Editor) -> u32) -> u32 {
     with(|p| {
         let flags = f(&mut p.editor);
+        p.editor.name_steps();
         // an open proposal that an edit, an undo or a redo made stale is ended and said at once
         let flags = flags | p.editor.settle_proposal();
         if flags & CHANGED != 0 {
@@ -182,10 +183,17 @@ pub fn command(what: &str) -> u32 {
         "pathway-tree" => e.pathway_tree(),
         "scheme-orient" => e.scheme_orient(),
         "pathway-label" => e.pathway_label_page(""),
+        w if Editor::is_history_command(w) => e.history_command(w).unwrap_or(0),
         w if w.starts_with("pathway-label:") => e.pathway_label_page(&w["pathway-label:".len()..]),
         "move-here" => e.set_move_here(!e.move_here),
         tool => e.set_tool(tool),
     })
+}
+
+/// The history of the session, `history/1` (newest step first; see `Editor::history_json`).
+#[wasm_bindgen]
+pub fn history() -> String {
+    with(|p| p.editor.history_json())
 }
 
 /// The editor's clipboard as `mzdraw` (its document) or `molfile` (for other programs), for the system clipboard; empty when

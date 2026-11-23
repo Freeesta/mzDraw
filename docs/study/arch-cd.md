@@ -98,7 +98,7 @@ Rows grouped by area; the ID is used by the prompts (§6). Source keys refer to 
 | A18 | click-move-click drawing mode | CDD-G §2.3.1.1 ("Control" mode), CDD-G §2.4.5 | no drag needed | SHOULD: users with motor limits, trackpads | setting `editor.click_mode` | S |
 | A19 | fixed length and fixed angle toggles, snap grid | CD-UG17 (Ctrl+L, Ctrl+E), CDD-G §2.3.1.1 (5 or 10 px grid) | free drawing when off | SHOULD: free figures | settings `editor.fixed_length`, `editor.snap_angle`, `editor.grid` | S |
 | A20 | undo/redo without a fixed depth | CD-UG17 (memory-bound, since last save), MS/marvin_marvinsketch_edit-menu.html, CDD-G | | MUST · built | log | - |
-| A21 | history panel: every step listed, jump back to any | CDD-G §3.7.2 (History widget) | the action log as a list | SHOULD: the command log exists; one view more | command `undo:<n>`; the log is the CLI twin | S |
+| A21 | history panel: every step listed, jump back to any | CDD-G §3.7.2 (History widget) | the action log as a list | SHOULD · built: the command log exists; one view more | command `undo:<n>`; the log is the CLI twin | S |
 | A22 | label entry with Alt+click; double-click adds a bond | CD-KB/44882776753300* (25.5) | | LATER: covered by the label field and keyboard focus | - | - |
 
 ### B. Atoms, labels, abbreviations, hotkeys

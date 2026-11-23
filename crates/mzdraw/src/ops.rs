@@ -1365,14 +1365,19 @@ impl Document {
 struct Step {
     ops: Vec<Op>,
     inv: Vec<Inv>,
+    /// What the step says about itself in the history list: (i18n key, what); `None` until the editor names it.
+    label: Option<Label>,
 }
+
+/// The words of one step in the history list: the i18n key and its parameter.
+pub type Label = (&'static str, String);
 
 /// A document with its history. `run` is one undo step.
 #[derive(Default)]
 pub struct Session {
     pub doc: Document,
     undo: Vec<Step>,
-    redo: Vec<Vec<Op>>,
+    redo: Vec<(Vec<Op>, Option<Label>)>,
     /// Counts every change of the history (a step, an undo, a redo): lets a caller know that nothing happened in between.
     generation: u64,
 }
@@ -1391,7 +1396,11 @@ impl Session {
     pub fn run(&mut self, ops: &[Op]) -> Result<(), OpError> {
         let (done, inv) = self.doc.apply(ops)?;
         if !done.is_empty() {
-            self.undo.push(Step { ops: done, inv });
+            self.undo.push(Step {
+                ops: done,
+                inv,
+                label: None,
+            });
             self.redo.clear();
             self.generation += 1;
         }
@@ -1410,7 +1419,11 @@ impl Session {
                 last.ops.extend(done);
                 last.inv.extend(inv);
             }
-            None => self.undo.push(Step { ops: done, inv }),
+            None => self.undo.push(Step {
+                ops: done,
+                inv,
+                label: None,
+            }),
         }
         self.redo.clear();
         self.generation += 1;
@@ -1440,20 +1453,72 @@ impl Session {
             return false;
         };
         self.doc.revert(s.inv);
-        self.redo.push(s.ops);
+        self.redo.push((s.ops, s.label));
         self.generation += 1;
         true
     }
 
     pub fn redo(&mut self) -> bool {
-        let Some(ops) = self.redo.pop() else {
+        let Some((ops, label)) = self.redo.pop() else {
             return false;
         };
         // resolved operations of a step that applied before on this same document: they apply again
         if let Ok((done, inv)) = self.doc.apply(&ops) {
-            self.undo.push(Step { ops: done, inv });
+            self.undo.push(Step {
+                ops: done,
+                inv,
+                label,
+            });
         }
         self.generation += 1;
+        true
+    }
+
+    /// Number of steps that can be redone.
+    pub fn redo_steps(&self) -> usize {
+        self.redo.len()
+    }
+
+    /// Names the steps no one has named yet (the tail of the undo stack): with one such step, `one`; with more, `many`.
+    pub fn name_new_steps(&mut self, one: Label, many: &'static str) {
+        let tail = self
+            .undo
+            .iter()
+            .rev()
+            .take_while(|s| s.label.is_none())
+            .count();
+        let from = self.undo.len() - tail;
+        for s in &mut self.undo[from..] {
+            s.label = Some(if tail == 1 {
+                one.clone()
+            } else {
+                (many, String::new())
+            });
+        }
+    }
+
+    /// The steps of the history in order of time, oldest first: the label of each and whether it is done (not undone).
+    /// Step `i` of the list is number `i + 1`; the redo stack is read from its far end, which is the next step to redo.
+    pub fn history(&self) -> Vec<(Label, bool)> {
+        let name = |l: &Option<Label>| l.clone().unwrap_or(("", String::new()));
+        let done = self.undo.iter().map(|s| (name(&s.label), true));
+        let undone = self.redo.iter().rev().map(|(_, l)| (name(l), false));
+        done.chain(undone).collect()
+    }
+
+    /// Undoes or redoes until exactly `n` steps are applied (0 is the start); false, and nothing changes, when there are fewer steps.
+    pub fn jump(&mut self, n: usize) -> bool {
+        if n > self.undo.len() + self.redo.len() {
+            return false;
+        }
+        while self.undo.len() > n {
+            self.undo();
+        }
+        while self.undo.len() < n {
+            if !self.redo() {
+                break;
+            }
+        }
         true
     }
 

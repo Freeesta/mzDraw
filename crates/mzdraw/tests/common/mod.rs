@@ -1,11 +1,11 @@
 //! The golden files of the editor: every `*.json` of `tests/data/log/`, one file per area, read in the order of their names.
-//! A file holds some of the sections `cases`, `contexts`, `refused`, `results`, `schemas`, `settings`, `pdf`, `trasf`, `diffs`, `losses`, `values`, `feedbacks` (a missing section is an empty one);
+//! A file holds some of the sections `cases`, `contexts`, `refused`, `results`, `schemas`, `settings`, `pdf`, `trasf`, `diffs`, `losses`, `values`, `feedbacks`, `histories` (a missing section is an empty one);
 //! `tests/parity.mjs` reads the same folder the same way.
 
 use serde_json::Value;
 use std::path::PathBuf;
 
-const SECTIONS: [&str; 12] = [
+const SECTIONS: [&str; 13] = [
     "cases",
     "contexts",
     "refused",
@@ -18,6 +18,7 @@ const SECTIONS: [&str; 12] = [
     "losses",
     "values",
     "feedbacks",
+    "histories",
 ];
 
 pub fn golden_files() -> Vec<(PathBuf, Value)> {

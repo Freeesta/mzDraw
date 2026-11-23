@@ -244,9 +244,45 @@ function valuesText(v, adducts) {
   return parts.join("; ") + ".";
 }
 
+/** the history list (`history()` of the module: the steps newest first, the current one marked): it only paints them, a click or Enter
+ *  on a row sends `jump:<index>` and the module undoes or redoes to that step */
+function historyList() {
+  const box = $("d2-history"), list = $("d2-history-list");
+  if (!(/** @type {HTMLDetailsElement} */ (box)).open) return;
+  const h = JSON.parse(ed.history()), had = list.contains(document.activeElement), keep = /** @type {HTMLElement | null} */ (document.activeElement)?.dataset.index;
+  const rows = [...h.steps, { say: "draw2.history.start", what: "", index: 0, state: h.at === 0 ? "current" : "done" }];
+  list.replaceChildren(...rows.map((/** @type {any} */ r, /** @type {number} */ i) => {
+    const li = document.createElement("li");
+    li.setAttribute("role", "option"); li.dataset.index = String(r.index); li.dataset.state = r.state;
+    li.setAttribute("aria-selected", String(r.state === "current"));
+    li.tabIndex = (keep !== undefined ? String(r.index) === keep : r.state === "current") ? 0 : -1;
+    li.textContent = (r.state === "undone" ? "↷ " : "") + t(r.say, { what: r.what });
+    return li;
+  }));
+  if (had) /** @type {HTMLElement | null} */ (list.querySelector('[tabindex="0"]'))?.focus({ preventScroll: true });
+  if (!list.querySelector('[tabindex="0"]')) /** @type {HTMLElement} */ (list.firstElementChild)?.setAttribute("tabindex", "0");
+}
+
+function historyEvents() {
+  const list = $("d2-history-list"), jump = (/** @type {HTMLElement} */ li) => {
+    after(ed.command("jump:" + li.dataset.index)); list.querySelector(`[data-index="${li.dataset.index}"]`)?.setAttribute("tabindex", "0");
+    $("d2-live").textContent = t("draw2.say.jump", { what: li.dataset.index });
+  };
+  $("d2-history").addEventListener("toggle", historyList);
+  list.addEventListener("click", e => { const li = /** @type {HTMLElement} */ (e.target).closest("li"); if (li) { jump(li); /** @type {HTMLElement | null} */ (list.querySelector(`[data-index="${li.dataset.index}"]`))?.focus({ preventScroll: true }); } });
+  list.addEventListener("keydown", e => {
+    const li = /** @type {HTMLElement} */ (e.target).closest("li");
+    if (!li) return;
+    const move = { ArrowDown: li.nextElementSibling, ArrowUp: li.previousElementSibling, Home: list.firstElementChild, End: list.lastElementChild }[e.key];
+    if (move) { e.preventDefault(); li.tabIndex = -1; /** @type {HTMLElement} */ (move).tabIndex = 0; /** @type {HTMLElement} */ (move).focus({ preventScroll: true }); }
+    else if (e.key === "Enter") { e.preventDefault(); jump(li); }
+  });
+}
+
 function refresh() {
   const st = JSON.parse(ed.state());
   show(st);
+  historyList();
   colourState(st);
   propsState(st);
   textBar(st);
@@ -852,7 +888,7 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
-  mapField(); colourField(); propsField(); $("d2-props").addEventListener("toggle", () => propsState(JSON.parse(ed.state()))); proposalEvents(); stepEvents(); feedbackBoxes({ ed, t, focusCanvas: () => cv.focus({ preventScroll: true }) });
+  mapField(); colourField(); propsField(); $("d2-props").addEventListener("toggle", () => propsState(JSON.parse(ed.state()))); proposalEvents(); stepEvents(); historyEvents(); feedbackBoxes({ ed, t, focusCanvas: () => cv.focus({ preventScroll: true }) });
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); preferences(); layout(); refresh();
