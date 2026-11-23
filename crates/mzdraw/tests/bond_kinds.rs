@@ -571,7 +571,8 @@ fn no_mass_and_no_descriptor_is_made_of_a_structure_the_engine_would_read_as_a_s
 
 #[test]
 fn a_selection_cut_through_a_dative_or_hydrogen_bond_leaves_no_hydrogen_behind() {
-    // N alone, taken from NH3->BH3: NH3 (a covalent single bond cut would close with one hydrogen: NH4)
+    // N alone, taken from NH3->BH3: NH3, its own three hydrogens and none added for the cut bond (closing it with a hydrogen
+    // would give NH4, which this assertion would catch); the plain single bond below is N with two hydrogens plus the one that closes the cut: also NH3
     let d = joined("N.B", "dative");
     let scan = mzdraw::values::scan(&d);
     assert_eq!(scan.selection(&d, &[1]).unwrap().formula, "H3N");

@@ -1708,8 +1708,8 @@ try {
     for (let i = 0; i < 6; i++) await tool(pg, "undo");
     eq((await doc()).bonds.length, 1);
     eq((await doc()).bonds[0].k, undefined);
-    // pen presses leave the page of the tablet with a pointer the next canvas tap does not get through: the page is loaded again, as the other pen steps of this part do
-    await pg.reload(); await until(pg, "document.documentElement.dataset.d2Ready === '1'"); await frames(pg);
+    // a tap within the palm window after a pen event (500 ms of the page clock) is not a touch: the next step starts after it
+    await hold(pg, 650);
   });
 
   await step("tablet with touch and a pen: the side of a double bond and the dashed tools by a tap and by a pen, each press one undo step", async () => {
