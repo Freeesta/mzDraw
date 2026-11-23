@@ -368,6 +368,35 @@ fn best_with<S, R>(warm: usize, runs: usize, setup: impl Fn() -> S, run: impl Fn
         .fold(f64::MAX, f64::min)
 }
 
+/// `best_with` for a small and a large input of one comparison, taken in turns (after `warm` runs of each that are not timed), so
+/// that a slow phase of the machine (a neighbour, a frequency step, a cold cache) falls on both and not on one of them. The least of
+/// `runs` runs of each, in milliseconds: `(small, big)`.
+fn best_pair_with<S, R>(
+    warm: usize,
+    runs: usize,
+    small: impl Fn() -> S,
+    big: impl Fn() -> S,
+    run: impl Fn(S) -> R,
+) -> (f64, f64) {
+    let timed = |s: S| {
+        let w = timing::Watch::start();
+        let out = run(s);
+        let ms = w.elapsed().as_secs_f64() * 1000.0;
+        drop(out); // dropped after the clock stopped
+        ms
+    };
+    for _ in 0..warm {
+        run(small());
+        run(big());
+    }
+    let (mut a, mut b) = (f64::MAX, f64::MAX);
+    for _ in 0..runs {
+        a = a.min(timed(small()));
+        b = b.min(timed(big()));
+    }
+    (a, b)
+}
+
 /// The time of `run` on the input of `n` and of `4n` (built by `setup`, outside the clock) must not differ by more than a factor 8:
 /// linear work gives 4 and quadratic work 16, and the bound has no floor, so it is the same at every speed; `n` is large enough that
 /// quadratic work is seconds in a release build too.
@@ -410,8 +439,9 @@ fn one_remove_naming_every_atom_of_a_big_drawing_is_held_marked_and_accepted() {
         let _ = (e.proposal_marks(), e.proposal_json());
         e.accept_hunk(1).unwrap();
     };
-    let small = best_with(1, 3, || remove_all(n / 4), run);
-    let big = best_with(1, 3, || remove_all(n), run);
+    let (small, big) = best_pair_with(2, 9, || remove_all(n / 4), || remove_all(n), run);
+    // a floor of one millisecond for the small size: below it the clock does not tell the run from noise (the debug figure is 50 ms)
+    let small = small.max(1.0);
     assert!(
         big <= small * 8.0,
         "one remove: {small:.1} ms for {} atoms, {big:.1} ms for {n}",
