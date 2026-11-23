@@ -459,3 +459,15 @@ fn a_chain_from_a_stereo_centre_keeps_what_was_drawn_and_says_nothing() {
     assert!(e.doc().bonds.iter().any(|b| b.s == 1));
     assert!(e.doc().to_smiles().is_ok());
 }
+
+#[test]
+fn a_tap_of_a_finger_or_a_pen_with_the_chain_tool_adds_two_bonds() {
+    for kind in [TOUCH, PEN] {
+        let mut e = Editor::default();
+        e.set_tool("chain");
+        e.pointer_event(0, 1, 300.0, 300.0, kind, 0, 0.0);
+        let f = e.pointer_event(2, 1, 300.0, 300.0, kind, 0, 60.0);
+        assert_eq!(f & CHANGED, CHANGED, "kind {kind}");
+        assert_eq!((e.doc().atoms.len(), e.doc().bonds.len()), (3, 2));
+    }
+}

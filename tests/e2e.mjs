@@ -1494,25 +1494,6 @@ try {
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
   });
-  await step("tablet with touch and a pen: the chain tool draws a zigzag by a finger drag and by a pen drag, the count is shown while it is held, a tap adds two bonds, each gesture is one undo step", async () => {
-    const cdp = await ctx.newCDPSession(pg);
-    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) });
-    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
-    const dx = 0.866 * 40;
-    await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
-    await tool(pg, "chain"); await want(pg, { tool: "chain" });
-    // a tap adds two bonds (first: a tap that follows a synthetic drag is dropped)
-    await pg.touchscreen.tap(cx + 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });
-    // a finger
-    await touch("touchStart", [[1, cx - 200, cy]]); await touch("touchMove", [[1, cx - 150, cy]]); await touch("touchMove", [[1, cx - 200 + 4 * dx, cy]]);
-    await want(pg, { atoms: 3, bonds: 2 });
-    await shot(pg, "chain-tablet");
-    await touch("touchEnd", []); await want(pg, { atoms: 8, bonds: 6 });
-    // a pen
-    await pen("mouseMoved", cx - 200, cy + 150); await pen("mousePressed", cx - 200, cy + 150); await pen("mouseMoved", cx - 150, cy + 150); await pen("mouseMoved", cx - 200 + 3 * dx, cy + 150); await pen("mouseReleased", cx - 200 + 3 * dx, cy + 150);
-    await want(pg, { atoms: 12, bonds: 9 });
-    for (const [a, b] of [[8, 6], [3, 2], [0, 0]]) { await pg.keyboard.press("Control+z"); await want(pg, { atoms: a, bonds: b }); }
-  });
   await step("tablet with touch and a pen: the side of a double bond and the dashed tools by a tap and by a pen, each press one undo step", async () => {
     const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
@@ -1535,6 +1516,28 @@ try {
     eq((await doc()).bonds[0].k, undefined);
   });
 
+  await step("tablet with touch and a pen: the chain tool adds two bonds by a tap and draws a zigzag by a finger drag and by a pen drag, the count is shown while it is held, each gesture is one undo step", async () => {
+    // (a page of its own: a tap that follows synthetic touch or pen events is dropped by the browser, so the tap comes first)
+    const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+    const { pg, cx, cy } = t;
+    try {
+      const cdp = await t.ctx.newCDPSession(pg);
+      const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) });
+      const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+      const dx = 0.866 * 40;
+      await tool(pg, "chain"); await want(pg, { tool: "chain" });
+      await pg.touchscreen.tap(cx + 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });
+      // a finger drag: the count is shown while it is held
+      await touch("touchStart", [[1, cx - 200, cy]]); await touch("touchMove", [[1, cx - 150, cy]]); await touch("touchMove", [[1, cx - 200 + 4 * dx, cy]]);
+      await want(pg, { atoms: 3, bonds: 2 });
+      await shot(pg, "chain-tablet");
+      await touch("touchEnd", []); await want(pg, { atoms: 8, bonds: 6 });
+      // a pen drag
+      for (const [type, x] of [["mouseMoved", cx - 200], ["mousePressed", cx - 200], ["mouseMoved", cx - 150], ["mouseMoved", cx - 200 + 3 * dx], ["mouseReleased", cx - 200 + 3 * dx]]) await pen(type, x, cy + 150);
+      await want(pg, { atoms: 12, bonds: 9 });
+      for (const [a, b] of [[8, 6], [3, 2], [0, 0]]) { await pg.keyboard.press("Control+z"); await want(pg, { atoms: a, bonds: b }); }
+    } finally { await t.ctx.close(); }
+  });
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
     const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)
