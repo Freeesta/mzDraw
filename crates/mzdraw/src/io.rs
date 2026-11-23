@@ -254,10 +254,10 @@ impl Document {
     /// molfile by `mzlab-mol` (one wedge per defined centre, a wavy mark per unknown one, chosen by its own parity rule) and the
     /// marks of its bond lines are taken. A record without stereo, or too large for V2000, leaves the drawing unmarked.
     fn wedges_from_record(&mut self, m: &Mol) {
-        if m.stereo.is_empty() {
+        let mut rec = with_unknown_double_bonds(m);
+        if rec.stereo.is_empty() {
             return;
         }
-        let mut rec = m.clone();
         // the stereo groups would make the writer choose V3000; the marks are the same without them
         rec.groups.clear();
         rec.coords = Some(Coords {
@@ -266,23 +266,30 @@ impl Document {
             from: crate::NAME.into(),
         });
         let text = rec.to_molfile(crate::NAME);
-        // the first single bond between two atoms, by the pair
+        // the first single bond between two atoms, by the pair; and the first double bond
         let mut pairs: std::collections::HashMap<(u32, u32), usize> =
             std::collections::HashMap::new();
-        for (k, x) in self
-            .bonds
-            .iter()
-            .enumerate()
-            .rev()
-            .filter(|(_, x)| x.o == 1)
-        {
-            pairs.insert((x.a.min(x.b), x.a.max(x.b)), k);
+        let mut doubles: std::collections::HashMap<(u32, u32), usize> =
+            std::collections::HashMap::new();
+        for (k, x) in self.bonds.iter().enumerate().rev() {
+            match x.o {
+                1 => pairs.insert((x.a.min(x.b), x.a.max(x.b)), k),
+                2 => doubles.insert((x.a.min(x.b), x.a.max(x.b)), k),
+                _ => None,
+            };
         }
-        for (i, j, _, mark) in bond_lines(&text, self.atoms.len(), self.bonds.len()) {
+        for (i, j, order, mark) in bond_lines(&text, self.atoms.len(), self.bonds.len()) {
             let (Some(a), Some(b)) = (self.atoms.get(i), self.atoms.get(j)) else {
                 continue;
             };
             let (a, b) = (a.id, b.id);
+            // a double bond whose E/Z the record does not know: "either"
+            if order == 2 && mark == 3 {
+                if let Some(&k) = doubles.get(&(a.min(b), a.max(b))) {
+                    crate::bonddisp::ez_put(&mut self.bonds[k].more, true);
+                }
+                continue;
+            }
             let s = match mark {
                 1 => WEDGE_UP,
                 6 => WEDGE_DOWN,
@@ -295,17 +302,155 @@ impl Document {
             }
         }
     }
+}
 
+/// The smallest ring a double bond can be in and still carry E/Z (as `mzlab-mol` counts it).
+const MIN_EZ_RING: usize = 8;
+
+/// The record with an `unknown` element on each double bond that can carry E/Z and has none (a SMILES `CC=CC`, a molfile double
+/// bond marked "either"): drawn, its geometry would say E or Z, so the drawing marks it "either". Tetrahedral centres are left as
+/// they are. A double bond can carry E/Z when it is in no ring smaller than `MIN_EZ_RING`, neither end has another double bond
+/// (an allene), and each end has one other neighbour, or two of different constitution (`classes`). Two substituents that differ
+/// only through stereo elsewhere are not seen (no mark: the drawing says what it said before). Linear in practice, unlike a full
+/// search of the stereo sites, which can try every assignment of the other sites.
+fn with_unknown_double_bonds(m: &Mol) -> Mol {
+    use mzlab_mol::{Status, Stereo};
+    let has = |a: u32, b: u32| {
+        m.stereo
+            .iter()
+            .any(|s| matches!(s, Stereo::Db { a: x, b: y, .. } if (*x, *y) == (a.min(b), a.max(b))))
+    };
+    let n = m.atoms.len();
+    let mut adj: Vec<Vec<(usize, u8)>> = vec![Vec::new(); n];
+    for b in &m.bonds {
+        let (a, c) = (b.a as usize, b.b as usize);
+        if a < n && c < n {
+            adj[a].push((c, b.o));
+            adj[c].push((a, b.o));
+        }
+    }
+    let mut rec = m.clone();
+    let open: Vec<(usize, usize)> = (m.bonds.iter())
+        .filter(|b| b.o == 2 && (b.a as usize) < n && (b.b as usize) < n && !has(b.a, b.b))
+        .map(|b| (b.a as usize, b.b as usize))
+        .filter(|&(a, b)| adj[a].len() > 1 && adj[b].len() > 1)
+        .collect();
+    if open.is_empty() {
+        return rec;
+    }
+    let cls = classes(m, &adj);
+    let end_fits = |at: usize, other: usize| {
+        let subs: Vec<usize> = adj[at]
+            .iter()
+            .filter(|x| x.0 != other)
+            .map(|x| x.0)
+            .collect();
+        let cumulated = adj[at].iter().any(|x| x.0 != other && x.1 == 2);
+        !cumulated
+            && match subs[..] {
+                [_] => true,
+                [x, y] => cls[x] != cls[y],
+                _ => false,
+            }
+    };
+    for (a, b) in open {
+        if end_fits(a, b) && end_fits(b, a) && !in_small_ring(&adj, a, b) {
+            rec.stereo.push(Stereo::Db {
+                a: a.min(b) as u32,
+                b: a.max(b) as u32,
+                refs: None,
+                cfg: None,
+                status: Status::Unknown,
+            });
+        }
+    }
+    rec
+}
+
+/// The constitution class of each atom: element, charge, mass number, hydrogens and bonds, refined by the classes of the
+/// neighbours until no class splits (stereo is not looked at).
+fn classes(m: &Mol, adj: &[Vec<(usize, u8)>]) -> Vec<usize> {
+    let rank = |keys: Vec<String>| -> Vec<usize> {
+        let mut sorted = keys.clone();
+        sorted.sort();
+        sorted.dedup();
+        keys.iter()
+            .map(|k| sorted.binary_search(k).unwrap_or(0))
+            .collect()
+    };
+    let mut cls = rank(
+        (m.atoms.iter().zip(adj))
+            .map(|(a, nb)| {
+                format!(
+                    "{} {} {} {} {} {}",
+                    a.el,
+                    a.chg,
+                    a.iso,
+                    a.h,
+                    a.rad,
+                    nb.len()
+                )
+            })
+            .collect(),
+    );
+    let mut count = 0;
+    loop {
+        let distinct = cls.iter().collect::<std::collections::BTreeSet<_>>().len();
+        if distinct == count {
+            return cls;
+        }
+        count = distinct;
+        cls = rank(
+            (0..cls.len())
+                .map(|i| {
+                    let mut nb: Vec<(u8, usize)> =
+                        adj[i].iter().map(|&(j, o)| (o, cls[j])).collect();
+                    nb.sort();
+                    format!("{} {nb:?}", cls[i])
+                })
+                .collect(),
+        );
+    }
+}
+
+/// Whether the bond `a`-`b` is in a ring of fewer than `MIN_EZ_RING` atoms: a path from `a` to `b` without the bond, shorter
+/// than the ring (breadth first, cut at the depth that matters).
+fn in_small_ring(adj: &[Vec<(usize, u8)>], a: usize, b: usize) -> bool {
+    let mut seen = vec![false; adj.len()];
+    seen[a] = true;
+    let mut front = vec![a];
+    for _ in 1..MIN_EZ_RING - 1 {
+        let mut next = Vec::new();
+        for &x in &front {
+            for &(y, _) in &adj[x] {
+                if x == a && y == b {
+                    continue;
+                }
+                if y == b {
+                    return true;
+                }
+                if !seen[y] {
+                    seen[y] = true;
+                    next.push(y);
+                }
+            }
+        }
+        front = next;
+    }
+    false
+}
+
+impl Document {
     /// Sets the wedge marks as drawn on the bond lines of a V2000 molfile of this document (bond lines in pool order): the first
     /// atom of a marked line is the narrow end.
     pub(crate) fn mark_wedges(&self, molfile: String, record_atoms: usize) -> String {
-        if self.bonds.iter().all(|b| b.s == 0) || !molfile.contains("V2000") {
+        if self.bonds.iter().all(|b| b.s == 0 && !b.either()) || !molfile.contains("V2000") {
             return molfile;
         }
         let first = 4 + record_atoms;
         let mut lines: Vec<String> = molfile.split('\n').map(str::to_string).collect();
         let index = self.index_map();
-        for (k, b) in self.bonds.iter().enumerate().filter(|(_, b)| b.s != 0) {
+        for (k, b) in (self.bonds.iter().enumerate()).filter(|(_, b)| b.s != 0 || b.either()) {
             let (Some(&i), Some(&j)) = (index.get(&b.a), index.get(&b.b)) else {
                 continue;
             };
@@ -313,6 +458,8 @@ impl Document {
                 continue;
             };
             let mark = match b.s {
+                // a double bond whose E/Z is unknown: "either" is 3 on a double bond
+                0 => 3,
                 WEDGE_UP => 1,
                 WEDGE_DOWN => 6,
                 _ => 4,

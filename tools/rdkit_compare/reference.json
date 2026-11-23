@@ -1320,7 +1320,7 @@
    "name": "polyene",
    "ours": {
     "arrows": 0,
-    "cdxml_same": false,
+    "cdxml_same": true,
     "layout": {
      "atom_clashes": 0,
      "atoms": 10,
@@ -1335,8 +1335,8 @@
     "parsed_smiles": true,
     "pieces": 1,
     "png": false,
-    "smiles_same": false,
-    "stereo_from_molfile": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
     "svg_deterministic": true,
     "wedges": 0
    },
@@ -1920,8 +1920,8 @@
   },
   {
    "note": "",
-   "ours": true,
-   "ours_error": null,
+   "ours": false,
+   "ours_error": "ran, but the output does not show it",
    "ours_request": {
     "import": "CO",
     "log": [
@@ -1997,7 +1997,7 @@
    "min_nonbonded": 0.227,
    "parsed": 30,
    "ring_angle_dev_max": 90.0,
-   "stereo_from_molfile": 29,
+   "stereo_from_molfile": 30,
    "svg_deterministic": 31
   },
   "rdkit": {

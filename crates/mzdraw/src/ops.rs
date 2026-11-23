@@ -1133,8 +1133,18 @@ impl Document {
                 };
                 let now = &self.bonds[i];
                 let order = o.unwrap_or(now.o);
-                // a new order other than single drops the wedge mark
-                let mark = s.unwrap_or(if order == 1 { now.s } else { 0 });
+                // a new order other than single drops the wedge mark; on a double bond the mark 3 is "either" (its E/Z is
+                // unknown), kept as the field `ez`, and 0 takes it away; a new order other than double drops it
+                let either = order == 2
+                    && match s {
+                        Some(3) => true,
+                        Some(_) => false,
+                        None => now.either(),
+                    };
+                let mark = match s {
+                    Some(3) if order == 2 => 0,
+                    _ => s.unwrap_or(if order == 1 { now.s } else { 0 }),
+                };
                 // a new order other than double drops the side; a new mark drops the display kind
                 let side = match pos {
                     Some(v) => match crate::bonddisp::pos_canon(v) {
@@ -1170,6 +1180,7 @@ impl Document {
                 (b.o, b.s) = (order, mark);
                 crate::bonddisp::pos_put(&mut b.more, &side);
                 crate::bonddisp::k_put(&mut b.more, &kind);
+                crate::bonddisp::ez_put(&mut b.more, either);
                 if *rev {
                     (b.a, b.b) = (b.b, b.a);
                 }

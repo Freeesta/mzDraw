@@ -646,6 +646,19 @@ impl Document {
                     let (name, i, j) = link.unwrap_or_default();
                     (i, j, format!(" Order=\"{name}\""))
                 }
+                // a double bond whose E/Z is unknown: drawn "either" (ChemDraw's wavy display of a double bond); a bond with a
+                // display kind of its own keeps that one (the file has one display per bond) and the loss manifest says it
+                None if self
+                    .bonds
+                    .get(k)
+                    .is_some_and(|d| d.either() && d.kind().is_empty()) =>
+                {
+                    (
+                        b.a as usize,
+                        b.b as usize,
+                        " Order=\"2\" Display=\"Wavy\"".to_string(),
+                    )
+                }
                 None if b.o > 1 => (b.a as usize, b.b as usize, format!(" Order=\"{}\"", b.o)),
                 None => (b.a as usize, b.b as usize, String::new()),
             };

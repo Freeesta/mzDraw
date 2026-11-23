@@ -345,12 +345,12 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             o: b.o,
             s: b.s,
         });
-        // the side of the second line and the display kind come along with the bond
-        if !b.pos().is_empty() || !b.kind().is_empty() {
+        // the side of the second line, the display kind and the "either" mark of a double bond come along with the bond
+        if !b.pos().is_empty() || !b.kind().is_empty() || b.either() {
             ops.push(Op::BondSet {
                 id: base + b.id,
                 o: None,
-                s: None,
+                s: b.either().then_some(3),
                 pos: (!b.pos().is_empty()).then(|| b.pos()),
                 k: (!b.kind().is_empty()).then(|| b.kind()),
                 rev: false,
