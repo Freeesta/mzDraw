@@ -667,7 +667,7 @@ fn two_thousand_separate_accepts_through_the_request_are_fast_and_all_or_none() 
     mzdraw::replay::replay(&accept_request(n)).unwrap();
     // and the hunks cost in proportion: over the same 20,000-atom drawing, four times the hunks may cost at most eight times as much
     // (linear 4, quadratic 16). Only the accepting is on the clock (the proposal is held and the drawing is made before it, per run),
-    // so there is no baseline to subtract; each size is the least CPU time of the thread over nine runs.
+    // so there is no baseline to subtract; each size is the least CPU time of the thread over fifteen runs.
     let held = |hunks: u32| {
         move || {
             let mut e = editor(grid(20_000, false));
