@@ -1,7 +1,7 @@
 //! tp-05b: the gap rule `crossing` of the pathway layout (step 5): a gap between two columns is widened until no primary arrow meets
 //! the route box of another structure of its two layers. Synthetic structures only.
 
-use mzdraw::pathway::{self, Col, Gap, Layout};
+use mzdraw::pathway::{self, Col, Gap, Layout, Long, LongGaps};
 use mzdraw::{Document, Style};
 use serde_json::json;
 
@@ -281,4 +281,196 @@ fn the_rule_adds_a_bounded_amount_and_the_page_limit_is_the_documents_own() {
         lay.gaps
     );
     assert!(pathway::ops(&d, &s, &lay).is_ok());
+}
+
+/// A pseudo-random DAG of `n` nodes: a spanning tree (the parent of `i` is below `i`) and a few arrows more, so that some skip a
+/// layer or leave a node that has another parent, from a fixed seed.
+fn dag(n: usize, seed: u64) -> Document {
+    let mut x = seed;
+    let mut next = |m: usize| {
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        ((x >> 33) as usize) % m
+    };
+    let mut e: Vec<(usize, usize)> = (1..n).map(|i| (next(i), i)).collect();
+    for _ in 0..1 + n / 4 {
+        let v = 2 + next(n - 2);
+        let u = next(v);
+        if !e.contains(&(u, v)) {
+            e.push((u, v));
+        }
+    }
+    synthetic(n, &e)
+}
+
+fn is_long(lay: &Layout, arrow: u32) -> bool {
+    let e = lay.edges.iter().find(|e| e.arrow == arrow).unwrap();
+    !e.primary
+}
+
+#[test]
+fn a_secondary_arrow_and_a_skipping_arrow_widen_the_gaps_they_span() {
+    // 0 -> 1 -> 3 and 0 -> 2 -> 4, with the secondary arrow 3 -> 4 and, in the second, the skipping arrow 0 -> 4
+    for (edges, name) in [
+        (vec![(0, 1), (0, 2), (1, 3), (2, 4), (3, 4)], "secondary"),
+        (
+            vec![(0, 1), (1, 2), (1, 3), (0, 4), (4, 5), (0, 5), (0, 2)],
+            "skipping",
+        ),
+    ] {
+        let n = edges.iter().map(|e| e.1).max().unwrap() + 1;
+        let lay = pathway::layout(&synthetic(n, &edges), &style(&[])).unwrap();
+        assert!(lay.crossings.is_empty(), "{name}: {:?}", lay.crossings);
+        assert!(lay.limits.is_empty(), "{name}: {:?}", lay.limits);
+        let g = lay.gaps.iter().find(|g| g.rule == "crossing").unwrap();
+        // the gap says every arrow that spans it, the long one included
+        assert!(g.arrows.iter().any(|&a| is_long(&lay, a)), "{name}: {g:?}");
+    }
+}
+
+#[test]
+fn what_gaps_cannot_clear_is_the_bound_with_the_gaps_as_they_were() {
+    // a skipping arrow in a straight chain passes the box of the middle structure whatever the gaps are
+    let lay = pathway::layout(&synthetic(3, &[(0, 1), (1, 2), (0, 2)]), &style(&[])).unwrap();
+    assert!(lay.gaps.is_empty(), "{:?}", lay.gaps);
+    assert_eq!(lay.crossings.len(), 1);
+    assert_eq!(lay.limits.len(), 2, "{:?}", lay.limits);
+    let long = lay.edges.iter().find(|e| !e.primary).unwrap().arrow;
+    assert!(lay.limits.iter().all(|l| l.arrows == vec![long]));
+    assert_eq!(lay.limits.iter().map(|l| l.k).collect::<Vec<_>>(), [0, 1]);
+}
+
+#[test]
+fn a_long_arrow_that_still_meets_a_box_is_never_unsaid() {
+    // every crossing a long arrow has is in a gapLimit note, on every gap it spans; the widening never makes a layout worse
+    let (mut widened, mut limited) = (0, 0);
+    for seed in 1..=80u64 {
+        let d = dag(5 + (seed as usize % 9), seed);
+        let lay = pathway::layout(&d, &style(&[])).unwrap();
+        assert_eq!(primary_crossings(&lay), 0, "seed {seed}");
+        for (arrow, _) in &lay.crossings {
+            assert!(
+                lay.limits.iter().any(|l| l.arrows.contains(arrow)),
+                "seed {seed}: arrow {arrow} crosses and no limit says so"
+            );
+        }
+        widened += usize::from(lay.gaps.iter().any(|g| g.rule == "crossing"));
+        limited += usize::from(!lay.limits.is_empty());
+    }
+    assert!(widened > 10 && limited > 10, "{widened} {limited}");
+}
+
+#[test]
+fn property_the_layout_of_long_arrows_is_deterministic() {
+    for seed in 1..=30u64 {
+        let d = dag(5 + (seed as usize % 9), seed);
+        for sets in [
+            vec![],
+            vec!["max_angle=60"],
+            vec!["dir=down", "row_gap=0.6"],
+        ] {
+            let s = style(&sets);
+            let (a, b) = (
+                pathway::layout(&d, &s).unwrap(),
+                pathway::layout(&d, &s).unwrap(),
+            );
+            assert_eq!(a.centres, b.centres, "seed {seed} {sets:?}");
+            assert_eq!(a.gaps, b.gaps);
+            assert_eq!(a.limits, b.limits);
+            assert_eq!(a.crossings, b.crossings);
+            assert_eq!(
+                pathway::ops(&d, &s, &a).unwrap(),
+                pathway::ops(&d, &s, &b).unwrap()
+            );
+        }
+    }
+}
+
+/// Three columns of one box width 1: a long arrow from the box of the first to the box of the last that meets a middle box in the
+/// middle of its way, and cleared by a wider gap.
+fn three_columns(flip: bool) -> (Vec<Vec<Col>>, Vec<f64>, Vec<f64>) {
+    let s = if flip { -1.0 } else { 1.0 };
+    (
+        vec![
+            vec![(0.0, 1.0, 0.74)],
+            vec![(s * 1.0, 1.0, 0.74), (s * -3.0, 1.0, 0.74)],
+            vec![(s * 3.0, 1.0, 0.74)],
+        ],
+        vec![1.0; 3],
+        vec![2.5, 2.5],
+    )
+}
+
+#[test]
+fn the_long_rule_alone_widens_the_gap_that_moves_the_arrow_off_the_box() {
+    let (cols, w, gaps) = three_columns(false);
+    let long: Vec<Long> = vec![((0, 0), (2, 0))];
+    let r = pathway::long_gaps(&cols, &w, &gaps, &long, 0.35);
+    assert!(r.left.is_empty(), "{r:?}");
+    // the arrow rises, and meets the box below it: the gap before the box grows, the gap after it does not
+    assert!(r.add[0] > 0 && r.add[1] == 0, "{r:?}");
+    // clean to begin with: nothing is added
+    let none = pathway::long_gaps(&cols, &w, &[2.5 + 1.0, 2.5 + 1.0], &[], 0.35);
+    assert_eq!(
+        none,
+        LongGaps {
+            add: vec![0, 0],
+            left: vec![]
+        }
+    );
+}
+
+#[test]
+fn the_long_rule_alone_is_the_same_for_a_mirror_image_and_for_any_order_of_the_arrows() {
+    let (cols, w, gaps) = three_columns(false);
+    let (mirror, _, _) = three_columns(true);
+    // a second long arrow of the same two layers, to be put before and after the first
+    let mut cols2 = cols.clone();
+    cols2[0].push((6.0, 1.0, 0.74));
+    cols2[2].push((9.0, 1.0, 0.74));
+    let mut m2 = mirror.clone();
+    m2[0].push((-6.0, 1.0, 0.74));
+    m2[2].push((-9.0, 1.0, 0.74));
+    let (a, b): (Vec<Long>, Vec<Long>) = (
+        vec![((0, 0), (2, 0)), ((0, 1), (2, 1))],
+        vec![((0, 1), (2, 1)), ((0, 0), (2, 0))],
+    );
+    let r1 = pathway::long_gaps(&cols2, &w, &gaps, &a, 0.35);
+    let r2 = pathway::long_gaps(&cols2, &w, &gaps, &b, 0.35);
+    let r3 = pathway::long_gaps(&m2, &w, &gaps, &a, 0.35);
+    assert_eq!(r1.add, r2.add, "order of the arrows");
+    assert_eq!(r1.add, r3.add, "mirror image in y");
+    assert_eq!(r1.left.len(), r3.left.len());
+    let _ = cols;
+}
+
+/// Columns whose long arrows are mostly clean and one that no gap clears (a box on its way at its own height), so that the rule
+/// runs all its rounds: the work is `CROSSING_STEPS + 1` rounds of the arrows.
+fn long_forced(n: usize) -> (Vec<Vec<Col>>, Vec<f64>, Vec<f64>, Vec<Long>) {
+    let col = |dy: f64| -> Vec<Col> { (0..n).map(|i| (4.0 * i as f64 + dy, 1.0, 1.0)).collect() };
+    let mut mid = col(0.0);
+    mid.push((0.0, 1.0, 1.0)); // on the way of the arrow of the first row, level with it
+    let cols = vec![col(0.0), mid, col(0.0)];
+    // clean: row i to row i of the middle column (one layer), the stuck one: row 0 to row 0 of the last column across the middle
+    let mut long: Vec<Long> = (1..n).map(|i| ((0, i), (1, i))).collect();
+    long.push(((0, 0), (2, 0)));
+    (cols, vec![1.0; 3], vec![2.5, 2.5], long)
+}
+
+fn long_time(n: usize) -> f64 {
+    let (c, w, g, l) = long_forced(n);
+    timing::best_of(1, 7, || {
+        let r = pathway::long_gaps(&c, &w, &g, &l, 0.35);
+        assert_eq!(r.left.len(), 1);
+    })
+    .as_secs_f64()
+}
+
+#[test]
+fn scaling_the_long_rule_alone_is_linear_in_the_arrows() {
+    let (small, big) = (long_time(250), long_time(1000));
+    let ratio = big / small;
+    println!("long rule at its bound: 250 -> {small:.4} s, 1000 -> {big:.4} s, ratio {ratio:.2}");
+    assert!(ratio < 7.0, "ratio {ratio}");
 }

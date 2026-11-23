@@ -680,3 +680,54 @@ fn the_words_of_a_product_come_from_the_formulas_of_label_and_follow_its_rules()
         "label leaves it alone"
     );
 }
+
+#[test]
+fn the_key_table_file_says_what_the_module_writes() {
+    let schema: Value =
+        serde_json::from_str(include_str!("../../../docs/schemas/lens-1.json")).unwrap();
+    // every object of the output, on the raw text: the keys come in the order of x-key-order
+    let order = |node: &Value, text: &str| -> Vec<usize> {
+        node["x-key-order"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|k| text.find(&format!("\"{}\":", k.as_str().unwrap())).unwrap())
+            .collect()
+    };
+    let strictly_increasing = |v: &[usize]| v.windows(2).all(|w| w[0] < w[1]);
+    let arrow_node = &schema["properties"]["arrows"]["items"];
+    let skip_node = &schema["properties"]["skipped"]["items"];
+    // each declared key has a property and the other way round
+    for node in [&schema, arrow_node, skip_node] {
+        let props = node["properties"].as_object().unwrap();
+        let keys = node["x-key-order"].as_array().unwrap();
+        assert_eq!(props.len(), keys.len());
+        assert!(keys.iter().all(|k| props.contains_key(k.as_str().unwrap())));
+        assert_eq!(node["required"], node["x-key-order"]);
+    }
+    // a hydroxylation (an arrow entry with a delta) and a pair no map joins (a skipped entry)
+    let r = replay(
+        json!({"import": lactam().to_string(), "commands": [derive(json!([
+        {"op":"atom.add","el":"O","x":-1.0,"y":-1.7321},{"op":"bond.add","a":5,"b":-1,"o":1}]))],
+        "report": true, "out": "lens"}),
+    );
+    let text = r["out"].as_str().unwrap();
+    let (head, rest) = text.split_once(r#""skipped":"#).unwrap();
+    assert!(strictly_increasing(&order(&schema, text)), "{text}");
+    assert!(strictly_increasing(&order(arrow_node, head)), "{text}");
+    assert!(head.contains(r#""delta":"+O""#));
+    assert_eq!(rest, "[]}");
+    let d = pair(&[0, 0], &[0, 0, 0]);
+    let mut e = Editor::default();
+    e.open(&d.to_json()).unwrap();
+    let text = e.save("lens").unwrap();
+    let (_, skipped) = text.split_once(r#""skipped":"#).unwrap();
+    assert!(strictly_increasing(&order(skip_node, skipped)), "{text}");
+    // the reasons the module writes are the enum of the file
+    let why = skip_node["properties"]["why"]["enum"].as_array().unwrap();
+    assert!(
+        why.contains(&json!("no maps"))
+            && why.contains(&json!("unmapped"))
+            && why.contains(&json!("over cap"))
+    );
+}
