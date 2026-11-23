@@ -131,7 +131,7 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | struct-props: an isotope-pattern line under the molecule | `docs/built/struct-props.md` Not built (`analysis/1` has the pattern) | QUEUED | no prompt file |
 | struct-props: values of a lasso part of a structure pinned on the canvas | `docs/built/struct-props.md` Not built | QUEUED | no prompt file |
 | struct-props: a dedicated values dialog | `docs/built/struct-props.md` Not built | QUEUED | no prompt file |
-| struct-props / mzLab: `sel` reads V2000 only, so a structure of 1000 atoms or more gets mass 0.0000 with no error (mzDraw now says `error.draw2.valuesZero`); the engine should take V3000 or refuse with its own key | `docs/built/struct-props.md` | QUEUED | for mzLab, not fixed here |
+| struct-props / mzLab: `sel` reads V2000 only, so a structure of 1000 atoms or more gets mass 0.0000 with no error (mzDraw now says `error.draw2.valuesZero`); the engine should take V3000 or refuse with its own key | `docs/built/struct-props.md`, `docs/built/pin-bump.md` | RUNNING | fixed by the pin bump (PR #119): `sel` reads V3000 and refuses a structure of that size with its own key `error.grafo.tooBig` |
 | arch-web-17 values: `values:{"atoms":[99]}` (an atom the drawing lacks) answers `selection: null` with `error: null`; should be a keyed error like `props` (`error.draw2.noAtom`) | `docs/built/struct-props.md` review notes | QUEUED | no prompt file |
 | Five further stereo checks: `std.stereo.fischerCross`, `reentrant`, `ringBond`, `hiddenH`, `relLabel` | built/std-stereo.md | QUEUED | not defined in the study yet |
 | Geometry, label and export checks beyond arch-std-02, annotation and contrast checks, any automatic fix | built/std-stereo.md | QUEUED | partly the prompts arch-std-02, plan-25 |
@@ -144,7 +144,7 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | Fidelity: InChI 1.07.5 not measured, no KET reader in RDKit or Open Babel | built/fidelity-ref.md | QUEUED | tool work |
 | Values: an `Alt+C` key for the values dialog, copy of a selection with numbers (the isotope pattern, the lasso values and the dialog itself are the struct-props rows above) | built/arch-web-17-values.md | QUEUED | |
 | Equal molecules in a TP import freeze the page (6 or more equal molecules): does not reproduce; regression tests and a pin of the callers of `Mol::canonical()` added | built/tp-import-equal.md | RUNNING | PR #104 |
-| `mzlab-mol` `Mol::canonical()` doubles in time per equal component on a whole drawing (benzene, debug: 6 ms at 4 copies, 87 ms at 8) | built/tp-import-equal.md | QUEUED | for mzLab (COO 16); mzDraw does not call it on a whole drawing |
+| `mzlab-mol` `Mol::canonical()` doubles in time per equal component on a whole drawing (benzene, debug: 6 ms at 4 copies, 87 ms at 8) | built/tp-import-equal.md, built/pin-bump.md | RUNNING | mzLab fixed it (#3661); the pin bump moves mzDraw to it; PR of branch claude/pin-bump |
 | TP table: adducts beyond the seven of `display.adducts`; the table drawn on the canvas | built/tp-09-tp-table.md; backlog 11.1 (deferred) | QUEUED | |
 | TP table: `InChIKey` is NOT wanted now (owner decision; there is no InChI in `mzlab-mol`): do not build it, do not fake it | built/tp-09-tp-table.md ("Not built") | GATED | reopens only if the owner asks |
 | TP: uncertain L3 TP as a site mark mapped onto `trasf/1` uncertain form; "metro" mode of `pathway:tree` | backlog 11.1 (deferred) | QUEUED | after plan-12, tp-06 |

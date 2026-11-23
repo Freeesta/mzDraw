@@ -9,6 +9,9 @@ use serde_json::json;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 const FLAT: [&str; 3] = ["CCO", "c1ccccc1", "C[C@H](N)C(=O)O"];
 
 /// A parent row `P` and `n - 1` children of it, every row the same structure.
@@ -287,5 +290,28 @@ fn the_canonical_form_of_mzlab_mol_is_taken_in_two_places_only_and_never_of_a_wh
         ],
         "a new caller of Mol::canonical / canonical_order: it doubles in time per equal component on a whole drawing \
          (docs/built/tp-import-equal.md); call it on one piece only, then update this list"
+    );
+}
+
+// `Mol::canonical()` of `mzlab-mol` on a whole drawing of equal components is polynomial since the pin of `built/pin-bump.md`: the
+// cost no longer doubles with each equal component. The test compares two sizes (a ratio, no absolute bound): 16 equal benzenes cost
+// a small multiple of 8 (doubling per copy would make it about 256 times).
+#[test]
+fn the_canonical_form_of_a_drawing_of_equal_components_does_not_double_per_component() {
+    let (a, b) = (import(&star(8, "c1ccccc1")), import(&star(16, "c1ccccc1")));
+    let (da, db) = (a.doc(), b.doc());
+    let (small, large) = timing::best_of_pair(
+        2,
+        9,
+        || {
+            std::hint::black_box(da.to_mol_stereo().canonical());
+        },
+        || {
+            std::hint::black_box(db.to_mol_stereo().canonical());
+        },
+    );
+    assert!(
+        large < small * 12,
+        "16 equal components took {large:?} against {small:?} for 8: the canonical form grows far faster than the size"
     );
 }
