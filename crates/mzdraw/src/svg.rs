@@ -274,6 +274,16 @@ pub(crate) fn drawn_with(
                 paint(d[i + 7])
             ));
             i += 8;
+        } else if op == scene::DISC {
+            // a filled dot: in a file only the lone pairs are dots (the selection and the marks are overlays an export has not)
+            s.push_str(&format!(
+                "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\"/>\n",
+                num(d[i + 1]),
+                num(d[i + 2]),
+                num(d[i + 3]),
+                paint(d[i + 4])
+            ));
+            i += 5;
         } else if op == scene::RECT {
             i += 6;
         } else {
