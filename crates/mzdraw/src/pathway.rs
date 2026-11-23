@@ -817,6 +817,37 @@ pub struct LongGaps {
     pub left: Vec<usize>,
 }
 
+/// The gaps (as a range of `k`, the gap between layers `k` and `k + 1`) that move an arrow from layer `ends.0` to layer `ends.1` off
+/// the boxes it meets in layer `layer`, the nearest ones: `offs` are, for each, the height of the arrow at that layer minus the
+/// centre of the box; `rise` is the arrow's rise. A box in an end column is cleared by a flatter arrow (all spanned gaps wider); a
+/// box in a layer between by moving the height of the arrow at that layer away from the box centre, which is a wider part before
+/// the layer (the arrow is nearer its end) or after it (nearer its start). The sign of `rise * off` is the same for an arrow and
+/// its mirror image in y; a horizontal arrow, or one through the centre, has no side, so every spanned gap grows; boxes on both
+/// sides give the union, so no index decides.
+pub fn widen_range(
+    ends: (usize, usize),
+    layer: usize,
+    rise: f64,
+    offs: &[f64],
+) -> std::ops::Range<usize> {
+    let (la, lb) = ends;
+    let mut range: Option<std::ops::Range<usize>> = None;
+    for &off in offs {
+        let r = if layer == la || layer == lb || rise.abs() < 1e-9 || off.abs() < 1e-9 {
+            la..lb
+        } else if rise * off > 0.0 {
+            la..layer
+        } else {
+            layer..lb
+        };
+        range = Some(match range {
+            None => r,
+            Some(o) => o.start.min(r.start)..o.end.max(r.end),
+        });
+    }
+    range.unwrap_or(la..la)
+}
+
 /// The y of the line through `p` and `q` at `x`.
 fn line_y(p: (f64, f64), q: (f64, f64), x: f64) -> f64 {
     if (q.0 - p.0).abs() < 1e-12 {
@@ -894,28 +925,13 @@ pub fn long_gaps(
                 }
             }
             let nearest = found.iter().map(|f| f.1.abs()).fold(f64::MAX, f64::min);
-            let mut range: Option<std::ops::Range<usize>> = None;
-            let rise = q.1 - p.1;
-            for &(_, off) in found.iter().filter(|f| f.1.abs() <= nearest + 1e-9) {
-                // which gaps move the arrow off that box: a box in an end column is cleared by a flatter arrow (all spanned gaps
-                // wider); a box in a layer between is cleared by moving the height of the arrow at that layer away from the box
-                // centre, which is a wider part before the layer (the arrow is nearer its end) or after it (nearer its start).
-                // The sign of (rise) x (arrow minus box centre) is the same for an arrow and its mirror image in y; a horizontal
-                // arrow, or one through the centre, has no such side: every spanned gap grows.
-                let r = if layer == la || layer == lb || rise.abs() < 1e-9 || off.abs() < 1e-9 {
-                    la..lb
-                } else if rise * off > 0.0 {
-                    la..layer
-                } else {
-                    layer..lb
-                };
-                range = Some(match range {
-                    None => r,
-                    Some(o) => o.start.min(r.start)..o.end.max(r.end),
-                });
-            }
-            if let Some(r) = range {
-                hits.push((i, r));
+            let offs: Vec<f64> = (found.iter())
+                .map(|f| f.1)
+                .filter(|o| o.abs() <= nearest + 1e-9)
+                .collect();
+            let range = widen_range((la, lb), layer, q.1 - p.1, &offs);
+            if !range.is_empty() {
+                hits.push((i, range));
             }
         }
         // the state kept is the first with the fewest arrows still meeting a box (round 0, the gaps as they were, is a candidate)

@@ -494,14 +494,12 @@ fn same_in_the_mirror(cols: &[Vec<Col>], long: &[Long]) -> LongGaps {
 fn the_long_rule_is_the_same_in_the_mirror_for_every_branch() {
     let bx = |y: f64| (y, 1.0, 0.74);
     let long: Vec<Long> = vec![((0, 0), (2, 0))];
-    // (a) a horizontal arrow, a box off its centre above, below, and both: every spanned gap is the answer, whatever the side
+    // (a) a horizontal arrow cannot leave a box at its own height whatever the gaps are, so the result is the gaps as they were, the
+    // same on both sides; which gaps the rule would grow is asserted on `widen_range` below
     for mid in [vec![bx(0.3)], vec![bx(-0.3)], vec![bx(0.3), bx(-0.3)]] {
         let r = same_in_the_mirror(&[vec![bx(0.0)], mid, vec![bx(0.0)]], &long);
-        assert_eq!(
-            r.left,
-            vec![0],
-            "a horizontal arrow cannot leave a box at its own height"
-        );
+        assert_eq!(r.left, vec![0]);
+        assert_eq!(r.add, vec![0, 0]);
     }
     // (b) the arrow rises and the box is above it: the gap after the box grows (the arrow stays low), and it is cleared
     let r = same_in_the_mirror(
@@ -515,12 +513,33 @@ fn the_long_rule_is_the_same_in_the_mirror_for_every_branch() {
         &long,
     );
     assert!(r.left.is_empty() && r.add[0] > 0 && r.add[1] == 0, "{r:?}");
-    // (d) two boxes equally near, one above and one below the arrow: no index decides, both gaps grow
-    let r = same_in_the_mirror(
-        &[vec![bx(0.0)], vec![bx(0.5), bx(-0.5)], vec![bx(0.0)]],
-        &long,
-    );
-    assert_eq!(r.left, vec![0]);
+}
+
+/// The choice of the gaps to grow, on its own: the answer for an arrow from layer 0 to layer 3 meeting a box of layer 1 or 2 (the
+/// gap `k` is between layers `k` and `k + 1`, so the gaps are 0, 1 and 2), for every side of the box and of the rise.
+#[test]
+fn the_gaps_to_grow_are_the_same_for_an_arrow_and_its_mirror_image() {
+    let w = |layer: usize, rise: f64, offs: &[f64]| pathway::widen_range((0, 3), layer, rise, offs);
+    // a rising arrow with the box below it (arrow above the box centre): the gaps before the layer; the box above it: those after
+    assert_eq!(w(2, 4.0, &[0.3]), 0..2);
+    assert_eq!(w(2, 4.0, &[-0.3]), 2..3);
+    // the mirror image falls and has the other sign of the offset: the same gaps
+    assert_eq!(w(2, -4.0, &[-0.3]), 0..2);
+    assert_eq!(w(2, -4.0, &[0.3]), 2..3);
+    // a horizontal arrow has no side, whichever side the box is on: every gap it spans
+    assert_eq!(w(1, 0.0, &[0.3]), 0..3);
+    assert_eq!(w(1, 0.0, &[-0.3]), 0..3);
+    // an arrow through the centre of the box has no side either
+    assert_eq!(w(1, 4.0, &[0.0]), 0..3);
+    // two boxes equally near on opposite sides of a rising arrow: the union of the gaps before and the gaps after, in any order
+    assert_eq!(w(1, 4.0, &[0.3, -0.3]), 0..3);
+    assert_eq!(w(1, 4.0, &[-0.3, 0.3]), 0..3);
+    assert_eq!(w(1, -4.0, &[0.3, -0.3]), 0..3);
+    // a box in an end column: every gap
+    assert_eq!(w(0, 4.0, &[0.3]), 0..3);
+    assert_eq!(w(3, 4.0, &[-0.3]), 0..3);
+    // nothing met: nothing to grow
+    assert!(w(1, 4.0, &[]).is_empty());
 }
 
 #[test]
