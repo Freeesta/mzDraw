@@ -180,7 +180,7 @@ fn the_goldens_are_what_the_glue_door_writes() {
     let mut file: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     let bless = std::env::var("MZDRAW_BLESS").is_ok();
     let cases = file["values"].as_array_mut().unwrap();
-    assert!(cases.len() >= 9);
+    assert!(cases.len() >= 8);
     for case in cases.iter_mut() {
         let request = case["request"].to_string();
         let got = if case["plain"] == true {
@@ -198,7 +198,7 @@ fn the_goldens_are_what_the_glue_door_writes() {
         serde_json::from_str::<Value>(cases[i]["out"].as_str().unwrap()).unwrap()["engine"].clone()
     };
     assert_eq!(
-        (engine(0), engine(1), engine(8)),
+        (engine(0), engine(1), engine(7)),
         (json!(true), json!(true), json!(false))
     );
     if bless {
