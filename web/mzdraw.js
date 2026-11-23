@@ -643,7 +643,29 @@ function field(kind) {
 const mods = (/** @type {MouseEvent | KeyboardEvent} */ e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey || e.metaKey ? 2 : 0) | (e.altKey ? 8 : 0) | (e.button === 2 || ("buttons" in e && e.buttons & 2) ? 16 : 0) | (e.button === 1 || ("buttons" in e && e.buttons & 4) ? 32 : 0) | ("buttons" in e && (e.buttons & 32 || e.button === 5) ? 4 : 0);
 const kind = (/** @type {PointerEvent} */ e) => (e.pointerType === "pen" ? 1 : e.pointerType === "touch" ? 2 : 0);
 
+/** the table of hover keys, as the module gives it: one row per key (the module returns keys and parameters, the texts are the page's) */
+function hotkeyHelp() {
+  const table = $("d2-hotkeys");
+  table.replaceChildren(...JSON.parse(ed.hotkeys()).map((/** @type {any} */ h) => {
+    const tr = document.createElement("tr"), k = document.createElement("kbd");
+    k.textContent = (h.alt ? t("draw2.hot.alt") : "") + (h.shift ? t("draw2.hot.shift") : "") + h.key.toUpperCase();
+    for (const [i, x] of [k, t("draw2.hot.target." + h.target + (h.target === "atom" && !h.focus ? "Hover" : "")), t("draw2.hot." + h.cmd, h)].entries()) {
+      const td = document.createElement(i === 0 ? "th" : "td"); td.append(x); tr.append(td);
+    }
+    tr.dataset.testid = `d2-hot-${h.target}-${h.alt ? "alt-" : ""}${h.shift ? "shift-" : ""}${h.key}`;
+    return tr;
+  }));
+}
+
+/** the key as the layout names it, except a digit pressed with Shift or Alt and a letter pressed with Alt: the physical key (Shift+6 types ^ on one layout, Alt+6 or Alt+M a symbol on another) */
+const keyName = (/** @type {KeyboardEvent} */ e) => {
+  if (e.ctrlKey || e.metaKey) return e.key;
+  if ((e.shiftKey || e.altKey) && /^Digit[0-9]$/.test(e.code)) return e.code.slice(5);
+  return e.altKey && /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : e.key;
+};
+
 function events() {
+  hotkeyHelp();
   const at = (/** @type {PointerEvent | WheelEvent} */ e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   // every pointer goes to Rust with its id, its buttons and its time stamp: which finger is a palm, what two fingers do, what a long
   // press means, what the middle and the secondary button do (pan, menu) and what the barrel button of a pen does is decided there
@@ -670,7 +692,7 @@ function events() {
   cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = at(e); after(ed.zoom(x, y, e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
   // the text being edited has its own focus (a field that takes no look, for input methods and the keyboards of phones): its keys go to the module like the canvas's
   const key = (/** @type {KeyboardEvent} */ e) => {
-    const f = ed.key(e.key, mods(e), e.timeStamp);
+    const f = ed.key(e.currentTarget === cv ? keyName(e) : e.key, mods(e), e.timeStamp);   // the field that takes the typed text keeps the character typed
     if (after(f ? f | CHANGED : 0) & HANDLED) e.preventDefault();
     if (f & MENU) menu.openAtAnchor();
     if (f & (ASK_LABEL | ASK_TEXT)) { open(f & ASK_LABEL ? "charges" : "text", true); const l = /** @type {HTMLInputElement} */ ($(f & ASK_LABEL ? "d2-label" : "d2-text-tool")); l.focus(); l.select(); }

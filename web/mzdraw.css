@@ -265,3 +265,6 @@ p { margin: 4px 0; }
 #d2-unsaved-box button { min-height: 44px; min-width: 44px; padding: 2px 14px; }
 #d2-unsaved-save { background: var(--mzd-accent-soft); border-color: var(--accent); font-weight: 600; }
 #d2-unsaved-box button:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 2px; }
+#d2-hotkeys { border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+#d2-hotkeys th, #d2-hotkeys td { text-align: left; padding: 2px 8px 2px 0; vertical-align: top; font-weight: normal; }
+#d2-hotkeys kbd { font-family: inherit; border: 1px solid var(--border, currentColor); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
