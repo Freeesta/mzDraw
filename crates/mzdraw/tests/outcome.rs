@@ -502,7 +502,7 @@ fn what_the_import_does_not_keep_is_in_imported_as_the_page_says_it() {
     let group = ("draw2.import.stereoGroups".to_string(), 1);
     // an "and" group of a CXSMILES: the drawing keeps the centre as drawn, the group is said
     let v = run(json!({"import": "C[C@H](F)Cl |&1:1|", "report": true, "out": "smiles"}));
-    assert_eq!(notes(&v), [group.clone()], "{v}");
+    assert_eq!(notes(&v), std::slice::from_ref(&group), "{v}");
     // two "or" groups, with a dry run (nothing written, the notes all the same)
     let v = run(json!({"import": "C[C@H](O)[C@@H](N)C |o1:1,o2:3|", "dry_run": true}));
     assert_eq!(
