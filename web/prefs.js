@@ -2,7 +2,7 @@
 // text key, its words or its bounds and its default). Every option is a setting written `<section>.<key>=<value>`; the module judges every
 // value and holds every default, and a reset of a group is the module's (`reset_group`). The page paints the rows and forwards the changes.
 
-/** the theme of the settings (`ui.theme`) on the root of the page: the module says the value for `data-theme` (empty for `auto`, which leaves the
+/** the theme of the settings (`ui.theme`, `light` unless chosen otherwise) on the root of the page: the module says the value for `data-theme` (empty for `auto`, which leaves the
  * choice to the system or to the host that set it); the page applies it and keeps it for the head script `theme.js`, which runs before the first paint
  * @param {any} ed */
 let ours = false;
@@ -13,7 +13,7 @@ export function applyTheme(ed) {
   else if (ours || root.dataset.d2Own === "1") { delete root.dataset.theme; ours = false; }
   delete root.dataset.d2Own;
   if (attr) root.dataset.d2Own = "1";
-  try { if (attr) localStorage.setItem("d2-theme", attr); else localStorage.removeItem("d2-theme"); } catch { /* no storage */ }
+  try { localStorage.setItem("d2-theme", attr || "auto"); } catch { /* no storage */ }
 }
 
 /** builds the panel in `into` and returns `sync`, which shows what the module holds.

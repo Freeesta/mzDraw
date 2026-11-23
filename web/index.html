@@ -36,8 +36,6 @@
     <ul id="d2-step-list" role="listbox" aria-label="Steps" data-i18n-aria-label="draw2.step.list"></ul>
     <p id="d2-step-line" role="status" aria-live="polite"></p>
   </div>
-  <div id="d2-meta"><button id="d2-about-open" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="d2-about" data-i18n="draw2.about" title="What this page is, its version and its licence" data-i18n-title="draw2.about.title">About</button>
-    <button id="d2-report-open" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="d2-report" data-i18n="draw2.report" title="Opens a new GitHub issue in a new tab, prefilled. Nothing is sent until you submit it on GitHub." data-i18n-title="draw2.report.title">Report a bug / suggest an improvement</button></div>
   <div id="d2-report" role="group" aria-label="Report a bug or suggest an improvement" data-i18n-aria-label="draw2.report.region" hidden>
     <fieldset><legend data-i18n="draw2.report.kind">What is it?</legend>
       <label><input type="radio" name="d2-report-kind" value="bug" checked> <span data-i18n="draw2.report.bug">Bug</span></label>
@@ -148,7 +146,10 @@
       <button id="d2-colour-set" type="button" data-i18n="draw2.colour.set" title="Colour the selection with this colour" data-i18n-title="draw2.colour.set.title">Apply</button></div>
     <p id="d2-colour-note" role="status"></p>
   </div>
-  <div id="d2-fly-prefs" role="group" data-i18n-aria-label="draw2.fly.prefs" aria-label="Preferences"></div>
+  <div id="d2-fly-prefs" role="group" data-i18n-aria-label="draw2.fly.prefs" aria-label="Preferences">
+  <div id="d2-meta" class="row"><button id="d2-about-open" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="d2-about" data-i18n="draw2.about" title="What this page is, its version and its licence" data-i18n-title="draw2.about.title">About</button>
+    <button id="d2-report-open" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="d2-report" data-i18n="draw2.report" title="Opens a new GitHub issue in a new tab, prefilled. Nothing is sent until you submit it on GitHub." data-i18n-title="draw2.report.title">Report a bug / suggest an improvement</button></div>
+</div>
   <div id="d2-fly-saveas">
     <div class="row"><button id="d2-ex-molfile" type="button" data-i18n="draw2.export.molfile" title="Save the drawing as a molfile" data-i18n-title="draw2.export.molfile.title">Molfile</button>
         <button id="d2-ex-v3000" type="button" data-i18n="draw2.export.v3000" title="Save the drawing as a V3000 molfile" data-i18n-title="draw2.export.v3000.title">Molfile V3000</button>

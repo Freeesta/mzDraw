@@ -111,31 +111,52 @@ export function open(name, show, focus = false) {
   if (focus) /** @type {HTMLElement} */ (f.fly.querySelector('[aria-pressed="true"]') || f.fly.querySelector("button:not(:disabled), input"))?.focus();
 }
 
-/** the handle of a palette: drag it with a mouse, a finger or a pen; on the keyboard the arrows move it, Enter docks or floats
- * it, Escape puts it back; a double click collapses or expands it. Every event goes to the module. @param {string} id */
+/** the pointer on a handle of a palette (its frame, or the title of a side palette): a mouse, a finger or a pen drags it. Every event goes
+ * to the module, which applies the drag threshold (a click with a little jitter moves nothing) and answers whether the layout changed;
+ * the click that ends a real drag is taken off, so the title that moved a panel does not also open it
+ * @param {HTMLElement} h @param {string} id @param {boolean} grab the handle takes the focus and the pointer (the frame); the title keeps its own click */
+function pointer(h, id, grab) {
+  let moved = false;
+  h.addEventListener("pointerdown", e => {
+    if (e.button) return;
+    if (grab) { e.preventDefault(); h.focus({ preventScroll: true }); }
+    try { h.setPointerCapture(e.pointerId); } catch { /* a pointer already gone cannot be captured */ }
+    held = id; moved = false;
+    ed().palette("press", id, e.clientX, e.clientY, false);
+  });
+  h.addEventListener("pointermove", e => { if (held === id) { const f = ed().palette("drag", id, e.clientX, e.clientY, false); if (f & PALETTES) moved = true; after(f, false); } });
+  h.addEventListener("pointerup", e => { if (held === id) { held = null; after(ed().palette("release", id, e.clientX, e.clientY, false), true); } });
+  h.addEventListener("pointercancel", () => { if (held === id) { held = null; after(ed().palette("cancel", id, 0, 0, false), true); } });
+  if (!grab) h.addEventListener("click", e => { if (moved) { e.preventDefault(); e.stopPropagation(); } moved = false; }, true);
+}
+
+/** the handle of a palette: its frame, a transparent layer behind the buttons that takes the room of no row of dots; drag it with a mouse,
+ * a finger or a pen; on the keyboard the arrows move it, Enter docks or floats it, Escape puts it back; a double click collapses or
+ * expands it. Every event goes to the module. @param {string} id */
 function grip(id) {
   const g = document.createElement("button"), t = ctx.t, name = t(`draw2.pal.${id}`);
   g.type = "button"; g.className = "grip"; g.dataset.testid = P + "grip-" + id;
   g.title = t("draw2.pal.grip.title", { name }); g.setAttribute("aria-label", t("draw2.pal.grip.name", { name }));
   g.setAttribute("aria-description", t("draw2.pal.grip.keys"));
-  g.addEventListener("pointerdown", e => {
-    if (e.button) return;
-    e.preventDefault();
-    try { g.setPointerCapture(e.pointerId); } catch { /* a pointer already gone cannot be captured */ }
-    held = id; g.focus({ preventScroll: true });
-    ed().palette("press", id, e.clientX, e.clientY, false);
-  });
-  // every move, release and cancel goes to the module: it applies the drag threshold (a click with a little jitter moves
-  // nothing) and answers whether the layout changed
-  g.addEventListener("pointermove", e => { if (held === id) after(ed().palette("drag", id, e.clientX, e.clientY, false), false); });
-  g.addEventListener("pointerup", e => { if (held === id) { held = null; after(ed().palette("release", id, e.clientX, e.clientY, false), true); } });
-  g.addEventListener("pointercancel", () => { if (held === id) { held = null; after(ed().palette("cancel", id, 0, 0, false), true); } });
+  pointer(g, id, true);
   g.addEventListener("keydown", e => {
     const f = ed().palette("key:" + e.key, id, 0, 0, e.shiftKey);
     if (f) { e.preventDefault(); after(f, true); g.focus({ preventScroll: true }); ctx.say(t("draw2.pal.moved", { name })); }
   });
   g.addEventListener("dblclick", () => after(ed().palette("collapsed", id, 0, 0, false), true));
   return g;
+}
+
+/** the keyboard way to move a palette from anywhere inside it: Alt with an arrow moves it (8 pixels, 32 with Shift), Alt+Enter docks or
+ * floats it, Alt+Escape puts it back; the module judges every key (the same ones as on the frame) @param {HTMLElement} el @param {string} id */
+function altKeys(el, id) {
+  el.addEventListener("keydown", e => {
+    if (!e.altKey || e.ctrlKey || e.metaKey || !/^(Arrow(Left|Right|Up|Down)|Enter|Escape)$/.test(e.key)) return;
+    const f = ed().palette("key:" + e.key, id, 0, 0, e.shiftKey);
+    if (!f) return;
+    e.preventDefault(); e.stopPropagation(); after(f, true);
+    ctx.say(ctx.t("draw2.pal.moved", { name: ctx.t(`draw2.pal.${id}`) }));
+  }, true);
 }
 
 const ed = () => ctx.ed;
@@ -181,7 +202,7 @@ function palette(id) {
     else if (e.key === across && name) { e.preventDefault(); open(name, true, true); }
   });
   items.addEventListener("focusin", e => rove(p, /** @type {HTMLElement} */ (e.target)));
-  el.append(grip(id), items);
+  el.append(grip(id), items); altKeys(el, id);
   for (const [name] of Object.entries(OPENERS)) { const b = rest.find((/** @type {HTMLElement} */ x) => x.dataset.opens === name); if (b) flyout(name, b, id, $(P + "fly-" + name) || undefined); }
   const arrange = flys.arrange?.fly;
   if (id === "edit" && arrange) arrange.append(...ARRANGE.map(c => button(c, id)), ...ctx.field("rotate"));
@@ -223,7 +244,8 @@ export function show(st) {
 
 /** the size of every palette as it is drawn now, for the module @returns {[string, number, number][]} */
 function measure() {
-  return Object.values(pals).filter(p => !p.el.hidden).map(p => { const r = p.el.getBoundingClientRect(); return [p.id, Math.ceil(r.width), Math.ceil(r.height)]; });
+  // a side palette is measured as it would be uncut: the module cuts it again, or not, with the room the layout leaves
+  return Object.values(pals).filter(p => !p.el.hidden).map(p => { p.el.style.maxHeight = ""; const r = p.el.getBoundingClientRect(); return [p.id, Math.ceil(r.width), Math.ceil(r.height)]; });
 }
 
 /** lays the palettes out: the module says where each one is and how it is drawn; the page draws it so, measures it and asks
@@ -249,7 +271,7 @@ export function layout() {
 function shape(r) {
   const p = pals[r.id];
   if (!p) return;
-  p.el.hidden = r.hidden; p.el.dataset.dock = r.dock; p.el.dataset.orient = r.horizontal ? "h" : "v";
+  p.el.hidden = r.hidden; p.el.style.maxHeight = r.capped ? r.h + "px" : ""; p.el.dataset.dock = r.dock; p.el.dataset.orient = r.horizontal ? "h" : "v";
   p.el.setAttribute("aria-orientation", r.horizontal ? "horizontal" : "vertical");
   if (p.spec) fold(p, r.collapsed);
   else if (!p.pending && p.body.open === r.collapsed) p.body.open = !r.collapsed;
@@ -260,7 +282,10 @@ function side(el) {
   const id = el.dataset.pal || "", body = /** @type {HTMLDetailsElement} */ (el.querySelector(":scope > details"));
   const p = pals[id] = { id, el, body, spec: null, pending: false };
   el.setAttribute("aria-label", ctx.t(`draw2.pal.${id}`));
-  el.prepend(grip(id));
+  el.prepend(grip(id)); altKeys(el, id);
+  // the title row is a handle too: a drag from it moves the panel, a click opens or closes it, and its name says how to move it from the keyboard
+  const title = /** @type {HTMLElement | null} */ (body.querySelector(":scope > summary"));
+  if (title) { pointer(title, id, false); title.dataset.testid = P + "title-" + id; title.setAttribute("aria-description", ctx.t("draw2.pal.title.keys")); }
   // a click on the title opens or closes the disclosure at once, but the `toggle` event that tells the module comes later: until it has,
   // a layout that runs in between must not put the old state back (that closed a palette the user had just opened)
   body.querySelector(":scope > summary")?.addEventListener("click", () => { p.pending = true; });

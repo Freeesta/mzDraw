@@ -10,3 +10,6 @@ The specification of the tokens is the CSS: the `:root` blocks at the top of `we
 - A disabled control is drawn at opacity .45. WCAG 1.4.3 and 1.4.11 exempt disabled controls from the contrast minimum, so it is not measured; its state is also said in words (the `disabled` attribute and the name of the control).
 - Screenshots at deviceScaleFactor 2, with a drawing, a selection and a mistake: `docs/shots/theme-light.png`, `theme-dark.png`; the tablet in light and dark: `palettes-tablet.png`, `palettes-tablet-dark.png`.
 
+
+## Default and soft change (ui-declutter-1)
+The default theme is `light` (`ui.theme`), whatever the system prefers; `auto` is the way to follow the system or a host. The change of theme cross-fades (about 300 ms, instant with reduced motion, none on the first paint). See `ui-declutter-1.md`.

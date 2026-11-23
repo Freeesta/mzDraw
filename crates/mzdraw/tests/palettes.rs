@@ -572,3 +572,96 @@ fn the_module_says_the_held_palette_the_edge_it_docks_on_and_which_palettes_turn
         Dock::Bottom
     );
 }
+
+/// The sizes of a page where every side group is open and tall (a list that grows, a section opened), as the page measures them.
+fn tall_sizes(open: bool) -> Vec<(String, f64, f64)> {
+    let mut s = sizes();
+    for e in s.iter_mut().filter(|e| e.1 == 280.0) {
+        e.2 = if open { 400.0 } else { 40.0 };
+    }
+    s
+}
+
+/// Shows the six side groups the viewport hides (a tablet or a phone keeps them in a drawer).
+fn show_sides(l: &mut Layout, w: f64, h: f64) {
+    for id in ["structure", "style", "data", "annotation", "check", "keys"] {
+        if rect(&l.arrange(w, h, &[]).0, id).hidden {
+            assert!(l.toggle(id, "hidden"));
+        }
+    }
+}
+
+#[test]
+fn side_groups_never_overlap_at_the_supported_viewports_open_or_collapsed() {
+    for (w, h) in [
+        (390.0, 844.0),
+        (768.0, 1024.0),
+        (1280.0, 800.0),
+        (2000.0, 1130.0),
+    ] {
+        for open in [true, false] {
+            let mut l = Layout::default();
+            show_sides(&mut l, w, h);
+            let (r, area) = l.arrange(w, h, &tall_sizes(open));
+            let shown: Vec<&Rect> = r.iter().filter(|r| !r.hidden).collect();
+            assert_eq!(shown.len(), 16);
+            for (i, a) in shown.iter().enumerate() {
+                assert!(
+                    a.x >= 0.0 && a.y >= 0.0 && a.x + a.w <= w && a.y + a.h <= h,
+                    "{} inside {w}x{h}",
+                    a.id
+                );
+                for b in &shown[i + 1..] {
+                    let apart = a.x + a.w <= b.x
+                        || b.x + b.w <= a.x
+                        || a.y + a.h <= b.y
+                        || b.y + b.h <= a.y;
+                    assert!(
+                        apart,
+                        "{w}x{h} open={open}: {} over {} {:?}",
+                        a.id,
+                        b.id,
+                        shown
+                            .iter()
+                            .filter(|r| r.dock == Dock::Right)
+                            .map(|r| (r.id.clone(), r.x, r.y, r.w, r.h, r.capped))
+                            .collect::<Vec<_>>()
+                    );
+                }
+            }
+            // the canvas keeps a free area (the panels are cut, not the canvas)
+            assert!(area[2] > 0.0 && area[3] > 0.0, "{w}x{h}: {area:?}");
+            // a cut panel is a side group, keeps its title's height at least, and says so
+            for r in shown.iter().filter(|r| r.capped) {
+                assert!(
+                    ["structure", "style", "data", "annotation", "check", "keys"]
+                        .contains(&r.id.as_str())
+                );
+                assert!(r.h >= 44.0);
+            }
+        }
+    }
+    // a phone cuts the tall panels; a wide page wraps them into a second column instead, uncut
+    let mut l = Layout::default();
+    show_sides(&mut l, 390.0, 844.0);
+    assert!(l
+        .arrange(390.0, 844.0, &tall_sizes(true))
+        .0
+        .iter()
+        .any(|r| r.capped));
+    assert!(l
+        .arrange(2000.0, 1130.0, &tall_sizes(true))
+        .0
+        .iter()
+        .all(|r| !r.capped));
+}
+
+#[test]
+fn a_cut_panel_grows_back_when_the_room_comes_back() {
+    let mut l = Layout::default();
+    show_sides(&mut l, 390.0, 844.0);
+    let cut = l.arrange(390.0, 844.0, &tall_sizes(true)).0;
+    assert!(cut.iter().any(|r| r.capped));
+    let back = l.arrange(390.0, 844.0, &tall_sizes(false)).0;
+    assert!(back.iter().all(|r| !r.capped), "40 px panels need no cut");
+}

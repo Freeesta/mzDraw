@@ -134,6 +134,31 @@ pub const PALETTES: [(&str, Dock, u32, bool); 16] = [
     ("keys", Dock::Right, 6, true),
 ];
 
+/// The least width the canvas keeps beside the columns of the palettes, and the least height a cut palette is left (its title).
+const MIN_CANVAS: f64 = 240.0;
+const MIN_CUT: f64 = 44.0;
+
+/// The height every palette taller than it is cut to so that the heights fit in `room` (the others keep theirs), never below
+/// `MIN_CUT`: the water level of the heights.
+fn water_level(hs: &[f64], room: f64) -> f64 {
+    let mut s: Vec<f64> = hs.to_vec();
+    crate::m::sort_by(&mut s, |a, b| a < b);
+    let (mut left, mut n) = (room, s.len() as f64);
+    for v in s {
+        if v * n <= left {
+            left -= v;
+            n -= 1.0;
+        } else {
+            break;
+        }
+    }
+    if n == 0.0 {
+        f64::MAX
+    } else {
+        (left / n).floor().max(MIN_CUT)
+    }
+}
+
 const SIDE: [&str; 6] = ["structure", "style", "data", "annotation", "check", "keys"];
 
 /// One palette as it is: where, how and whether it shows. `x`, `y` are page pixels of a floating palette.
@@ -216,6 +241,8 @@ pub struct Rect {
     pub horizontal: bool,
     pub collapsed: bool,
     pub hidden: bool,
+    /// The height was cut to fit the column (the palette scrolls inside); the page puts `h` as its maximum height.
+    pub capped: bool,
 }
 
 /// A palette held by the pointer or moved by the keyboard: where the grab is on it and the palette as it was before.
@@ -532,6 +559,7 @@ impl Layout {
             horizontal: p.horizontal,
             collapsed: p.collapsed,
             hidden: !shown(p),
+            capped: false,
         };
         // rows: the top from the top down, the bottom from the bottom up
         let row = |edge: Dock, out: &mut Vec<Rect>| -> f64 {
@@ -554,26 +582,63 @@ impl Layout {
         };
         let top = row(Dock::Top, &mut out);
         let bottom = row(Dock::Bottom, &mut out).min(h - top);
-        let column = |edge: Dock, out: &mut Vec<Rect>| -> f64 {
-            let (mut y, mut used, mut line) = (top, 0.0, 0.0f64);
-            for p in all.iter().filter(|p| p.dock == edge && shown(p)) {
-                let s = size(&p.id);
-                if y > top && y + s.1 > h - bottom {
-                    (y, used, line) = (top, used + line, 0.0);
+        // a column packs its palettes top down and wraps into a further column when the edge is full; where a further column would
+        // leave the canvas less than MIN_CANVAS (or push the columns of the two sides onto each other), the column stays one and the
+        // side palettes that do not fit are cut to the room left, each scrolling inside itself: no two palettes ever overlap
+        let column = |edge: Dock, other: f64, out: &mut Vec<Rect>| -> f64 {
+            let list: Vec<&Palette> = all.iter().filter(|p| p.dock == edge && shown(p)).collect();
+            let room = (h - top - bottom).max(0.0);
+            let pack = |hs: &[f64]| -> (Vec<(f64, f64)>, f64) {
+                let (mut y, mut used, mut line) = (top, 0.0, 0.0f64);
+                let mut at = Vec::new();
+                for (p, ph) in list.iter().zip(hs) {
+                    let pw = size(&p.id).0;
+                    if y > top && y + ph > h - bottom {
+                        (y, used, line) = (top, used + line, 0.0);
+                    }
+                    at.push((used, y));
+                    y += ph;
+                    line = line.max(pw);
                 }
+                (at, used + line)
+            };
+            let mut hs: Vec<f64> = list.iter().map(|p| size(&p.id).1).collect();
+            let (_, width) = pack(&hs);
+            let mut capped = vec![false; hs.len()];
+            if width + other > w - MIN_CANVAS && hs.iter().sum::<f64>() > room {
+                let squeeze: Vec<bool> =
+                    list.iter().map(|p| SIDE.contains(&p.id.as_str())).collect();
+                let fixed: f64 = hs.iter().zip(&squeeze).filter(|x| !x.1).map(|x| *x.0).sum();
+                let cuttable: Vec<f64> = hs
+                    .iter()
+                    .zip(&squeeze)
+                    .filter(|x| *x.1)
+                    .map(|x| *x.0)
+                    .collect();
+                let level = water_level(&cuttable, room - fixed);
+                for ((ph, c), s) in hs.iter_mut().zip(capped.iter_mut()).zip(&squeeze) {
+                    if *s && *ph > level {
+                        (*ph, *c) = (level, true);
+                    }
+                }
+            }
+            let (at, width) = pack(&hs);
+            for (i, p) in list.iter().enumerate() {
+                let (pw, _) = size(&p.id);
+                let (used, y) = at[i];
                 let x = if edge == Dock::Left {
                     used
                 } else {
-                    w - used - s.0
+                    w - used - pw
                 };
-                out.push(rect(p, x, y, s));
-                y += s.1;
-                line = line.max(s.0);
+                let mut r = rect(p, x, y, (pw, hs[i]));
+                r.capped = capped[i];
+                out.push(r);
             }
-            used + line
+            width
         };
-        let left = column(Dock::Left, &mut out);
-        let right = column(Dock::Right, &mut out).min(w - left);
+        let left = column(Dock::Left, 0.0, &mut out);
+        let right = column(Dock::Right, left, &mut out).min(w - left);
         for p in all.iter().filter(|p| p.dock == Dock::Float && shown(p)) {
             let s = size(&p.id);
             out.push(rect(
@@ -882,7 +947,7 @@ impl Layout {
     }
 
     /// The layout as JSON for the page: `{"preset", "all_hidden", "area": [x, y, w, h], "palettes": [{"id", "x", "y", "w", "h",
-    /// "dock", "horizontal", "collapsed", "hidden"}]}`.
+    /// "dock", "horizontal", "collapsed", "hidden", "capped"}]}`.
     pub fn arranged_json(&mut self, w: f64, h: f64, sizes: &[(String, f64, f64)]) -> String {
         let (rects, area) = self.arrange(w, h, sizes);
         // the palette a pointer is dragging, and the edge it docks on if let go now (the one `release` uses)
@@ -903,6 +968,7 @@ impl Layout {
                 e.raw("horizontal", bool(r.horizontal));
                 e.raw("collapsed", bool(r.collapsed));
                 e.raw("hidden", bool(r.hidden));
+                e.raw("capped", bool(r.capped));
                 // only a floating palette turns between a row and a column
                 e.raw("can_turn", bool(r.dock == Dock::Float));
                 e.0 + "}"
