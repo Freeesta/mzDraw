@@ -163,7 +163,7 @@ I18N.add("en", {
   "error.draw2.label": "That label is not known: choose an abbreviation of the list, or R, R1 to R32.",
   "draw2.tool.label.hint": "Ph, R1",
   "draw2.tool.chain": "Chain",
-  "draw2.tool.chain.title": "Chain: drag for a zigzag of as many bonds as the drag holds (the count is shown), or click for two bonds",
+  "draw2.tool.chain.title": "Chain: drag for a zigzag with its count shown, click for two bonds",
   "draw2.tool.arrow": "Arrow",
   "draw2.tool.arrow.title": "Reaction arrow: click, or drag for another length and direction (Shift+A)",
   "draw2.tool.plus": "Plus",

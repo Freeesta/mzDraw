@@ -346,7 +346,23 @@ try {
     await tool(pg, "select"); await pg.mouse.click(cx, cy); await want(pg, { selected: 1 });
   });
 
-  await step("chain tool by mouse: a drag draws a zigzag that follows the pointer with the count shown, a click adds two bonds, a drag from an atom starts on it, one undo step each, the count stops at 50", async () => {
+  await step("keyboard: select all, Delete, undo and redo, tool shortcuts", async () => {
+    await pg.focus("#d2-canvas");
+    await pg.keyboard.press("Control+a"); await want(pg, { selected: 3 });
+    await pg.keyboard.press("Delete"); await want(pg, { atoms: 0, bonds: 0 });
+    await tool(pg, "undo"); await want(pg, { atoms: 2, bonds: 1 });
+    await pg.keyboard.press("Control+y"); await want(pg, { atoms: 0 });
+    await tool(pg, "undo"); await want(pg, { atoms: 2 });
+    await pg.keyboard.press("Control+Shift+Z"); await want(pg, { atoms: 0 });
+    await pg.keyboard.press("e"); await want(pg, { tool: "erase" });
+    await pg.keyboard.press("2"); await want(pg, { tool: "bond:2" });
+    await pg.keyboard.press("o"); await want(pg, { tool: "atom:O" });
+    await pg.keyboard.press("Escape"); await want(pg, { tool: "select" });
+    eq(await pg.getAttribute('[data-testid="d2-select"]', "aria-pressed"), "true");
+  });
+
+
+  await step("chain tool by mouse: a drag draws a zigzag that follows the pointer with the count shown, a click adds two bonds, a drag from an atom starts on it, one undo step each, the count follows the length of the drag", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
     await tool(pg, "chain"); await want(pg, { tool: "chain" });
     const dx = 0.866 * 40;
@@ -364,26 +380,10 @@ try {
     await pg.mouse.move(lx, ly); await pg.mouse.down(); await pg.mouse.move(lx + 60, ly, { steps: 4 }); await pg.mouse.move(lx + 3 * dx, ly, { steps: 4 }); await pg.mouse.up();
     await want(pg, { atoms: 6, bonds: 5 });
     await tool(pg, "undo"); await want(pg, { atoms: 3, bonds: 2 });
-    // a very long drag stops at 50 bonds
+    // the count is the length of the drag: 900 px hold 26 bonds
     await pg.mouse.move(cx - 300, cy + 200); await pg.mouse.down(); await pg.mouse.move(cx - 100, cy + 200, { steps: 3 }); await pg.mouse.move(cx + 600, cy + 200, { steps: 3 }); await pg.mouse.up();
-    await want(pg, { atoms: 3 + 51, bonds: 2 + 50 });
+    await want(pg, { atoms: 3 + 27, bonds: 2 + 26 });
   });
-
-  await step("keyboard: select all, Delete, undo and redo, tool shortcuts", async () => {
-    await pg.focus("#d2-canvas");
-    await pg.keyboard.press("Control+a"); await want(pg, { selected: 3 });
-    await pg.keyboard.press("Delete"); await want(pg, { atoms: 0, bonds: 0 });
-    await tool(pg, "undo"); await want(pg, { atoms: 2, bonds: 1 });
-    await pg.keyboard.press("Control+y"); await want(pg, { atoms: 0 });
-    await tool(pg, "undo"); await want(pg, { atoms: 2 });
-    await pg.keyboard.press("Control+Shift+Z"); await want(pg, { atoms: 0 });
-    await pg.keyboard.press("e"); await want(pg, { tool: "erase" });
-    await pg.keyboard.press("2"); await want(pg, { tool: "bond:2" });
-    await pg.keyboard.press("o"); await want(pg, { tool: "atom:O" });
-    await pg.keyboard.press("Escape"); await want(pg, { tool: "select" });
-    eq(await pg.getAttribute('[data-testid="d2-select"]', "aria-pressed"), "true");
-  });
-
   await step("SMILES and molfile are added, a broken text is refused in words, an import is one undo step", async () => {
     await tool(pg, "clear");
     await pg.fill("#d2-text", "CC(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3, warnings: 0 });
@@ -1442,17 +1442,17 @@ try {
     const dx = 0.866 * 40;
     await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
     await tool(pg, "chain"); await want(pg, { tool: "chain" });
+    // a tap adds two bonds (first: a tap that follows a synthetic drag is dropped)
+    await pg.touchscreen.tap(cx + 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });
     // a finger
     await touch("touchStart", [[1, cx - 200, cy]]); await touch("touchMove", [[1, cx - 150, cy]]); await touch("touchMove", [[1, cx - 200 + 4 * dx, cy]]);
-    await want(pg, { atoms: 0, bonds: 0 });
+    await want(pg, { atoms: 3, bonds: 2 });
     await shot(pg, "chain-tablet");
-    await touch("touchEnd", []); await want(pg, { atoms: 5, bonds: 4 });
+    await touch("touchEnd", []); await want(pg, { atoms: 8, bonds: 6 });
     // a pen
     await pen("mouseMoved", cx - 200, cy + 150); await pen("mousePressed", cx - 200, cy + 150); await pen("mouseMoved", cx - 150, cy + 150); await pen("mouseMoved", cx - 200 + 3 * dx, cy + 150); await pen("mouseReleased", cx - 200 + 3 * dx, cy + 150);
-    await want(pg, { atoms: 9, bonds: 7 });
-    // a tap adds two bonds
-    await touch("touchStart", [[1, cx + 100, cy - 100]]); await touch("touchEnd", []); await want(pg, { atoms: 12, bonds: 9 });
-    for (const [a, b] of [[9, 7], [5, 4], [0, 0]]) { await tool(pg, "undo"); await want(pg, { atoms: a, bonds: b }); }
+    await want(pg, { atoms: 12, bonds: 9 });
+    for (const [a, b] of [[8, 6], [3, 2], [0, 0]]) { await tool(pg, "undo"); await want(pg, { atoms: a, bonds: b }); }
   });
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
