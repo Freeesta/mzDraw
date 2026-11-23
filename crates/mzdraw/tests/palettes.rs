@@ -34,12 +34,13 @@ fn desktop_preset_docks_tools_left_actions_on_top_and_side_groups_right() {
         (0.0, 0.0, Dock::Top, true)
     );
     assert_eq!(view.x, 3.0 * 132.0);
-    // the tool column under the top row, in order, as a column
-    let ys: Vec<f64> = ["tools", "bonds", "rings", "atoms", "charges", "objects"]
+    // one general tools palette under the top row, a column (the groups of tools are its own: `tool_groups`)
+    let left: Vec<(&str, f64)> = r
         .iter()
-        .map(|id| rect(&r, id).y)
+        .filter(|x| x.dock == Dock::Left)
+        .map(|x| (x.id.as_str(), x.y))
         .collect();
-    assert_eq!(ys, vec![44.0, 132.0, 220.0, 308.0, 396.0, 484.0]);
+    assert_eq!(left, vec![("tools", 44.0)]);
     assert!(r
         .iter()
         .filter(|x| x.dock == Dock::Left)
@@ -49,7 +50,7 @@ fn desktop_preset_docks_tools_left_actions_on_top_and_side_groups_right() {
     assert_eq!((s.x, s.y, s.hidden), (1000.0, 44.0, false));
     // the canvas gets what is left
     assert_eq!(area, [44.0, 44.0, 1280.0 - 44.0 - 280.0, 720.0 - 44.0]);
-    assert!(rect(&r, "bonds").collapsed && !rect(&r, "tools").collapsed);
+    assert!(rect(&r, "edit").collapsed && !rect(&r, "tools").collapsed);
     assert_eq!(
         l.to_text(),
         None,
@@ -77,27 +78,30 @@ fn tablet_hides_the_side_groups_and_phone_docks_the_tools_on_top() {
 fn a_dragged_palette_floats_snaps_and_docks_on_the_edge_it_is_dropped_on() {
     let mut l = Layout::default();
     l.arrange(1280.0, 720.0, &sizes());
-    // grab the bonds palette 10 px inside its handle and drop it in the middle: it floats there, a column still
-    assert!(l.press("bonds", 10.0, 140.0));
+    // grab the tools palette 10 px inside its handle and drop it in the middle: it floats there, a column still
+    assert!(l.press("tools", 10.0, 52.0));
     assert!(l.release(610.0, 600.0));
-    let (r, _) = l.arrange(1280.0, 720.0, &[]);
-    let b = rect(&r, "bonds");
+    let (r, area) = l.arrange(1280.0, 720.0, &[]);
+    let b = rect(&r, "tools");
     assert_eq!(
         (b.dock, b.x, b.y, b.horizontal),
         (Dock::Float, 600.0, 592.0, false)
     );
-    // the column closes the gap
-    assert_eq!(rect(&r, "rings").y, 132.0);
-    // dragged next to the rings palette, within 12 px of its right side: flush against it, top lined up
-    l.press("bonds", 605.0, 595.0);
-    l.drag(5.0 + 44.0 + 7.0, 3.0 + 132.0 + 5.0);
+    // nothing is left in the left column: the canvas takes its width
+    assert_eq!(area[0], 0.0);
+    // dragged next to the view palette, within 12 px of its right side: flush against it, top lined up
+    l.press("tools", 605.0, 595.0);
+    l.drag(3.0 * 132.0 + 132.0 + 5.0 + 7.0, 3.0 + 5.0);
     let (r, _) = l.arrange(1280.0, 720.0, &[]);
-    assert_eq!((rect(&r, "bonds").x, rect(&r, "bonds").y), (44.0, 132.0));
+    assert_eq!(
+        (rect(&r, "tools").x, rect(&r, "tools").y),
+        (4.0 * 132.0, 0.0)
+    );
     // dropped at the bottom edge: docked there, laid out as a row
     l.drag(600.0, 710.0);
     l.release(600.0, 715.0);
     let (r, area) = l.arrange(1280.0, 720.0, &[]);
-    let b = rect(&r, "bonds");
+    let b = rect(&r, "tools");
     assert_eq!(
         (b.dock, b.horizontal, b.y + b.h),
         (Dock::Bottom, true, 720.0)
@@ -108,7 +112,7 @@ fn a_dragged_palette_floats_snaps_and_docks_on_the_edge_it_is_dropped_on() {
         "the bottom row takes its height from the canvas"
     );
     // dropped on the top edge at the far right: the last of the top row
-    l.press("bonds", b.x + 1.0, b.y + 1.0);
+    l.press("tools", b.x + 1.0, b.y + 1.0);
     l.release(1270.0, 2.0);
     let (r, _) = l.arrange(1280.0, 720.0, &[]);
     let top: Vec<&str> = {
@@ -116,13 +120,13 @@ fn a_dragged_palette_floats_snaps_and_docks_on_the_edge_it_is_dropped_on() {
         t.sort_by(|a, b| a.x.total_cmp(&b.x));
         t.iter().map(|x| x.id.as_str()).collect()
     };
-    assert_eq!(top, vec!["file", "history", "edit", "view", "bonds"]);
+    assert_eq!(top, vec!["file", "history", "edit", "view", "tools"]);
     // a grab that is cancelled puts the palette back
-    l.press("bonds", 600.0, 10.0);
+    l.press("tools", 600.0, 10.0);
     l.drag(300.0, 300.0);
     assert!(l.cancel());
     assert_eq!(
-        rect(&l.arrange(1280.0, 720.0, &[]).0, "bonds").dock,
+        rect(&l.arrange(1280.0, 720.0, &[]).0, "tools").dock,
         Dock::Top
     );
 }
@@ -170,7 +174,7 @@ fn layout_and_export_live_in_the_settings_file_with_unknown_keys_kept() {
     );
     let file = r#"{"format":"mzdraw-settings/1","style":{"preset":"acs-1996"},
       "layout":{"preset":"tablet","snap":16,"future":1,"palettes":[{"id":"edit","dock":"float","x":300,"y":200,"orient":"v"},
-        {"id":"rings","collapsed":false},{"id":"newer-panel","dock":"left"}]},
+        {"id":"view","collapsed":true},{"id":"newer-panel","dock":"left"}]},
       "export":{"default":"png","background":"none","dpi":600}}"#;
     assert_eq!(e.set_style(file).unwrap() & PALETTES, PALETTES);
     assert_eq!(
@@ -184,7 +188,7 @@ fn layout_and_export_live_in_the_settings_file_with_unknown_keys_kept() {
         (Dock::Float, 300.0, 200.0, false)
     );
     assert!(
-        !rect(&r, "rings").collapsed && rect(&r, "structure").hidden,
+        rect(&r, "view").collapsed && rect(&r, "structure").hidden,
         "the tablet preset, with the change on top"
     );
     // written back: the same settings, the unknown key, palette and export field kept
@@ -431,7 +435,7 @@ fn a_key_during_a_pointer_grab_is_ignored() {
     let (r, _) = l.arrange(1280.0, 720.0, &sizes());
     let t = rect(&r, "tools").clone();
     assert!(l.press("tools", t.x + 10.0, t.y + 5.0));
-    assert!(!l.key("tools", "arrowright", false) && !l.key("bonds", "enter", false));
+    assert!(!l.key("tools", "arrowright", false) && !l.key("edit", "enter", false));
     assert!(l.drag(500.0, 300.0) && l.release(500.0, 300.0));
     let p = l.palettes().into_iter().find(|p| p.id == "tools").unwrap();
     // where the pointer let it go, give or take the snap to a neighbour
@@ -572,3 +576,203 @@ fn the_module_says_the_held_palette_the_edge_it_docks_on_and_which_palettes_turn
         Dock::Bottom
     );
 }
+
+// ---- the general tools palette: groups, the face of each, and a stored layout of the palettes before it ----
+
+fn slots(l: &Layout) -> Vec<serde_json::Value> {
+    serde_json::from_str::<Vec<serde_json::Value>>(&l.slots_json()).unwrap()
+}
+
+fn face(l: &Layout, group: &str) -> String {
+    slots(l)
+        .iter()
+        .find(|s| s["group"] == group)
+        .map(|s| s["face"].as_str().unwrap().to_string())
+        .unwrap()
+}
+
+#[test]
+fn the_tools_palette_has_sixteen_places_in_a_fixed_order_and_one_button_per_group() {
+    let l = Layout::default();
+    let s = slots(&l);
+    assert_eq!(s.len(), 16);
+    let names: Vec<String> = s
+        .iter()
+        .map(|x| {
+            x["cmd"]
+                .as_str()
+                .or(x["group"].as_str())
+                .unwrap()
+                .to_string()
+        })
+        .collect();
+    assert_eq!(
+        names,
+        "select move-here erase bonds bond:2 rings ring:6 ring:5 atom:C atom:N atom:O atoms charges objects plus text"
+            .split(' ')
+            .collect::<Vec<_>>()
+    );
+    // the faces of a fresh layout: the single bond, benzene, the plus charge, the arrow
+    assert_eq!(
+        ["bonds", "rings", "charges", "objects"].map(|g| face(&l, g)),
+        ["bond:1", "ring:6a", "charge:+", "arrow"]
+    );
+    // a group lists every member: the bonds are 13, in the order of their list, the kept double bond among them
+    let bonds = s.iter().find(|x| x["group"] == "bonds").unwrap();
+    let members: Vec<&str> = bonds["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m.as_str().unwrap())
+        .collect();
+    assert_eq!(members.len(), 13);
+    assert_eq!(&members[..4], ["bond:1", "bond:2", "bond:3", "bond:up"]);
+    assert_eq!(bonds["keep"][0], "bond:2");
+    // the same layout writes the same list, byte for byte
+    assert_eq!(l.slots_json(), Layout::default().slots_json());
+    // the answer for the page carries the list and the rows of a column
+    let a: serde_json::Value =
+        serde_json::from_str(&Layout::default().arranged_json(1280.0, 720.0, &[])).unwrap();
+    assert_eq!(
+        (a["rows"].clone(), a["slots"].as_array().unwrap().len()),
+        (8.into(), 16)
+    );
+}
+
+#[test]
+fn a_tool_used_becomes_the_face_of_its_group_is_kept_and_forgotten_with_the_layout() {
+    let mut e = Editor::default();
+    assert_eq!(e.set_tool("bond:wavy") & PALETTES, PALETTES);
+    assert_eq!(face(&e.layout, "bonds"), "bond:wavy");
+    // the same tool again, a tool of no group, and a kind that is in view on its own change no face: no new layout
+    for t in ["bond:wavy", "select", "bond:2", "ring:6", "atom:S", "arrow"] {
+        assert_eq!(e.set_tool(t) & PALETTES, 0, "{t}");
+    }
+    assert_eq!(face(&e.layout, "bonds"), "bond:wavy");
+    assert_eq!(e.set_tool("ring:3") & PALETTES, PALETTES);
+    assert_eq!(e.set_tool("charge:-") & PALETTES, PALETTES);
+    // the faces are in the settings file, in the order of the groups, and read back the same
+    let out = e.settings_json();
+    assert!(
+        out.contains(r#""heads":{"bonds":"bond:wavy","rings":"ring:3","charges":"charge:-"}"#),
+        "{out}"
+    );
+    let mut again = Editor::default();
+    again.set_style(&out).unwrap();
+    assert_eq!(again.settings_json(), out);
+    assert_eq!(face(&again.layout, "rings"), "ring:3");
+    // the first member is the default: using it again leaves nothing to write
+    e.set_tool("bond:1");
+    assert!(!e.settings_json().contains("bonds"));
+    // reset forgets them all, as it forgets every move of a palette
+    assert_eq!(e.set("layout.reset=1"), Ok(PALETTES));
+    assert_eq!(face(&e.layout, "rings"), "ring:6a");
+    assert_eq!(e.layout.to_text(), None);
+}
+
+#[test]
+fn the_face_is_a_setting_with_its_cli_twin_and_a_wrong_one_is_refused() {
+    let mut e = Editor::default();
+    assert_eq!(e.set("layout.heads.bonds=bond:hash"), Ok(PALETTES));
+    assert_eq!(face(&e.layout, "bonds"), "bond:hash");
+    // not a member, in view on its own, a command that selects no tool, a group with a fixed face, a group that is none
+    for bad in [
+        "layout.heads.bonds=ring:3",
+        "layout.heads.bonds=bond:2",
+        "layout.heads.objects=scheme-row",
+        "layout.heads.atoms=atom:S",
+        "layout.heads.nope=bond:1",
+    ] {
+        assert_eq!(e.set(bad), Err("error.draw2.layout"), "{bad}");
+    }
+    assert_eq!(face(&e.layout, "bonds"), "bond:hash");
+    // the whole object is read the same way, an unknown group is kept and written back
+    let file =
+        r#"{"format":"mzdraw-settings/1","layout":{"heads":{"rings":"ring:7","future":"x"}}}"#;
+    let mut f = Editor::default();
+    f.set_style(file).unwrap();
+    assert_eq!(face(&f.layout, "rings"), "ring:7");
+    assert!(f.settings_json().contains(r#""future":"x""#));
+    // a face that is not one refuses the file and changes nothing
+    let before = f.settings_json();
+    assert!(f
+        .set_style(r#"{"format":"mzdraw-settings/1","layout":{"heads":{"rings":"bond:1"}}}"#)
+        .is_err());
+    assert_eq!(f.settings_json(), before);
+}
+
+#[test]
+fn the_general_tools_palette_cannot_be_collapsed_and_says_so() {
+    let mut l = Layout::default();
+    l.arrange(1280.0, 720.0, &sizes());
+    assert!(!l.toggle("tools", "collapsed"));
+    assert!(l.toggle("edit", "collapsed"));
+    let a: serde_json::Value = serde_json::from_str(&l.arranged_json(1280.0, 720.0, &[])).unwrap();
+    let can = |id: &str| {
+        a["palettes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["id"] == id)
+            .unwrap()["can_collapse"]
+            .clone()
+    };
+    assert_eq!((can("tools"), can("edit")), (false.into(), true.into()));
+}
+
+#[test]
+fn a_stored_layout_of_the_palettes_before_the_general_one_is_migrated_with_a_note() {
+    // the old default had six tool palettes on the left; this one moved bonds, floated rings and collapsed the tools
+    let old = r#"{"format":"mzdraw-settings/1","style":{"preset":"acs-1996"},
+      "layout":{"snap":20,"palettes":[
+        {"id":"tools","collapsed":true,"dock":"right"},
+        {"id":"bonds","dock":"float","x":300,"y":200},{"id":"rings","dock":"bottom"},
+        {"id":"atoms","collapsed":false},{"id":"charges","hidden":true},{"id":"objects","order":9},
+        {"id":"view","hidden":true},{"id":"newer-panel","dock":"left"}]}}"#;
+    let mut e = Editor::default();
+    let (flags, note) = e.set_style_stored(old).unwrap();
+    assert_eq!(flags & PALETTES, PALETTES);
+    assert_eq!(note, "draw2.layout.migrated");
+    let (r, _) = e.layout.arrange(1280.0, 720.0, &sizes());
+    // the old tool palettes are gone, the tools keep the place the user gave them and are whole, what is not theirs is kept
+    for id in mzdraw::palettes::LEGACY {
+        assert!(r.iter().all(|x| x.id != id), "{id}");
+    }
+    let tools = rect(&r, "tools");
+    assert_eq!((tools.dock, tools.collapsed), (Dock::Right, false));
+    assert!(rect(&r, "view").hidden && e.layout.palettes().len() == 11);
+    let out = e.settings_json();
+    for gone in LEGACY_IDS {
+        assert!(!out.contains(gone), "{gone} in {out}");
+    }
+    assert!(
+        out.contains("newer-panel") && out.contains(r#""snap":20"#),
+        "{out}"
+    );
+    // what is written reads back with no note: the migration happens once
+    let mut again = Editor::default();
+    assert_eq!(again.set_style_stored(&out).unwrap().1, "");
+    assert_eq!(again.settings_json(), out);
+    // a layout that never had the old palettes gives no note, and neither does one with no layout at all
+    for plain in [
+        r#"{"format":"mzdraw-settings/1","layout":{"palettes":[{"id":"edit","collapsed":false}]}}"#,
+        r#"{"format":"mzdraw-settings/1","style":{"preset":"mzlab"}}"#,
+    ] {
+        assert_eq!(Editor::default().set_style_stored(plain).unwrap().1, "");
+    }
+    // a layout whose only change was an old palette is the default again
+    let mut only = Editor::default();
+    only.set_style_stored(
+        r#"{"format":"mzdraw-settings/1","layout":{"palettes":[{"id":"rings","dock":"bottom"}]}}"#,
+    )
+    .unwrap();
+    assert_eq!(only.layout.to_text(), None);
+}
+
+const LEGACY_IDS: [&str; 5] = [
+    "\"bonds\"",
+    "\"rings\"",
+    "\"atoms\"",
+    "\"charges\"",
+    "\"objects\"",
+];

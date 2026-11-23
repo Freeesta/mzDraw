@@ -59,6 +59,7 @@ pub mod steplabel;
 pub mod stereo_guard;
 pub mod svg;
 pub mod textedit;
+pub mod tool_groups;
 pub mod tp;
 pub mod tp_list;
 pub mod tptable;

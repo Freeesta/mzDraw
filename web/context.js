@@ -127,7 +127,7 @@ export function contextMenu(h) {
     else if (what === "element") { h.pick("atoms", "d2-element"); h.say(t("draw2.ctx.say.element")); }
     else if (what === "colour") { h.pick("colour", "d2-colour-hex"); h.say(t("draw2.ctx.say.colour")); }
     else if (what === "label") { h.pick("charges", "d2-label"); h.say(t("draw2.ctx.say.label")); }
-    else if (what === "text") { h.pick("objects", "d2-text-tool"); h.say(t("draw2.ctx.say.text")); }
+    else if (what === "text") { h.pick("text", "d2-text-tool"); h.say(t("draw2.ctx.say.text")); }
     else if (what === "import") side("d2-text");
     else if (what === "data") side("d2-data", arg);
     else if (what === "annotation") side("d2-ann", arg);

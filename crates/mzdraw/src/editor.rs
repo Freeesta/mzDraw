@@ -529,7 +529,9 @@ impl Editor {
                 self.over.chain = None;
                 self.chain_keys.clear();
                 self.over.band = None;
-                REPAINT | TOOL
+                // the tool becomes the face of its group on the tools palette (the page lays the palettes out again)
+                let face = self.layout.note_tool(name);
+                REPAINT | TOOL | if face { PALETTES } else { 0 }
             }
             None => 0,
         }
@@ -1092,7 +1094,12 @@ impl Editor {
                 note = "error.draw2.textPref";
             }
         }
-        self.set_style(&text).map(|f| (f, note))
+        let flags = self.set_style(&text)?;
+        // a layout of the palettes before the general tools palette: its tools take the new default place, and the page says so
+        if self.layout.migrated && note.is_empty() {
+            note = "draw2.layout.migrated";
+        }
+        Ok((flags, note))
     }
 
     /// The settings file of the editor: the style, the layout of the palettes and the export defaults (the last two only
