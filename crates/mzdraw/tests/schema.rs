@@ -64,6 +64,8 @@ fn full_ops() -> Vec<Op> {
             id: 3,
             o: Some(2),
             s: Some(1),
+            pos: Some("l".into()),
+            k: Some("dash".into()),
             rev: true,
         },
         Op::Rotate {
@@ -156,6 +158,8 @@ fn sample(f: &schema::FieldSpec) -> Value {
     match (f.key, f.ty) {
         ("el", _) => json!("C"),
         ("axis", _) => json!("h"),
+        ("pos", _) => json!("l"),
+        ("k", _) => json!("dash"),
         ("t", _) => json!("text"),
         (_, "uint") | (_, "int") => json!(1),
         (_, "number") => json!(1.5),

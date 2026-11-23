@@ -12,4 +12,4 @@
 
 **Properties tested** (`tests/pathway_gap.rs`): a layout is deterministic (centres, gaps and operations equal on two runs, 40 random trees under four settings); no two clearance boxes overlap on those trees; no primary arrow meets a route box; a gap is not widened when nothing grazes; the bound case above; the English text and the schema row of the new key.
 
-**Not built.** Secondary arrows and arrows that skip a layer are not widened for, and crossings inside a column are not addressed: both stay reported as `std.scheme.crossing` (the DAG's one crossing is such a long edge). The default step 0.05 and the bound 400 are decisions of this slice, not of the specification.
+**Not built.** Crossings inside a column are not addressed (they stay reported as `std.scheme.crossing`). Secondary arrows and arrows that skip a layer are now widened for: see `tp-followups-2.md`. The default step 0.05 and the bound 400 are decisions of this slice, not of the specification.

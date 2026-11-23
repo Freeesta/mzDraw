@@ -64,8 +64,24 @@ pub enum Tool {
     Text(String),
 }
 
+/// The second field of `Tool::Bond` above the wedge marks: a bond tool that draws a display kind (`bonddisp`) instead of a mark;
+/// the document never holds these numbers.
+pub const KIND_DASH: u8 = 4;
+pub const KIND_BDASH: u8 = 5;
+pub const KIND_HASH: u8 = 6;
+
+/// The display kind (`bonddisp::KINDS`) a `Tool::Bond` mark field stands for, empty for a wedge mark or none.
+pub(crate) fn kind_of_tool(s: u8) -> &'static str {
+    match s {
+        KIND_DASH => "dash",
+        KIND_BDASH => "bdash",
+        KIND_HASH => "hash",
+        _ => "",
+    }
+}
+
 impl Tool {
-    /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `erase`, `ring:6`, `ring:6a` (alternating
+    /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `bond:dash` / `bond:bdash` / `bond:hash` (display kinds), `erase`, `ring:6`, `ring:6a` (alternating
     /// double bonds), `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
     /// `text:<one line>`.
     pub fn parse(s: &str) -> Option<Tool> {
@@ -78,6 +94,9 @@ impl Tool {
                 "up" => Tool::Bond(1, WEDGE_UP),
                 "down" => Tool::Bond(1, WEDGE_DOWN),
                 "wavy" => Tool::Bond(1, WEDGE_WAVY),
+                "dash" => Tool::Bond(1, KIND_DASH),
+                "bdash" => Tool::Bond(1, KIND_BDASH),
+                "hash" => Tool::Bond(1, KIND_HASH),
                 _ => Tool::Bond(arg.parse().ok().filter(|o| (1..=3).contains(o))?, 0),
             },
             "ring" => {
@@ -109,6 +128,9 @@ impl Tool {
             Tool::Bond(_, WEDGE_UP) => "bond:up".into(),
             Tool::Bond(_, WEDGE_DOWN) => "bond:down".into(),
             Tool::Bond(_, WEDGE_WAVY) => "bond:wavy".into(),
+            Tool::Bond(_, KIND_DASH) => "bond:dash".into(),
+            Tool::Bond(_, KIND_BDASH) => "bond:bdash".into(),
+            Tool::Bond(_, KIND_HASH) => "bond:hash".into(),
             Tool::Bond(o, _) => format!("bond:{o}"),
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),
             Tool::Charge(c) => format!("charge:{}", if *c < 0 { "-" } else { "+" }),
@@ -285,6 +307,17 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             o: b.o,
             s: b.s,
         });
+        // the side of the second line and the display kind come along with the bond
+        if !b.pos().is_empty() || !b.kind().is_empty() {
+            ops.push(Op::BondSet {
+                id: base + b.id,
+                o: None,
+                s: None,
+                pos: (!b.pos().is_empty()).then(|| b.pos()),
+                k: (!b.kind().is_empty()).then(|| b.kind()),
+                rev: false,
+            });
+        }
         if !b.col().is_empty() {
             ops.push(Op::Colour {
                 atoms: Vec::new(),
