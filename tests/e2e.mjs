@@ -3962,6 +3962,90 @@ try {
     await fb.close();
   }
 
+  // arch-cd-26: the history panel lists every step newest first with the words of the live line; a click, Enter, a tap or a pen tap on a row
+  // leaves the drawing as it was at that step (`jump:<index>` of the module); a new step forgets the steps above
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  {
+    const hist = () => pg.evaluate("JSON.parse(window.MZDRAW.history())");
+    const row = n => `#d2-history-list li[data-index="${n}"]`;
+    const current = () => pg.evaluate("document.querySelector('#d2-history-list li[data-state=current]')?.dataset.index ?? 'none'");
+    const five = async (pg, at) => {                                                  // five atoms, one step each, with the tool buttons
+      await tool(pg, "clear"); await want(pg, { atoms: 0 });
+      for (const [i, el] of ["C", "N", "O", "S", "P"].entries()) { await tool(pg, "atom:" + el); await at(cx - 200 + 90 * i, cy - 100 + 40 * i); await want(pg, { atoms: i + 1 }); }
+    };
+    await step("history panel by mouse and keyboard: five steps listed newest first with their words, click the second step (two atoms), click the newest (five); arrows and Enter jump; a new step drops the steps above", async () => {
+      await five(pg, async (x, y) => { await pg.mouse.click(x, y); });
+      await setOpen(pg, "#d2-history", true);
+      await until(pg, "document.querySelectorAll('#d2-history-list li').length === 6");   // five steps and the start
+      const h = await hist();
+      eq(h.steps.map(s => s.index), [5, 4, 3, 2, 1]); eq(h.at, 5);
+      eq(h.steps.map(s => [s.say, s.what]), ["P", "S", "O", "N", "C"].map(e => ["draw2.say.atom", e]));
+      const texts = await pg.evaluate("[...document.querySelectorAll('#d2-history-list li')].map(l => l.textContent)");
+      eq(texts, await pg.evaluate("['P','S','O','N','C'].map(e => I18N.t('draw2.say.atom', { what: e })).concat([I18N.t('draw2.history.start')])"));
+      eq(await current(), "5"); eq(await pg.getAttribute(row(5), "aria-selected"), "true");
+      await shot(pg, "history-panel");
+      await pg.click(row(2)); await want(pg, { atoms: 2 }); eq(await current(), "2");
+      eq((await hist()).steps.length, 5, "the steps above stay listed");
+      eq(await pg.getAttribute(row(4), "data-state"), "undone");
+      await pg.click(row(5)); await want(pg, { atoms: 5 }); eq(await current(), "5");
+      // by keyboard: the focus is on the current row; ArrowDown twice walks to step 3 and Enter jumps there; Home goes to the newest, End to the start
+      await pg.focus(row(5)); await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("ArrowDown");
+      eq(await pg.evaluate("document.activeElement.dataset.index"), "3");
+      await pg.keyboard.press("Enter"); await want(pg, { atoms: 3 }); eq(await current(), "3");
+      eq(await pg.evaluate("document.activeElement.dataset.index"), "3", "the focus stays on the row");
+      await pg.keyboard.press("End"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 0 }); eq(await current(), "0");
+      await pg.keyboard.press("Home"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 5 });
+      // two steps back and one new step: the steps above are gone
+      await pg.click(row(3)); await want(pg, { atoms: 3 });
+      await tool(pg, "atom:F"); await pg.mouse.click(cx + 250, cy + 150); await want(pg, { atoms: 4 });
+      const h2 = await hist();
+      eq(h2.steps.map(s => s.index), [4, 3, 2, 1]); eq(h2.steps[0].what, "F"); assert(h2.steps.every(s => s.state !== "undone"), "no step waits for a redo");
+      await until(pg, "document.querySelectorAll('#d2-history-list li').length === 5");
+    });
+    await step("history panel: a refresh between the press and the release of a click does not lose it (the rows are kept while the history is the same)", async () => {
+      await pg.click(row(4)); await want(pg, { atoms: 4 });
+      await pg.locator(row(2)).scrollIntoViewIfNeeded(); const [x, y] = await center(pg, row(2));
+      await pg.mouse.move(x, y); await pg.mouse.down();
+      await pg.evaluate("document.getElementById('d2-history').dispatchEvent(new Event('toggle'))");   // the list is asked to refresh in between
+      await frames(pg);
+      await pg.mouse.up(); await want(pg, { atoms: 2 }); eq(await current(), "2");
+      await pg.click(row(4)); await want(pg, { atoms: 4 });
+    });
+    await step("history panel: the twin command jump:<n> gives the same document as the click, and a number past the newest step changes nothing", async () => {
+      const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+      await pg.click(row(2)); const byClick = await doc(); await pg.click(row(4));
+      await pg.evaluate("window.MZDRAW.command('jump:2')"); eq(await doc(), byClick);
+      await pg.evaluate("window.MZDRAW.command('jump:9')"); eq(await doc(), byClick); eq(await pg.evaluate("JSON.parse(window.MZDRAW.state()).error"), "error.draw2.request");
+      const atoms = () => pg.evaluate("JSON.parse(window.MZDRAW.state()).atoms");
+      await pg.evaluate("window.MZDRAW.command('undo:1')"); eq(await atoms(), 1);
+      await pg.evaluate("window.MZDRAW.command('redo:3')"); eq(await atoms(), 4);
+      await setOpen(pg, "#d2-history", false);
+    });
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+    await step("history panel by touch: tap the summary, tap the second step, tap the newest; the rows are targets for a finger", async () => {
+      await five(pg, async (x, y) => { await pg.touchscreen.tap(x, y); });
+      await tapPalette(pg, "check", true);
+      const tap = async sel => { await pg.locator(sel).scrollIntoViewIfNeeded(); const [x, y] = await center(pg, sel); await pg.touchscreen.tap(x, y); };
+      await tap("#d2-history summary"); await until(pg, "document.querySelector('#d2-history').open === true");
+      await until(pg, "document.querySelectorAll('#d2-history-list li').length === 6");
+      assert((await pg.locator(row(2)).boundingBox()).height >= 43, "a row is a target for a finger");
+      await tap(row(2)); await want(pg, { atoms: 2 }); eq(await current(), "2");
+      await shot(pg, "history-panel-touch");
+      await tap(row(5)); await want(pg, { atoms: 5 }); eq(await current(), "5");
+      await tapPalette(pg, "check", false);
+    });
+    await step("history panel by pen: a pen tap on a row jumps to that step, another on the newest step comes back", async () => {
+      await tapPalette(pg, "check", true);
+      const cdp = await ctx.newCDPSession(pg);
+      const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+      const tap = async sel => { await pg.locator(sel).scrollIntoViewIfNeeded(); const [x, y] = await center(pg, sel); await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+      await until(pg, "document.querySelector('#d2-history').open === true");        // left open by the touch step
+      await tap(row(3)); await want(pg, { atoms: 3 }); eq(await current(), "3");
+      await tap(row(5)); await want(pg, { atoms: 5 }); eq(await current(), "5");
+      await tapPalette(pg, "check", false);
+    });
+  }
+
   await ctx.close();
 } finally {
   await browser.close();

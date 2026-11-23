@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const wasm = createRequire(import.meta.url)(path.join(root, "target/pkg-node/mzdraw_wasm.js"));
 // the golden files: every *.json of tests/data/log/, sorted by name, each with some of the sections below (as crates/mzdraw/tests/common reads them)
 const logDir = path.join(root, "tests/data/log");
-const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [], trasf: [], diffs: [], losses: [], values: [], feedbacks: [] };
+const fx = { cases: [], contexts: [], refused: [], results: [], schemas: [], settings: [], pdf: [], trasf: [], diffs: [], losses: [], values: [], feedbacks: [], histories: [] };
 for (const f of readdirSync(logDir).filter(f => f.endsWith(".json")).sort()) {
   const part = JSON.parse(readFileSync(path.join(logDir, f), "utf8"));
   for (const k of Object.keys(part)) {
@@ -53,6 +53,14 @@ for (const c of fx.schemas) {
   check(a.stdout === b.stdout, `${c.name}: wasm == native`);
   const out = Array.isArray(c.out) ? c.out.join("") : c.out; // the golden keeps the table one row per line
   check(a.stdout === out && JSON.parse(out).format === "draw-edit-schema/1", `${c.name}: the recorded table`);
+}
+// the history of the session (`out: history`) after a log and the history commands `undo:<n>`, `redo:<n>`, `jump:<n>`: the same bytes from the page and from the replay
+for (const c of fx.histories) {
+  const request = JSON.stringify(c.request), a = site(request), b = native(request);
+  check(a.status === 0 && b.status === 0, `${c.name}: runs on both sides (${a.stderr} ${b.stderr})`);
+  check(a.stdout === b.stdout, `${c.name}: wasm == native`);
+  const h = JSON.parse(c.out);
+  check(a.stdout === c.out && h.format === "history/1" && h.steps.length > 0, `${c.name}: the recorded history`);
 }
 // the settings file after layout and export defaults were set through the route of Editor::set (`set`, the --set of the CLI)
 for (const c of fx.settings) {

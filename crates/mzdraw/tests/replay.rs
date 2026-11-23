@@ -139,6 +139,25 @@ fn every_case_replays_to_the_recorded_bytes() {
             assert_eq!(v["format"], "feedback/1");
             assert!(v["url"].as_str().unwrap().len() <= mzdraw::feedback::LIMIT);
         }
+        // the history of the session (`out: history`, `history/1`) after a log and the history commands: the same bytes on both sides
+        for case in section_mut(fx, "histories") {
+            let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
+            if bless {
+                case["out"] = json!(got);
+            }
+            assert_eq!(case["out"], json!(got), "{}", case["name"]);
+            let v: Value = serde_json::from_str(&got).unwrap();
+            assert_eq!(v["format"], "history/1");
+            let steps = v["steps"].as_array().unwrap();
+            assert!(!steps.is_empty(), "{}", case["name"]);
+            // newest first, numbered from the oldest; exactly one step is the current one, unless the drawing is at the start
+            let n = steps.len() as u64;
+            for (i, s) in steps.iter().enumerate() {
+                assert_eq!(s["index"], json!(n - i as u64), "{}", case["name"]);
+            }
+            let current = steps.iter().filter(|s| s["state"] == "current").count();
+            assert_eq!(current, usize::from(v["at"] != 0), "{}", case["name"]);
+        }
         // the table of the operations (`draw-edit-schema/1`): the CLI twin of the language reader
         for case in section_mut(fx, "schemas") {
             let got = mzdraw::replay::replay(&case["request"].to_string()).unwrap();
