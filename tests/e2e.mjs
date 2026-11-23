@@ -399,7 +399,7 @@ try {
     await want(pg, { atoms: 3, bonds: 2 });
     await shot(pg, "chain-keyboard");
     await pg.keyboard.press("Enter"); await want(pg, { atoms: 7, bonds: 6 });
-    await pg.keyboard.type("5"); await pg.keyboard.press("Escape"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 10, bonds: 8, tool: "chain" });
+    await pg.keyboard.type("5"); await pg.keyboard.press("Escape"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 9, bonds: 8, tool: "chain" });
     await pg.keyboard.press("Control+z"); await want(pg, { atoms: 7, bonds: 6 });
     await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
   });
