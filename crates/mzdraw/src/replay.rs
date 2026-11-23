@@ -172,6 +172,10 @@ impl Request {
             (Some(c), None) => vec![one(c, v.get("args"))?],
             (None, Some(l)) => (l.as_array().ok_or(BAD)?.iter())
                 .map(|c| {
+                    // a bare name is a command without arguments (`"align:left"`)
+                    if c.is_string() {
+                        return one(c, None);
+                    }
                     // an item is `{"command", "args"}` and nothing else
                     let item = c.as_object().ok_or(BAD)?;
                     if item.keys().any(|k| k != "command" && k != "args") {

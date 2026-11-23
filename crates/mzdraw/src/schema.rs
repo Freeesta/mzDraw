@@ -179,6 +179,23 @@ pub const OPS: &[OpSpec] = &[
         mzlab: false,
     },
     OpSpec {
+        name: "atom.title",
+        fields: &[
+            f("id", "uint", true, "", ""),
+            nf(
+                "title",
+                "string",
+                true,
+                "",
+                "one line of at most 80 characters with no control character; the empty text takes the title away; the title is the first line of the molfile and of each SDF record the structure is written as (the name of a SMILES line)",
+            ),
+        ],
+        inverse: "SetAtom",
+        since: crate::brand::FIRST_DOCUMENT_ID,
+        mzdraw: true,
+        mzlab: false,
+    },
+    OpSpec {
         name: "atom.cap",
         fields: &[
             nf("id", "uint", true, "", "an atom of the molecule; the choice is kept on it"),

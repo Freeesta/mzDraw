@@ -55,6 +55,10 @@ pub struct Imported {
     pub text_cut: usize,
     /// SDF records that carry the name of a TP (`TP_ID`): an SDF has no arrows, so they were read without a pathway.
     pub no_pathway: usize,
+    /// Lines of a SMILES file (counted from 1) that are no SMILES: said with their number, the other lines are read.
+    pub smiles_lines: Vec<usize>,
+    /// Names of a SMILES file longer than the 80 characters of a title line: cut, counted.
+    pub names_cut: usize,
     /// CDXML: bonds that carried a display (`Dash`, `Hash`) or the side of a double bond, in a file where the reader refused a bond
     /// (so the bonds of the file and of the drawing cannot be paired): the display of every bond is left out, counted.
     pub bond_display_left: usize,
@@ -63,6 +67,8 @@ pub struct Imported {
 impl Imported {
     /// What the page says after the import, as (i18n key, count): only what is worth saying.
     pub fn notes(&self) -> Vec<(&'static str, usize)> {
+        let more = self.smiles_lines.len().saturating_sub(MAX_SAID);
+        let lines = self.smiles_lines.iter().take(MAX_SAID);
         [
             ("draw2.import.placeholder", usize::from(self.placeholder)),
             (
@@ -86,10 +92,18 @@ impl Imported {
             ("draw2.import.bondDisplay", self.bond_display_left),
         ]
         .into_iter()
+        .chain(lines.map(|&n| ("draw2.import.smilesLine", n)))
+        .chain([
+            ("draw2.import.smilesMore", more),
+            ("draw2.import.nameCut", self.names_cut),
+        ])
         .filter(|n| n.1 > 0)
         .collect()
     }
 }
+
+/// The most lines of a SMILES file that are named one by one in the notes; the others are counted (`draw2.import.smilesMore`).
+pub const MAX_SAID: usize = 10;
 
 /// Records of one SDF that are read into a drawing.
 pub const MAX_RECORDS: usize = 64;
@@ -357,12 +371,20 @@ impl Document {
         self.molfile(true)
     }
 
+    /// The title line of the files this drawing is written as: the title of its first structure that has one (the name of a SMILES
+    /// line, say), else the name of the program.
+    pub fn file_title(&self) -> String {
+        Some(self.title())
+            .filter(|t| !t.is_empty())
+            .unwrap_or_else(|| crate::NAME.into())
+    }
+
     fn molfile(&self, r_as_query: bool) -> String {
         let m = self.to_mol();
         if m.atoms.len() > 999 || m.bonds.len() > 999 {
             return self.v3000(m, r_as_query);
         }
-        let text = self.mark_wedges(m.to_molfile(crate::NAME), m.atoms.len());
+        let text = self.mark_wedges(m.to_molfile(&self.file_title()), m.atoms.len());
         self.mark_maps(self.mark_r_groups(text, r_as_query))
     }
 
@@ -555,24 +577,70 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
         return Err("error.draw2.import");
     }
     info.format = "smiles";
-    // one SMILES as it is (it may carry a CXSMILES tail or a name), or one per line: the pieces of one record
-    let mut all = String::new();
-    if t.lines().nth(1).is_none() {
-        all.push_str(t);
-    } else {
-        for first in t.lines().filter_map(|l| l.split_whitespace().next()) {
-            if !all.is_empty() {
-                all.push('.');
-            }
-            all.push_str(first);
+    let mut all = Document::default();
+    // OpenSMILES, "SMILES Files": one SMILES per line, what follows the first space or tab is the name of the record, LF and CR/LF
+    // end a line, a blank line and a line that starts with a space or a tab are ignored; nothing is stripped into the SMILES
+    let mut broken: Vec<usize> = Vec::new();
+    for (n, line) in text
+        .strip_prefix('\u{feff}')
+        .unwrap_or(text)
+        .lines()
+        .enumerate()
+    {
+        if line.is_empty() || line.starts_with([' ', '\t']) || line.trim().is_empty() {
+            continue;
         }
+        // at most MAX_RECORDS lines are parsed, good or broken: the work is bounded by that many lines of the input, whatever its size
+        if info.records + broken.len() == MAX_RECORDS {
+            info.skipped += 1;
+            continue;
+        }
+        let (smiles, name, cut) = smiles_record(line);
+        let (clean, labels) = formats::r_atoms(smiles);
+        let Ok(m) = Mol::from_smiles(&clean) else {
+            broken.push(n + 1);
+            continue;
+        };
+        let (mut d, placeholder) = labelled(&m, labels, &mut info);
+        d.set_maps(crate::maps::of_smiles(smiles), &mut info);
+        info.placeholder |= placeholder;
+        if let Some(a) = d.atoms.first_mut() {
+            a.set_title(&name);
+        }
+        info.records += 1;
+        info.names_cut += usize::from(cut);
+        all.append(d);
     }
-    let (clean, labels) = formats::r_atoms(&all);
-    let m = Mol::from_smiles(&clean).map_err(|_| "error.draw2.smiles")?;
-    let (mut d, placeholder) = labelled(&m, labels, &mut info);
-    d.set_maps(crate::maps::of_smiles(&all), &mut info);
-    info.placeholder = placeholder;
-    Ok((d, info))
+    if info.records == 0 {
+        return Err(if broken.is_empty() {
+            "error.draw2.import"
+        } else {
+            "error.draw2.smiles"
+        });
+    }
+    info.smiles_lines = broken;
+    checked(all, info, "error.draw2.smiles")
+}
+
+/// A line of a SMILES file: the SMILES (with its CXSMILES tail, `|...|`, when the first word after it opens one), the name of the
+/// record (the rest of the line: a control character, a tab included, is a space; at most `MAX_TITLE` characters) and whether the
+/// name was cut to that length.
+fn smiles_record(line: &str) -> (&str, String, bool) {
+    let at = line.find([' ', '\t']).unwrap_or(line.len());
+    let (mut smiles, mut rest) = line.split_at(at);
+    let tail = rest.trim_start_matches([' ', '\t']);
+    if let Some(body) = tail.strip_prefix('|')
+        && let Some(close) = body.find('|')
+    {
+        let end = line.len() - rest.len() + (rest.len() - tail.len()) + close + 2;
+        (smiles, rest) = (&line[..end], &line[end..]);
+    }
+    let spaced: String = (rest.trim_matches([' ', '\t']).chars())
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let cut = spaced.chars().count() > crate::doc::MAX_TITLE;
+    let name: String = spaced.chars().take(crate::doc::MAX_TITLE).collect();
+    (smiles, name.trim_end().to_string(), cut)
 }
 
 /// The drawing of one molfile record (V2000 or V3000), and whether its positions are placeholders; what the drawing does not

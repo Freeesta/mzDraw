@@ -89,7 +89,7 @@ impl Document {
         let mut out = String::new();
         let index = self.index_map();
         let (mut block, mut k) = (' ', 0);
-        for line in m.to_molfile(crate::NAME).lines() {
+        for line in m.to_molfile(&self.file_title()).lines() {
             let body = line.strip_prefix("M  V30 ").unwrap_or("");
             let mut marked = None;
             match (body, block) {

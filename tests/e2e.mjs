@@ -220,6 +220,22 @@ const pixelAt = async (pg, x, y) => {
 };
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
+/** a SMILES file of the OpenSMILES file rules (CR/LF, a blank line, an indented line, a tab before a name, a broken line between good ones)
+ * is put in the Add field and added with `press` (the keyboard or a tap): two structures open, the note names line 4, one undo step */
+async function smilesFile(pg, press) {
+  const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+  await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  await fillIn(pg, "#d2-text", "CCO\tethanol sample\r\n\r\n  CC(=O)O ignored\r\nC(C\r\nCC=O\r\n");
+  await press();
+  await want(pg, { atoms: 6, bonds: 4 });
+  await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+  const said = await pg.evaluate("I18N.t('draw2.import.smilesLine', { n: 4 })");
+  assert(said.includes("4") && (await pg.innerText("#d2-note")).includes(said), "the note names line 4: " + await pg.innerText("#d2-note"));
+  assert((await pg.evaluate("window.MZDRAW.save('molfile')")).startsWith("ethanol sample\n"), "the name is the title of the molfile");
+  await tool(pg, "undo"); await want(pg, { atoms: 0 });
+  await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), before);       // the drawing the step found
+}
+
 /** the PDF round trip: acetic acid is drawn, the PDF is downloaded the way `get` says (keyboard or touch), it is a vector PDF with the
  * text as text and the document inside, and Open a file brings back the same drawing; a PDF of another program is refused in words */
 async function pdfRoundTrip(pg, get) {
@@ -376,6 +392,10 @@ try {
     await tool(pg, "redo"); await want(pg, { atoms: 4 });
   });
 
+  await step("a SMILES file: lines read by the OpenSMILES file rules, the broken line named, typed into the field and added with the keyboard", async () => {
+    await smilesFile(pg, async () => { await pg.focus("#d2-add"); await pg.keyboard.press("Enter"); });
+  });
+
   await step("molfile (V2000 and V3000), SMILES, SVG, PNG and the mzdraw/1 document are saved as the module writes them; the pictures open again", async () => {
     const got = {};
     for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"], ["ket", "ket", "drawing.ket"], ["cdxml", "cdxml", "drawing.cdxml"], ["cml", "cml", "drawing.cml"],
@@ -457,7 +477,8 @@ try {
     await pg.setInputFiles("#d2-file", { name: "three.smi", mimeType: "text/plain", buffer: Buffer.from("CCO ethanol\nCC[*:5] ring\n[*]CO query\n") });
     await want(pg, { atoms: 9, bonds: 6 });
     eq(await pg.evaluate("window.MZDRAW.save('smiles')"), smiles);
-    eq(await pg.innerText("#d2-note"), await say(["draw2.import.placeholder", 1]));
+    // three lines are three records: the note says it, as it does for an SDF
+    eq(await pg.innerText("#d2-note"), (await say(["draw2.import.placeholder", 1])) + " " + (await say(["draw2.import.records", 3])));
     // the data of a structure: the data fields of an SDF record are read, shown, edited, undone and written
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", `${ethanol}\n>  <name>\nethanol (synthetic)\n\n>  <note>\nline one\nline two\n\n$$$$\n${ethanol}\n$$$$\n`); await pg.click("#d2-add");
@@ -882,6 +903,38 @@ try {
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.schemeRowDone')"));
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
+  });
+
+  await step("arrange: the selection is aligned, distributed, turned by a typed angle from the Edit palette, with the keyboard and with the mouse; each is one undo step and the drawing equals the golden bytes of the command", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/arrange.json"), "utf8")).cases;
+    const g = name => gold.find(c => c.name === name);
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9, objects: 1 });
+    const start = await pg.evaluate("window.MZDRAW.save('mzdraw')"), save = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+    // keyboard: select all, the buttons reached by their focus, Enter
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 17 });
+    const BT = c => `[data-testid="d2-${c}"]`;
+    await reveal(pg, BT("align:top")); await pg.focus(BT("align:top")); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: align top").out.mzdraw);
+    await shot(pg, "cd-15-arrange");
+    await tool(pg, "undo"); eq(await save(), start);                               // one step
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
+    await reveal(pg, BT("distribute:h")); await pg.focus(BT("distribute:h")); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: distribute across").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
+    // the angle is typed in its field (Enter applies)
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
+    await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "90"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: turn by 90").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
+    // a nonsense angle is refused in words and nothing changes
+    await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "abc"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
+    eq(await pg.getAttribute("#d2-rotate", "aria-invalid"), "true"); eq(await save(), start);
+    await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas");                  // the flyout is left
+    // mouse: nothing selected, so everything is arranged
+    await tool(pg, "select"); await pg.mouse.click(cx, cy + 300); await want(pg, { selected: 0 });
+    await tool(pg, "align:top"); await frames(pg);
+    eq(await save(), g("whole drawing: align top").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
   });
 
   // tp-06: "Arrange pathway", the button of the objects palette and the item of the canvas menu, on the messy star of tp-05 and the others of tests/data/log/pathway-page.json
@@ -1452,6 +1505,12 @@ try {
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
   });
+  await step("tablet with touch: the SMILES file is added by tapping Add, the broken line is named", async () => {
+    await tapPalette(pg, "structure", true);                 // the field is in the Structure palette, which the tablet preset keeps hidden
+    await smilesFile(pg, async () => { await pg.tap("#d2-add"); });
+    await shot(pg, "arch-std-09-smiles-file-touch");
+    await tapPalette(pg, "structure", false);               // as the next steps found it
+  });
   await step("tablet with touch and a pen: the side of a double bond and the dashed tools by a tap and by a pen, each press one undo step", async () => {
     const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
@@ -1495,6 +1554,34 @@ try {
     await frames(pg);
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
+  });
+
+  await step("tablet with touch and a pen: the buttons align, distribute and the field turn arrange the drawing by a tap and by a pen, and each is undone", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/arrange.json"), "utf8")).cases;
+    const g = name => gold.find(c => c.name === name).out.mzdraw;
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9, objects: 1 });
+    const save = () => pg.evaluate("window.MZDRAW.save('mzdraw')"), start = await save();
+    const BT = c => `[data-testid="d2-${c}"]`;
+    await tool(pg, "all"); await want(pg, { selected: 17 });
+    await reveal(pg, BT("align:top")); await pg.tap(BT("align:top")); await frames(pg);
+    eq(await save(), g("whole drawing: align top"));
+    await shot(pg, "cd-15-arrange-touch");
+    await tool(pg, "undo"); eq(await save(), start);
+    await tool(pg, "all");
+    await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "90"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: turn by 90"));
+    await tool(pg, "undo"); eq(await save(), start);
+    // a pen presses the distribute button
+    const cdp = await pg.context().newCDPSession(pg);
+    await tool(pg, "all");
+    await reveal(pg, BT("distribute:h"));
+    const b = await pg.locator(BT("distribute:h")).boundingBox(), px = b.x + b.width / 2, py = b.y + b.height / 2;
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: px, y: py, pointerType: "pen", button: "none", buttons: 0 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: px, y: py, pointerType: "pen", button: "left", buttons: 1, clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: px, y: py, pointerType: "pen", button: "left", buttons: 0, clickCount: 1 });
+    await frames(pg);
+    eq(await save(), g("whole drawing: distribute across"));
+    await tool(pg, "undo"); eq(await save(), start);
   });
 
   await step("tablet with touch and a pen: on a reloaded page the button Arrange pathway lays the messy star out by a tap and by a pen; a cycle is refused with its text; each press is undone", async () => {
