@@ -11,3 +11,6 @@
 **Proof.** Unit (6): escaping of unicode, newline, `&`, `#`, `=`, `+`; the form and title per kind; the log off by default and never silent; the 6000-byte limit (a log that fits, one that does not, line breaks counted as three bytes); the request field gives the same bytes as the page call and its refusals; About. Six golden cases. e2e (4 steps): keyboard (arrows choose, Space ticks, Enter opens, Escape closes and gives the focus back), too-long log and "Copy the log" (the clipboard holds the log), About, touch (44 px targets) and pen; the new tab is intercepted, the URL is parsed and checked, and the page makes no request to GitHub.
 
 **Not built.** A text in another language (English only); any server side, any reading of the issue by the page; the screenshots of the report box on a phone.
+
+## Moved (ui-declutter-1)
+The two openers (`#d2-about-open`, `#d2-report-open`) are no longer a bar at the bottom of the page: they are the first row of the Preferences flyout (`#d2-fly-prefs`), reached from the gear of the File palette. The boxes and everything else on this page are as written above; the flyout closes when a box takes the focus and opens again to give the focus back to the opener. See `ui-declutter-1.md`.

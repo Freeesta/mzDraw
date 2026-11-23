@@ -42,8 +42,8 @@ async function step(name, fn) {
   catch (e) {
     // the first line says what failed; the call log of the page (what was waited for, what covered the target) and the line of this
     // file that threw say where, which is what a failure on a machine other than this one needs
-    const lines = String(e && e.message || e).split("\n").map(l => l.trim()).filter(Boolean), at = String(e && e.stack || "").split("\n").find(l => l.includes("e2e.mjs"));
-    steps.push([name, "FAIL " + lines.slice(0, 8).join(" | ").slice(0, 900) + (at ? " @ " + at.trim().replace(/^at /, "").replace(/^.*\//, "") : "")]);
+    const lines = String(e && e.message || e).split("\n").map(l => l.trim().replace(/\u001b\[[0-9;]*m/g, "")).filter(Boolean), at = String(e && e.stack || "").split("\n").find(l => l.includes("e2e.mjs"));
+    steps.push([name, "FAIL " + lines.slice(0, 30).join(" | ").slice(0, 2400) + (at ? " @ " + at.trim().replace(/^at /, "").replace(/^.*\//, "") : "")]);
   }
 }
 /** a chiral centre drawn with the tools at (cx, cy): a wedge to an O, two plain bonds to an N and a C; returns the id of the centre and
@@ -76,9 +76,9 @@ async function until(pg, expr, ms = 10000) {
 /** a finger within half a second of a pen event is a palm (editor_touch.rs): waits, on the page's own clock, until that window is over
  * since `t0`, a `performance.now()` read just after the pen's last event; never a fixed sleep */
 const palmOver = (pg, t0) => until(pg, `performance.now() - ${t0} > 650`);
-async function context(browser, opts, init = null) {
+async function context(browser, opts, init = null, arg = undefined) {
   const ctx = await browser.newContext({ acceptDownloads: true, ...opts });
-  if (init) await ctx.addInitScript(init);
+  if (init) await ctx.addInitScript(init, arg);
   const pg = await ctx.newPage();
   pg.on("pageerror", e => errs.push(["pageerror", String(e)]));
   pg.on("console", m => { if (m.type() === "error") errs.push(["console.error", m.text()]); });
@@ -124,7 +124,12 @@ async function reveal(pg, sel) {
 }
 /** the unsaved-changes question: when it opens, "Don't save" is chosen (the steps that press New to start from an empty canvas keep what they assert) */
 const dontSave = async pg => { if (await pg.isVisible("#d2-unsaved")) await pg.click("#d2-unsaved-discard"); };
-const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; await reveal(pg, sel); await pg.click(sel); if (name === "clear") await dontSave(pg); };
+/** a flyout left open that covers the button: a person clicks away from it first (a pointer press outside it closes it) */
+const clearAway = async (pg, sel) => {
+  const covered = await pg.evaluate(s => { const e = document.querySelector(s), r = e.getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!t && !e.contains(t) && !!t.closest(".fly"); }, sel);
+  if (covered) await pg.evaluate(() => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
+};
+const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; await reveal(pg, sel); await clearAway(pg, sel); await pg.click(sel); if (name === "clear") await dontSave(pg); };
 const fillIn = async (pg, sel, text) => { await reveal(pg, sel); await pg.fill(sel, text); };
 const saveAs = async (pg, sel) => { await reveal(pg, sel); await pg.click(sel); };
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
@@ -181,7 +186,7 @@ async function displayModes(pg, pick, tapAt) {
   await pg.locator("#d2-style-more summary").click();
 }
 /** a screenshot of one element at deviceScaleFactor 2 (the drawing checks panel, light, dark and tablet: docs/shots/) */
-const shotEl = async (pg, sel, name) => { if (shots) await pg.locator(sel).screenshot({ path: path.join(shots, name + ".png") }); };
+const shotEl = async (pg, sel, name) => { if (shots) { await frames(pg); await pg.locator(sel).screenshot({ path: path.join(shots, name + ".png") }); } };
 // the palettes: where each one is drawn, as the page shows it
 const RECTS = `Object.fromEntries([...document.querySelectorAll(".pal")].map(p => [p.dataset.pal, p.hidden ? null
   : (r => ({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), dock: p.dataset.dock, orient: p.dataset.orient }))(p.getBoundingClientRect())]))`;
@@ -196,7 +201,10 @@ const tapPalette = async (pg, id, show) => {
  *  from) is `ms` past the moment the press was sent, so the press is long on the clock that decides it, whatever the speed of this
  *  machine or of the driver (a fixed sleep of the driver is not a duration of the page) */
 const hold = async (pg, ms = 700) => { const t0 = await pg.evaluate("performance.now()"); await until(pg, `performance.now() >= ${t0 + ms}`); };
-const frames = pg => pg.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
+// two frames, and the soft change of theme (fade.js) over: what is read or photographed next is the theme that was set, not a blend of two
+/** the theme of the page as a host sets it (the attribute on the root; the page's own choice is the Preferences' ui.theme), then the soft change is over */
+const setTheme = async (pg, theme) => { await pg.evaluate(t => { document.documentElement.dataset.theme = t; }, theme); await frames(pg); };
+const frames = pg => pg.evaluate(`new Promise(r => { const f = () => requestAnimationFrame(() => requestAnimationFrame(() => (document.documentElement.classList.contains("d2-fading") || document.querySelector(".d2-ghost")) ? f() : r())); f(); })`);
 /** opens or closes a palette `<details>` by its summary and waits for the page to say so (the palettes lay themselves out again after
  *  a toggle: a click made before that lands on what moved). On failure the message carries the state of every such element. */
 async function setOpen(pg, sel, open) {
@@ -211,6 +219,30 @@ async function setOpen(pg, sel, open) {
   }
 }
 const center = async (pg, sel) => { const b = await pg.locator(sel).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+/** a point of a title row that no other palette lies over (the pointer lands on the title) */
+const titlePoint = async (pg, sel) => {
+  const b = await pg.locator(sel).boundingBox(), id = await pg.locator(sel).getAttribute("data-testid");
+  for (let d = 8; d < b.width; d += 8) {
+    const x = b.x + d, y = b.y + b.height / 2;
+    if (await pg.evaluate(([x, y, id]) => document.elementFromPoint(x, y)?.dataset.testid === id, [x, y, id])) return [x, y];
+  }
+  throw new Error("no free point on " + sel);
+};
+/** a point of the empty margin of a palette, the place where its handle (the frame behind the buttons) takes the pointer: the middle of its top edge,
+ * 3 px in; where another palette lies over that point, the nearest point of the frame that is the handle's own */
+const margin = async (pg, sel) => {
+  const b = await pg.locator(sel).boundingBox();
+  const cands = [[b.width / 2, 3]];
+  for (let d = 6; d < b.width; d += 6) cands.push([b.width / 2 + d, 3], [b.width / 2 - d, 3]);
+  for (let d = 6; d < b.height; d += 6) cands.push([3, d], [b.width - 3, d]);
+  for (let d = 0; d < b.width; d += 6) cands.push([d, b.height - 3]);
+  for (const [dx, dy] of cands) {
+    if (dx < 0 || dx > b.width) continue;
+    const own = await pg.evaluate(([x, y, id]) => document.elementFromPoint(x, y)?.dataset.testid === id, [b.x + dx, b.y + dy, await pg.locator(sel).getAttribute("data-testid")]);
+    if (own) return [b.x + dx, b.y + dy];
+  }
+  throw new Error("no free margin on " + sel);
+};
 /** the shown palettes lie inside the viewport, no two docked ones overlap, and the canvas is in the area they leave free */
 async function tidy(pg, w, h) {
   const all = Object.entries(await rects(pg)).filter(([, r]) => r), c = await pg.locator("#d2-canvas").boundingBox();
@@ -268,6 +300,7 @@ const inkAt = (pg, col, ops, want) => pg.evaluate(([col, ops, want]) => {
 }, [col, ops, want]);
 /** the colour of the page at a point, from a screenshot (the paper under the canvas is CSS, not canvas ink) */
 const pixelAt = async (pg, x, y) => {
+  await frames(pg);
   const png = await pg.screenshot({ clip: { x, y, width: 2, height: 2 } });
   return pg.evaluate(async b64 => {
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)), bm = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
@@ -275,7 +308,7 @@ const pixelAt = async (pg, x, y) => {
     return Array.from(g.getImageData(0, 0, 1, 1).data).slice(0, 3);
   }, png.toString("base64"));
 };
-const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
+const shot = async (pg, name) => { if (shots) { await frames(pg); await pg.screenshot({ path: path.join(shots, name + ".png") }); } };
 
 /** the lone-pair and curved-arrow round of one pointer (`how`: `down`, `move`, `up` in page pixels; the kind is the pointer's): an N is drawn,
  * a lone pair put on it by the lone-pair tool, a pair curve drawn from the pair to the carbon, the carbon moved (the curve follows with no
@@ -442,7 +475,7 @@ try {
       eq(["surface", "surface-raised", "paper", "hover", "accent-soft", "selection"].filter(n => lab(t[n])[2] >= 12).map(n => [theme, n]), []);
       // the canvas is painted with the theme's colours: what the 2D context holds is read back and compared with the tokens (a theme that
       // did not repaint, or a canvas that read the wrong variable, would show the other theme's pixels)
-      await pg.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
+      await frames(pg);
       const rgb = n => rgba(t[n]).slice(0, 3).map(Math.round);
       eq(await pixelAt(pg, ...spot), rgb("paper"));
       for (const [what, col, ops, token] of [["ink", 0, [1], "ink"], ["the halo of the selection", 1, [4], "selection"], ["nitrogen", 5, [2], "atom-n"], ["oxygen", 6, [2], "atom-o"], ["sulfur", 7, [2], "atom-s"],
@@ -1646,12 +1679,12 @@ try {
     assert(/Enter/.test(grip[1]) && /Escape/.test(grip[1]), "the handle names its keys");
     // a click on a handle with a little jitter is a click: nothing moves, nothing is stored
     const stored = await pg.evaluate("Number(document.documentElement.dataset.d2Style || 0)");
-    { const [gx, gy] = await center(pg, '[data-testid="d2-grip-edit"]'); await pg.mouse.move(gx, gy); await pg.mouse.down(); await pg.mouse.move(gx + 1, gy + 1); await pg.mouse.up(); await frames(pg); }
+    { const [gx, gy] = await margin(pg, '[data-testid="d2-grip-edit"]'); await pg.mouse.move(gx, gy); await pg.mouse.down(); await pg.mouse.move(gx + 1, gy + 1); await pg.mouse.up(); await frames(pg); }
     eq(await rects(pg), home);
     eq(await pg.evaluate("Number(document.documentElement.dataset.d2Style || 0)"), stored);
     /** drags a palette by its handle with the mouse to a page point; `hint`: the edge it says it will dock on before it is let go */
     const drag = async (id, x, y, hint) => {
-      const [gx, gy] = await center(pg, `[data-testid="d2-grip-${id}"]`);
+      const [gx, gy] = await margin(pg, `[data-testid="d2-grip-${id}"]`);
       await pg.mouse.move(gx, gy); await pg.mouse.down(); await pg.mouse.move(x, y, { steps: 8 });
       if (hint !== undefined) eq(await pg.evaluate("(h => h.hidden ? '' : h.dataset.edge)(document.querySelector('#d2-dock-hint'))"), hint);
       await pg.mouse.up(); await frames(pg);
@@ -1659,7 +1692,7 @@ try {
     };
     // floating: the palette follows the pointer
     // a spot for its top edge that is farther than the snap distance from every line a palette would snap to
-    const [, gy0] = await center(pg, '[data-testid="d2-grip-edit"]');
+    const [, gy0] = await margin(pg, '[data-testid="d2-grip-edit"]');
     const lines = Object.entries(home).filter(([id, q]) => q && id !== "edit").flatMap(([, q]) => [q.y + q.h, q.y - home.edit.h, q.y, q.y + q.h - home.edit.h]).concat([0, 720 - home.edit.h]);
     let top = 100, room = -1;
     for (let t = 100; t < 600; t++) { const d = Math.min(...lines.map(l => Math.abs(t - l))); if (d > room) { room = d; top = t; } }
@@ -1676,15 +1709,23 @@ try {
     // a full right column wraps: the palette stands at the right edge, or flush against the column beside it
     assert(r.history.x + r.history.w === 1280 || Object.values(r).some(q => q && q.dock === "right" && q.x === r.history.x + r.history.w), "docked in the right column");
     // two floating palettes: one dropped 6 px from the other snaps flush to it, on the same line
-    await drag("view", 500, 300);
+    // a spot for the top of "view" such that no line a palette snaps to (the edges of the others, the page) lies within the snap distance of it
+    // or of the top of "history" dropped 4 px lower: the snap of the two to each other is then the only one at work
+    const others = Object.entries(await rects(pg)).filter(([id, q]) => q && id !== "view" && id !== "history").map(([, q]) => q);
+    const apart = (ph, v) => Math.min(...others.flatMap(q => [q.y + q.h, q.y - ph, q.y, q.y + q.h - ph]).concat([0, 720 - ph]).map(l => Math.abs(v - l)));
+    let rt = -1;
+    for (let t = 150; t < 500 && rt < 0; t++) if (apart((await rects(pg)).view.h, t) > 14 && apart((await rects(pg)).history.h, t + 4) > 14) rt = t;
+    assert(rt > 0, "a free spot to drop the two palettes on");
+    const [, gyr] = await margin(pg, '[data-testid="d2-grip-view"]');
+    await drag("view", 500, rt + (gyr - (await rects(pg)).view.y));
     r = await rects(pg);
-    const [kx, ky] = await center(pg, '[data-testid="d2-grip-history"]');
+    const [kx, ky] = await margin(pg, '[data-testid="d2-grip-history"]');
     await drag("history", r.view.x + r.view.w + 6 + (kx - r.history.x), r.view.y + 4 + (ky - r.history.y));
     const s2 = await rects(pg);
     eq([s2.history.dock, s2.history.x, s2.history.y], ["float", s2.view.x + s2.view.w, s2.view.y]);
     await tidy(pg, 1280, 720);
     await shot(pg, "palettes-moved");
-    await pg.emulateMedia({ colorScheme: "dark" }); await frames(pg); await shot(pg, "palettes-moved-dark"); await pg.emulateMedia({ colorScheme: "light" });
+    await setTheme(pg, "dark"); await shot(pg, "palettes-moved-dark"); await setTheme(pg, "light");
     // the layout is in the settings file the module writes, and the page keeps it
     await until(pg, "Number(document.documentElement.dataset.d2Style || 0) >= 1");
     // and after a reload the palettes are where they were left
@@ -1705,9 +1746,9 @@ try {
     await pg.keyboard.press("Enter"); await frames(pg); eq((await rects(pg)).tools, home.tools);
     eq(await pg.evaluate("document.activeElement.dataset.testid"), "d2-grip-tools");
     // a double click on the handle expands a collapsed palette: every edit command is in view; the general tools palette has no collapsed state
-    await pg.dblclick('[data-testid="d2-grip-edit"]'); await frames(pg);
+    await pg.dblclick('[data-testid="d2-grip-edit"]', { position: { x: 20, y: 3 } }); await frames(pg);
     assert(await pg.isVisible('#d2-pal-edit [data-testid="d2-cut"]'), "the edit palette expanded");
-    await pg.dblclick('[data-testid="d2-grip-tools"]'); await frames(pg);
+    await pg.dblclick('[data-testid="d2-grip-tools"]', { position: { x: 20, y: 3 } }); await frames(pg);
     assert(await pg.isVisible('#d2-pal-tools [data-testid="d2-head-bonds"]') && !(await rects(pg)).tools.collapsed, "the tools palette stays whole");
     // the Palettes menu: hide one, collapse one again, then hide all and show them, then reset the layout
     await pg.click('[data-testid="d2-palettes"]');
@@ -1943,8 +1984,8 @@ try {
     await pg.locator("#d2-std-list").scrollIntoViewIfNeeded();
     await shot(pg, "checks");
     await shotEl(pg, "#d2-std-panel", "std-light");
-    await pg.emulateMedia({ colorScheme: "dark" }); await shotEl(pg, "#d2-std-panel", "std-dark");
-    await pg.emulateMedia({ colorScheme: "light" });
+    await setTheme(pg, "dark"); await shotEl(pg, "#d2-std-panel", "std-dark");
+    await setTheme(pg, "light");
     const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
     await pg.focus("#d2-std-list button"); await pg.keyboard.press("Enter");
     await want(pg, { selected: 2 });                                      // the atom and the bond the finding is about
@@ -2546,7 +2587,7 @@ try {
     await tool(pg, "select");
     await tool(pg, "ring:6a"); await pg.mouse.click(cx, cy + 100); await want(pg, { atoms: 6 });
     await shot(pg, "palettes-tablet");
-    await pg.emulateMedia({ colorScheme: "dark" }); await frames(pg); await shot(pg, "palettes-tablet-dark"); await pg.emulateMedia({ colorScheme: "light" });
+    await setTheme(pg, "dark"); await shot(pg, "palettes-tablet-dark"); await setTheme(pg, "light");
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     // the menu by tapping: a side palette hidden on a tablet is shown, and hidden again
     await pg.tap('[data-testid="d2-palettes"]'); await pg.tap('[data-testid="d2-menu-hidden-check"]'); await frames(pg);
@@ -2562,13 +2603,13 @@ try {
     await pg.tap('[data-testid="d2-palettes"]'); eq(await pg.getAttribute('[data-testid="d2-palettes"]', "aria-expanded"), "false");
     const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
     const finger = async (id, x, y) => {
-      const [gx, gy] = await center(pg, `[data-testid="d2-grip-${id}"]`);
+      const [gx, gy] = await margin(pg, `[data-testid="d2-grip-${id}"]`);
       await touch("touchStart", [[gx, gy]]);
       for (let i = 1; i <= 6; i++) await touch("touchMove", [[gx + (x - gx) * i / 6, gy + (y - gy) * i / 6]]);
       await touch("touchEnd", []); await frames(pg);
     };
     const pen = async (id, x, y) => {
-      const [gx, gy] = await center(pg, `[data-testid="d2-grip-${id}"]`), send = (type, px, py, buttons) => cdp.send("Input.dispatchMouseEvent", { type, x: px, y: py, pointerType: "pen", button: "left", buttons, clickCount: 1 });
+      const [gx, gy] = await margin(pg, `[data-testid="d2-grip-${id}"]`), send = (type, px, py, buttons) => cdp.send("Input.dispatchMouseEvent", { type, x: px, y: py, pointerType: "pen", button: "left", buttons, clickCount: 1 });
       await send("mouseMoved", gx, gy, 0); await send("mousePressed", gx, gy, 1);
       for (let i = 1; i <= 6; i++) await send("mouseMoved", gx + (x - gx) * i / 6, gy + (y - gy) * i / 6, 1);
       await send("mouseReleased", x, y, 0); await frames(pg);
@@ -2778,6 +2819,7 @@ try {
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, colorScheme: "dark" }));
+  await setTheme(pg, "dark");       // the first visit is light whatever the system prefers: this step is the dark one, as a host sets it
   await step("context menu, dark: the colours come from the page's variables", async () => {
     await ring(pg, cx, cy);
     const { atom } = await firstLine(pg);
@@ -3701,9 +3743,9 @@ try {
     const file = JSON.parse(await pg.evaluate("window.MZDRAW.style()"));
     eq(file.ui, { theme: "dark" }); eq(file.export, { background: "none", default: "png" });
     // a file of a newer version keeps its unknown keys of `ui` and the theme goes with the file
-    await pg.evaluate("window.MZDRAW.set_style(JSON.stringify({ format: 'mzdraw-settings/1', style: {}, ui: { theme: 'light', density: 'tight' } }))");
-    await pg.evaluate("window.MZDRAW.set('ui.theme=light')");
-    eq(JSON.parse(await pg.evaluate("window.MZDRAW.style()")).ui, { density: "tight", theme: "light" });
+    await pg.evaluate("window.MZDRAW.set_style(JSON.stringify({ format: 'mzdraw-settings/1', style: {}, ui: { theme: 'auto', density: 'tight' } }))");
+    await pg.evaluate("window.MZDRAW.set('ui.theme=auto')");
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.style()")).ui, { density: "tight", theme: "auto" });
     await pg.selectOption(pfSel("ui.theme"), "dark");
     const kept = await pg.evaluate("Number(document.documentElement.dataset.d2Style || 0)");
     await until(pg, `Number(document.documentElement.dataset.d2Style || 0) > ${kept}`);
@@ -3712,7 +3754,7 @@ try {
     eq(await pg.evaluate("window.MZDRAW.get('ui.theme')"), "dark");
     await pg.click('[data-testid="d2-prefs"]'); await pfShown(true);
     eq(await pg.inputValue(pfSel("ui.theme")), "dark"); eq(await pg.inputValue(pfSel("export.default")), "svg");     // the settings opened again are those of the file the module wrote last
-    await pg.click('#d2-fly-prefs [data-reset="appearance"]'); await until(pg, "document.documentElement.dataset.theme === undefined");
+    await pg.click('#d2-fly-prefs [data-reset="appearance"]'); await until(pg, "document.documentElement.dataset.theme === 'light'");       // the default of the theme is light
     await pg.keyboard.press("Escape");
   });
   await step("preferences by touch: tap the gear, switch the colours and reset the group Display with a finger; the page equals the goldens", async () => {
@@ -3750,20 +3792,20 @@ try {
       new MutationObserver((_, o) => { if (document.body) { /** @type {any} */ (window).__atBody = [document.documentElement.dataset.theme || "", document.documentElement.dataset.d2Ready || ""]; o.disconnect(); } }).observe(document, { childList: true, subtree: true });
     });
     eq(await c.pg.evaluate("window.__atBody"), ["dark", ""], "the first paint has the stored theme, the module is not ready yet");
-    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined, "the module's settings say auto: the stored word is taken off once it is ready");
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), "light", "the module's settings say light (the default): its word replaces the stored one once it is ready");
     await c.ctx.close();
     // a corrupt stored theme: the file's style and layout are kept, the note says what was dropped
     c = await context(browser, { viewport: { width: 1280, height: 800 } });
     await c.pg.evaluate(async name => { const w = await (await (await navigator.storage.getDirectory()).getFileHandle(name, { create: true })).createWritable(); await w.write(JSON.stringify({ format: "mzdraw-settings/1", style: { colour: "mono" }, layout: { preset: "tablet" }, ui: { theme: "sepia" } })); await w.close(); }, "mzdraw-settings.json");
     await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
     eq(JSON.parse(await c.pg.evaluate("window.MZDRAW.style()")).style.colour, "mono");
-    eq(await c.pg.evaluate("window.MZDRAW.get('ui.theme')"), "auto");
+    eq(await c.pg.evaluate("window.MZDRAW.get('ui.theme')"), "light");
     eq(await c.pg.innerText("#d2-style-note"), await c.pg.evaluate("I18N.t('error.draw2.ui')"));
-    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined);
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), "light");
     await c.pg.evaluate(() => localStorage.setItem("d2-theme", "dark")); await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
     await c.pg.evaluate(async name => { const w = await (await (await navigator.storage.getDirectory()).getFileHandle(name, { create: true })).createWritable(); await w.write(JSON.stringify({ format: "mzdraw-settings/1", style: {} })); await w.close(); }, "mzdraw-settings.json");
     await c.pg.evaluate(() => localStorage.setItem("d2-theme", "dark")); await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
-    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), undefined, "a stored dark theme the module's settings do not have is taken off");
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), "light", "a stored dark theme the module's settings do not have is replaced by the module's word");
     await c.ctx.close();
     // storage that throws: the page starts, in the theme of the system
     c = await context(browser, { viewport: { width: 1280, height: 800 } }, () => {
@@ -3775,6 +3817,241 @@ try {
     await c.pg.click('[data-testid="d2-prefs"]'); await c.pg.selectOption('#d2-fly-prefs [data-setting="ui.theme"]', "dark");
     await until(c.pg, "document.documentElement.dataset.theme === 'dark'");
     await c.ctx.close();
+  });
+
+  // ui-declutter-1: the first visit opens the light theme whatever the system prefers; a stored choice wins; the change of theme is soft
+  const PAPER = { light: "rgb(254, 254, 252)", dark: "rgb(27, 27, 25)" };
+  const bodyBg = pg => pg.evaluate("getComputedStyle(document.body).backgroundColor");
+  await step("theme default: a first visit opens light even when the system prefers dark, before the first paint and without a fade; a stored dark or auto choice wins and is kept", async () => {
+    let c = await context(browser, { viewport: { width: 1280, height: 800 }, colorScheme: "dark" }, () => {
+      new MutationObserver((_, o) => { if (document.body) { /** @type {any} */ (window).__atBody = document.documentElement.dataset.theme || ""; o.disconnect(); } }).observe(document, { childList: true, subtree: true });
+    });
+    eq(await c.pg.evaluate("window.__atBody"), "light", "nothing stored: the page is light before the module is there");
+    eq(await bodyBg(c.pg), PAPER.light, "white canvas on a dark system");
+    eq(await c.pg.evaluate("document.documentElement.dataset.theme"), "light");
+    eq(await c.pg.evaluate("[document.documentElement.classList.contains('d2-fading'), !!document.querySelector('.d2-ghost'), getComputedStyle(document.body).transitionDuration]"), [false, false, "0s"], "no fade on the first paint");
+    await c.ctx.close();
+    // a stored word the module does not know (a corrupt or foreign value) is the default, before the first paint
+    for (const bad of ["sepia", "Dark", "<b>", "none", ""]) {
+      c = await context(browser, { viewport: { width: 1280, height: 800 }, colorScheme: "dark" }, b => {
+        localStorage.setItem("d2-theme", b);
+        new MutationObserver((_, o) => { if (document.body) { /** @type {any} */ (window).__atBody = document.documentElement.dataset.theme || ""; o.disconnect(); } }).observe(document, { childList: true, subtree: true });
+      }, bad);
+      eq(await c.pg.evaluate("window.__atBody"), "light", `a stored "${bad}" is the default`);
+      eq(await bodyBg(c.pg), PAPER.light);
+      await c.ctx.close();
+    }
+    c = await context(browser, { viewport: { width: 1280, height: 800 }, colorScheme: "dark" });
+    // the choice of dark is kept: the next visit opens dark, a stored word wins over the default
+    const styleSaves = async () => Number(await c.pg.evaluate("document.documentElement.dataset.d2Style || 0"));
+    const choose = async word => {
+      const n = await styleSaves();
+      await c.pg.click('[data-testid="d2-prefs"]'); await c.pg.selectOption('#d2-fly-prefs [data-setting="ui.theme"]', word);
+      await until(c.pg, `Number(document.documentElement.dataset.d2Style || 0) > ${n}`);       // the settings file is written: a reload now reads it
+      await frames(c.pg);
+    };
+    await choose("dark");
+    eq(await bodyBg(c.pg), PAPER.dark);
+    await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
+    eq([await c.pg.evaluate("document.documentElement.dataset.theme"), await bodyBg(c.pg), await c.pg.evaluate("localStorage.getItem('d2-theme')")], ["dark", PAPER.dark, "dark"]);
+    // `auto` is a choice too: it follows the system (here dark), and a reload keeps following it
+    await choose("auto");
+    eq([await c.pg.evaluate("document.documentElement.dataset.theme"), await bodyBg(c.pg)], [undefined, PAPER.dark], "auto on a dark system is dark");
+    await c.pg.reload(); await until(c.pg, "document.documentElement.dataset.d2Ready === '1'");
+    eq([await c.pg.evaluate("document.documentElement.dataset.theme"), await bodyBg(c.pg), await c.pg.evaluate("localStorage.getItem('d2-theme')")], [undefined, PAPER.dark, "auto"]);
+    await c.pg.emulateMedia({ colorScheme: "light" }); await frames(c.pg);
+    eq(await bodyBg(c.pg), PAPER.light, "auto follows the system when it changes");
+    // the reset of the group Appearance is light again
+    await c.pg.click('[data-testid="d2-prefs"]'); await c.pg.click('#d2-fly-prefs [data-reset="appearance"]'); await until(c.pg, "document.documentElement.dataset.theme === 'light'");
+    await c.ctx.close();
+  });
+  /** switches the theme with `how` and samples the page every frame from the change: the colours of the body and of a palette, and the old canvas that fades out */
+  const fadeRun = async (pg, how, to) => {
+    await pg.evaluate(() => {
+      const w = /** @type {any} */ (window), el = document.querySelector(".pal"), s = w.__fade = { t0: 0, rows: [], ghosts: 0, done: false };
+      new MutationObserver(() => { if (!s.t0) { s.t0 = performance.now(); const tick = () => { const t = performance.now() - s.t0, g = document.querySelector(".d2-ghost"); if (g && !s.ghost) { const px = /** @type {HTMLCanvasElement} */ (g).getContext("2d").getImageData(0, 0, /** @type {HTMLCanvasElement} */ (g).width, /** @type {HTMLCanvasElement} */ (g).height).data, seen = new Set(); for (let i = 0; i < px.length; i += 4) if (px[i + 3] === 255) seen.add(px[i] + "," + px[i + 1] + "," + px[i + 2]); s.ghost = { bg: getComputedStyle(g).backgroundColor, opaque: [...seen].slice(0, 400) }; } s.rows.push([Math.round(t), getComputedStyle(document.body).backgroundColor, getComputedStyle(/** @type {Element} */ (el)).backgroundColor, g ? Number(getComputedStyle(g).opacity) : null]); if (t < 900) requestAnimationFrame(tick); else s.done = true; }; tick(); } }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      new MutationObserver(m => { for (const r of m) for (const n of r.addedNodes) if (/** @type {any} */ (n).className === "d2-ghost") s.ghosts++; }).observe(document.getElementById("d2-stage"), { childList: true });
+    });
+    await how();
+    await until(pg, "window.__fade.done", 5000);
+    return pg.evaluate("window.__fade");
+  };
+  const fadeOf = async (name, ctxOpts, how, from, to) => {
+    const c = await context(browser, { viewport: { width: 1280, height: 800 }, ...ctxOpts });
+    try {
+      await c.pg.evaluate(t => { document.documentElement.dataset.theme = t; }, from); await frames(c.pg);
+      await c.pg.fill("#d2-text", "NC(=O)C"); await c.pg.click("#d2-add"); await want(c.pg, { atoms: 4, bonds: 3 });
+      const old = await bodyBg(c.pg);
+      eq(old, PAPER[from], name + ": the start");
+      const f = await fadeRun(c.pg, () => how(c.pg, to), to);
+      return { f, old, c };
+    } catch (e) { await c.ctx.close(); throw e; }
+  };
+  const viaMenu = async (pg, to) => { await pg.click('[data-testid="d2-prefs"]'); await pg.selectOption('#d2-fly-prefs [data-setting="ui.theme"]', to); };
+  const viaKeys = async (pg, to) => {
+    await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter");
+    await until(pg, "document.activeElement && document.activeElement.closest('#d2-fly-prefs')");
+    await pg.focus('#d2-fly-prefs [data-setting="ui.theme"]'); await pg.keyboard.press(to === "dark" ? "ArrowDown" : "ArrowUp");
+  };
+  const viaTouch = async (pg, to) => { await pg.touchscreen.tap(...await center(pg, '[data-testid="d2-prefs"]')); await until(pg, "!document.getElementById('d2-fly-prefs').hidden"); await pg.selectOption('#d2-fly-prefs [data-setting="ui.theme"]', to); };
+  // one function, three steps written out (the end of this file counts the steps it declares)
+  const fadeStep = async (how, opts, way, from, to) => {
+      const { f, old, c } = await fadeOf(how, opts, way, from, to);
+      try {
+        const rows = f.rows, last = rows[rows.length - 1];
+        eq([last[1], last[3]], [PAPER[to], null], "it ends on the new theme, the old canvas gone");
+        const near = rows.find(r => r[0] >= 90);
+        assert(near && near[1] !== old && near[1] !== PAPER[to], "about 100 ms in, the paper is neither the old colour nor the new one: " + JSON.stringify(near));
+        assert(rows.some(r => r[2] !== rows[0][2] && r[2] !== last[2]), "a palette passes through a value of its own too");
+        // between the two: every channel of a sample lies between the old and the new value
+        const ch = x => x.match(/\d+/g).map(Number), [a, b] = [ch(old), ch(PAPER[to])];
+        assert(rows.filter(r => r[0] > 0 && r[0] < 250).every(r => ch(r[1]).every((v, i) => v >= Math.min(a[i], b[i]) - 1 && v <= Math.max(a[i], b[i]) + 1)), "the paper stays between the two themes");
+        eq(f.ghosts, 1, "the old canvas is kept once and fades");
+        // the copy was taken before the new theme went on: it has the old paper and the old ink, none of the new ink
+        const INK = { light: "42,41,37", dark: "226,223,216" };
+        eq(f.ghost.bg, PAPER[from], "the copy lies on the old paper");
+        assert(f.ghost.opaque.includes(INK[from]) && !f.ghost.opaque.includes(INK[to]), "the copy shows the old picture (old ink, not the new): " + JSON.stringify(f.ghost.opaque.slice(0, 6)));
+        assert(rows.some(r => r[3] !== null && r[3] > 0.05 && r[3] < 0.95), "the old canvas is half there at some frame");
+        eq(await c.pg.evaluate("[document.documentElement.classList.contains('d2-fading'), getComputedStyle(document.body).transitionDuration]"), [false, "0s"], "the fade is over: no transition stays on the page");
+        await shot(c.pg, "theme-fade-" + how);
+      } finally { await c.ctx.close(); }
+  };
+  const FADE = "the colours of the page and the canvas pass through values between the old and the new theme, then settle on the new one";
+  await step(`theme fade by mouse: ${FADE}`, () => fadeStep("mouse", {}, viaMenu, "light", "dark"));
+  await step(`theme fade by keyboard: ${FADE}`, () => fadeStep("keyboard", {}, viaKeys, "light", "dark"));
+  await step(`theme fade by touch: ${FADE}`, () => fadeStep("touch", { hasTouch: true }, viaTouch, "dark", "light"));
+  await step("theme fade with reduced motion: the switch is instant, with no copy of the canvas and no transition", async () => {
+    const { f, old, c } = await fadeOf("reduced", { reducedMotion: "reduce" }, viaMenu, "light", "dark");
+    try {
+      eq(f.rows[0][1], PAPER.dark, "the very first frame is the new theme");
+      assert(f.rows.every(r => r[1] === PAPER.dark && r[3] === null), "no frame in between");
+      eq(f.ghosts, 0, "no old canvas is kept");
+      assert(old !== PAPER.dark);
+    } finally { await c.ctx.close(); }
+  });
+
+  // ui-declutter-1, items 2 to 5: no counts painted on the canvas, About and Report in the Preferences, the panels never overlap, the title row moves a panel
+  await step("status: the counts of atoms and bonds are not painted on the canvas; they stay in a visually hidden live region and in the list of what is drawn", async () => {
+    const c = await context(browser, { viewport: { width: 1280, height: 800 } });
+    try {
+      await c.pg.fill("#d2-text", "NC(=O)C"); await c.pg.click("#d2-add"); await want(c.pg, { atoms: 4, bonds: 3 });
+      const expect = await c.pg.evaluate("I18N.t('draw2.count', { atoms: 4, bonds: 3, objects: 0 })");
+      eq(await c.pg.innerText("#d2-status"), expect);
+      eq(await c.pg.evaluate("(e => [e.closest('[role=status]')?.id, e.offsetWidth, e.offsetHeight, getComputedStyle(e).clipPath, e.textContent])(document.getElementById('d2-counts'))"), ["d2-status", 1, 1, "inset(50%)", expect], "a 1 px clipped live region: assistive technology reads it, nothing is painted");
+      eq(await c.pg.evaluate("document.getElementById('d2-status').getBoundingClientRect().height <= 1 || getComputedStyle(document.getElementById('d2-status')).visibility"), true, "nothing visible takes the bottom-left corner");
+      // the list of what is drawn in the Check panel says it too
+      assert((await c.pg.innerText("#d2-outline")).length > 0, "what is drawn is listed in the Check panel");
+    } finally { await c.ctx.close(); }
+  });
+  await step("panels: no two visible panels or palettes overlap at 390x844, 768x1024, 1280x800 and 2000x1130, every side panel open or every one collapsed, and each stays inside the page", async () => {
+    for (const [w, h] of [[390, 844], [768, 1024], [1280, 800], [2000, 1130]]) {
+      for (const collapsed of [false, true]) {
+        const c = await context(browser, { viewport: { width: w, height: h }, hasTouch: w < 800 });
+        try {
+          await c.pg.click('[data-testid="d2-palettes"]');
+          for (const id of ["structure", "style", "data", "annotation", "check", "keys"]) {
+            const shown = `[data-testid="d2-menu-hidden-${id}"]`, fold = `[data-testid="d2-menu-collapsed-${id}"]`;
+            if (!(await c.pg.isChecked(shown))) await c.pg.check(shown);
+            if ((await c.pg.isChecked(fold)) !== collapsed) await c.pg.setChecked(fold, collapsed);
+          }
+          await c.pg.keyboard.press("Escape"); await frames(c.pg);
+          const boxes = await c.pg.evaluate("[...document.querySelectorAll('.pal')].filter(e => !e.hidden).map(e => { const r = e.getBoundingClientRect(); return [e.dataset.pal, r.left, r.top, r.right, r.bottom]; })");
+          eq(boxes.filter(b => b[0].length === 0), []);
+          eq(boxes.length, await c.pg.evaluate("document.querySelectorAll('.pal').length"), `${w}x${h}: every palette is in view`);
+          const over = [];
+          for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+            const [a, b] = [boxes[i], boxes[j]];
+            if (a[1] < b[3] - 0.5 && b[1] < a[3] - 0.5 && a[2] < b[4] - 0.5 && b[2] < a[4] - 0.5) over.push(`${a[0]} x ${b[0]}`);
+          }
+          eq(over, [], `${w}x${h} collapsed=${collapsed}: panels overlap`);
+          eq(boxes.filter(b => b[1] < -0.5 || b[2] < -0.5 || b[3] > w + 0.5 || b[4] > h + 0.5).map(b => b[0]), [], `${w}x${h}: a panel leaves the page`);
+          // a panel that was cut still scrolls inside itself: its content is reachable
+          // (the cap is on the palette, the scroll on its disclosure: the disclosure keeps a height of its own and scrolls, the palette itself does not overflow)
+          eq(await c.pg.evaluate("[...document.querySelectorAll('.pal.side:not([hidden])')].filter(e => e.style.maxHeight).filter(e => { const d = e.querySelector(':scope > details'); return !(getComputedStyle(d).overflowY === 'auto' && d.clientHeight >= 20 && e.scrollHeight <= e.clientHeight + 1 && e.getBoundingClientRect().height <= parseFloat(e.style.maxHeight) + 0.5); }).map(e => e.dataset.pal)"), [], `${w}x${h}: a cut panel keeps a usable scroll inside`);
+          if (!collapsed) await shot(c.pg, `panels-${w}x${h}`);
+        } finally { await c.ctx.close(); }
+      }
+    }
+  });
+  await step("panels: a panel is moved by its title row, by the empty margin of a palette and by the keyboard (Alt+arrows), with a mouse, a finger and a pen; a click on the title still opens it", async () => {
+    const c = await context(browser, { viewport: { width: 1280, height: 800 }, hasTouch: true });
+    try {
+      const { pg } = c;
+      const where = id => pg.evaluate(i => { const r = document.querySelector(`.pal[data-pal=${i}]`).getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top)]; }, id);
+      eq(await pg.evaluate("document.querySelectorAll('.grip').length > 0 && [...document.querySelectorAll('.grip')].every(g => getComputedStyle(g).backgroundImage === 'none' && g.getBoundingClientRect().height > 40)"), true, "the handle is the frame: no row of dots, no strip of its own");
+      // the title says how to move the panel from the keyboard
+      eq(await pg.evaluate("document.querySelector('[data-testid=d2-title-structure]').getAttribute('aria-description')"), await pg.evaluate("I18N.t('draw2.pal.title.keys')"));
+      eq(await pg.evaluate("document.querySelector('[data-testid=d2-grip-structure]').getAttribute('aria-label')"), await pg.evaluate("I18N.t('draw2.pal.grip.name', { name: I18N.t('draw2.pal.structure') })"));
+      // a click on the title opens and closes the panel; nothing moves
+      const open0 = await pg.evaluate("document.querySelector('.pal[data-pal=structure] > details').open"), at0 = await where("structure");
+      await pg.click('[data-testid="d2-title-structure"]'); await frames(pg);
+      eq(await pg.evaluate("document.querySelector('.pal[data-pal=structure] > details').open"), !open0);
+      await pg.click('[data-testid="d2-title-structure"]'); await frames(pg);
+      eq([await pg.evaluate("document.querySelector('.pal[data-pal=structure] > details').open"), await where("structure")], [open0, at0]);
+      // the mouse drags the title: the panel floats where it is dropped, and the drag does not toggle it
+      let [x, y] = await center(pg, '[data-testid="d2-title-structure"]');
+      await pg.mouse.move(x, y); await pg.mouse.down(); await pg.mouse.move(x - 300, y + 120, { steps: 8 }); await pg.mouse.up(); await frames(pg);
+      const moved = await where("structure");
+      assert(Math.abs(moved[0] - (at0[0] - 300)) <= 12 && Math.abs(moved[1] - (at0[1] + 120)) <= 12, "the title row moved the panel: " + JSON.stringify([at0, moved]));
+      eq(await pg.evaluate("document.querySelector('.pal[data-pal=structure] > details').open"), open0, "a drag does not open or close it");
+      eq(await pg.evaluate("document.querySelector('.pal[data-pal=structure]').dataset.dock"), "float");
+      // the keyboard: Alt+arrow from the title moves it, Shift takes a larger step; Alt+Escape puts it back
+      await pg.focus('[data-testid="d2-title-structure"]');
+      // Alt+Left and Alt+Right are Back and Forward in some browsers: the page takes the key when the module moves the palette, and is not navigated
+      await pg.evaluate(() => { const w = /** @type {any} */ (window); w.__hist = [history.length, location.href]; });
+      await pg.keyboard.press("Alt+ArrowLeft"); await frames(pg);
+      eq(await where("structure"), [moved[0] - 8, moved[1]]);
+      await pg.keyboard.press("Alt+ArrowRight"); await frames(pg);
+      // the key event is cancelled (the browser's own Back / Forward would not run) and the page is where it was; a key the module does not take is left alone
+      eq(await pg.evaluate(() => { const t = document.activeElement, ev = k => { const e = new KeyboardEvent("keydown", { key: k, altKey: true, bubbles: true, cancelable: true }); /** @type {Element} */ (t).dispatchEvent(e); return e.defaultPrevented; }; return [ev("ArrowLeft"), ev("ArrowRight"), ev("x"), history.length === /** @type {any} */ (window).__hist[0] && location.href === /** @type {any} */ (window).__hist[1]]; }), [true, true, false, true], "Alt+Left and Alt+Right are taken by the palette, Alt+x is not, and the page did not navigate");
+      await pg.evaluate("1"); await frames(pg);
+      await pg.keyboard.press("Alt+ArrowRight"); await frames(pg);
+      eq(await where("structure"), [moved[0] + 8, moved[1]]);
+      await pg.keyboard.press("Alt+Shift+ArrowDown"); await frames(pg);
+      eq(await where("structure"), [moved[0] + 8, moved[1] + 32]);
+      eq(await pg.evaluate("document.activeElement.tagName"), "SUMMARY", "the focus stays on the title");
+      await pg.keyboard.press("Alt+Escape"); await frames(pg);
+      eq(await where("structure"), [moved[0], moved[1]].map((v, i) => v), "Alt+Escape puts the palette back where the last move began");
+      // a palette of buttons: Alt+arrow from a button moves it, a plain arrow still walks along its buttons
+      // first the palette of tools is put on the empty canvas with the mouse (by its margin), where nothing lies over it
+      { const [mx0, my0] = await margin(pg, '[data-testid="d2-grip-tools"]'); await pg.mouse.move(mx0, my0); await pg.mouse.down(); await pg.mouse.move(700, 300, { steps: 8 }); await pg.mouse.up(); await frames(pg); }
+      eq(await pg.evaluate("document.querySelector('.pal[data-pal=tools]').dataset.dock"), "float");
+      const t0 = await where("tools");
+      await pg.focus('[data-testid="d2-select"]'); await pg.keyboard.press("Alt+ArrowDown"); await frames(pg);
+      eq(await where("tools"), [t0[0], t0[1] + 8]);
+      // the empty margin of a palette: a finger and a pen drag it
+      const cdp = await c.ctx.newCDPSession(pg);
+      const [mx, my] = await margin(pg, '[data-testid="d2-grip-tools"]'), t1 = await where("tools");
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x: mx, y: my }] });
+      for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: mx - 200 * i / 6, y: my + 20 * i / 6 }] });
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); await frames(pg);
+      const t2 = await where("tools");
+      assert(Math.abs(t2[0] - t1[0] + 200) <= 12 && Math.abs(t2[1] - t1[1] - 20) <= 12, "a finger on the margin moved the palette " + JSON.stringify([t1, t2]));
+      const [px, py] = await margin(pg, '[data-testid="d2-grip-tools"]'), send = (type, X, Y, buttons) => cdp.send("Input.dispatchMouseEvent", { type, x: X, y: Y, pointerType: "pen", button: "left", buttons, clickCount: 1 });
+      await send("mouseMoved", px, py, 0); await send("mousePressed", px, py, 1);
+      for (let i = 1; i <= 6; i++) await send("mouseMoved", px - 30 * i / 6, py + 20 * i / 6, 1);
+      await send("mouseReleased", px - 30, py + 20, 0); await frames(pg);
+      const t3 = await where("tools");
+      assert(Math.abs(t3[0] - t2[0] + 30) <= 12 && Math.abs(t3[1] - t2[1] - 20) <= 12, "a pen on the margin moved the palette " + JSON.stringify([t2, t3]));
+      // a finger and a pen on the title of a side panel
+      const [sx, sy] = await titlePoint(pg, '[data-testid="d2-title-style"]'), s0 = await where("style");
+      // to a place of the canvas where nothing else lies (a palette let go over another is put beside it)
+      const [fx, fy] = [350 - s0[0], 450 - s0[1]];
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x: sx, y: sy }] });
+      for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: sx + fx * i / 6, y: sy + fy * i / 6 }] });
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); await frames(pg);
+      const s1 = await where("style");
+      assert(Math.abs(s1[0] - 350) <= 12 && Math.abs(s1[1] - 450) <= 12, "a finger on the title moved the panel " + JSON.stringify([s0, s1]));
+      const [qx, qy] = await titlePoint(pg, '[data-testid="d2-title-style"]');
+      await send("mouseMoved", qx, qy, 0); await send("mousePressed", qx, qy, 1);
+      for (let i = 1; i <= 6; i++) await send("mouseMoved", qx - 60 * i / 6, qy + 60 * i / 6, 1);
+      await send("mouseReleased", qx - 60, qy + 60, 0); await frames(pg);
+      const s2 = await where("style");
+      assert(Math.abs(s2[0] - s1[0] + 60) <= 12 && Math.abs(s2[1] - s1[1] - 60) <= 12, "a pen on the title moved the panel " + JSON.stringify([s1, s2]));
+      // the title row of every side panel is a target of 44 px for a finger
+      eq(await pg.evaluate("[...document.querySelectorAll('.pal.side:not([hidden]) > details > summary')].filter(s => s.getBoundingClientRect().height < 43).map(s => s.textContent)"), []);
+      await shot(pg, "panels-title-moved");
+    } finally { await c.ctx.close(); }
   });
 
   // tp-04: the diff lens (display.lens: off, tint, tint+ghost) on the products of anchored arrows, from the keyboard (Shift+L), the
@@ -4293,7 +4570,7 @@ try {
       await tool(fp, "clear"); await want(fp, { atoms: 0 });
       await fp.focus("#d2-canvas"); await fp.keyboard.press("Enter"); await want(fp, { atoms: 1 });           // one operation in the log
       assert((await log()).length > 4, "the log has an operation");
-      await fp.focus("#d2-report-open"); await fp.keyboard.press("Enter"); await shown("d2-report");
+      await reveal(fp, "#d2-report-open"); await fp.focus("#d2-report-open"); await fp.keyboard.press("Enter"); await shown("d2-report");
       eq(await fp.getAttribute("#d2-report-open", "aria-expanded"), "true");
       eq(await fp.evaluate("document.querySelector('dialog[open]') === null && document.getElementById('d2-report').getAttribute('role')"), "group");
       eq(await fp.evaluate("document.activeElement.value"), "bug");
@@ -4316,7 +4593,7 @@ try {
     });
     await step("feedback: a log too long for the link is left out with a keyed note and Copy the log; no operation gives the other note; the copied text is the log", async () => {
       await tool(fp, "clear"); await want(fp, { atoms: 0 }); await fillIn(fp, "#d2-text", "C".repeat(90)); await saveAs(fp, "#d2-add"); await want(fp, { atoms: 90 });
-      await fp.click("#d2-report-open"); await shown("d2-report");
+      await reveal(fp, "#d2-report-open"); await fp.click("#d2-report-open"); await shown("d2-report");
       await fp.check("input[value=bug]"); await fp.check("#d2-report-log");
       const u = await opened(() => fp.click("#d2-report-go"));
       await readIssue(u, "bug.yml", false);
@@ -4328,14 +4605,14 @@ try {
       eq(await fp.evaluate("navigator.clipboard.readText()"), await log());
       await fp.click("#d2-report-close"); await shown("d2-report", false);
       await fp.evaluate("window.MZDRAW.open(window.MZDRAW.save('mzdraw'))");                                  // the drawing stays, its history is empty: no operation to log
-      await fp.click("#d2-report-open"); await shown("d2-report"); await fp.check("#d2-report-log");
+      await reveal(fp, "#d2-report-open"); await fp.click("#d2-report-open"); await shown("d2-report"); await fp.check("#d2-report-log");
       await readIssue(await opened(() => fp.click("#d2-report-go")), "bug.yml", false);
       eq(await fp.innerText("#d2-report-note"), await fp.evaluate("I18N.t('feedback.noLog')"));
       eq(ghReq, [], "the page asked nothing of GitHub");
       await fp.click("#d2-report-close");
     });
     await step("About by keyboard: the name from the catalog, one line of what it is, the version, the links to the repository and the licence, the privacy sentence and the report button; Escape closes", async () => {
-      await fp.focus("#d2-about-open"); await fp.keyboard.press("Enter"); await shown("d2-about");
+      await reveal(fp, "#d2-about-open"); await fp.focus("#d2-about-open"); await fp.keyboard.press("Enter"); await shown("d2-about");
       const a = await about();
       eq(await fp.innerText("#d2-about-name"), await fp.evaluate("I18N.t('draw2.name')"));
       eq(await fp.innerText("#d2-about-name"), a.name);
@@ -4360,6 +4637,8 @@ try {
     });
     await step("feedback by touch: tap About, tap its report button, tap Improvement, tap Open on GitHub; the targets are 44 px; the issue is the improvement form", async () => {
       const tap = async sel => { const [x, y] = await center(fp, sel); await fp.touchscreen.tap(x, y); };
+      await reveal(fp, "#d2-about-open");
+      for (const sel of ["#d2-about-open", "#d2-report-open"]) assert((await fp.locator(sel).boundingBox()).height >= 43, sel + " is a target for a finger, in the Preferences");
       await tap("#d2-about-open"); await shown("d2-about");
       await tap("#d2-about-report"); await shown("d2-report"); await shown("d2-about", false);
       for (const sel of ["#d2-report-go", "#d2-report-close"]) assert((await fp.locator(sel).boundingBox()).height >= 43, sel + " is a target for a finger");
@@ -4373,7 +4652,7 @@ try {
       const cdp = await fb.newCDPSession(fp);
       const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
       const tap = async sel => { const [x, y] = await center(fp, sel); await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
-      await tap("#d2-report-open"); await shown("d2-report");
+      await reveal(fp, "#d2-report-open"); await tap("#d2-report-open"); await shown("d2-report");
       await fp.setChecked("#d2-report-log", false);
       await tap("input[value=bug]"); await tap("#d2-report-log"); assert(await fp.isChecked("#d2-report-log"), "a pen tap ticks the log box");
       assert((await log()).length > 4, "pen step: the log has an operation " + await log());

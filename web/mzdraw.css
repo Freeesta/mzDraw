@@ -20,7 +20,7 @@
 /* the names the canvas reads (web/mzdraw.js COLOURS) */
 :root { --d2-ink: var(--mzd-ink); --d2-select: var(--mzd-selection); --d2-hover: var(--mzd-hover); --d2-warn: var(--mzd-danger); --d2-preview: var(--mzd-preview);
   --d2-n: var(--mzd-atom-n); --d2-o: var(--mzd-atom-o); --d2-s: var(--mzd-atom-s); --d2-x: var(--mzd-atom-x); --d2-p: var(--mzd-atom-p); --d2-focus: var(--mzd-focus); --d2-accent: var(--mzd-accent); --d2-muted: var(--mzd-ink-muted); }
-:root { --fg: var(--mzd-ink); --bg: var(--mzd-surface-raised); --panel: var(--mzd-surface); --line: var(--mzd-control); --accent: var(--mzd-accent); --grip: var(--mzd-ink-muted); }
+:root { --fg: var(--mzd-ink); --bg: var(--mzd-surface-raised); --panel: var(--mzd-surface); --line: var(--mzd-control); --accent: var(--mzd-accent); }
 html, body { margin: 0; height: 100%; background: var(--mzd-paper); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
 body { overflow: hidden; }
 h2 { font-size: 13px; margin: 8px 0 4px; }
@@ -59,6 +59,7 @@ canvas:focus-visible { outline-offset: -3px; }
 /* the canvas takes the area the palettes leave free (placed by the module's layout) */
 #d2-stage { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; }
 #d2-canvas { display: block; width: 100%; height: 100%; touch-action: none; background: var(--mzd-paper); cursor: crosshair; }
+/* the counts of atoms and bonds are a visually hidden live region (.sr inside); only a notice, if any, shows on the canvas */
 #d2-status { position: absolute; left: 8px; bottom: 6px; color: var(--mzd-ink-muted); pointer-events: none; font-size: 12px; }
 /* palettes: placed by the module (left, top); a row at the top or bottom, a column at the sides, either when floating */
 .pal { position: fixed; z-index: 10; display: flex; width: max-content; box-sizing: border-box; padding: 4px; background: var(--panel); border: 1px solid var(--mzd-border); border-radius: 8px; box-shadow: 0 1px 3px var(--mzd-shadow); }
@@ -71,15 +72,18 @@ canvas:focus-visible { outline-offset: -3px; }
 .pal[data-orient="h"] .items.general { grid-template-rows: none; grid-template-columns: repeat(var(--rows), 44px); grid-auto-flow: row; grid-auto-rows: 44px; }
 .pal.moving { z-index: 30; box-shadow: 0 6px 18px var(--mzd-shadow); }
 .pal .items button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 0; padding: 0; border-color: transparent; background: transparent; }
-@media (hover: hover) { .pal .items button:hover:not(:disabled), .fly button:hover:not(:disabled), .grip:hover { background-color: var(--mzd-hover); } }
+@media (hover: hover) { .pal .items button:hover:not(:disabled), .fly button:hover:not(:disabled) { background-color: var(--mzd-hover); } }
 .pal .txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .pal .head { position: relative; }
 .pal .head::after { content: ""; position: absolute; right: 3px; bottom: 3px; border: 3px solid transparent; border-right-color: currentColor; border-bottom-color: currentColor; opacity: .7; }
-.grip { flex: none; box-sizing: border-box; min-width: 0; min-height: 0; border: 0; border-radius: 3px; background: radial-gradient(circle, var(--grip) 1.5px, transparent 1.9px) 0 0 / 6px 6px; background-clip: content-box; background-origin: content-box; cursor: grab; touch-action: none; }
-.pal[data-orient="v"] > .grip { height: 24px; width: 100%; padding: 9px 10px; }
-.pal[data-orient="h"] > .grip { width: 24px; align-self: stretch; padding: 10px 9px; }
+/* the handle of a palette is its frame: a transparent layer behind the buttons (no row of dots, no room taken); the empty margin of the
+   palette and, on a side panel, its title row move it */
+.grip { position: absolute; inset: 0; z-index: 0; box-sizing: border-box; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: grab; touch-action: none; }
+.pal > .items, .pal.side > details { position: relative; z-index: 1; }
+.pal.side > details > summary { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.pal.side > details > summary:active { cursor: grabbing; }
+@media (pointer: coarse), (any-pointer: coarse) { .pal { padding: 8px; } .pal.side { padding: 8px 12px 8px; } .pal.side > details > summary { padding: 10px 0; min-height: 44px; box-sizing: border-box; } }
 .pal .items button[aria-pressed="true"], .pal .items button[aria-current="true"], .fly button[aria-pressed="true"] { background: var(--mzd-accent-soft); color: var(--fg); box-shadow: inset 0 0 0 2px var(--accent); }
-.grip:active { cursor: grabbing; }
 .ico { width: 24px; height: 24px; flex: none; }
 .sym { font-weight: 600; font-size: 17px; min-width: 24px; text-align: center; }
 .sym[data-el="N"] { color: var(--d2-n); } .sym[data-el="O"] { color: var(--d2-o); } .sym[data-el="S"] { color: var(--d2-s); } .sym[data-el="P"] { color: var(--d2-p); }
@@ -172,10 +176,17 @@ details ul { margin: 4px 0; padding-left: 18px; } summary { cursor: pointer; fon
 p { margin: 4px 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 /* a finger or a pen: handles of 44 px */
-@media (pointer: coarse), (any-pointer: coarse) { button { min-height: 44px; min-width: 44px; } .pal[data-orient="v"] > .grip { height: 44px; padding: 19px 10px; } .pal[data-orient="h"] > .grip { width: 44px; padding: 10px 19px; } .menu input { width: 44px; height: 44px; } #d2-flys .fly { max-height: calc(100vh - 8px); }
+@media (pointer: coarse), (any-pointer: coarse) { button { min-height: 44px; min-width: 44px; } .menu input { width: 44px; height: 44px; } #d2-flys .fly { max-height: calc(100vh - 8px); }
   /* larger handles and buttons take more of the column: its open palettes get less */
   .pal.side { max-height: max(120px, calc((100vh - 350px) / 3)); } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* the soft change of theme (web/fade.js puts d2-fading on the root for the length of the fade, never on the first paint): the colours of the
+   page cross-fade; the canvas is painted by script, so its old picture (d2-ghost) fades out over the new one, and the canvas itself does not fade */
+@media (prefers-reduced-motion: no-preference) {
+  :root.d2-fading, :root.d2-fading *:not(#d2-canvas):not(.d2-ghost), :root.d2-fading *::before, :root.d2-fading *::after { transition: background-color .3s ease, color .3s ease, border-color .3s ease, fill .3s ease, stroke .3s ease, box-shadow .3s ease, outline-color .3s ease !important; }
+}
+.d2-ghost { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; opacity: 1; transition: opacity .3s ease; }
+@media (prefers-reduced-motion: reduce) { .d2-ghost { display: none; } }
 .d2-notice { color: var(--mzd-danger); font-weight: 600; }
 
 /* the step field (tp-11): one line of input, the rows it selects, the live line */
@@ -191,8 +202,9 @@ p { margin: 4px 0; }
 @media (pointer: coarse) { #d2-step input, #d2-step button { min-height: 44px; } #d2-step li { min-height: 44px; align-items: center; } }
 
 /* the About box and the report box (feedback-about): two small popovers over the canvas, no modal dialog */
-#d2-meta { position: absolute; left: 50%; transform: translateX(-50%); bottom: 6px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; z-index: 4; }
-#d2-meta button { min-height: 28px; font-size: 12px; }
+/* its two openers are the first row of the Preferences flyout (no button of their own on the page) */
+#d2-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+#d2-meta button { min-height: 36px; font-size: 13px; }
 #d2-report[hidden], #d2-about[hidden], #d2-report-copy[hidden] { display: none; }
 #d2-report, #d2-about { position: absolute; left: 50%; transform: translateX(-50%); bottom: 40px; width: min(24rem, calc(100% - 16px)); box-sizing: border-box; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 6px; z-index: 8; }
 #d2-report fieldset { border: 0; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
@@ -203,7 +215,7 @@ p { margin: 4px 0; }
 #d2-report .row, #d2-about .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 #d2-report input:focus-visible, #d2-about a:focus-visible { outline: 2px solid var(--mzd-focus); outline-offset: 2px; }
 #d2-about a { color: var(--accent); }
-@media (pointer: coarse) { #d2-meta button, #d2-report button, #d2-about button { min-height: 44px; } #d2-report label { min-height: 44px; } }
+@media (pointer: coarse), (any-pointer: coarse) { #d2-meta button, #d2-report button, #d2-about button { min-height: 44px; } #d2-report label { min-height: 44px; } }
 
 /* the Preferences flyout (prefs.js): groups as fieldsets, one row per option, usable by keyboard, touch and pen */
 #d2-fly-prefs { width: min(26rem, calc(100vw - 16px)); gap: 6px; }
@@ -219,6 +231,8 @@ p { margin: 4px 0; }
 #d2-fly-prefs button { min-height: 36px; }
 #d2-fly-prefs .row { display: flex; gap: 6px; align-items: flex-start; justify-content: space-between; }
 #d2-fly-prefs p { margin: 2px 0; font-size: 13px; }
+#d2-fly-prefs #d2-meta { justify-content: flex-start; align-items: center; }
+@media (pointer: coarse), (any-pointer: coarse) { #d2-fly-prefs #d2-meta button { min-height: 44px; } }
 
 /* the text panel: shown while a text is selected or edited; every control forwards to the module and shows what it says */
 #d2-textbar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; justify-content: center; max-width: calc(100% - 16px); box-sizing: border-box; padding: 4px 6px; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 6px; }

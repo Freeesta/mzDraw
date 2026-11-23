@@ -16,7 +16,8 @@ pub const GROUPS: [(&str, &str); 6] = [
     ("appearance", "draw2.prefs.group.appearance"),
 ];
 
-/// The themes of `ui.theme`: `auto` follows the page (the system or the host).
+/// The themes of `ui.theme`: `light` is the default (a first visit opens white, whatever the system prefers); `auto` follows the page
+/// (the system or the host).
 pub const THEMES: [&str; 3] = ["auto", "light", "dark"];
 
 /// What an option takes.
@@ -237,13 +238,13 @@ pub fn word_key(label: &str, word: &str) -> String {
     )
 }
 
-/// The default word or number of an option, as text: the value of the preset `mzlab`, `svg` on `white` for the export, `auto`
+/// The default word or number of an option, as text: the value of the preset `mzlab`, `svg` on `white` for the export, `light`
 /// for the theme.
 pub fn default_of(setting: &str) -> Option<String> {
     match setting {
         "export.default" => Some("svg".into()),
         "export.background" => Some("white".into()),
-        "ui.theme" => Some("auto".into()),
+        "ui.theme" => Some("light".into()),
         "text.font" => Some("default".into()),
         "text.size" => Some("100".into()),
         _ => Style::default().value(setting),
@@ -322,7 +323,7 @@ pub struct Ui {
 impl Default for Ui {
     fn default() -> Self {
         Ui {
-            theme: "auto".into(),
+            theme: "light".into(),
             unknown: Vec::new(),
         }
     }
@@ -365,7 +366,7 @@ impl Ui {
     /// The `ui` object as JSON text, `None` when it holds only the defaults.
     pub fn to_text(&self) -> Option<String> {
         let mut pairs = self.unknown.clone();
-        if self.theme != "auto" {
+        if self.theme != "light" {
             pairs.push(("theme".into(), Value::from(self.theme.as_str()).to_string()));
         }
         if pairs.is_empty() {

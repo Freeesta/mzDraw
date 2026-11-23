@@ -902,3 +902,373 @@ fn what_the_page_paints_is_decided_here_pressed_grid_the_click_and_the_keys() {
     let b: serde_json::Value = serde_json::from_str(&l.arranged_json(1280.0, 720.0, &[])).unwrap();
     assert_eq!(b["slots"][3]["face"], "bond:hash");
 }
+
+/// The sizes of a page where every side group is open and tall (a list that grows, a section opened), as the page measures them.
+fn tall_sizes(open: bool) -> Vec<(String, f64, f64)> {
+    let mut s = sizes();
+    for e in s.iter_mut().filter(|e| e.1 == 280.0) {
+        e.2 = if open { 400.0 } else { 40.0 };
+    }
+    s
+}
+
+/// Shows the six side groups the viewport hides (a tablet or a phone keeps them in a drawer).
+fn show_sides(l: &mut Layout, w: f64, h: f64) {
+    for id in ["structure", "style", "data", "annotation", "check", "keys"] {
+        if rect(&l.arrange(w, h, &[]).0, id).hidden {
+            assert!(l.toggle(id, "hidden"));
+        }
+    }
+}
+
+#[test]
+fn side_groups_never_overlap_at_the_supported_viewports_open_or_collapsed() {
+    for (w, h) in [
+        (390.0, 844.0),
+        (768.0, 1024.0),
+        (1280.0, 800.0),
+        (2000.0, 1130.0),
+    ] {
+        for open in [true, false] {
+            let mut l = Layout::default();
+            show_sides(&mut l, w, h);
+            let (r, area) = l.arrange(w, h, &tall_sizes(open));
+            let shown: Vec<&Rect> = r.iter().filter(|r| !r.hidden).collect();
+            assert_eq!(shown.len(), mzdraw::palettes::PALETTES.len());
+            for (i, a) in shown.iter().enumerate() {
+                assert!(
+                    a.x >= 0.0 && a.y >= 0.0 && a.x + a.w <= w && a.y + a.h <= h,
+                    "{} inside {w}x{h}",
+                    a.id
+                );
+                for b in &shown[i + 1..] {
+                    let apart = a.x + a.w <= b.x
+                        || b.x + b.w <= a.x
+                        || a.y + a.h <= b.y
+                        || b.y + b.h <= a.y;
+                    assert!(
+                        apart,
+                        "{w}x{h} open={open}: {} over {} {:?}",
+                        a.id,
+                        b.id,
+                        shown
+                            .iter()
+                            .filter(|r| r.dock == Dock::Right)
+                            .map(|r| (r.id.clone(), r.x, r.y, r.w, r.h, r.capped))
+                            .collect::<Vec<_>>()
+                    );
+                }
+            }
+            // the canvas keeps a free area (the panels are cut, not the canvas)
+            assert!(area[2] > 0.0 && area[3] > 0.0, "{w}x{h}: {area:?}");
+            // a cut panel is a side group, keeps its title's height at least, and says so
+            for r in shown.iter().filter(|r| r.capped) {
+                assert!(
+                    ["structure", "style", "data", "annotation", "check", "keys"]
+                        .contains(&r.id.as_str())
+                );
+                assert!(r.h >= 24.0);
+            }
+        }
+    }
+    // a phone cuts the tall panels; a wide page wraps them into a second column instead, uncut
+    let mut l = Layout::default();
+    show_sides(&mut l, 390.0, 844.0);
+    assert!(l
+        .arrange(390.0, 844.0, &tall_sizes(true))
+        .0
+        .iter()
+        .any(|r| r.capped));
+    assert!(l
+        .arrange(2000.0, 1130.0, &tall_sizes(true))
+        .0
+        .iter()
+        .all(|r| !r.capped));
+}
+
+#[test]
+fn a_cut_panel_grows_back_when_the_room_comes_back() {
+    let mut l = Layout::default();
+    show_sides(&mut l, 390.0, 844.0);
+    let cut = l.arrange(390.0, 844.0, &tall_sizes(true)).0;
+    assert!(cut.iter().any(|r| r.capped));
+    let back = l.arrange(390.0, 844.0, &tall_sizes(false)).0;
+    assert!(back.iter().all(|r| !r.capped), "40 px panels need no cut");
+}
+
+/// Sizes as the page measures them with the side groups of `side_h` pixels: the general tools palette is 98 x 362 (two columns of eight
+/// places of 44 px and its frame; it is never cut), the groups of the top bar 132 x 44, the side groups 280 wide.
+fn sized(side_h: f64) -> Vec<(String, f64, f64)> {
+    let mut s = sizes();
+    for e in s.iter_mut() {
+        if e.0 == "tools" {
+            (e.1, e.2) = (98.0, 362.0);
+        } else if e.1 == 280.0 {
+            e.2 = side_h;
+        }
+    }
+    s
+}
+
+/// Every pair of shown palettes apart, every one inside the viewport; the failing pair is named.
+fn check_apart(r: &[Rect], w: f64, h: f64, what: &str) {
+    let shown: Vec<&Rect> = r.iter().filter(|r| !r.hidden).collect();
+    for (i, a) in shown.iter().enumerate() {
+        assert!(
+            a.x >= -0.001 && a.y >= -0.001 && a.x + a.w <= w + 0.001 && a.y + a.h <= h + 0.001,
+            "{what} {w}x{h}: {} leaves the viewport ({},{} {}x{})",
+            a.id,
+            a.x,
+            a.y,
+            a.w,
+            a.h
+        );
+        for b in &shown[i + 1..] {
+            let apart = a.x + a.w <= b.x + 0.001
+                || b.x + b.w <= a.x + 0.001
+                || a.y + a.h <= b.y + 0.001
+                || b.y + b.h <= a.y + 0.001;
+            assert!(
+                apart,
+                "{what} {w}x{h}: {} ({},{} {}x{}) over {} ({},{} {}x{})",
+                a.id, a.x, a.y, a.w, a.h, b.id, b.x, b.y, b.w, b.h
+            );
+        }
+    }
+}
+
+const SIDES: [&str; 6] = ["structure", "style", "data", "annotation", "check", "keys"];
+
+/// A layout with the palettes of `set` put as that set says, at a viewport.
+fn laid(set: &str, w: f64, h: f64) -> Layout {
+    let mut l = Layout::default();
+    let (r, _) = l.arrange(w, h, &[]);
+    let hidden = |id: &str| r.iter().find(|x| x.id == id).unwrap().hidden;
+    match set {
+        "default" => {}
+        "all" | "collapsed" | "float" | "redocked" => {
+            for id in SIDES {
+                if hidden(id) {
+                    l.toggle(id, "hidden");
+                }
+            }
+            if set == "collapsed" {
+                for id in SIDES {
+                    l.toggle(id, "collapsed");
+                }
+            }
+        }
+        _ => unreachable!(),
+    }
+    l
+}
+
+#[test]
+fn property_no_two_palettes_overlap_and_all_stay_inside_for_any_viewport_and_set() {
+    let ws = [
+        320.0, 390.0, 480.0, 568.0, 700.0, 768.0, 844.0, 1024.0, 1280.0, 1600.0, 2000.0, 2400.0,
+    ];
+    let hs = [
+        320.0, 390.0, 480.0, 600.0, 700.0, 800.0, 844.0, 1024.0, 1130.0, 1400.0,
+    ];
+    let (mut checked, mut skipped) = (0, Vec::<String>::new());
+    for &w in &ws {
+        for &h in &hs {
+            for set in ["default", "all", "collapsed", "float", "redocked"] {
+                for side_h in [40.0f64, 120.0, 400.0] {
+                    let mut l = laid(set, w, h);
+                    // the page's own cap on an open side group (mzdraw.css): max(120 px, a third of what is left of the height)
+                    let mut sz = sized(side_h.min(120.0f64.max((h - 280.0) / 3.0)));
+                    let (r, _) = l.arrange(w, h, &sz);
+                    // docked on a row (a phone) the tools palette is measured as a row: 370 x 106
+                    if rect(&r, "tools").horizontal {
+                        for e in sz.iter_mut().filter(|e| e.0 == "tools") {
+                            (e.1, e.2) = (370.0, 106.0);
+                        }
+                    }
+                    let (r, _) = l.arrange(w, h, &sz);
+                    if set == "float" || set == "redocked" {
+                        // drag some palettes: onto the middle of the page, or to the right edge
+                        let ids: Vec<(String, f64, f64)> = r
+                            .iter()
+                            .filter(|x| !x.hidden)
+                            .map(|x| (x.id.clone(), x.x + 3.0, x.y + 3.0))
+                            .collect();
+                        for (id, px, py) in ids.iter().step_by(3) {
+                            if l.press(id, *px, *py) {
+                                let (tx, ty) = if set == "float" {
+                                    (w * 0.5, h * 0.5)
+                                } else {
+                                    (w - 1.0, h * 0.4)
+                                };
+                                l.drag(tx, ty);
+                                l.release(tx, ty);
+                            }
+                        }
+                    }
+                    let (r, _) = l.arrange(w, h, &sz);
+                    let what = format!("{set} side_h={side_h}");
+                    // the cases with nothing to assert, listed by the test: the page is too short for the general tools palette (362 px, never cut) under the
+                    // rows of the top bar, or for the palettes of an edge even with the side groups cut to their title line (see `infeasible`)
+                    let top = r
+                        .iter()
+                        .filter(|x| !x.hidden && x.dock == Dock::Top)
+                        .map(|x| x.y + x.h)
+                        .fold(0.0, f64::max);
+                    if (!rect(&r, "tools").horizontal && h - top < 362.0) || infeasible(&r, w, h) {
+                        skipped.push(format!("{w}x{h} {what}"));
+                        continue;
+                    }
+                    check_apart(&r, w, h, &what);
+                    checked += 1;
+                }
+            }
+        }
+    }
+    eprintln!("checked {checked}, skipped {}: {skipped:?}", skipped.len());
+    assert_eq!(checked + skipped.len(), ws.len() * hs.len() * 5 * 3);
+    // only a page shorter than the top rows and the tools palette (about 424 px) is skipped: every case that is at least 430 px high is checked
+    assert!(
+        skipped.iter().all(|c| {
+            let h: f64 = c
+                .split(' ')
+                .next()
+                .unwrap()
+                .split('x')
+                .nth(1)
+                .unwrap()
+                .parse()
+                .unwrap();
+            h < 430.0
+        }),
+        "{skipped:?}"
+    );
+}
+
+#[test]
+fn a_keyboard_move_is_let_go_when_the_focus_leaves_and_then_lies_beside_what_it_overlapped() {
+    let mut l = Layout::default();
+    l.arrange(1280.0, 720.0, &sizes());
+    l.key("edit", "enter", false);
+    let (r, _) = l.arrange(1280.0, 720.0, &[]);
+    assert_eq!(
+        (rect(&r, "edit").x, rect(&r, "edit").y),
+        (264.0, 0.0),
+        "kept where it is while held"
+    );
+    assert!(l.settle());
+    assert!(!l.settle(), "nothing left to let go");
+    let (r, _) = l.arrange(1280.0, 720.0, &[]);
+    check_apart(&r, 1280.0, 720.0, "after the settle");
+    assert_eq!(rect(&r, "edit").dock, Dock::Float);
+}
+
+#[test]
+fn a_floating_palette_with_no_free_place_is_laid_out_in_the_right_column_and_floats_again_when_there_is_room(
+) {
+    // short pages: the side groups fill the right columns, the strip beside them is narrower than a group, and the groups dropped on the
+    // middle of the page find no place of their own
+    let mut forced_somewhere = false;
+    for (w, h) in [(844.0, 320.0), (700.0, 480.0), (844.0, 480.0)] {
+        let mut l = laid("float", w, h);
+        // the tools palette as a small one (44 x 88): the page is short, the case is about the side groups
+        let mut sz = sized(120.0);
+        for e in sz.iter_mut().filter(|e| e.0 == "tools") {
+            (e.1, e.2) = (44.0, 88.0);
+        }
+        let ids: Vec<(String, f64, f64)> = l
+            .arrange(w, h, &sz)
+            .0
+            .iter()
+            .filter(|x| !x.hidden)
+            .map(|x| (x.id.clone(), x.x + 3.0, x.y + 3.0))
+            .collect();
+        // every third palette is dropped on the middle of the page
+        for (id, px, py) in ids.iter().step_by(3) {
+            if l.press(id, *px, *py) {
+                l.drag(w * 0.5, h * 0.5);
+                l.release(w * 0.5, h * 0.5);
+            }
+        }
+        let (r, _) = l.arrange(w, h, &sz);
+        check_apart(&r, w, h, "no free place");
+        // the same layout, twice: deterministic
+        assert_eq!(l.arrange(w, h, &sz).0, r);
+        for p in l.palettes().iter().filter(|p| p.dock == Dock::Float) {
+            // the stored place is untouched; a palette laid out in the right column says so
+            let shown = rect(&r, &p.id);
+            forced_somewhere |= shown.dock == Dock::Right;
+            // on a page with room it floats again
+            let (big, _) = l.arrange(2400.0, 1400.0, &sz);
+            assert_eq!(rect(&big, &p.id).dock, Dock::Float);
+            check_apart(&big, 2400.0, 1400.0, "with room");
+            l.arrange(w, h, &sz);
+        }
+    }
+    assert!(
+        forced_somewhere,
+        "a case where a floating palette has no place of its own"
+    );
+}
+
+#[test]
+fn many_floating_palettes_dropped_on_one_spot_of_a_big_page_are_placed_apart() {
+    // every palette dropped on the same spot of a 2400 x 1400 page: they are put beside each other (flush against their neighbours); the 8 px grid scan
+    // is only the fallback when no such place is free, so a drag does not pay for it
+    let (w, h) = (2400.0, 1400.0);
+    let mut l = Layout::default();
+    show_sides(&mut l, w, h);
+    let sz = sized(373.0);
+    let ids: Vec<(String, f64, f64)> = l
+        .arrange(w, h, &sz)
+        .0
+        .iter()
+        .filter(|x| !x.hidden)
+        .map(|x| (x.id.clone(), x.x + 3.0, x.y + 3.0))
+        .collect();
+    for (id, px, py) in &ids {
+        if l.press(id, *px, *py) {
+            l.drag(w * 0.5, h * 0.5);
+            l.release(w * 0.5, h * 0.5);
+        }
+    }
+    // twenty layouts of the worst crowd: apart every time (no wall-clock bound: the cost is the candidates of the neighbours, not the grid)
+    for _ in 0..20 {
+        let (r, _) = l.arrange(w, h, &[]);
+        check_apart(&r, w, h, "worst case");
+    }
+}
+
+/// A layout no arrangement can keep apart: the rows of the top and bottom fill the height, or the palettes of an edge, the side groups cut
+/// to 24 px, need more height than the columns that fit beside 240 px of canvas give.
+fn infeasible(r: &[Rect], w: f64, h: f64) -> bool {
+    let rows = |d: Dock| -> f64 {
+        r.iter()
+            .filter(|x| !x.hidden && x.dock == d)
+            .map(|x| if d == Dock::Top { x.y + x.h } else { h - x.y })
+            .fold(0.0, f64::max)
+    };
+    let room = h - rows(Dock::Top) - rows(Dock::Bottom);
+    let width = |d: Dock| -> f64 {
+        r.iter()
+            .filter(|x| !x.hidden && x.dock == d)
+            .map(|x| x.w)
+            .fold(0.0, f64::max)
+    };
+    let need = |d: Dock| -> f64 {
+        r.iter()
+            .filter(|x| !x.hidden && x.dock == d)
+            .map(|x| {
+                if SIDES.contains(&x.id.as_str()) {
+                    24.0f64.min(x.h)
+                } else {
+                    x.h
+                }
+            })
+            .sum()
+    };
+    let cols = |d: Dock, other: f64| ((w - other - 240.0) / width(d).max(1.0)).floor().max(1.0);
+    room <= 0.0
+        || need(Dock::Left) > room * cols(Dock::Left, 0.0)
+        || need(Dock::Right) > room * cols(Dock::Right, width(Dock::Left))
+}

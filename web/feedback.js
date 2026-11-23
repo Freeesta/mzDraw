@@ -4,7 +4,7 @@
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 
-/** @param {{ed: any, t: (key: string, params?: any) => string, focusCanvas: () => void}} h */
+/** `menu(show)` opens or closes the Preferences flyout where the two openers live @param {{ed: any, t: (key: string, params?: any) => string, focusCanvas: () => void, menu: (show: boolean) => void}} h */
 export function feedbackBoxes(h) {
   const { ed, t } = h;
   const report = $("d2-report"), about = $("d2-about"), say = (/** @type {string} */ s) => { $("d2-live").textContent = s; };
@@ -14,13 +14,15 @@ export function feedbackBoxes(h) {
   const shut = (/** @type {HTMLElement} */ b, back = true) => {
     b.hidden = true;
     for (const o of [$("d2-about-open"), $("d2-report-open")]) o.setAttribute("aria-expanded", "false");
-    if (back && from) from.focus({ preventScroll: true });
+    // the openers sit in the Preferences flyout, which closes when a box takes the focus: it opens again to give the focus back to the opener
+    if (back && from) { if (!from.offsetParent) h.menu(true); from.focus({ preventScroll: true }); }
   };
   /** @param {"report" | "about"} which @param {HTMLElement} opener */
   function show(which, opener) {
     const other = which === "report" ? about : report;
     shut(other, false);
     from = opener;
+    h.menu(false);
     const b = box[which];
     b.hidden = false;
     $(which === "report" ? "d2-report-open" : "d2-about-open").setAttribute("aria-expanded", "true");

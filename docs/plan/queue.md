@@ -10,7 +10,7 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 40, RUNNING 2, QUEUED 46, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 108. MERGED 40, RUNNING 3, QUEUED 46, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
@@ -121,6 +121,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 40, 
 | `tp-09-tp-table` | the TP table out (JSON, CSV) and the SDF round trip | MERGED | PR #89, `1955d5b`; built/tp-09-tp-table.md; `tptable.rs` | tp-08, tp-07 (deltas), arch-web-17 (masses and adduct m/z through the glue, E6) | - |
 | `tp-10-named-steps` | named transformation steps at a chosen site (table, sites, derive by step) | MERGED | PR #87, `9c4eea4`; built/tp-10-named-steps.md; `tp/steps.rs` | tp-03 (derive) | - |
 | `tp-11-step-field` | the step field on the page (type a step, pick a site, derive) | MERGED | PR #90, `4d39021`; built/tp-11-step-field.md; `editor_step.rs` | tp-10, and tp-10's kill test passed; the CTX-MENU page PR (the item that opens the field by touch and pen) | - |
+| `ui-declutter-1` | A lighter page: white by default, no status text, no dotted grips, panels that never overlap, a soft change of theme | RUNNING | PR open for `claude/ui-declutter-1`; built/ui-declutter-1.md | nothing | - |
 
 ## Follow-ups without a prompt
 
@@ -161,6 +162,8 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | tp-09 TP table: NORMAN-SLE spellings (`form_diff` as `H-2O1`, counts of 1 in `formula`, no plus sign in `mass_diff`, one row per parent and per TP, S66 column names) | built/tp-09-tp-table.md, "The kill test" items 1-5 | QUEUED | a change of the column table, only if the owner's workflow needs it |
 | tp-09 TP table: doc and header comments drift from the code | built/tp-09-tp-table.md; `crates/mzdraw/src/tptable.rs` | RUNNING | PR #105 |
 | tp-09 TP table: the kill test is the owner's plan-19 run (paste the CSV into the SI table workflow once); not run | built/tp-09-tp-table.md, "The kill test" | GATED | the owner runs it outside CI |
+| ui-declutter-1: the general tools palette is fixed at eight places a column (362 px), so a viewport shorter than about 430 px (844x390, any 320 px high page) cannot keep it clear of the top bar; the number of places should follow the height | built/ui-declutter-1.md; `crates/mzdraw/src/tool_groups.rs` (`ROWS`), `web/palettes.js` (`--rows`) | QUEUED | not in the e2e overlap step for this reason |
+| ui-declutter-1: a palette's drag area is its 4 px frame (8 px on a finger) and a panel's title row; the keyboard route is the frame handle (Tab, arrows) and Alt+arrows from inside. A panel too tall for the room is cut and scrolls inside itself, it is not re-flowed into a second column on a narrow page | built/ui-declutter-1.md, "Not built"; `crates/mzdraw/src/palettes.rs` (`arrange`) | QUEUED | a window-wide scroll or a drawer for the phone is a design decision of ui-declutter-2 |
 | tp-11 step field: the e2e "step field by touch" long-press flaked once on CI (a rerun passed) | `tests/e2e.mjs`; built/tp-11-step-field.md | QUEUED | find the timing cause; never loosen the test (rule 5) |
 | tp-11 step field: Ctrl+Alt+Z / A / D / Y typed inside the step input has no test (the field takes Ctrl+Alt only for `[` `]` `{` `}`) | built/tp-11-step-field.md, "Not built"; `crates/mzdraw/src/editor_step.rs` | RUNNING | PR #105 |
 | tp-11 step field: the 64-character truncation of `step_text` is untested | `crates/mzdraw/src/editor_step.rs` (`step_text`); `tests/step_field.rs` | RUNNING | PR #105 |

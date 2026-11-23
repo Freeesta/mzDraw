@@ -180,7 +180,7 @@ fn a_reset_puts_a_group_back_and_leaves_the_others() {
     assert_eq!(ed.get("export.default").unwrap(), "svg");
     assert_eq!(ed.get("ui.theme").unwrap(), "dark");
     ed.reset_group("appearance").unwrap();
-    assert_eq!(ed.get("ui.theme").unwrap(), "auto");
+    assert_eq!(ed.get("ui.theme").unwrap(), "light");
     // the group Style holds the preset, which replaces the whole style: the options of the other groups keep their values
     ed.set("display.values=formula").unwrap();
     ed.set("style.preset=acs-1996").unwrap();
@@ -224,13 +224,13 @@ fn the_theme_is_kept_in_the_settings_file_with_the_keys_this_version_does_not_kn
     assert_eq!(other.settings_json(), file);
     // a newer file: its unknown keys of `ui` survive a round
     let newer =
-        r#"{"format":"mzdraw-settings/1","style":{},"ui":{"density":"tight","theme":"light"}}"#;
+        r#"{"format":"mzdraw-settings/1","style":{},"ui":{"density":"tight","theme":"auto"}}"#;
     other.set_style(newer).unwrap();
-    assert_eq!(other.get("ui.theme").unwrap(), "light");
+    assert_eq!(other.get("ui.theme").unwrap(), "auto");
     assert!(
         other
             .settings_json()
-            .contains(r#""ui":{"density":"tight","theme":"light"}"#),
+            .contains(r#""ui":{"density":"tight","theme":"auto"}"#),
         "{}",
         other.settings_json()
     );
@@ -240,7 +240,7 @@ fn the_theme_is_kept_in_the_settings_file_with_the_keys_this_version_does_not_kn
     assert!(other
         .set_style(r#"{"format":"mzdraw-settings/1","ui":{"theme":3}}"#)
         .is_err());
-    assert_eq!(other.get("ui.theme").unwrap(), "light");
+    assert_eq!(other.get("ui.theme").unwrap(), "auto");
 }
 
 #[test]
@@ -315,7 +315,7 @@ fn a_stored_file_with_a_bad_ui_object_is_taken_without_it_and_says_so() {
             "{bad}"
         );
         assert_eq!(ed.get("style.colour").unwrap(), "mono");
-        assert_eq!(ed.get("ui.theme").unwrap(), "auto");
+        assert_eq!(ed.get("ui.theme").unwrap(), "light");
         assert!(ed.settings_json().contains("tablet"));
     }
     // a good file is taken with no note; a file that is none is refused whole
@@ -329,4 +329,29 @@ fn a_stored_file_with_a_bad_ui_object_is_taken_without_it_and_says_so() {
     // the attribute the page applies is the module's: none for auto
     ed.set("ui.theme=auto").unwrap();
     assert_eq!(ed.ui.attr(), "");
+}
+
+#[test]
+fn a_first_visit_opens_the_light_theme_and_the_others_stay_a_choice() {
+    // no stored setting: white, whatever the system prefers; the page applies `light` and the file writes nothing for it
+    let mut ed = Editor::default();
+    assert_eq!(ed.get("ui.theme").unwrap(), "light");
+    assert_eq!(ed.ui.attr(), "light");
+    assert!(
+        !ed.settings_json().contains("theme"),
+        "{}",
+        ed.settings_json()
+    );
+    // dark and auto stay settings, and are written because they are not the default
+    for (word, attr) in [("dark", "dark"), ("auto", "")] {
+        ed.set(&format!("ui.theme={word}")).unwrap();
+        assert_eq!(ed.ui.attr(), attr);
+        assert!(ed.settings_json().contains(&format!(r#""theme":"{word}""#)));
+        let mut other = Editor::default();
+        other.set_style(&ed.settings_json()).unwrap();
+        assert_eq!(other.get("ui.theme").unwrap(), word);
+    }
+    // a reset of the appearance group is the default again
+    ed.reset_group("appearance").unwrap();
+    assert_eq!(ed.get("ui.theme").unwrap(), "light");
 }

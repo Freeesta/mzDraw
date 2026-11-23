@@ -730,7 +730,7 @@ pub fn palettes(w: f64, h: f64, sizes: &str) -> String {
     with(|p| p.editor.layout.arranged_json(w, h, &sizes))
 }
 
-/// An action on the palette `id`: `press`, `drag`, `release` at the page point (`x`, `y`) of its handle, `cancel`, a key on
+/// An action on the palette `id`: `press`, `drag`, `release` at the page point (`x`, `y`) of its handle, `cancel`, `settle` (the end of a keyboard move), a key on
 /// its handle (`key:<name as the browser names it>`, Shift in `shift`), `hidden`, `collapsed`, `orient` (toggles), `reset`
 /// (every palette), `all` (hide or show every palette). Returns `PALETTES` (128) when the layout changed, else 0.
 #[wasm_bindgen]
@@ -742,6 +742,7 @@ pub fn palette(action: &str, id: &str, x: f64, y: f64, shift: bool) -> u32 {
             "drag" => l.drag(x, y),
             "release" => l.release(x, y),
             "cancel" => l.cancel(),
+            "settle" => l.settle(),
             "reset" => {
                 l.reset();
                 true

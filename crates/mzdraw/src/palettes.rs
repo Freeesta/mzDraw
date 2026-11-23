@@ -130,6 +130,31 @@ pub const PALETTES: [(&str, Dock, u32, bool); 11] = [
     ("keys", Dock::Right, 6, true),
 ];
 
+/// The least width the canvas keeps beside the columns of the palettes, and the least height a cut palette is left (the line of its title, scrolling inside).
+const MIN_CANVAS: f64 = 240.0;
+const MIN_CUT: f64 = 24.0;
+
+/// The height every palette taller than it is cut to so that the heights fit in `room` (the others keep theirs), never below
+/// `MIN_CUT`: the water level of the heights.
+fn water_level(hs: &[f64], room: f64) -> f64 {
+    let mut s: Vec<f64> = hs.to_vec();
+    crate::m::sort_by(&mut s, |a, b| a < b);
+    let (mut left, mut n) = (room, s.len() as f64);
+    for v in s {
+        if v * n <= left {
+            left -= v;
+            n -= 1.0;
+        } else {
+            break;
+        }
+    }
+    if n == 0.0 {
+        f64::MAX
+    } else {
+        (left / n).floor().max(MIN_CUT)
+    }
+}
+
 /// The palettes of the layouts before the general tools palette: their tools are groups of `tools` now (`tool_groups`). A stored
 /// layout that names them is read as the new default for the tools, with the note `draw2.layout.migrated`.
 pub const LEGACY: [&str; 5] = ["bonds", "rings", "atoms", "charges", "objects"];
@@ -216,6 +241,8 @@ pub struct Rect {
     pub horizontal: bool,
     pub collapsed: bool,
     pub hidden: bool,
+    /// The height was cut to fit the column (the palette scrolls inside); the page puts `h` as its maximum height.
+    pub capped: bool,
 }
 
 /// A palette held by the pointer or moved by the keyboard: where the grab is on it and the palette as it was before.
@@ -551,12 +578,46 @@ impl Layout {
     /// new row or column when the edge is full; the top and bottom rows span the width, the columns fill what is between.
     /// A floating palette is kept inside the viewport. Returns every palette, hidden ones too, and the free area left for
     /// the canvas (x, y, width, height).
+    ///
+    /// No two shown palettes overlap while the columns can hold them (even with the side groups cut to the line of their title). A floating
+    /// palette that finds no free place on the page (neither beside its neighbours nor on the 8 px grid, nor by putting all the floating
+    /// palettes again from the top left) is laid out in the right column, as a docked one, for as long as the viewport leaves it no place; its
+    /// stored place is untouched, so it floats again where it was when there is room.
     pub fn arrange(
         &mut self,
         w: f64,
         h: f64,
         sizes: &[(String, f64, f64)],
     ) -> (Vec<Rect>, [f64; 4]) {
+        let mut forced: Vec<String> = Vec::new();
+        loop {
+            let (out, area, failed) = self.arrange_with(w, h, sizes, &forced);
+            let more: Vec<String> = failed
+                .into_iter()
+                .filter(|id| !forced.contains(id))
+                .collect();
+            if more.is_empty() {
+                return (out, area);
+            }
+            forced.extend(more);
+        }
+    }
+
+    /// `arrange` with the palettes of `forced` laid out in the right column; also the floating palettes that found no place.
+    fn arrange_with(
+        &mut self,
+        w: f64,
+        h: f64,
+        sizes: &[(String, f64, f64)],
+        forced: &[String],
+    ) -> (Vec<Rect>, [f64; 4], Vec<String>) {
+        let dock_of = |p: &Palette| {
+            if forced.contains(&p.id) {
+                Dock::Right
+            } else {
+                p.dock
+            }
+        };
         // a viewport that is not a finite number keeps the last one; any other is kept between 1 and MAX_VIEW pixels
         let (w, h) = match point(w, h) {
             Some((w, h)) => (within(w, 1.0, MAX_VIEW), within(h, 1.0, MAX_VIEW)),
@@ -582,15 +643,16 @@ impl Layout {
             y,
             w: pw,
             h: ph,
-            dock: p.dock,
+            dock: dock_of(p),
             horizontal: p.horizontal,
             collapsed: p.collapsed,
             hidden: !shown(p),
+            capped: false,
         };
         // rows: the top from the top down, the bottom from the bottom up
         let row = |edge: Dock, out: &mut Vec<Rect>| -> f64 {
             let (mut x, mut used, mut line) = (0.0, 0.0, 0.0f64);
-            for p in all.iter().filter(|p| p.dock == edge && shown(p)) {
+            for p in all.iter().filter(|p| dock_of(p) == edge && shown(p)) {
                 let s = size(&p.id);
                 if x > 0.0 && x + s.0 > w {
                     (x, used, line) = (0.0, used + line, 0.0);
@@ -608,34 +670,159 @@ impl Layout {
         };
         let top = row(Dock::Top, &mut out);
         let bottom = row(Dock::Bottom, &mut out).min(h - top);
-        let column = |edge: Dock, out: &mut Vec<Rect>| -> f64 {
-            let (mut y, mut used, mut line) = (top, 0.0, 0.0f64);
-            for p in all.iter().filter(|p| p.dock == edge && shown(p)) {
-                let s = size(&p.id);
-                if y > top && y + s.1 > h - bottom {
-                    (y, used, line) = (top, used + line, 0.0);
+        // a column packs its palettes top down and wraps into a further column when the edge is full; where a further column would
+        // leave the canvas less than MIN_CANVAS (or push the columns of the two sides onto each other), the column stays one and the
+        // side palettes that do not fit are cut to the room left, each scrolling inside itself: no two palettes ever overlap
+        let column = |edge: Dock, other: f64, out: &mut Vec<Rect>| -> f64 {
+            let list: Vec<&Palette> = all
+                .iter()
+                .filter(|p| dock_of(p) == edge && shown(p))
+                .collect();
+            let room = (h - top - bottom).max(0.0);
+            let pack = |hs: &[f64]| -> (Vec<(f64, f64)>, f64) {
+                let (mut y, mut used, mut line) = (top, 0.0, 0.0f64);
+                let mut at = Vec::new();
+                for (p, ph) in list.iter().zip(hs) {
+                    let pw = size(&p.id).0;
+                    if y > top && y + ph > h - bottom {
+                        (y, used, line) = (top, used + line, 0.0);
+                    }
+                    at.push((used, y));
+                    y += ph;
+                    line = line.max(pw);
                 }
+                (at, used + line)
+            };
+            let mut hs: Vec<f64> = list.iter().map(|p| size(&p.id).1).collect();
+            let (_, width) = pack(&hs);
+            let mut capped = vec![false; hs.len()];
+            if width + other > w - MIN_CANVAS && hs.iter().sum::<f64>() > room {
+                let squeeze: Vec<bool> =
+                    list.iter().map(|p| SIDE.contains(&p.id.as_str())).collect();
+                let fixed: f64 = hs.iter().zip(&squeeze).filter(|x| !x.1).map(|x| *x.0).sum();
+                let cuttable: Vec<f64> = hs
+                    .iter()
+                    .zip(&squeeze)
+                    .filter(|x| *x.1)
+                    .map(|x| *x.0)
+                    .collect();
+                let level = water_level(&cuttable, room - fixed);
+                for ((ph, c), s) in hs.iter_mut().zip(capped.iter_mut()).zip(&squeeze) {
+                    if *s && *ph > level {
+                        (*ph, *c) = (level, true);
+                    }
+                }
+            }
+            let (at, width) = pack(&hs);
+            for (i, p) in list.iter().enumerate() {
+                let (pw, _) = size(&p.id);
+                let (used, y) = at[i];
                 let x = if edge == Dock::Left {
                     used
                 } else {
-                    w - used - s.0
+                    w - used - pw
                 };
-                out.push(rect(p, x, y, s));
-                y += s.1;
-                line = line.max(s.0);
+                let mut r = rect(p, x, y, (pw, hs[i]));
+                r.capped = capped[i];
+                out.push(r);
             }
-            used + line
+            width
         };
-        let left = column(Dock::Left, &mut out);
-        let right = column(Dock::Right, &mut out).min(w - left);
-        for p in all.iter().filter(|p| p.dock == Dock::Float && shown(p)) {
-            let s = size(&p.id);
-            out.push(rect(
-                p,
-                within(p.x, 0.0, (w - s.0).max(0.0)),
-                within(p.y, 0.0, (h - s.1).max(0.0)),
-                s,
-            ));
+        let left = column(Dock::Left, 0.0, &mut out);
+        let right = column(Dock::Right, left, &mut out).min(w - left);
+        // a floating palette stays where it was dropped, inside the viewport; where that lies over another palette it moves to the nearest
+        // place beside it (flush against an edge of what it overlaps, else the nearest free spot of an 8 px grid) that is free, so that no two
+        // palettes ever overlap. The largest go first (a small one finds a place between the others more easily). If some palette finds no
+        // place that way, they are all put again in the first free spot from the top left, row by row.
+        let held = self.grab.as_ref().map(|g| g.id.clone());
+        let mut floats: Vec<&Palette> = all
+            .iter()
+            .filter(|p| dock_of(p) == Dock::Float && shown(p))
+            .collect();
+        floats.sort_by(|a, b| {
+            let (sa, sb) = (size(&a.id), size(&b.id));
+            (sb.0 * sb.1).total_cmp(&(sa.0 * sa.1))
+        });
+        let hits = |s: (f64, f64), x: f64, y: f64, out: &[Rect]| {
+            out.iter().any(|r| {
+                !r.hidden
+                    && x < r.x + r.w - 0.01
+                    && r.x < x + s.0 - 0.01
+                    && y < r.y + r.h - 0.01
+                    && r.y < y + s.1 - 0.01
+            })
+        };
+        // `scan`: the first free place from the top left instead of the nearest one; returns whether every palette found a free place
+        let place = |scan: bool, out: &mut Vec<Rect>| -> Vec<String> {
+            let mut failed: Vec<String> = Vec::new();
+            for p in &floats {
+                let s = size(&p.id);
+                let (mx, my) = ((w - s.0).max(0.0), (h - s.1).max(0.0));
+                let (x, y) = (within(p.x, 0.0, mx), within(p.y, 0.0, my));
+                let (mut bx, mut by) = (x, y);
+                // the palette in the hand follows the pointer wherever it is, over others too; it is placed when it is let go
+                let free = held.as_deref() == Some(p.id.as_str()) || !hits(s, x, y, out);
+                if !free || scan {
+                    let mut best: Option<(f64, f64, f64)> = None;
+                    if !scan {
+                        let mut cands: Vec<(f64, f64)> =
+                            vec![(0.0, 0.0), (mx, 0.0), (0.0, my), (mx, my)];
+                        for r in out.iter().filter(|r| !r.hidden) {
+                            for (cx, cy) in [
+                                (r.x + r.w, y),
+                                (r.x - s.0, y),
+                                (x, r.y + r.h),
+                                (x, r.y - s.1),
+                                (r.x + r.w, r.y),
+                                (r.x - s.0, r.y),
+                                (r.x, r.y + r.h),
+                                (r.x, r.y - s.1),
+                            ] {
+                                cands.push((within(cx, 0.0, mx), within(cy, 0.0, my)));
+                            }
+                        }
+                        for (cx, cy) in cands {
+                            let d = (cx - x) * (cx - x) + (cy - y) * (cy - y);
+                            if best.is_none_or(|b| d < b.0) && !hits(s, cx, cy, out) {
+                                best = Some((d, cx, cy));
+                            }
+                        }
+                    }
+                    if best.is_none() {
+                        let mut gy = 0.0;
+                        'rows: while gy <= my + 0.001 {
+                            let mut gx = 0.0;
+                            while gx <= mx + 0.001 {
+                                let (cx, cy) = (gx.min(mx), gy.min(my));
+                                let d = (cx - x) * (cx - x) + (cy - y) * (cy - y);
+                                if !hits(s, cx, cy, out) {
+                                    if scan {
+                                        best = Some((d, cx, cy));
+                                        break 'rows;
+                                    }
+                                    if best.is_none_or(|b| d < b.0) {
+                                        best = Some((d, cx, cy));
+                                    }
+                                }
+                                gx += 8.0;
+                            }
+                            gy += 8.0;
+                        }
+                    }
+                    match best {
+                        Some((_, cx, cy)) => (bx, by) = (cx, cy),
+                        None => failed.push(p.id.clone()),
+                    }
+                }
+                out.push(rect(p, bx, by, s));
+            }
+            failed
+        };
+        let docked = out.len();
+        let mut failed = place(false, &mut out);
+        if !failed.is_empty() {
+            out.truncate(docked);
+            failed = place(true, &mut out);
         }
         // a viewport too small for every edge to wrap in: the palettes overlap rather than leave it
         for r in out.iter_mut() {
@@ -652,7 +839,7 @@ impl Layout {
             (w - left - right).max(0.0),
             (h - top - bottom).max(0.0),
         ];
-        (out, area)
+        (out, area, failed)
     }
 
     /// The rectangle of a palette in the last layout.
@@ -762,10 +949,11 @@ impl Layout {
         if !self.drag(x, y) {
             return self.cancel();
         }
-        let g = self.grab.take();
-        if let Some(g) = g {
-            self.dock_if_near(&g.id);
+        // docked while it is still the one in the hand: the place it is judged at is where the pointer put it, not where it would be moved to
+        if let Some(id) = self.grab.as_ref().map(|g| g.id.clone()) {
+            self.dock_if_near(&id);
         }
+        self.grab = None;
         true
     }
 
@@ -780,6 +968,16 @@ impl Layout {
             }
             None => false,
         }
+    }
+
+    /// The end of a keyboard move (the focus left the palette): the palette is let go where it is and, if that lies over another, placed
+    /// beside it. A palette held by the pointer is the pointer's until it is let go.
+    pub fn settle(&mut self) -> bool {
+        if self.grab.as_ref().is_some_and(|g| !g.pointer) {
+            self.grab = None;
+            return true;
+        }
+        false
     }
 
     /// The edge a floating palette touches (within the snap distance), the nearest one first.
@@ -862,8 +1060,9 @@ impl Layout {
             "arrowup" => (0.0, -step),
             "arrowdown" => (0.0, step),
             "enter" => {
-                self.grab = None;
+                // the rectangle is read while the palette is still the one in the hand (a floating one is where it was put, not beside others)
                 let Some(r) = self.rect_of(id) else {
+                    self.grab = None;
                     return false;
                 };
                 let Some(mut p) = self.palette(id) else {
@@ -881,10 +1080,22 @@ impl Layout {
                     .min_by(|a, b| a.1.total_cmp(&b.1))
                     .map_or(Dock::Left, |e| e.0);
                     self.dock_at(id, edge);
+                    self.grab = None;
                 } else {
+                    let start = p.clone();
                     p.dock = Dock::Float;
                     (p.x, p.y) = (r.x, r.y);
                     self.put(p);
+                    // floated where it is: it stays there, over the others that moved up, until the focus leaves it (`settle`)
+                    self.grab = Some(Grab {
+                        id: id.to_string(),
+                        dx: 0.0,
+                        dy: 0.0,
+                        start,
+                        pointer: false,
+                        from: (0.0, 0.0),
+                        moved: true,
+                    });
                 }
                 return true;
             }
@@ -937,7 +1148,7 @@ impl Layout {
     }
 
     /// The layout as JSON for the page: `{"preset", "all_hidden", "area": [x, y, w, h], "palettes": [{"id", "x", "y", "w", "h",
-    /// "dock", "horizontal", "collapsed", "hidden"}]}`.
+    /// "dock", "horizontal", "collapsed", "hidden", "capped"}]}`.
     pub fn arranged_json(&mut self, w: f64, h: f64, sizes: &[(String, f64, f64)]) -> String {
         let (rects, area) = self.arrange(w, h, sizes);
         // the palette a pointer is dragging, and the edge it docks on if let go now (the one `release` uses)
@@ -958,6 +1169,7 @@ impl Layout {
                 e.raw("horizontal", bool(r.horizontal));
                 e.raw("collapsed", bool(r.collapsed));
                 e.raw("hidden", bool(r.hidden));
+                e.raw("capped", bool(r.capped));
                 // only a floating palette turns between a row and a column
                 e.raw("can_turn", bool(r.dock == Dock::Float));
                 e.raw("can_collapse", bool(r.id != "tools"));

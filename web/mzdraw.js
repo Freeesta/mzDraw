@@ -5,6 +5,7 @@ import { build, layout, show, open, PALETTES } from "./palettes.js";
 import { NAMES } from "./names.js";
 import { contextMenu } from "./context.js";
 import { feedbackBoxes } from "./feedback.js";
+import { themeFade } from "./fade.js";
 import { buildPrefs, applyTheme } from "./prefs.js";
 import { unsavedDialog, unsavedOpen } from "./unsaved.js";
 
@@ -18,6 +19,7 @@ const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["draw
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus", "--d2-accent", "--d2-muted"];
 
 /** @type {any} */ let ed = null;
+/** copies the canvas before a new theme is put on the page (fade.js) @type {() => void} */ let beforeTheme = () => {};
 /** the context menu of the canvas (context.js) @type {ReturnType<typeof contextMenu>} */ let menu;
 const cv = /** @type {HTMLCanvasElement} */ ($("d2-canvas")), g = /** @type {CanvasRenderingContext2D} */ (cv.getContext("2d"));
 
@@ -330,8 +332,11 @@ function refresh() {
     // refused one is not)
     if (!on && input.value && (document.activeElement !== input || input.hasAttribute("aria-invalid"))) { input.value = ""; input.removeAttribute("aria-invalid"); }
   }
-  $("d2-status").textContent = t(st.objects ? "draw2.count.objects" : "draw2.count", { atoms: st.atoms, bonds: st.bonds, objects: st.objects });
-  // a report Rust keeps until the next step (the stereo guard) is shown beside the counts, as well as said by the live line
+  // the counts are not painted on the canvas: they stay for assistive technology, in a visually hidden live region (and "What is drawn" of the Check panel lists the same)
+  const counts = document.createElement("span"); counts.className = "sr"; counts.id = "d2-counts";
+  counts.textContent = t(st.objects ? "draw2.count.objects" : "draw2.count", { atoms: st.atoms, bonds: st.bonds, objects: st.objects });
+  $("d2-status").replaceChildren(counts);
+  // a report Rust keeps until the next step (the stereo guard) is shown on the canvas, as well as said by the live line
   if (st.notice.key) { const n = document.createElement("span"); n.className = "d2-notice"; n.textContent = " " + t(st.notice.key, { what: st.notice.what }); $("d2-status").append(n); }
   const list = $("d2-warnings"), ws = (st.check && st.check.warnings) || [];
   list.replaceChildren(...ws.map((/** @type {any} */ w) => {
@@ -682,9 +687,12 @@ function events() {
     if (after(ed.key(e.key, mods(e), e.timeStamp)) & HANDLED) e.preventDefault();
   });
   addEventListener("resize", () => { menu.close(); layout(); });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
+  // the theme changes softly (fade.js): the old canvas fades out over the new one while the colours of the page cross-fade in CSS
+  const fade = themeFade(cv), recolour = () => { fade.change(); paint(); };
+  beforeTheme = fade.before;
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", recolour);
   // a host page may set the theme on the root (data-theme="light|dark"): the canvas is painted again in its colours
-  new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  new MutationObserver(recolour).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 }
 
 /** adds a structure text, or the bytes of a file, to the drawing and says how it went @param {string | Uint8Array} text */
@@ -816,7 +824,7 @@ async function styles() {
     const style = JSON.parse(ed.style()).style;
     sel.value = style.preset; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
     for (const [key, input] of Object.entries(inputs)) { input.value = key in words ? ed.choice(key) : String(style[key]); input.removeAttribute("aria-invalid"); }
-    box_sync(); prefsSync(); applyTheme(ed);
+    box_sync(); prefsSync(); applyTheme(ed, beforeTheme);
   };
   /** one change asked of the module; a refusal is said in words, the field is marked and nothing changes */
   const ask = (/** @type {() => number} */ change, /** @type {string} */ said, /** @type {Element | null} */ field) => {
@@ -891,10 +899,10 @@ function preferences() {
   const note = () => $("d2-prefs-note");
   prefsSync = buildPrefs($("d2-fly-prefs"), { ed, t, close: () => { open("prefs", false); /** @type {HTMLElement} */ (document.querySelector('[data-testid="d2-prefs"]')).focus(); },
     change: (/** @type {() => number} */ fn, /** @type {string} */ said, /** @type {Element | null} */ field) => {
-      try { after(fn() | CHANGED); prefsSync(); applyTheme(ed); restyle(); keep(); note().textContent = said; $("d2-live").textContent = said; }
+      try { after(fn() | CHANGED); prefsSync(); applyTheme(ed, beforeTheme); restyle(); keep(); note().textContent = said; $("d2-live").textContent = said; }
       catch (e) { note().textContent = I.err(JSON.parse(String(e))).message; field?.setAttribute("aria-invalid", "true"); }
     } });
-  prefsSync(); applyTheme(ed);
+  prefsSync(); applyTheme(ed, beforeTheme);
 }
 
 function panels() {
@@ -919,7 +927,7 @@ try {
   ed = await load();
   /** @type {any} */ (window)[NAMES.global] = ed;
   build({ ed, t, run, field, focusCanvas: () => cv.focus({ preventScroll: true }), saveDefault, keep, area: place, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; } });
-  mapField(); colourField(); propsField(); $("d2-props").addEventListener("toggle", () => propsState(JSON.parse(ed.state()))); proposalEvents(); stepEvents(); historyEvents(); feedbackBoxes({ ed, t, focusCanvas: () => cv.focus({ preventScroll: true }) });
+  mapField(); colourField(); propsField(); $("d2-props").addEventListener("toggle", () => propsState(JSON.parse(ed.state()))); proposalEvents(); stepEvents(); historyEvents(); feedbackBoxes({ ed, t, focusCanvas: () => cv.focus({ preventScroll: true }), menu: (show) => open("prefs", show) });
   menu = contextMenu({ ed, t, cv, after, saveDefault, copyPng, say: (/** @type {string} */ s) => { $("d2-live").textContent = s; },
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); preferences(); layout(); refresh();
