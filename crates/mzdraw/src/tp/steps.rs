@@ -596,6 +596,7 @@ fn set(id: u32, fill: impl FnOnce(&mut Setting)) -> Op {
         h: s.h,
         lab: s.lab,
         map: None,
+        lp: None,
     }
 }
 

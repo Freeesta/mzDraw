@@ -1,7 +1,7 @@
 //! Commands on the selection: rotate and flip (the whole drawing when nothing is selected), and the clipboard (copy, cut, paste,
 //! duplicate). The clipboard holds an `mzdraw/1` document; the page mirrors it to the system clipboard.
 
-use crate::doc::Document;
+use crate::doc::{Document, ObjKind};
 use crate::editor::{Editor, CHANGED, REPAINT, TOOL};
 use crate::io;
 use crate::ops::{Axis, Op};
@@ -251,10 +251,12 @@ impl Editor {
             out.atoms.push(crate::doc::Atom { id, ..a.clone() });
         }
         let new = |old: u32| ids.iter().find(|p| p.0 == old).map(|p| p.1);
+        let mut bond_ids: Vec<(u32, u32)> = Vec::new();
         for b in &d.bonds {
             if let (Some(a2), Some(b2)) = (new(b.a), new(b.b)) {
                 let id = out.next;
                 out.next += 1;
+                bond_ids.push((b.id, id));
                 out.bonds.push(crate::doc::Bond {
                     id,
                     a: a2,
@@ -266,6 +268,44 @@ impl Editor {
         for o in (d.objects.iter()).filter(|o| self.over.sel_objs.contains(&o.id)) {
             let id = out.next;
             out.next += 1;
+            if o.t == ObjKind::Curve {
+                // a curve keeps the anchors that are copied with it; an end whose anchor stays behind becomes the point it stands at
+                let c = o.curve();
+                let (p, q) = crate::curve::ends(d, o, &|_| (0.0, 0.0), (0.0, 0.0));
+                let map = |id: u32| match id {
+                    0 => None,
+                    _ if d.atom(id).is_some() => new(id),
+                    _ => bond_ids.iter().find(|p| p.0 == id).map(|p| p.1),
+                };
+                let (f, t) = (map(o.from), map(o.to));
+                let mut copy = crate::doc::Obj {
+                    id,
+                    from: f.unwrap_or(0),
+                    to: t.unwrap_or(0),
+                    ..o.clone()
+                };
+                match (o.from, f) {
+                    (0, _) => {}
+                    (_, Some(_)) => (copy.x, copy.y) = (0.0, 0.0),
+                    (_, None) => {
+                        (copy.x, copy.y) = (crate::doc::round4(p.0), crate::doc::round4(p.1))
+                    }
+                }
+                match (o.to, t) {
+                    (0, _) => {}
+                    (_, Some(_)) => (copy.x2, copy.y2) = (0.0, 0.0),
+                    (_, None) => {
+                        (copy.x2, copy.y2) = (crate::doc::round4(q.0), crate::doc::round4(q.1))
+                    }
+                }
+                copy.set_curve(&crate::curve::Curve {
+                    fl: c.fl && f.is_some(),
+                    tl: c.tl && t.is_some(),
+                    ..c
+                });
+                out.objects.push(copy);
+                continue;
+            }
             out.objects.push(crate::doc::Obj {
                 id,
                 from: 0,

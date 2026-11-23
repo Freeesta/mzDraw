@@ -92,6 +92,39 @@ fn two_fingers_pan_and_zoom_and_never_draw() {
     assert_eq!(e.doc().to_json(), doc);
 }
 
+/// What looked like a lost first tap on the page: after a pen stroke a finger tap within the palm window is taken whole as a palm, a
+/// second one inside the window too, and nothing stays held: the first tap after the window draws, with the same finger id.
+#[test]
+fn a_tap_inside_the_palm_window_after_the_pen_is_lost_whole_and_the_first_one_after_it_draws() {
+    let mut e = Editor::default();
+    e.set_tool("chain");
+    // a pen stroke ends at t = 1000
+    e.pointer_event(DOWN, 20, 300.0, 300.0, PEN, 0, 900.0);
+    e.pointer_event(UP, 20, 300.0, 300.0, PEN, 0, 1000.0);
+    let after_pen = (e.doc().atoms.len(), e.doc().bonds.len());
+    assert_eq!(
+        after_pen,
+        (3, 2),
+        "a pen tap with the chain tool draws two bonds"
+    );
+    // finger taps with the same id, each lifted: inside the window nothing is drawn, and none of them is held
+    for (down, up) in [(1100.0, 1150.0), (1300.0, 1350.0), (1480.0, 1490.0)] {
+        e.pointer_event(DOWN, 11, 100.0, 100.0, TOUCH, 0, down);
+        e.pointer_event(UP, 11, 100.0, 100.0, TOUCH, 0, up);
+        assert_eq!((e.doc().atoms.len(), e.doc().bonds.len()), after_pen);
+    }
+    // the first tap after the window draws, and so does the next one
+    for (n, t) in [(1, 1600.0), (2, 1800.0)] {
+        e.pointer_event(DOWN, 11, 100.0 + 200.0 * n as f64, 100.0, TOUCH, 0, t);
+        e.pointer_event(UP, 11, 100.0 + 200.0 * n as f64, 100.0, TOUCH, 0, t + 20.0);
+        assert_eq!(
+            e.doc().atoms.len(),
+            3 + 3 * n,
+            "tap {n} after the window draws"
+        );
+    }
+}
+
 #[test]
 fn a_palm_near_the_pen_is_ignored() {
     let mut e = benzene();

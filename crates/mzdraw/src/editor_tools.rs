@@ -44,6 +44,17 @@ impl Editor {
         }
         let hit = self.hit(px, py, kind);
         let shift = mods & SHIFT != 0;
+        // the middle handle of a selected curve: the press bends it and leaves the selection alone
+        if self.tool == Tool::Select && self.bend_press(px, py) {
+            self.press = Some(Press {
+                start: (px, py),
+                now: (px, py),
+                hit,
+                moved: false,
+                kind,
+            });
+            return REPAINT;
+        }
         // a click on an empty spot in "move here" mode keeps the selection it is about to bring there
         if self.tool == Tool::Select && !(hit == Hit::None && self.move_here_ready()) {
             self.select_press(hit, shift);
@@ -122,7 +133,16 @@ impl Editor {
             return 0;
         }
         let (start, hit, kind) = (p.start, p.hit, p.kind);
+        if self.bend_drag.is_some() {
+            self.bend_move(px, py);
+            return REPAINT;
+        }
         match (&self.tool, hit) {
+            (Tool::Curve(_), _) => {
+                let (_, _, a) = self.curve_end_at(start.0, start.1, kind);
+                let b = self.view.to_doc(px, py);
+                self.over.preview = Some((a.0, a.1, b.0, b.1));
+            }
             (Tool::Select, Hit::None) => {
                 self.over.band = Some((
                     start.0.min(px),
@@ -235,6 +255,9 @@ impl Editor {
         let Some(p) = self.press.take() else {
             return 0;
         };
+        if self.bend_drag.is_some() {
+            return self.bend_release() | REPAINT;
+        }
         let drag = self.over.drag;
         let band = self.over.band.take();
         self.over.drag = (0.0, 0.0);
@@ -271,6 +294,8 @@ impl Editor {
                 )
             }
             Tool::Label(l) => self.label_release(&p, &l, px, py),
+            Tool::LonePair => self.lonepair_click(p.hit),
+            Tool::Curve(half) => self.curve_release(&p, half, px, py),
             Tool::Arrow => {
                 let (x, y) = self.view.to_doc(p.start.0, p.start.1);
                 // a click gives an arrow of two bond lengths to the right; a drag gives its own
@@ -305,6 +330,7 @@ impl Editor {
                     runs: Vec::new(),
                     from,
                     to,
+                    cv: Default::default(),
                 };
                 let mut ops = vec![add];
                 if let (true, Some(st)) = (from != 0, &st) {
@@ -341,6 +367,7 @@ impl Editor {
                     runs: Vec::new(),
                     from: 0,
                     to: 0,
+                    cv: Default::default(),
                 };
                 self.run(&[add], "draw2.say.plus", "")
             }
@@ -358,6 +385,8 @@ impl Editor {
                             y2: None,
                             from: None,
                             to: None,
+                            cv: Default::default(),
+                            pt: [None, None],
                         }
                     }
                     _ => {
@@ -374,6 +403,7 @@ impl Editor {
                             runs: runs.clone(),
                             from: 0,
                             to: 0,
+                            cv: Default::default(),
                         }
                     }
                 };
@@ -391,6 +421,7 @@ impl Editor {
                         rad: None,
                         h: None,
                         lab: None,
+                        lp: None,
                     };
                     self.run(&[set], "draw2.say.charge", &(now + c).to_string())
                 }
@@ -484,6 +515,7 @@ impl Editor {
                     rad: None,
                     h: None,
                     lab: None,
+                    lp: None,
                 };
                 self.run(&[set], "draw2.say.element", el)
             }
@@ -516,6 +548,7 @@ impl Editor {
             rad: None,
             h: None,
             lab: Some(label.to_string()),
+            lp: None,
         };
         match p.hit {
             Hit::Atom(a) => self.run(&[set(a)], "draw2.say.label", label),
@@ -897,6 +930,9 @@ impl Editor {
             (true, _) => return 0,
             (false, "delete" | "backspace") => self.delete_selection(),
             (false, "escape") => {
+                if self.curve_from.take().is_some() {
+                    self.said = ("draw2.say.curveCancel", String::new());
+                }
                 self.over.sel_atoms.clear();
                 self.over.sel_bonds.clear();
                 self.over.sel_objs.clear();
@@ -913,6 +949,16 @@ impl Editor {
             (false, "y") => self.set_tool("bond:wavy"),
             (false, "+" | "-") => self.set_tool(&format!("charge:{lower}")),
             (false, "v") => self.set_tool("select"),
+            (false, "u") if shift => self.place_lone_pairs(),
+            (false, "u") => self.set_tool("lonepair"),
+            (false, "k") => self.set_tool(if shift { "curve:half" } else { "curve:full" }),
+            (false, "," | ".") => {
+                let step = if lower == "." { 0.1 } else { -0.1 };
+                match self.bend_key(step) {
+                    Some(f) => f,
+                    None => return 0,
+                }
+            }
             (false, "m") => self.set_move_here(!self.move_here),
             (false, "e") => self.set_tool("erase"),
             (false, "l") if shift => self.cycle_lens(),
@@ -960,6 +1006,7 @@ impl Editor {
                     rad: None,
                     h: None,
                     lab: None,
+                    lp: None,
                 };
                 self.run(&[set], "draw2.say.element", el) | said
             }

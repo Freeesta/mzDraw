@@ -17,7 +17,7 @@ impl Editor {
     }
 
     /// The bond between the focused atom and the one the focus came from.
-    fn walked_bond(&self) -> Option<u32> {
+    pub(crate) fn walked_bond(&self) -> Option<u32> {
         let d = self.doc();
         d.bond_between(self.over.focus?, self.focus_from?)
             .map(|b| b.id)
@@ -47,6 +47,10 @@ impl Editor {
             }
             ("pagedown", _) => self.next_piece(1),
             ("pageup", _) => self.next_piece(-1),
+            // with a curve tool, Enter on the focused source and then on the focused target draws the curve (no drag needed)
+            ("enter", Some(a)) if matches!(self.tool, crate::editor::Tool::Curve(_)) => {
+                self.curve_key(a, shift)
+            }
             ("enter", _) => self.grow(if shift { 2 } else { 1 }),
             (" ", Some(a)) => {
                 // the focused atom joins or leaves the selection
@@ -83,8 +87,14 @@ impl Editor {
                     rad: None,
                     h: None,
                     lab: None,
+                    lp: None,
                 };
                 self.run(&[set], "draw2.say.charge", &chg.to_string()) | FOCUS
+            }
+            ("u", Some(a)) if !shift => {
+                // the lone pairs of the focused atom: one more, none after four
+                let now = self.doc().atom(a).map_or(0, |x| x.lp());
+                self.set_lp(a, (now + 1) % (crate::curve::MAX_LP + 1)) | FOCUS
             }
             ("delete" | "backspace", Some(a)) if self.over.sel_atoms.is_empty() => {
                 let back = self.focus_from;

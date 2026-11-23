@@ -158,6 +158,7 @@ fn an_arrow_is_aligned_with_a_structure_and_keeps_its_length() {
             runs: Vec::new(),
             from: 0,
             to: 0,
+            cv: Default::default(),
         }])
         .unwrap();
     e.over.sel_atoms = ids[0].clone();
@@ -363,6 +364,7 @@ fn anchored() -> (Editor, Vec<Vec<u32>>) {
             runs: Vec::new(),
             from: ids[0][0],
             to: ids[1][0],
+            cv: Default::default(),
         }])
         .unwrap();
     (e, ids)

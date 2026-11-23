@@ -107,6 +107,7 @@ Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms 
 | `arrow.text` | no | no | no | no | no | no | no | no | yes | yes |
 | `atom.charge` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
 | `atom.isotope` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `atom.lp` | no | no | no | no | no | no | no | no | yes | yes |
 | `atom.map` | yes | yes | yes | yes | yes | no | no | yes | yes | yes |
 | `atom.radical` | yes | yes | drawing | yes | yes | yes | yes | yes | yes | yes |
 | `bond.bdash` | no | no | no | no | no | no | no | no | yes | yes |
@@ -123,6 +124,7 @@ Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms 
 | `geometry` | yes | yes | drawing | drawing | yes | yes | yes | drawing | yes | yes |
 | `labels` | no | no | no | no | no | no | no | no | yes | yes |
 | `object.arrow` | no | no | no | no | yes | yes | no | yes | yes | yes |
+| `object.curve` | no | no | no | no | no | no | no | no | yes | yes |
 | `object.plus` | no | no | no | no | yes | yes | no | drawing | yes | yes |
 | `object.text` | no | no | no | no | yes | yes | no | no | yes | yes |
 | `rlabel` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
