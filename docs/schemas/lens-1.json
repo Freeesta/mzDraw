@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "lens-1",
+  "title": "lens/1: what changed from the parent to the product of an anchored arrow (mzdraw::tp)",
+  "description": "The key table of `\"out\":\"lens\"`. Checked by crates/mzdraw/tests/lens.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text) is asserted by hand; the other constraints are documentation. One entry per anchored arrow in `arrows`, by arrow id, from the structure the arrow leaves (P) to the one it reaches (T), compared by atom map number. An anchored arrow between two structures that has no entry in `arrows` is in `skipped` (nothing is dropped in silence). All ids ascend.",
+  "type": "object",
+  "x-key-order": ["format", "arrows", "skipped"],
+  "required": ["format", "arrows", "skipped"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "lens/1" },
+    "arrows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "x-key-order": ["arrow", "added", "added_bonds", "changed", "changed_bonds", "cleaved", "lost", "delta"],
+        "required": ["arrow", "added", "added_bonds", "changed", "changed_bonds", "cleaved", "lost", "delta"],
+        "additionalProperties": false,
+        "properties": {
+          "arrow": { "type": "integer", "minimum": 0, "description": "id of the arrow" },
+          "added": { "type": "array", "items": { "type": "integer" }, "description": "atom ids of T whose map P lacks" },
+          "added_bonds": { "type": "array", "items": { "type": "integer" }, "description": "bond ids of T with an added end, and bonds between two atoms both structures have that P did not bond (a ring closure)" },
+          "changed": { "type": "array", "items": { "type": "integer" }, "description": "atom ids of T in both structures whose element, label, charge, isotope, radical or hydrogen count differ" },
+          "changed_bonds": { "type": "array", "items": { "type": "integer" }, "description": "bond ids of T in both structures (same two maps) whose order differs; a wedge change is not a change here" },
+          "cleaved": { "type": "array", "items": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 }, "description": "bonds of P between two maps both in T that T does not bond, as the two T atom ids, smaller first" },
+          "lost": { "type": "array", "items": { "type": "integer" }, "description": "map numbers of P that T lacks (listed, never drawn)" },
+          "delta": { "type": ["string", "null"], "description": "the formula delta of `pathway:label` (spelling of mzlab_mol::delta::print: +O, -CH2); empty for equal formulas; null where there is no honest delta (a free-text label, or equal counts with a different net charge)" }
+        }
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "x-key-order": ["arrow", "why"],
+        "required": ["arrow", "why"],
+        "additionalProperties": false,
+        "properties": {
+          "arrow": { "type": "integer", "minimum": 0 },
+          "why": { "enum": ["no maps", "unmapped", "over cap"], "description": "`no maps`: neither structure has a map (no std/1 finding); `unmapped`: partly mapped or a map shared (also the finding std.tp.unmapped); `over cap`: a structure above 5000 atoms or the work budget of 2,000,000 atoms is spent" }
+        }
+      }
+    }
+  }
+}

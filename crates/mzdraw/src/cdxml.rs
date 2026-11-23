@@ -52,6 +52,9 @@ struct Read {
     /// The index into the colour table of each node and each bond (`None`: the default ink), in the order they were read.
     atom_col: Vec<Option<usize>>,
     bond_col: Vec<Option<usize>>,
+    /// The side of the second line (`bonddisp`: `c`, `l`, `r`, empty for none) and the display kind (`dash`, `hash`, empty for
+    /// plain) of each bond, in the order they were read.
+    bond_disp: Vec<(&'static str, &'static str)>,
 }
 
 /// The colour index of an object: `color` as a number; 0 and 1 (black and white) are the default ink and background, the table
@@ -321,6 +324,19 @@ impl Read {
         };
         self.bonds.push((from, to, order, cfg));
         self.bond_col.push(colour_index(b));
+        // the display and the side of the second line, as the begin atom sees them (a wedge turned at its ends keeps neither)
+        let kind = match b.attr("Display") {
+            Some("Dash") => "dash",
+            Some("Hash") => "hash",
+            _ => "",
+        };
+        let side = match (order, b.attr("DoublePosition"), turned) {
+            (2, Some("Left"), false) | (2, Some("Right"), true) => "l",
+            (2, Some("Right"), false) | (2, Some("Left"), true) => "r",
+            (2, Some("Center"), _) => "c",
+            _ => "",
+        };
+        self.bond_disp.push((side, kind));
     }
 }
 
@@ -379,8 +395,52 @@ pub(crate) fn from_tree(
         for (b, c) in d.bonds.iter_mut().zip(&r.bond_col) {
             crate::ink::put(&mut b.more, &hex(c));
         }
+        for (b, (side, kind)) in d.bonds.iter_mut().zip(&r.bond_disp) {
+            crate::bonddisp::pos_put(&mut b.more, side);
+            crate::bonddisp::k_put(&mut b.more, kind);
+        }
+    } else {
+        // a bond was refused: the bonds of the file and the drawing cannot be paired, so none keeps its display; it is said
+        info.bond_display_left += r.bond_disp.iter().filter(|d| **d != ("", "")).count();
     }
     Ok(d)
+}
+
+impl Document {
+    /// The attributes `Display` and `DoublePosition` of the bond `k` (in the order of the bonds written; `from` is the begin atom of
+    /// the bond as written, an index of the written atoms).
+    fn display(
+        &self,
+        k: usize,
+        from: usize,
+        index: &std::collections::HashMap<u32, usize>,
+    ) -> String {
+        let Some(d) = self.bonds.get(k) else {
+            return String::new();
+        };
+        let mut out = String::new();
+        if d.s == 0 {
+            match d.kind().as_str() {
+                "dash" => out += " Display=\"Dash\"",
+                "hash" => out += " Display=\"Hash\"",
+                _ => {}
+            }
+        }
+        if d.o == 2 {
+            // the side is the viewer's at the begin atom `a` of the bond; the written begin atom may be the other one
+            let turned = index.get(&d.a).is_some_and(|&i| i != from);
+            let name = match (d.pos().as_str(), turned) {
+                ("c", _) => "Center",
+                ("l", false) | ("r", true) => "Left",
+                ("r", false) | ("l", true) => "Right",
+                _ => "",
+            };
+            if !name.is_empty() {
+                out += &format!(" DoublePosition=\"{name}\"");
+            }
+        }
+        out
+    }
 }
 
 impl Document {
@@ -567,6 +627,9 @@ impl Document {
                 None if b.o > 1 => (b.a as usize, b.b as usize, format!(" Order=\"{}\"", b.o)),
                 None => (b.a as usize, b.b as usize, String::new()),
             };
+            // the display kind (`Dash`, `Hash`; a bold dashed bond has no place) and the side of the second line, as seen from the
+            // begin atom of the bond as written (CDX SDK pages Bond_Display and Bond_DoublePosition)
+            let more = format!("{more}{}", self.display(k, b.a as usize, &index));
             let more = format!(
                 "{more}{}",
                 paint(self.bonds.get(k).map_or_else(String::new, |d| d.col()))

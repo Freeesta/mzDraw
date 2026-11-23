@@ -28,6 +28,8 @@ fn set_order(id: u32, o: u8) -> Op {
         id,
         o: Some(o),
         s: None,
+        pos: None,
+        k: None,
         rev: false,
     }
 }
@@ -449,6 +451,9 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             id: bond_id(r),
             o: (r.next(2) == 1).then(|| 1 + r.next(3) as u8),
             s: (r.next(3) > 0).then(|| r.next(4) as u8),
+            pos: (r.next(3) == 0).then(|| ["auto", "c", "l", "r", ""][r.next(5)].to_string()),
+            k: (r.next(3) == 0)
+                .then(|| ["solid", "dash", "bdash", "hash", ""][r.next(5)].to_string()),
             rev: r.next(2) == 1,
         }],
         10 => {
@@ -588,6 +593,8 @@ fn wedge_marks_sit_on_single_bonds_and_turn_around() {
         id,
         o,
         s: mark,
+        pos: None,
+        k: None,
         rev,
     };
     s.run(&[wedge(4, None, Some(1), false)]).unwrap();
@@ -1184,6 +1191,8 @@ fn the_diff_says_what_changed_with_the_operations_that_say_it() {
             id: 4,
             o: None,
             s: Some(1),
+            pos: None,
+            k: None,
             rev: true,
         },
         Op::Move {

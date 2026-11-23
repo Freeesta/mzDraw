@@ -98,6 +98,10 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("atom.isotope", [Y, Y, Y, Y, Y, Y, Y, Y, Y, Y]),
     ("atom.map", [Y, Y, Y, Y, Y, N, N, Y, Y, Y]),
     ("atom.radical", [Y, Y, P, Y, Y, Y, Y, Y, Y, Y]),
+    ("bond.bdash", [N, N, N, N, N, N, N, N, Y, Y]),
+    ("bond.dash", [N, N, N, N, N, Y, N, N, Y, Y]),
+    ("bond.hash", [N, N, N, N, N, Y, N, N, Y, Y]),
+    ("bond.pos", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("caption", [N, N, N, N, N, P, N, N, Y, Y]),
     ("colour", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("colour.object", [N, N, N, N, N, N, N, N, Y, Y]),
@@ -211,7 +215,23 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if !b.col().is_empty() {
             push("colour", b.col(), 0, b.id, 0);
         }
-        for (key, _) in (b.more.iter()).filter(|m| m.0 != "col" || b.col().is_empty()) {
+        if !b.pos().is_empty() && crate::bonddisp::POS.contains(&b.pos().as_str()) {
+            push("bond.pos", b.pos(), 0, b.id, 0);
+        }
+        match b.kind().as_str() {
+            "dash" => push("bond.dash", String::new(), 0, b.id, 0),
+            "bdash" => push("bond.bdash", String::new(), 0, b.id, 0),
+            "hash" => push("bond.hash", String::new(), 0, b.id, 0),
+            _ => {}
+        }
+        // `pos` and `k` are not unknown when they hold a value of this version (they have rows of their own)
+        let known = |key: &str| match key {
+            "col" => !b.col().is_empty(),
+            "pos" => crate::bonddisp::POS.contains(&b.pos().as_str()),
+            "k" => crate::bonddisp::KINDS.contains(&b.kind().as_str()),
+            _ => false,
+        };
+        for (key, _) in (b.more.iter()).filter(|m| !known(&m.0)) {
             push("unknown", format!("bond.{key}"), 0, b.id, 0);
         }
     }

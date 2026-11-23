@@ -659,56 +659,67 @@ fn a_signature_of_a_100_atom_piece_with_10_wedges_is_fast() {
     let all = pieces(&d);
     assert_eq!(all.len(), 1);
     assert_eq!(d.atoms.len(), 100);
-    let mut ms: Vec<f64> = (0..20)
-        .map(|_| {
-            let t = std::time::Instant::now();
-            let s = signature(&d, &all);
-            assert_eq!(s.len(), 1);
-            t.elapsed().as_secs_f64() * 1000.0
-        })
-        .collect();
-    ms.sort_by(f64::total_cmp);
-    println!("median {:.3} ms (test build)", ms[10]);
-    assert!(ms[10] < 100.0);
+    // the least CPU time of the thread over twenty runs after two that are not timed (the wait for a core is not counted)
+    let ms = timing::best_of(2, 20, || {
+        let s = signature(&d, &all);
+        assert_eq!(s.len(), 1);
+    })
+    .as_secs_f64()
+        * 1000.0;
+    println!("least {ms:.3} ms (test build)");
+    assert!(ms < 100.0, "{ms} ms");
 }
 
-/// A step on a big drawing with no wedge and no double bond costs one pass over its bonds, whatever the number of atoms.
+/// A step on a big drawing with no wedge and no double bond costs one pass over its bonds: four times the atoms may cost at most eight
+/// times as much (linear work gives 4, quadratic work 16), the least CPU time of twenty calls of the thread (no figure in
+/// milliseconds: the speed and the load of the machine are not in a ratio).
 #[test]
 fn a_geometry_step_on_a_big_wedge_free_drawing_is_cheap() {
-    let mut s = Session::default();
-    let atoms: Vec<Op> = (0..20_000)
-        .map(|i| Op::AtomAdd {
-            id: None,
-            el: "C".into(),
-            x: i as f64,
-            y: 0.0,
-            map: None,
-        })
-        .collect();
-    s.run(&atoms).unwrap();
-    let bonds: Vec<Op> = (1..20_000u32)
-        .map(|i| Op::BondAdd {
-            id: None,
-            a: i,
-            b: i + 1,
-            o: 1,
-            s: 0,
-        })
-        .collect();
-    s.run(&bonds).unwrap();
+    let chain = |n: u32| {
+        let mut s = Session::default();
+        let atoms: Vec<Op> = (0..n)
+            .map(|i| Op::AtomAdd {
+                id: None,
+                el: "C".into(),
+                x: f64::from(i),
+                y: 0.0,
+                map: None,
+            })
+            .collect();
+        s.run(&atoms).unwrap();
+        let bonds: Vec<Op> = (1..n)
+            .map(|i| Op::BondAdd {
+                id: None,
+                a: i,
+                b: i + 1,
+                o: 1,
+                s: 0,
+            })
+            .collect();
+        s.run(&bonds).unwrap();
+        s
+    };
     let op = Op::Move {
         atoms: vec![5, 6],
         objects: vec![],
         dx: 0.5,
         dy: 0.5,
     };
-    let t = timing::Watch::start();
-    for _ in 0..20 {
-        assert!(mzdraw::stereo_guard::before(&s.doc, std::slice::from_ref(&op)).is_none());
-    }
-    let ms = t.elapsed().as_secs_f64() * 1000.0 / 20.0;
-    println!("before() on 20,000 atoms without wedge: {ms:.3} ms (test build)");
-    assert!(ms < 5.0, "{ms} ms");
+    let cost = |s: &Session| {
+        timing::best_of(1, 7, || {
+            for _ in 0..20 {
+                assert!(mzdraw::stereo_guard::before(&s.doc, std::slice::from_ref(&op)).is_none());
+            }
+        })
+        .as_secs_f64()
+            * 1000.0
+    };
+    let (small, big) = (cost(&chain(5_000)), cost(&chain(20_000)));
+    println!("before() without wedge: {small:.3} ms for 5,000 atoms, {big:.3} ms for 20,000 (test build, twenty calls)");
+    assert!(
+        big <= small * 8.0,
+        "{small:.3} ms for 5,000 atoms, {big:.3} ms for 20,000"
+    );
 }
 
 pub fn big_piece() -> Document {
