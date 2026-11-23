@@ -1,0 +1,1998 @@
+{
+ "format": "rdkit-compare/1",
+ "molecules": [
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 11,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 10,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "chain",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 11,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 10,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "CCCCCCCCCCO",
+   "what": "open chain, zigzag"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 13,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "chain_angle_dev_max": 30.0,
+     "chain_angle_dev_mean": 6.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "branched",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 13,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 0.732
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "CC(C)(C)CC(C)(C)C(=O)N(C)C",
+   "what": "quaternary carbons, amide"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 8,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 7,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 2
+   },
+   "name": "stereo-2",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 8,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 7,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 2,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C[C@@H](O)[C@H](N)C(=O)O",
+   "what": "two stereocentres"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 7,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 6,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "ez-ester",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 7,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 6,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C/C=C/C(=O)OC",
+   "what": "E double bond"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 4,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 3,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "ez-halo",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 4,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 3,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "F/C=C\\Cl",
+   "what": "Z double bond, halogens"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 8,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 8,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 2
+   },
+   "name": "ring-cis",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 8,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 8,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 2,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "O[C@@H]1CC[C@H](CC1)N",
+   "what": "stereo on a ring"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 8,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 9,
+     "label_crossings": 0,
+     "min_nonbonded": 1.618,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "small-rings",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 8,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 9,
+     "label_crossings": 0,
+     "min_nonbonded": 1.618,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C1CC1C1CCCC1",
+   "what": "3- and 5-membered rings"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 11,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "fused-2",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 11,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "Oc1ccc2ccccc2c1",
+   "what": "two fused aromatic rings"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 14,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 16,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "fused-3",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 14,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 16,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "c1ccc2cc3ccccc3cc2c1",
+   "what": "three fused aromatic rings"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 21,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 24,
+     "label_crossings": 0,
+     "min_nonbonded": 1.0,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 6
+   },
+   "name": "steroid-like",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 21,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 24,
+     "label_crossings": 0,
+     "min_nonbonded": 1.0,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 8,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C[C@]12CC[C@H]3[C@@H](CCC4CC(N)CC[C@@]34C)[C@@H]1CC[C@@H]2F",
+   "what": "four fused rings, six stereocentres"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 10,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 11,
+     "label_crossings": 0,
+     "min_nonbonded": 1.089,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "spiro",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 10,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 11,
+     "label_crossings": 0,
+     "min_nonbonded": 1.089,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C1CCC2(CC1)CCOC2",
+   "what": "spiro junction"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 7,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 8,
+     "label_crossings": 0,
+     "min_nonbonded": 0.618,
+     "ring_angle_dev_max": 72.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "bridged",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 7,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 8,
+     "label_crossings": 0,
+     "min_nonbonded": 0.618,
+     "ring_angle_dev_max": 72.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 2,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C1CC2CCC1C2",
+   "what": "bicyclic bridge"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 2,
+     "atoms": 8,
+     "bond_crossings": 2,
+     "bond_dev_max": 0.179,
+     "bonds": 12,
+     "label_crossings": 0,
+     "min_nonbonded": 0.426,
+     "ring_angle_dev_max": 90.0,
+     "ring_edge_dev_max": 0.129
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "cage",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 8,
+     "bond_crossings": 2,
+     "bond_dev_max": 2.0,
+     "bonds": 12,
+     "label_crossings": 0,
+     "min_nonbonded": 1.414,
+     "ring_angle_dev_max": 90.0,
+     "ring_edge_dev_max": 1.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 8,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C12C3C4C1C5C2C3C45",
+   "what": "cage (cubane skeleton)"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 1,
+     "atoms": 10,
+     "bond_crossings": 1,
+     "bond_dev_max": 0.63,
+     "bonds": 12,
+     "label_crossings": 0,
+     "min_nonbonded": 0.227,
+     "ring_angle_dev_max": 83.1,
+     "ring_edge_dev_max": 0.347
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "adamantane-like",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 10,
+     "bond_crossings": 1,
+     "bond_dev_max": 1.192,
+     "bonds": 12,
+     "label_crossings": 0,
+     "min_nonbonded": 0.518,
+     "ring_angle_dev_max": 90.0,
+     "ring_edge_dev_max": 0.829
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 4,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C1C2CC3CC1CC(C2)C3",
+   "what": "tricyclic cage"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 12,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "label_crossings": 0,
+     "min_nonbonded": 1.932,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "macrocycle",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 12,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "label_crossings": 0,
+     "min_nonbonded": 1.932,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C1CCCCCCCCCCC1",
+   "what": "12-membered ring"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 8,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 7,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.239
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "zwitterion",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 8,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 7,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.239
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C[N+](C)(C)CC(=O)[O-]",
+   "what": "ammonium and carboxylate"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 10,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 10,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "nitro-noxide",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 10,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 10,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "[O-][n+]1ccc(cc1)[N+](=O)[O-]",
+   "what": "nitro group, N-oxide"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 5,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 3,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed_smiles": true,
+    "pieces": 2,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "salt",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 5,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 3,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 0.667
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "[Na+].CC(=O)[O-]",
+   "what": "two ions"
+  },
+  {
+   "mzdraw": {
+    "error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
+    "parsed_smiles": false
+   },
+   "name": "dative",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 5,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 4,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.414
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "[NH3]->[Pd](Cl)(Cl)<-[NH3]",
+   "what": "dative bonds to a metal"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 14,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 14,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.239,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "isotopes",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 14,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 14,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.239,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "[2H]C([2H])([2H])Oc1ccc(cc1)[13C](=O)O",
+   "what": "2H and 13C"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 4,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 3,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "radical",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 4,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 3,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "CCC[O]",
+   "what": "an oxygen radical"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 15,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 15,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.239,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "boc-amine",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 15,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 15,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.239,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "CC(C)(C)OC(=O)NCc1ccccc1",
+   "what": "group an abbreviation would condense"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 32,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 36,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.618,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "druglike-1",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 32,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 36,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.618,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "CN1CCN(CC1)c1ccc(cc1)C(=O)Nc1ccc2[nH]c(nc2c1)-c1ccc(F)cc1",
+   "what": "drug-like, 5 rings"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 31,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 34,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.0,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 2
+   },
+   "name": "druglike-2",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 31,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 34,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.0,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 2,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "O=C(N[C@@H](Cc1ccccc1)C(=O)N1CCC[C@H]1C(=O)OC)c1cc2ccccc2o1",
+   "what": "drug-like, stereo, amides"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 13,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 15,
+     "label_crossings": 0,
+     "min_nonbonded": 1.618,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "carboline",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 13,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 15,
+     "label_crossings": 0,
+     "min_nonbonded": 1.618,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "c1ccc2c(c1)[nH]c1ccncc12",
+   "what": "fused heteroaromatics"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 13,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 13,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.239,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "sulfonamide",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 13,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 13,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.239,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "CS(=O)(=O)N(C)c1ccc(Cl)cc1",
+   "what": "hypervalent S"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 7,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 6,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.414
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "triple",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 7,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 6,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.414
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "CC#CC(C)(C)O",
+   "what": "linear triple bond"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 5,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 4,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "allene",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 5,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 4,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "CC=C=CC",
+   "what": "cumulated double bonds"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 12,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.343,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 1
+   },
+   "name": "phosphate",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 12,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 0.897,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "COP(=O)(OC)O[C@@H]1CCCC1",
+   "what": "P(V), stereo"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": false,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 10,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 9,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": false,
+    "stereo_from_molfile": false,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "polyene",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 10,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 9,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 0,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "C=CC=CC=CC=CC=C",
+   "what": "conjugated chain"
+  },
+  {
+   "mzdraw": {
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 12,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 5
+   },
+   "name": "sugar",
+   "rdkit": {
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 12,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 12,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.732,
+     "ring_angle_dev_max": 0.0,
+     "ring_edge_dev_max": 0.0
+    },
+    "parsed": true,
+    "png": true,
+    "stereo_centres": 5,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true
+   },
+   "smiles": "OC[C@H]1O[C@@H](O)[C@H](O)[C@@H](O)[C@@H]1O",
+   "what": "pyranose, five stereocentres"
+  },
+  {
+   "mzdraw": {
+    "arrows": 1,
+    "error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
+    "parsed_rxn_file": true,
+    "parsed_smiles": false,
+    "pieces": 3,
+    "png": false,
+    "svg_deterministic": true,
+    "wedges": 0
+   },
+   "name": "reaction",
+   "rdkit": {
+    "components": [
+     2,
+     1
+    ],
+    "parsed": true,
+    "svg_deterministic": true
+   },
+   "smiles": "CC(=O)O.OCc1ccccc1>>CC(=O)OCc1ccccc1",
+   "what": "esterification, reaction SMILES"
+  }
+ ],
+ "probes": [
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "log": [
+     {
+      "atoms": [
+       2,
+       3
+      ],
+      "bonds": [
+       10
+      ],
+      "col": "#ff0000",
+      "op": "colour"
+     }
+    ],
+    "out": "svg"
+   },
+   "note": "mzDraw colours the ink of the atom and the bond; RDKit paints a halo behind them (highlight radius)",
+   "probe": "highlight atoms and bonds by index and colour",
+   "rdkit": true,
+   "rdkit_api": "DrawMolecule(highlightAtoms, highlightBonds, highlightAtomColors)"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg",
+    "set": [
+     "display.ids=on"
+    ]
+   },
+   "note": "",
+   "probe": "atom indices in the picture",
+   "rdkit": true,
+   "rdkit_api": "MolDrawOptions.addAtomIndices"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "[CH3:1][CH2:2][OH:3]",
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "atom map numbers in the picture",
+   "rdkit": true,
+   "rdkit_api": "atom map numbers drawn by default"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg",
+    "set": [
+     "display.cip=on"
+    ]
+   },
+   "note": "",
+   "probe": "CIP labels (R/S, E/Z) in the picture",
+   "rdkit": true,
+   "rdkit_api": "MolDrawOptions.addStereoAnnotation"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "ran, but the output does not show it",
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "log": [
+     {
+      "id": 1,
+      "op": "atom.title",
+      "title": "compound 7"
+     }
+    ],
+    "out": "svg"
+   },
+   "note": "mzDraw keeps the title in the document and the molfile; it is not drawn",
+   "probe": "legend (caption) under a molecule",
+   "rdkit": true,
+   "rdkit_api": "DrawMolecule(legend=...)"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "args": {
+     "cols": 2
+    },
+    "command": "grid",
+    "import": "CCO.c1ccccc1.CC(=O)O.CCN",
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "grid of molecules with legends",
+   "rdkit": true,
+   "rdkit_api": "Draw.MolsToGridImage(mols, molsPerRow, legends, useSVG)"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg",
+    "set": [
+     "style.colour=mono"
+    ]
+   },
+   "note": "",
+   "probe": "black-and-white atoms",
+   "rdkit": true,
+   "rdkit_api": "MolDrawOptions.useBWAtomPalette()"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg"
+   },
+   "note": "mzDraw SVG has no background by default",
+   "probe": "transparent background",
+   "rdkit": true,
+   "rdkit_api": "MolDrawOptions.clearBackground = False"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg",
+    "set": [
+     "style.bond_length=20"
+    ]
+   },
+   "note": "",
+   "probe": "fixed bond length",
+   "rdkit": true,
+   "rdkit_api": "MolDrawOptions.fixedBondLength"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "args": {
+     "atoms": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+     ],
+     "deg": 30
+    },
+    "command": "rotate",
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "rotate the drawing",
+   "rdkit": true,
+   "rdkit_api": "MolDrawOptions.rotate (degrees)"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "args": {
+     "atoms": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+     ],
+     "axis": "h"
+    },
+    "command": "flip",
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "mirror the drawing",
+   "rdkit": false,
+   "rdkit_api": "none in MolDraw2D (transform the conformer by hand)"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "command": "abbreviate",
+    "import": "CC(C)(C)OC(=O)NCc1ccccc1",
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "abbreviations condensed automatically",
+   "rdkit": true,
+   "rdkit_api": "rdAbbreviations.CondenseMolAbbreviations"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "CN",
+    "log": [
+     {
+      "id": 1,
+      "lab": "Boc",
+      "op": "atom.set"
+     }
+    ],
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "an abbreviation label set by hand",
+   "rdkit": true,
+   "rdkit_api": "atom property _displayLabel / atomLabels"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "import": "c1ccccc1",
+    "out": "svg",
+    "set": [
+     "style.aromatic=circle"
+    ]
+   },
+   "note": "mzDraw draws the Kekule form; aromatic circles are named out of scope in docs/built/label-display-modes.md",
+   "probe": "aromatic bonds drawn as aromatic (not Kekule)",
+   "rdkit": true,
+   "rdkit_api": "PrepareMolForDrawing(kekulize=False)"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "[H]OC([H])([H])[H]",
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "explicit hydrogen atoms drawn",
+   "rdkit": true,
+   "rdkit_api": "Chem.AddHs before drawing"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "ran, but the output does not show it",
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "log": [
+     {
+      "data": [
+       [
+        "note",
+        "n1"
+       ]
+      ],
+      "id": 1,
+      "op": "atom.data"
+     }
+    ],
+    "out": "svg"
+   },
+   "note": "mzDraw keeps atom data in the document and the SDF; it is not drawn at the atom",
+   "probe": "atom notes and bond notes",
+   "rdkit": true,
+   "rdkit_api": "atom/bond property atomNote, bondNote"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "import": "[NH3]->[Pd](Cl)(Cl)<-[NH3]",
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "dative bonds from SMILES",
+   "rdkit": true,
+   "rdkit_api": "SMILES '->' read, drawn as an arrow"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "N[Pd]",
+    "log": [
+     {
+      "id": 3,
+      "k": "dative",
+      "op": "bond.set"
+     }
+    ],
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "dative bond drawn as an arrow (set on a bond)",
+   "rdkit": true,
+   "rdkit_api": "BondType.DATIVE"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.bond\",\"params\":{\"id\":3}}",
+   "mzdraw_request": {
+    "import": "C[Pd]",
+    "log": [
+     {
+      "id": 3,
+      "o": 0,
+      "op": "bond.set"
+     }
+    ],
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "zero-order bond",
+   "rdkit": true,
+   "rdkit_api": "BondType.ZERO (drawn dashed)"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "CC(F)Cl",
+    "log": [
+     {
+      "id": 5,
+      "op": "bond.set",
+      "s": 3
+     }
+    ],
+    "out": "svg"
+   },
+   "note": "mzDraw draws the wave as short lines",
+   "probe": "wavy bond (unknown stereo)",
+   "rdkit": true,
+   "rdkit_api": "bond dir UNKNOWN / BondStereo.STEREOANY"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "ran, but the output does not show it",
+   "mzdraw_request": {
+    "import": "C[C@H](F)Cl |&1:1|",
+    "out": "smiles"
+   },
+   "note": "mzDraw drops the group from a CXSMILES without a loss item (see the study)",
+   "probe": "enhanced stereo groups (and/or) kept and drawn",
+   "rdkit": true,
+   "rdkit_api": "CXSMILES |&1:..| read, drawn as 'and1' labels"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "import": "CC(=O)O.OCC>>CC(=O)OCC",
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "reaction from a reaction SMILES",
+   "rdkit": true,
+   "rdkit_api": "rdChemReactions.ReactionFromSmarts(useSmiles=True) + DrawReaction"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "pdf"
+   },
+   "note": "",
+   "probe": "PDF out",
+   "rdkit": false,
+   "rdkit_api": "no vector PDF drawer in rdMolDraw2D (Cairo writes PNG; a PIL image of MolToImage saves only as a raster PDF)"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.request\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "png"
+   },
+   "note": "",
+   "probe": "PNG out from the command line",
+   "rdkit": true,
+   "rdkit_api": "MolDraw2DCairo / MolToFile(.png)"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg"
+   },
+   "note": "mzDraw: SVG metadata, PDF attachment and PNG iTXt (the PNG pixels are made by the page)",
+   "probe": "the drawing travels inside the picture (opens again)",
+   "rdkit": true,
+   "rdkit_api": "PNG metadata (MolToPNGString, MolFromPNGString)"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "cdxml"
+   },
+   "note": "",
+   "probe": "CDXML out",
+   "rdkit": true,
+   "rdkit_api": "Chem.MolToCDXMLBlock (when this RDKit has it)"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg",
+    "style": "acs-1996"
+   },
+   "note": "",
+   "probe": "ACS 1996 style",
+   "rdkit": true,
+   "rdkit_api": "MolDraw2D SetACS1996Mode / MolToACS1996SVG"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "args": {
+     "template": "c1ccccc1"
+    },
+    "command": "align",
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "align to a template or scaffold",
+   "rdkit": true,
+   "rdkit_api": "rdDepictor.GenerateDepictionMatching2DStructure"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
+   "mzdraw_request": {
+    "command": "clean",
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "svg"
+   },
+   "note": "docs/built/layout-no-coordinates.md: clean-up of an existing drawing is not wired",
+   "probe": "re-layout of a drawn structure (clean up)",
+   "rdkit": true,
+   "rdkit_api": "rdDepictor.Compute2DCoords on any molecule"
+  },
+  {
+   "mzdraw": false,
+   "mzdraw_error": "ran, but the output does not show it",
+   "mzdraw_request": {
+    "import": "CO",
+    "log": [
+     {
+      "id": 2,
+      "lp": 2,
+      "op": "atom.set"
+     }
+    ],
+    "out": "svg"
+   },
+   "note": "",
+   "probe": "lone pairs drawn",
+   "rdkit": false,
+   "rdkit_api": "none"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "command": "undo:1",
+    "import": "C[C@@H](O)c1ccccc1",
+    "log": [
+     {
+      "el": "N",
+      "id": 1,
+      "op": "atom.set"
+     }
+    ],
+    "out": "smiles"
+   },
+   "note": "",
+   "probe": "undo of an edit, exactly",
+   "rdkit": false,
+   "rdkit_api": "none (RWMol edits have no inverse)"
+  },
+  {
+   "mzdraw": true,
+   "mzdraw_error": null,
+   "mzdraw_request": {
+    "import": "C[C@@H](O)c1ccccc1",
+    "out": "loss:smiles"
+   },
+   "note": "",
+   "probe": "loss report before writing a format",
+   "rdkit": false,
+   "rdkit_api": "none"
+  }
+ ],
+ "rdkit_version": "2026.09.2",
+ "scheme": {
+  "mzdraw": {
+   "arrows": 4,
+   "deterministic": true,
+   "ok": true,
+   "structures": 4
+  },
+  "rdkit": {
+   "arrows": 0,
+   "note": "a grid with legends; no arrows, no layout of a pathway",
+   "ok": true,
+   "structures": 4
+  },
+  "rows": 4
+ },
+ "set": "tools/rdkit_compare/set.tsv",
+ "summary": {
+  "mzdraw": {
+   "atom_clashes": 3,
+   "bond_crossings": 3,
+   "bond_dev_max": 0.63,
+   "chain_angle_dev_mean": 0.3,
+   "label_crossings": 0,
+   "min_nonbonded": 0.227,
+   "parsed": 30,
+   "ring_angle_dev_max": 90.0,
+   "stereo_from_molfile": 29,
+   "svg_deterministic": 31
+  },
+  "rdkit": {
+   "atom_clashes": 0,
+   "bond_crossings": 3,
+   "bond_dev_max": 2.0,
+   "chain_angle_dev_mean": 0.0,
+   "label_crossings": 0,
+   "min_nonbonded": 0.518,
+   "parsed": 32,
+   "ring_angle_dev_max": 90.0,
+   "stereo_from_molfile": 31,
+   "svg_deterministic": 32
+  }
+ },
+ "timing": null
+}

@@ -1,0 +1,9 @@
+# RDKit comparison harness, built (study and tools only; no editor change)
+
+`tools/rdkit_compare.py` draws the 32 synthetic inputs of `tools/rdkit_compare/set.tsv` (plus a four-row transformation-product scheme) with RDKit (`rdDepictor.Compute2DCoords`, `rdMolDraw2D` SVG and Cairo PNG) and with the native `replay` example (the CLI route: `import`, `out` svg, molfile, smiles, cdxml, digest), twice each. It reads both layouts into RDKit (mzDraw's through its own molfile) and measures them with one function: bond-length spread, ring and chain-angle regularity, atom clashes, bond crossings, labelled atoms crossed by a bond, stereo kept through molfile, SMILES and CDXML, deterministic bytes, time. It also runs 32 feature probes (highlight, indices, maps, CIP, legend, grid, mono, background, rotate, mirror, abbreviations, aromatic display, notes, dative, zero-order, wavy, enhanced stereo, reaction SMILES, PDF, PNG, CDXML, ACS style, align, clean up, lone pairs, undo, loss report), each a command actually run on both sides.
+
+Plain Python, RDKit and the standard library only; RDKit is a reference tool, never a dependency: without it the script says so on stderr and exits 0. `--no-time` gives the same bytes on every run; that output is committed as `tools/rdkit_compare/reference.json` (RDKit 2026.09.2, `main` 05a0773). `--markdown` writes the tables. Exit 2 when the replay example is missing. Pictures go to `target/rdkit-compare/` and are not committed.
+
+The results, the feature matrix (77 rows), the findings F1 to F7 and the ranked gaps are `docs/study/rdkit-vs-mzdraw.md`; the gaps are rows `rdkit-compare:` of `docs/plan/queue.md`.
+
+Not built: no CI step runs the harness (RDKit is not installed there, by design); PNG pixels are not compared; the guard test for the spacing of separate pieces is a queue row; every gap of the study.
