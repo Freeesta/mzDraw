@@ -96,6 +96,14 @@ pub type Data = Vec<(String, String)>;
 /// The largest atom-to-atom map number (the three digits of the molfile field).
 pub const MAX_MAP: u16 = 999;
 
+/// The longest title of a structure, in characters (the title line of a molfile is 80 characters wide).
+pub const MAX_TITLE: usize = 80;
+
+/// Whether a text is a title a document and a molfile can hold: one line of at most `MAX_TITLE` characters, no control character.
+pub fn title_valid(title: &str) -> bool {
+    title.chars().count() <= MAX_TITLE && !title.chars().any(char::is_control)
+}
+
 /// Fields one atom can carry, and the longest name and value, in characters.
 pub const MAX_DATA: (usize, usize, usize) = (100, 80, 10_000);
 
@@ -187,6 +195,26 @@ impl Atom {
             .map(Atom::ann)
             .collect();
         crate::ann::join(texts.iter().map(String::as_str))
+    }
+
+    /// The title kept on this atom (the name a SMILES line carried), empty for none.
+    pub fn title(&self) -> String {
+        let text = self.more.iter().find(|m| m.0 == "title");
+        let v: Option<Value> = text.and_then(|m| serde_json::from_str(&m.1).ok());
+        v.as_ref()
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    /// Replaces the title kept on this atom (`MAX_TITLE` characters at most, one line); the empty text takes the field away.
+    pub(crate) fn set_title(&mut self, title: &str) {
+        self.more.retain(|m| m.0 != "title");
+        if !title.is_empty() {
+            self.more
+                .push(("title".into(), Value::from(title).to_string()));
+            crate::m::sort(&mut self.more);
+        }
     }
 
     /// Replaces the annotation kept on this atom (`text` is `ann::canon` text); the empty list takes the field away.
@@ -359,6 +387,13 @@ pub(crate) fn labels_canon(mode: &str, adduct: &str) -> Option<(String, String)>
 }
 
 impl Document {
+    /// The title the file of this drawing is written with: the title of the first atom (pool order) that has one, empty for none.
+    pub fn title(&self) -> String {
+        (self.atoms.iter().map(Atom::title))
+            .find(|t| !t.is_empty())
+            .unwrap_or_default()
+    }
+
     /// The mass-label choice of this scheme (`mode`, `adduct`), empty strings for none. A field `labels` of another shape, or a
     /// choice `labels_canon` refuses, is no choice (and is left alone and written back).
     pub fn labels(&self) -> (String, String) {

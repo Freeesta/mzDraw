@@ -220,6 +220,22 @@ const pixelAt = async (pg, x, y) => {
 };
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
 
+/** a SMILES file of the OpenSMILES file rules (CR/LF, a blank line, an indented line, a tab before a name, a broken line between good ones)
+ * is put in the Add field and added with `press` (the keyboard or a tap): two structures open, the note names line 4, one undo step */
+async function smilesFile(pg, press) {
+  const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+  await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  await fillIn(pg, "#d2-text", "CCO\tethanol sample\r\n\r\n  CC(=O)O ignored\r\nC(C\r\nCC=O\r\n");
+  await press();
+  await want(pg, { atoms: 6, bonds: 4 });
+  await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+  const said = await pg.evaluate("I18N.t('draw2.import.smilesLine', { n: 4 })");
+  assert(said.includes("4") && (await pg.innerText("#d2-note")).includes(said), "the note names line 4: " + await pg.innerText("#d2-note"));
+  assert((await pg.evaluate("window.MZDRAW.save('molfile')")).startsWith("ethanol sample\n"), "the name is the title of the molfile");
+  await tool(pg, "undo"); await want(pg, { atoms: 0 });
+  await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), before);       // the drawing the step found
+}
+
 /** the PDF round trip: acetic acid is drawn, the PDF is downloaded the way `get` says (keyboard or touch), it is a vector PDF with the
  * text as text and the document inside, and Open a file brings back the same drawing; a PDF of another program is refused in words */
 async function pdfRoundTrip(pg, get) {
@@ -376,6 +392,10 @@ try {
     await tool(pg, "redo"); await want(pg, { atoms: 4 });
   });
 
+  await step("a SMILES file: lines read by the OpenSMILES file rules, the broken line named, typed into the field and added with the keyboard", async () => {
+    await smilesFile(pg, async () => { await pg.focus("#d2-add"); await pg.keyboard.press("Enter"); });
+  });
+
   await step("molfile (V2000 and V3000), SMILES, SVG, PNG and the mzdraw/1 document are saved as the module writes them; the pictures open again", async () => {
     const got = {};
     for (const [button, kind, name] of [["molfile", "molfile", "drawing.mol"], ["v3000", "molfile-v3000", "drawing-v3000.mol"], ["smiles", "smiles", "drawing.smi"], ["ket", "ket", "drawing.ket"], ["cdxml", "cdxml", "drawing.cdxml"], ["cml", "cml", "drawing.cml"],
@@ -457,7 +477,8 @@ try {
     await pg.setInputFiles("#d2-file", { name: "three.smi", mimeType: "text/plain", buffer: Buffer.from("CCO ethanol\nCC[*:5] ring\n[*]CO query\n") });
     await want(pg, { atoms: 9, bonds: 6 });
     eq(await pg.evaluate("window.MZDRAW.save('smiles')"), smiles);
-    eq(await pg.innerText("#d2-note"), await say(["draw2.import.placeholder", 1]));
+    // three lines are three records: the note says it, as it does for an SDF
+    eq(await pg.innerText("#d2-note"), (await say(["draw2.import.placeholder", 1])) + " " + (await say(["draw2.import.records", 3])));
     // the data of a structure: the data fields of an SDF record are read, shown, edited, undone and written
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", `${ethanol}\n>  <name>\nethanol (synthetic)\n\n>  <note>\nline one\nline two\n\n$$$$\n${ethanol}\n$$$$\n`); await pg.click("#d2-add");
@@ -1451,6 +1472,12 @@ try {
     await tool(pg, "rotate-r"); await tool(pg, "cut"); await want(pg, { atoms: 2, bonds: 1 });
     // a reaction arrow and a plus by tapping
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
+  });
+  await step("tablet with touch: the SMILES file is added by tapping Add, the broken line is named", async () => {
+    await tapPalette(pg, "structure", true);                 // the field is in the Structure palette, which the tablet preset keeps hidden
+    await smilesFile(pg, async () => { await pg.tap("#d2-add"); });
+    await shot(pg, "arch-std-09-smiles-file-touch");
+    await tapPalette(pg, "structure", false);               // as the next steps found it
   });
   await step("tablet with touch and a pen: the side of a double bond and the dashed tools by a tap and by a pen, each press one undo step", async () => {
     const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
