@@ -101,6 +101,36 @@ fn refused_operations_change_nothing() {
             }],
             "error.draw2.ring",
         ),
+        (
+            vec![Op::Chain {
+                n: 0,
+                atom: None,
+                x: 0.0,
+                y: 0.0,
+                deg: 0.0,
+            }],
+            "error.draw2.chain",
+        ),
+        (
+            vec![Op::Chain {
+                n: 51,
+                atom: None,
+                x: 0.0,
+                y: 0.0,
+                deg: 0.0,
+            }],
+            "error.draw2.chain",
+        ),
+        (
+            vec![Op::Chain {
+                n: 3,
+                atom: Some(99),
+                x: 0.0,
+                y: 0.0,
+                deg: 0.0,
+            }],
+            "error.draw2.noAtom",
+        ),
         // the first operation is fine, the second is not: the whole step is rolled back
         (
             vec![add("N", 5.0, 5.0), bond(1, 99, 1)],
@@ -230,6 +260,100 @@ fn rings_on_the_canvas_on_an_atom_and_fused_on_a_bond() {
     assert_eq!((s.doc.atoms.len(), s.doc.bonds.len()), (14, 16));
 }
 
+#[test]
+fn a_chain_that_cannot_be_drawn_is_refused_whole_with_its_own_text() {
+    let mut s = Session::default();
+    s.run(&[add("C", 0.0, 0.0)]).unwrap();
+    let before = s.doc.to_json();
+    let chain = |n, x, y, deg| Op::Chain {
+        n,
+        atom: None,
+        x,
+        y,
+        deg,
+    };
+    for (op, key) in [
+        (chain(3, 0.0, 0.0, f64::NAN), "error.draw2.chainAngle"),
+        (chain(3, 0.0, 0.0, f64::INFINITY), "error.draw2.chainAngle"),
+        (chain(3, f64::NAN, 0.0, 0.0), "error.draw2.chainAngle"),
+        (
+            chain(3, 0.0, f64::NEG_INFINITY, 0.0),
+            "error.draw2.chainAngle",
+        ),
+        (chain(0, 0.0, 0.0, 0.0), "error.draw2.chain"),
+    ] {
+        assert_eq!(s.run(&[op]).unwrap_err().key, key);
+        assert_eq!(s.doc.to_json(), before);
+    }
+    // a chain that leaves the range of coordinates is refused as any far atom is, and leaves nothing behind
+    assert!(s.run(&[chain(5, 1e9, 0.0, 0.0)]).is_err());
+    assert_eq!(s.doc.to_json(), before);
+    // in a log: a count above 255 is a count the operation refuses, a number too big for a double an unreadable log
+    let mut r = Session::default();
+    assert_eq!(
+        r.replay(r#"[{"op":"chain","n":300,"x":0,"y":0}]"#)
+            .unwrap_err()
+            .key,
+        "error.draw2.chain"
+    );
+    assert_eq!(
+        r.replay(r#"[{"op":"chain","n":3,"x":1e999,"y":0}]"#)
+            .unwrap_err()
+            .key,
+        "error.draw2.log"
+    );
+    assert!(r.doc.atoms.is_empty());
+}
+
+#[test]
+fn chains_zigzag_from_a_point_and_from_an_atom() {
+    let mut s = Session::default();
+    let chain = |n, atom, deg| Op::Chain {
+        n,
+        atom,
+        x: 1.0,
+        y: 2.0,
+        deg,
+    };
+    // five bonds from a point: six carbons, one bond length each, 120 degrees at every inner atom
+    s.run(&[chain(5, None, 30.0)]).unwrap();
+    assert_eq!((s.doc.atoms.len(), s.doc.bonds.len()), (6, 5));
+    let p: Vec<(f64, f64)> = s.doc.atoms.iter().map(|a| (a.x, a.y)).collect();
+    assert_eq!(p[0], (1.0, 2.0));
+    for w in p.windows(3) {
+        let (u, v) = (
+            (w[0].0 - w[1].0, w[0].1 - w[1].1),
+            (w[2].0 - w[1].0, w[2].1 - w[1].1),
+        );
+        let angle = ((u.0 * v.0 + u.1 * v.1) / (u.0.hypot(u.1) * v.0.hypot(v.1))).acos();
+        assert!((angle.to_degrees() - 120.0).abs() < 0.01, "{angle}");
+    }
+    for w in p.windows(2) {
+        assert!(((w[1].0 - w[0].0).hypot(w[1].1 - w[0].1) - 1.0).abs() < 1e-4);
+    }
+    // the first bond leaves at 30 degrees, the chain advances along the horizontal
+    assert!((p[1].0 - p[0].0 - 3.0_f64.sqrt() / 2.0).abs() < 1e-4);
+    assert!((p[1].1 - p[0].1 - 0.5).abs() < 1e-4);
+    assert!((p[2].1 - p[0].1).abs() < 1e-4);
+    // from the last atom: three more bonds, the start atom is not added again
+    let last = s.doc.atoms[5].id;
+    s.run(&[chain(3, Some(last), 150.0)]).unwrap();
+    assert_eq!((s.doc.atoms.len(), s.doc.bonds.len()), (9, 8));
+    // a second chain over the same path adds nothing new
+    let before = s.doc.to_json();
+    s.run(&[chain(5, None, 30.0)]).unwrap();
+    assert_eq!(s.doc.to_json(), before);
+    // one step, one undo
+    // (the repeated chain changed nothing and left no step)
+    assert!(s.undo());
+    assert_eq!(s.doc.atoms.len(), 6);
+    assert!(s.undo());
+    assert!(s.doc.atoms.is_empty());
+    // the largest chain is 50 bonds
+    s.run(&[chain(50, None, 0.0)]).unwrap();
+    assert_eq!(s.doc.bonds.len(), 50);
+}
+
 /// xorshift: the tests need repeatable pseudo-random choices, not a dependency.
 struct Rng(u64);
 
@@ -254,8 +378,8 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
         )
     };
     let els = ["C", "N", "O", "S", "Cl", "Fe"];
-    match r.next(18) {
-        16 => {
+    match r.next(20) {
+        18 => {
             // a curved arrow: anchors on atoms, bonds, lone pairs and points; many of these are refused (no pair, same end twice)
             let ((x, y), (x2, y2)) = (xy(r), xy(r));
             let end = |r: &mut Rng| match r.next(4) {
@@ -282,7 +406,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 },
             }]
         }
-        17 => vec![Op::ObjSet {
+        19 => vec![Op::ObjSet {
             id: obj_id(r),
             text: None,
             runs: None,
@@ -552,6 +676,17 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 y,
             }]
         }
+        16 | 17 => {
+            let (x, y) = xy(r);
+            let on = r.next(3) == 1;
+            vec![Op::Chain {
+                n: 1 + r.next(9) as u8,
+                atom: on.then(|| atom(r)),
+                x,
+                y,
+                deg: (r.next(24) * 15) as f64,
+            }]
+        }
         _ => {
             let (x, y) = xy(r);
             vec![
@@ -571,6 +706,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
 fn undo_restores_the_identical_document_and_redo_the_identical_result() {
     // the random steps reach lone pairs and anchored curves, and curves whose anchor went (or the property would say nothing of them)
     let (mut pairs, mut anchored, mut freed) = (0, 0, 0);
+    let mut anchored_once = std::collections::HashMap::new();
     for seed in 1..=40u64 {
         let mut r = Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15));
         let mut s = Session::default();
@@ -592,9 +728,16 @@ fn undo_restores_the_identical_document_and_redo_the_identical_result() {
             anchored += usize::from(
                 (s.doc.objects.iter()).any(|o| o.t == ObjKind::Curve && (o.from != 0 || o.to != 0)),
             );
-            freed += usize::from(
-                (s.doc.objects.iter()).any(|o| o.t == ObjKind::Curve && o.from == 0 && o.to == 0),
-            );
+            // a curve that had an anchored end and has a free one now: freed by `obj.set`, or by the removal of its anchor
+            for o in s.doc.objects.iter().filter(|o| o.t == ObjKind::Curve) {
+                let was = anchored_once.entry((seed, o.id)).or_insert((false, false));
+                was.0 |= o.from != 0;
+                was.1 |= o.to != 0;
+                if (was.0 && o.from == 0) || (was.1 && o.to == 0) {
+                    freed += 1;
+                    break;
+                }
+            }
             assert!(
                 Document::from_json(&s.doc.to_json()).is_ok(),
                 "always a consistent document (seed {seed}): {:?} after {ops:?}\n{}",
@@ -644,7 +787,7 @@ fn a_new_step_forgets_the_redo_stack() {
 #[test]
 fn the_log_is_json_with_stable_operation_names() {
     let mut s = Session::default();
-    s.replay(r#"[{"op":"atom.add","el":"C","x":0,"y":0},{"op":"atom.add","el":"N","x":1,"y":0},{"op":"bond.add","a":1,"b":2},{"op":"atom.set","id":2,"chg":1},{"op":"bond.set","id":3,"o":2},{"op":"move","atoms":[1],"dx":0.5,"dy":0},{"op":"ring","n":6,"arom":true,"bond":3},{"op":"remove","atoms":[1]}]"#).unwrap();
+    s.replay(r#"[{"op":"atom.add","el":"C","x":0,"y":0},{"op":"atom.add","el":"N","x":1,"y":0},{"op":"bond.add","a":1,"b":2},{"op":"atom.set","id":2,"chg":1},{"op":"bond.set","id":3,"o":2},{"op":"move","atoms":[1],"dx":0.5,"dy":0},{"op":"ring","n":6,"arom":true,"bond":3},{"op":"chain","n":4,"atom":2,"deg":60},{"op":"chain","n":2,"x":5,"y":5},{"op":"remove","atoms":[1]}]"#).unwrap();
     assert!(s.log_json().starts_with(r#"[{"op":"atom.add","id":1,"el":"C","x":0.0,"y":0.0},{"op":"atom.add","id":2,"el":"N","x":1.0,"y":0.0},{"op":"bond.add","id":3,"a":1,"b":2,"o":1},{"op":"atom.set","id":2,"chg":1},{"op":"bond.set","id":3,"o":2},{"op":"move","atoms":[1],"dx":0.5,"dy":0.0},"#));
     assert_eq!(
         s.replay("[{\"op\":\"nope\"}]").unwrap_err().key,

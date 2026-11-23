@@ -468,6 +468,83 @@ try {
     await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).objects.some(o => o.head === "half" && o.to === undefined && o.x2 !== undefined)`);
     await tool(pg, "select");
   });
+
+  await step("chain tool by mouse: a drag draws a zigzag that follows the pointer with the count shown, a click adds two bonds, a drag from an atom starts on it, one undo step each, the count follows the length of the drag", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
+    await tool(pg, "chain"); await want(pg, { tool: "chain" });
+    const dx = 0.866 * 40;
+    await pg.mouse.move(cx - 200, cy); await pg.mouse.down(); await pg.mouse.move(cx - 100, cy, { steps: 4 }); await pg.mouse.move(cx - 200 + 5 * dx, cy, { steps: 4 });
+    // while the button is down the count is drawn next to the end of the preview and the drawing has not changed
+    await want(pg, { atoms: 0, bonds: 0 });
+    assert((await pg.evaluate("window.MZDRAW.scene()")).length > 0, "the scene is painted");
+    await shot(pg, "chain-desktop");
+    await pg.mouse.up(); await want(pg, { atoms: 6, bonds: 5 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 0, bonds: 0 });
+    await pg.mouse.click(cx, cy); await want(pg, { atoms: 3, bonds: 2 });
+    // a drag that starts on the last atom adds three bonds to it, no atom is added under the press
+    const d = JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")), last = d.atoms[2];
+    const lx = cx + 40 * (last.x - d.atoms[0].x), ly = cy - 40 * (last.y - d.atoms[0].y);
+    await pg.mouse.move(lx, ly); await pg.mouse.down(); await pg.mouse.move(lx + 60, ly, { steps: 4 }); await pg.mouse.move(lx + 3 * dx, ly, { steps: 4 }); await pg.mouse.up();
+    await want(pg, { atoms: 6, bonds: 5 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
+    // the count is the length of the drag: 900 px hold 26 bonds
+    await pg.mouse.move(cx - 300, cy + 200); await pg.mouse.down(); await pg.mouse.move(cx - 100, cy + 200, { steps: 3 }); await pg.mouse.move(cx + 600, cy + 200, { steps: 3 }); await pg.mouse.up();
+    await want(pg, { atoms: 3 + 27, bonds: 2 + 26 });
+  });
+  await step("chain tool by keyboard: the palette button is selected with Enter and with Space, a typed count shows its preview, Enter draws it from the focused atom, Backspace and Escape take the count back, one undo step", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
+    for (const key of ["Enter", " "]) {
+      await tool(pg, "select"); await want(pg, { tool: "select" });
+      await reveal(pg, '[data-testid="d2-chain"]');
+      await pg.focus('[data-testid="d2-chain"]'); await pg.keyboard.press(key); await want(pg, { tool: "chain" });
+    }
+    await pg.focus("#d2-canvas");
+    // no atom yet: Enter draws two bonds from the middle and the focus is on the end
+    await pg.keyboard.press("Enter"); await want(pg, { atoms: 3, bonds: 2 });
+    await pg.keyboard.type("6"); await pg.keyboard.press("Backspace"); await pg.keyboard.type("4");
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.chainCount', { what: '4' })"));
+    await want(pg, { atoms: 3, bonds: 2 });
+    await shot(pg, "chain-keyboard");
+    await pg.keyboard.press("Enter"); await want(pg, { atoms: 7, bonds: 6 });
+    await pg.keyboard.type("5"); await pg.keyboard.press("Escape"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 9, bonds: 8, tool: "chain" });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 7, bonds: 6 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
+  });
+  await step("a curved arrow with the keyboard alone: a source and a target by Enter, the pair of the focused atom as the source, Escape cancels, Shift+Enter names the bond walked", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")), key = k => pg.keyboard.press(k);
+    await tool(pg, "clear"); await want(pg, { atoms: 0 }); await tool(pg, "select");
+    await pg.focus("#d2-canvas");
+    await key("Enter"); await want(pg, { atoms: 1 }); await key("Enter"); await want(pg, { atoms: 2, bonds: 1 });
+    await key("n"); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).atoms[1].el === "N"`);
+    const [c, n] = (await doc()).atoms.map(a => a.id);
+    await want(pg, { focus: 2 });
+    await key("u"); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).atoms[1].lp === 1`);
+    // the pair of the nitrogen is the source, the carbon the target
+    await key("k"); await want(pg, { tool: "curve:full" });
+    await key("Enter");
+    eq((await doc()).objects ?? [], []);
+    await key("Home"); await want(pg, { focus: 1 });
+    await key("Enter"); await want(pg, { objects: 1 });
+    let o = (await doc()).objects[0];
+    eq([o.t, o.from, o.to, o.fl], ["curve", n, c, true]);
+    // Escape drops a source; the next Enter starts again
+    await key("Enter"); await key("Escape"); await key("k"); await want(pg, { tool: "curve:full" });
+    await key("Enter"); await key("Escape");
+    eq((await doc()).objects.length, 1);
+    // one electron, from the atom (Shift+Enter) to the bond walked to reach the carbon
+    await key("Shift+K"); await want(pg, { tool: "curve:half" });
+    await key("Home"); await want(pg, { focus: 1 });
+    await key("Shift+Enter");
+    for (const k of ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"]) { if ((await state(pg)).focus === 2) break; await key(k); }
+    await want(pg, { focus: 2 });
+    await key("Shift+Enter");
+    await want(pg, { objects: 2 });
+    o = (await doc()).objects[1];
+    eq([o.from, o.head, o.fl], [c, "half", undefined]);
+    assert(o.to !== n && o.to !== c, "the target is the bond between the two atoms: " + o.to);
+    await key("Control+z"); await want(pg, { objects: 1 });
+  });
+
   await step("SMILES and molfile are added, a broken text is refused in words, an import is one undo step", async () => {
     await tool(pg, "clear");
     await pg.fill("#d2-text", "CC(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3, warnings: 0 });
@@ -994,6 +1071,38 @@ try {
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
     eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.schemeRowDone')"));
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
+  });
+
+  await step("arrange: the selection is aligned, distributed, turned by a typed angle from the Edit palette, with the keyboard and with the mouse; each is one undo step and the drawing equals the golden bytes of the command", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/arrange.json"), "utf8")).cases;
+    const g = name => gold.find(c => c.name === name);
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9, objects: 1 });
+    const start = await pg.evaluate("window.MZDRAW.save('mzdraw')"), save = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+    // keyboard: select all, the buttons reached by their focus, Enter
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 17 });
+    const BT = c => `[data-testid="d2-${c}"]`;
+    await reveal(pg, BT("align:top")); await pg.focus(BT("align:top")); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: align top").out.mzdraw);
+    await shot(pg, "cd-15-arrange");
+    await tool(pg, "undo"); eq(await save(), start);                               // one step
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
+    await reveal(pg, BT("distribute:h")); await pg.focus(BT("distribute:h")); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: distribute across").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
+    // the angle is typed in its field (Enter applies)
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
+    await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "90"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: turn by 90").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
+    // a nonsense angle is refused in words and nothing changes
+    await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "abc"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
+    eq(await pg.getAttribute("#d2-rotate", "aria-invalid"), "true"); eq(await save(), start);
+    await pg.keyboard.press("Escape"); await pg.focus("#d2-canvas");                  // the flyout is left
+    // mouse: nothing selected, so everything is arranged
+    await tool(pg, "select"); await pg.mouse.click(cx, cy + 300); await want(pg, { selected: 0 });
+    await tool(pg, "align:top"); await frames(pg);
+    eq(await save(), g("whole drawing: align top").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
   });
 
   // tp-06: "Arrange pathway", the button of the objects palette and the item of the canvas menu, on the messy star of tp-05 and the others of tests/data/log/pathway-page.json
@@ -1609,6 +1718,28 @@ try {
     }
     await hold(pg, 800);
   });
+  await step("tablet with touch and a pen: the chain tool adds two bonds by a tap and draws a zigzag by a finger drag and by a pen drag, the count is shown while it is held, each gesture is one undo step", async () => {
+    // (a page of its own: a tap that follows synthetic touch or pen events is dropped by the browser, so the tap comes first)
+    const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+    const { pg, cx, cy } = t;
+    try {
+      const cdp = await t.ctx.newCDPSession(pg);
+      const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) });
+      const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+      const dx = 0.866 * 40;
+      await tool(pg, "chain"); await want(pg, { tool: "chain" });
+      await pg.touchscreen.tap(cx + 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });
+      // a finger drag: the count is shown while it is held
+      await touch("touchStart", [[1, cx - 200, cy]]); await touch("touchMove", [[1, cx - 150, cy]]); await touch("touchMove", [[1, cx - 200 + 4 * dx, cy]]);
+      await want(pg, { atoms: 3, bonds: 2 });
+      await shot(pg, "chain-tablet");
+      await touch("touchEnd", []); await want(pg, { atoms: 8, bonds: 6 });
+      // a pen drag
+      for (const [type, x] of [["mouseMoved", cx - 200], ["mousePressed", cx - 200], ["mouseMoved", cx - 150], ["mouseMoved", cx - 200 + 3 * dx], ["mouseReleased", cx - 200 + 3 * dx]]) await pen(type, x, cy + 150);
+      await want(pg, { atoms: 12, bonds: 9 });
+      for (const [a, b] of [[8, 6], [3, 2], [0, 0]]) { await pg.keyboard.press("Control+z"); await want(pg, { atoms: a, bonds: b }); }
+    } finally { await t.ctx.close(); }
+  });
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
     const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)
@@ -1630,6 +1761,34 @@ try {
     await frames(pg);
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
+  });
+
+  await step("tablet with touch and a pen: the buttons align, distribute and the field turn arrange the drawing by a tap and by a pen, and each is undone", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/arrange.json"), "utf8")).cases;
+    const g = name => gold.find(c => c.name === name).out.mzdraw;
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9, objects: 1 });
+    const save = () => pg.evaluate("window.MZDRAW.save('mzdraw')"), start = await save();
+    const BT = c => `[data-testid="d2-${c}"]`;
+    await tool(pg, "all"); await want(pg, { selected: 17 });
+    await reveal(pg, BT("align:top")); await pg.tap(BT("align:top")); await frames(pg);
+    eq(await save(), g("whole drawing: align top"));
+    await shot(pg, "cd-15-arrange-touch");
+    await tool(pg, "undo"); eq(await save(), start);
+    await tool(pg, "all");
+    await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "90"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: turn by 90"));
+    await tool(pg, "undo"); eq(await save(), start);
+    // a pen presses the distribute button
+    const cdp = await pg.context().newCDPSession(pg);
+    await tool(pg, "all");
+    await reveal(pg, BT("distribute:h"));
+    const b = await pg.locator(BT("distribute:h")).boundingBox(), px = b.x + b.width / 2, py = b.y + b.height / 2;
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: px, y: py, pointerType: "pen", button: "none", buttons: 0 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: px, y: py, pointerType: "pen", button: "left", buttons: 1, clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: px, y: py, pointerType: "pen", button: "left", buttons: 0, clickCount: 1 });
+    await frames(pg);
+    eq(await save(), g("whole drawing: distribute across"));
+    await tool(pg, "undo"); eq(await save(), start);
   });
 
   await step("tablet with touch and a pen: on a reloaded page the button Arrange pathway lays the messy star out by a tap and by a pen; a cycle is refused with its text; each press is undone", async () => {
@@ -2277,9 +2436,61 @@ try {
     await shot(pg, "context-menu-dark");
     await pg.keyboard.press("Escape");
   });
+  // smart paste: the pasted part lands in a free place, never on the drawing, and the view does not change
+  const pasted = {
+    atoms: async pg => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")).atoms,
+    /** the pixel ends of every line the page paints: a rezoom or a pan would move them */
+    lines: async pg => { const d = await pg.evaluate("window.MZDRAW.scene()"), out = []; for (let i = 0; i < d.length;) { const op = d[i]; if (op === 1) { out.push([d[i + 1], d[i + 2], d[i + 3], d[i + 4]].map(v => Math.round(v * 100) / 100).join(",")); i += 7; } else i += op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : op === 7 ? 13 : 5; } return out; },
+    text: "(() => { const d = new DataTransfer(); d.setData('text/plain', 'c1ccccc1'); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()",
+  };
+  /** the middle of the lines the page paints is the middle of the canvas (the page told the module its size) */
+  const centred = async pg => {
+    const p = (await pasted.lines(pg)).map(l => l.split(",").map(Number)), w = await pg.evaluate("[document.getElementById('d2-canvas').clientWidth, document.getElementById('d2-canvas').clientHeight]");
+    const xs = p.flatMap(l => [l[0], l[2]]), ys = p.flatMap(l => [l[1], l[3]]);
+    const mid = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+    assert(Math.abs(mid[0] - w[0] / 2) < 4 && Math.abs(mid[1] - w[1] / 2) < 4, `a paste on an empty drawing is at the view centre: ${mid} vs ${w}`);
+  };
+  const apart = async pg => { const a = await pasted.atoms(pg); let m = Infinity; for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) m = Math.min(m, Math.hypot(a[i].x - a[j].x, a[i].y - a[j].y)); assert(m > 0.5, "no two atoms closer than half a bond: " + m); };
+  const still = async (pg, before) => { const now = new Set(await pasted.lines(pg)); assert(before.every(l => now.has(l)), "the view did not move: what was drawn is where it was"); };
+  await step("smart paste by keyboard and mouse: a SMILES pasted twice and a copy pasted from the context menu land apart, in a free place, and the view does not move", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0 }); await pg.focus("#d2-canvas");
+    await pg.evaluate(pasted.text); await want(pg, { atoms: 6, bonds: 6 });
+    await centred(pg);
+    const first = await pasted.lines(pg);
+    await pg.evaluate(pasted.text); await want(pg, { atoms: 12, bonds: 12 });
+    await apart(pg); await still(pg, first);
+    await pg.keyboard.press("Control+a"); await pg.keyboard.press("Control+c");
+    await until(pg, "!document.querySelector('[data-testid=\"d2-paste\"]').disabled");
+    // a real Ctrl+V of the own clipboard (the page forwards the key's paste event to the module)
+    const typed = await pasted.lines(pg);
+    await pg.keyboard.press("Control+v"); await want(pg, { atoms: 24 });
+    await apart(pg); await still(pg, typed);
+    const box = await pg.locator("#d2-canvas").boundingBox(), seen = await pasted.lines(pg);
+    await pg.mouse.click(box.x + 60, box.y + 60, { button: "right" }); await shown(pg);
+    await pg.click(item("edit.paste")); await shown(pg, false); await want(pg, { atoms: 36 });
+    await apart(pg); await still(pg, seen);
+    await shot(pg, "smart-paste");
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 24 });
+  });
   await ctx.close();
 
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+  await step("smart paste by touch: Paste in the context menu, opened by a long press, lands apart and the view does not move", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
+    await tool(pg, "ring:6a"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 6, bonds: 6 });
+    await tool(pg, "select"); await tool(pg, "all"); await tool(pg, "copy");
+    await tool(pg, "atom:N");        // a tool that draws: the long press opens the menu and draws nothing
+    await pg.keyboard.press("Escape"); await want(pg, { selected: 0 });
+    const seen = await pasted.lines(pg), spot = [cx - 300, cy - 300];
+    await touch("touchStart", [spot]); await hold(pg); await touch("touchEnd", []);
+    await shown(pg); eq((await menuNow(pg)).target, "canvas");
+    const [bx, by] = await center(pg, item("edit.paste")); await pg.touchscreen.tap(bx, by);
+    await shown(pg, false); await want(pg, { atoms: 12 });
+    await apart(pg); await still(pg, seen);
+    await shot(pg, "smart-paste-touch");
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  });
   await step("context menu, touch and pen: a long press opens it (on an atom and on an empty canvas), a short tap draws, the items are 44 px and a tap runs one", async () => {
     const cdp = await ctx.newCDPSession(pg);
     const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([x, y]) => ({ id: 1, x, y })) });
@@ -2322,6 +2533,19 @@ try {
     await pg.focus("#d2-canvas"); await pg.keyboard.press("ContextMenu"); await shown(pg); eq((await menuNow(pg)).kind, "key");
     eq(await pg.evaluate("[...document.querySelectorAll('#d2-menu .ctx button')].filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).length"), 0);
     await pg.keyboard.press("Escape"); await shown(pg, false);
+  });
+  await step("smart paste by pen: Paste in the context menu, opened by the barrel button, lands apart and the view does not move", async () => {
+    const cdp = await ctx.newCDPSession(pg), spot = [cx - 300, cy - 300];
+    await tool(pg, "clear"); await tool(pg, "atom:N"); await want(pg, { atoms: 0 });
+    await pg.evaluate(pasted.text); await want(pg, { atoms: 6, bonds: 6 });
+    await tool(pg, "all"); await tool(pg, "copy"); await tool(pg, "atom:N");
+    const kept = await pasted.lines(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "right", buttons: type === "mousePressed" ? 2 : 0, clickCount: 1 });
+    await pen("mouseMoved", ...spot); await pen("mousePressed", ...spot); await shown(pg); await pen("mouseReleased", ...spot);
+    const tapPen = async sel => { const [x, y] = await center(pg, sel); const p = (type, b) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 }); await p("mouseMoved"); await p("mousePressed"); await p("mouseReleased"); };
+    await tapPen(item("edit.paste")); await shown(pg, false); await want(pg, { atoms: 12 });
+    await apart(pg); await still(pg, kept);
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
   });
   await ctx.close();
 

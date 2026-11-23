@@ -97,13 +97,27 @@ fn full_ops() -> Vec<Op> {
         },
         Op::ObjAdd {
             id: Some(7),
-            t: ObjKind::Curve,
+            t: ObjKind::Arrow,
             x: 1.0,
             y: 1.0,
             x2: 3.0,
             y2: 1.0,
             text: "hv".into(),
             runs: vec![mzdraw::Run::plain("hv")],
+            from: 1,
+            to: 2,
+            cv: Default::default(),
+        },
+        // a curve says its own fields (no text, no runs); together the two hold every field of the row
+        Op::ObjAdd {
+            id: Some(8),
+            t: ObjKind::Curve,
+            x: 1.0,
+            y: 1.0,
+            x2: 3.0,
+            y2: 1.0,
+            text: String::new(),
+            runs: Vec::new(),
             from: 1,
             to: 2,
             cv: mzdraw::curve::Curve {
@@ -138,6 +152,13 @@ fn full_ops() -> Vec<Op> {
             x: 1.0,
             y: 1.0,
         },
+        Op::Chain {
+            n: 5,
+            atom: Some(1),
+            x: 1.0,
+            y: 1.0,
+            deg: 30.0,
+        },
     ]
 }
 
@@ -156,18 +177,27 @@ fn every_operation_of_the_writer_is_a_row_with_exactly_its_fields() {
         v["op"].as_str().unwrap().to_string()
     };
     let names: BTreeSet<String> = ops.iter().map(name).collect();
-    // the 14 rows read here; `merge` is not read yet
+    // the 18 rows read here; `merge` is not read yet
     let read: BTreeSet<String> = (OPS.iter().filter(|o| o.mzdraw))
         .map(|o| o.name.to_string())
         .collect();
     assert_eq!(names, read);
-    assert_eq!(read.len(), 17);
+    assert_eq!(read.len(), 18);
+    // the fields written by the samples of one row, together, are the fields of the row (a row may need two samples: an arrow and a
+    // curve say different fields of `obj.add`)
+    let mut said: std::collections::BTreeMap<String, BTreeSet<String>> = Default::default();
     for op in ops {
         let v: Value = serde_json::from_str(&op.to_json()).unwrap();
         let spec = schema::spec(v["op"].as_str().unwrap()).unwrap();
-        let table: BTreeSet<String> = spec.fields.iter().map(|f| f.key.to_string()).collect();
-        assert_eq!(keys(&v), table, "{}", spec.name);
+        said.entry(spec.name.to_string())
+            .or_default()
+            .extend(keys(&v));
         assert_eq!(Op::parse(&v).unwrap(), op);
+    }
+    for (name, got) in said {
+        let spec = schema::spec(&name).unwrap();
+        let table: BTreeSet<String> = spec.fields.iter().map(|f| f.key.to_string()).collect();
+        assert_eq!(got, table, "{name}");
     }
 }
 

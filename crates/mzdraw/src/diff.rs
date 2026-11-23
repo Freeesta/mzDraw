@@ -322,10 +322,15 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                 fl: Some(cp.fl),
                 tl: Some(cp.tl),
             };
-            let pt = [(p.x != o.x).then_some(p.x), (p.y != o.y).then_some(p.y)];
+            // an end that is freed is said whole (both numbers): freeing it puts it where it stood, which may be any of them
+            let (freed_a, freed_b) = (o.from != 0 && p.from == 0, o.to != 0 && p.to == 0);
+            let pt = [
+                (freed_a || p.x != o.x).then_some(p.x),
+                (freed_a || p.y != o.y).then_some(p.y),
+            ];
             let (x2, y2) = (
-                (p.x2 != o.x2).then_some(p.x2),
-                (p.y2 != o.y2).then_some(p.y2),
+                (freed_b || p.x2 != o.x2).then_some(p.x2),
+                (freed_b || p.y2 != o.y2).then_some(p.y2),
             );
             let (from, to) = (
                 (o.from != p.from).then_some(p.from),
@@ -616,7 +621,7 @@ pub fn hunks(a: &Document, ops: &[Op]) -> Vec<Hunk> {
 /// Whether the hunks can tell what an operation touches: an operation `diff` writes, with its ids named.
 fn splittable(op: &Op) -> bool {
     match op {
-        Op::Rotate { .. } | Op::Flip { .. } | Op::Ring { .. } => false,
+        Op::Rotate { .. } | Op::Flip { .. } | Op::Ring { .. } | Op::Chain { .. } => false,
         Op::AtomAdd { id, .. } | Op::BondAdd { id, .. } | Op::ObjAdd { id, .. } => id.is_some(),
         _ => !touched(op).is_empty(),
     }
@@ -672,6 +677,7 @@ pub(crate) fn touched(op: &Op) -> Vec<u32> {
             objects,
         } => atoms.iter().chain(bonds).chain(objects).copied().collect(),
         Op::Ring { atom, bond, .. } => atom.iter().chain(bond).copied().collect(),
+        Op::Chain { atom, .. } => atom.iter().copied().collect(),
     }
 }
 

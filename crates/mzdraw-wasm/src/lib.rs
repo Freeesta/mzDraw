@@ -160,7 +160,7 @@ pub fn key(key: &str, mods: u32, t: f64) -> u32 {
 }
 
 /// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
-/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `pathway-tree` (arranges the pathway of anchored arrows as a tree), `scheme-orient` (each structure after an arrow turned onto the one before it), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
+/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `pathway-tree` (arranges the pathway of anchored arrows as a tree), `align:left|centre|right|top|middle|bottom`, `distribute:h|v`, `rotate:<deg>`, `nudge:<dx>,<dy>` (arrange the selection, or everything), `scheme-orient` (each structure after an arrow turned onto the one before it), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
 /// `bond:up`, `label:Ph`, `arrow`, `plus`, `text:<one line>`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
@@ -183,6 +183,7 @@ pub fn command(what: &str) -> u32 {
         "scheme-orient" => e.scheme_orient(),
         "lonepairs-place" => e.place_lone_pairs(),
         "pathway-label" => e.pathway_label_page(""),
+        w if mzdraw::arrange::is_arrange(w) => e.arrange(w),
         w if w.starts_with("pathway-label:") => e.pathway_label_page(&w["pathway-label:".len()..]),
         "move-here" => e.set_move_here(!e.move_here),
         tool => e.set_tool(tool),
@@ -210,6 +211,15 @@ pub fn zoom(x: f64, y: f64, factor: f64) -> u32 {
 #[wasm_bindgen]
 pub fn pan(dx: f64, dy: f64) -> u32 {
     act(|e| e.pan(dx, dy))
+}
+
+/// Tells the editor the size of the canvas in pixels, so that a paste lands at the view centre; the view does not change.
+#[wasm_bindgen]
+pub fn canvas(w: f64, h: f64) -> u32 {
+    act(|e| {
+        e.set_canvas(w, h);
+        0
+    })
 }
 
 #[wasm_bindgen]

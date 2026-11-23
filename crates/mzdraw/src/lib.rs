@@ -3,6 +3,7 @@
 //! its SVG form (`svg`). It depends on `mzlab-mol` and serde only, so it can leave this workspace; the mzLab glue lives in `mzdraw-wasm`.
 
 pub mod ann;
+pub mod arrange;
 pub mod bonddisp;
 pub mod brand;
 pub mod build;

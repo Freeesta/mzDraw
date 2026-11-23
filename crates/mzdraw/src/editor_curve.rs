@@ -3,7 +3,7 @@
 
 use crate::curve::{self, Curve};
 use crate::doc::ObjKind;
-use crate::editor::{Editor, Hit, Press, REPAINT};
+use crate::editor::{Editor, Hit, Press, Tool, FOCUS, REPAINT};
 use crate::m;
 use crate::ops::Op;
 
@@ -75,6 +75,59 @@ impl Editor {
         };
         let what = if half { "1" } else { "2" };
         self.run(&[add], "draw2.say.curve", what)
+    }
+
+    /// Enter with a curve tool, on the focused atom `a`: the first one names the source (its lone pair when it has one, the atom with
+    /// Shift), the second the target (the atom, or with Shift the bond walked to reach it) and draws the curve; Escape cancels.
+    pub(crate) fn curve_key(&mut self, a: u32, shift: bool) -> u32 {
+        let Tool::Curve(half) = self.tool else {
+            return 0;
+        };
+        let Some((from, fl)) = self.curve_from else {
+            let lone = !shift && self.doc().atom(a).is_some_and(|x| x.lp() > 0);
+            self.curve_from = Some((a, lone));
+            self.said = (
+                if lone {
+                    "draw2.say.curveFromPair"
+                } else {
+                    "draw2.say.curveFrom"
+                },
+                a.to_string(),
+            );
+            return REPAINT | FOCUS;
+        };
+        let to = match (shift, self.walked_bond()) {
+            (true, Some(b)) => b,
+            (true, None) => {
+                self.error = "error.draw2.anchor";
+                return REPAINT | FOCUS;
+            }
+            _ => a,
+        };
+        let d = self.doc();
+        let a0 = curve::anchor_point_of(d, from, fl);
+        let b0 = curve::anchor_point_of(d, to, false);
+        let bend = curve::free_side_bend(d, a0, b0);
+        let add = Op::ObjAdd {
+            id: None,
+            t: ObjKind::Curve,
+            x: 0.0,
+            y: 0.0,
+            x2: b0.0,
+            y2: b0.1,
+            text: String::new(),
+            runs: Vec::new(),
+            from,
+            to,
+            cv: Curve {
+                half,
+                bend,
+                fl,
+                tl: false,
+            },
+        };
+        self.curve_from = None;
+        self.run(&[add], "draw2.say.curve", if half { "1" } else { "2" }) | FOCUS
     }
 
     /// A click of the lone-pair tool: one more pair on the atom, none after four.

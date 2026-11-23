@@ -54,6 +54,8 @@ pub enum Tool {
     Bond(u8, u8),
     Erase,
     Ring(u8, bool),
+    /// A zigzag chain: dragged from an atom or from empty space, or two bonds on a click.
+    Chain,
     Charge(i8),
     /// An abbreviation or an R group of `label`.
     Label(String),
@@ -86,7 +88,7 @@ pub(crate) fn kind_of_tool(s: u8) -> &'static str {
 
 impl Tool {
     /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `bond:dash` / `bond:bdash` / `bond:hash` (display kinds), `erase`, `ring:6`, `ring:6a` (alternating
-    /// double bonds), `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
+    /// double bonds), `chain`, `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
     /// `text:<one line>`.
     pub fn parse(s: &str) -> Option<Tool> {
         let (name, arg) = s.split_once(':').unwrap_or((s, ""));
@@ -103,6 +105,7 @@ impl Tool {
                 "hash" => Tool::Bond(1, KIND_HASH),
                 _ => Tool::Bond(arg.parse().ok().filter(|o| (1..=3).contains(o))?, 0),
             },
+            "chain" => Tool::Chain,
             "ring" => {
                 let n = arg
                     .trim_end_matches('a')
@@ -138,6 +141,7 @@ impl Tool {
             Tool::Bond(_, KIND_BDASH) => "bond:bdash".into(),
             Tool::Bond(_, KIND_HASH) => "bond:hash".into(),
             Tool::Bond(o, _) => format!("bond:{o}"),
+            Tool::Chain => "chain".into(),
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),
             Tool::Charge(c) => format!("charge:{}", if *c < 0 { "-" } else { "+" }),
             Tool::Label(l) => format!("label:{l}"),
@@ -184,6 +188,8 @@ pub struct Editor {
     /// The rows `tp:import` refused in its last run, `(line, key)` in line order (`failed.rows` of the result document); empty otherwise.
     pub(crate) failed_rows: Vec<(u32, String)>,
     pub view: View,
+    /// The size of the canvas in pixels as the page last told it (`set_canvas`, `fit`): the view centre a paste lands at.
+    pub(crate) canvas: (f64, f64),
     pub tool: Tool,
     pub over: Overlay,
     pub(crate) press: Option<Press>,
@@ -206,6 +212,10 @@ pub struct Editor {
     pub(crate) focus_from: Option<u32>,
     /// The curve whose middle handle is being dragged.
     pub(crate) bend_drag: Option<u32>,
+    /// The source of a curve being made with the keyboard: the atom and whether it is its lone pair.
+    pub(crate) curve_from: Option<(u32, bool)>,
+    /// The digits typed with the chain tool (the count of the chain the Enter key draws), at most two.
+    pub(crate) chain_keys: String,
     /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
     pub style: Style,
     /// Where the palettes of the page are, and what Save writes: the `layout` and `export` objects of the settings file.
@@ -264,6 +274,7 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             || a.map != 0
             || a.h.is_some()
             || !a.lab.is_empty()
+            || a.lp() != 0
         {
             let some = |v: bool| v.then_some(());
             ops.push(Op::AtomSet {
@@ -275,7 +286,7 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
                 h: a.h,
                 lab: (!a.lab.is_empty()).then(|| a.lab.clone()),
                 map: (a.map != 0).then_some(a.map),
-                lp: None,
+                lp: (a.lp() != 0).then_some(a.lp()),
             });
         }
         // the data of a structure (the fields of an SDF record) comes along with the atom that keeps it
@@ -344,13 +355,24 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
     }
     for o in &new.objects {
         let arrow = o.t == ObjKind::Arrow;
+        let curve = o.t == ObjKind::Curve;
+        // an anchored end of a curve goes with its anchor; a free one is shifted like the rest
+        let (shift_a, shift_b) = (!curve || o.from == 0, !curve || o.to == 0);
         ops.push(Op::ObjAdd {
             id: Some(base + o.id),
             t: o.t,
-            x: o.x + dx,
-            y: o.y + dy,
-            x2: if arrow { o.x2 + dx } else { 0.0 },
-            y2: if arrow { o.y2 + dy } else { 0.0 },
+            x: if shift_a { o.x + dx } else { 0.0 },
+            y: if shift_a { o.y + dy } else { 0.0 },
+            x2: if (arrow || curve) && shift_b {
+                o.x2 + dx
+            } else {
+                0.0
+            },
+            y2: if (arrow || curve) && shift_b {
+                o.y2 + dy
+            } else {
+                0.0
+            },
             text: if o.runs.is_empty() {
                 o.text.clone()
             } else {
@@ -359,7 +381,7 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             runs: o.runs.clone(),
             from: if o.from == 0 { 0 } else { base + o.from },
             to: if o.to == 0 { 0 } else { base + o.to },
-            cv: Default::default(),
+            cv: if curve { o.curve() } else { Default::default() },
         });
         if !o.col().is_empty() {
             ops.push(Op::Colour {
@@ -382,6 +404,7 @@ impl Default for Editor {
                 ox: 200.0,
                 oy: 200.0,
             },
+            canvas: (400.0, 400.0),
             tool: Tool::Bond(1, 0),
             over: Overlay::default(),
             press: None,
@@ -394,6 +417,8 @@ impl Default for Editor {
             gesture: Default::default(),
             focus_from: None,
             bend_drag: None,
+            curve_from: None,
+            chain_keys: String::new(),
             style: Style::default(),
             layout: Default::default(),
             export: Default::default(),
@@ -515,8 +540,11 @@ impl Editor {
         match Tool::parse(name) {
             Some(t) => {
                 self.tool = t;
+                self.curve_from = None;
                 self.press = None;
                 self.over.preview = None;
+                self.over.chain = None;
+                self.chain_keys.clear();
                 self.over.band = None;
                 REPAINT | TOOL
             }
@@ -665,8 +693,16 @@ impl Editor {
         REPAINT
     }
 
+    /// Tells the editor the size of the canvas in pixels (a size that is not finite and positive is ignored). The view does not change.
+    pub fn set_canvas(&mut self, w: f64, h: f64) {
+        if w.is_finite() && h.is_finite() && w > 0.0 && h > 0.0 {
+            self.canvas = (w, h);
+        }
+    }
+
     /// Centres the drawing in a `w` x `h` canvas, at most 40 px per bond.
     pub fn fit(&mut self, w: f64, h: f64) -> u32 {
+        self.set_canvas(w, h);
         let Some((x0, y0, x1, y1)) = self.doc().bounds() else {
             self.view = View {
                 scale: 40.0,

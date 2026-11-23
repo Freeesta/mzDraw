@@ -528,3 +528,222 @@ fn curves_and_pairs_are_painted_and_listed_as_lost_by_the_files_that_cannot_hold
     let lost = mzdraw::loss::loss(&s.doc, "mzdraw").unwrap();
     assert!(lost.is_empty(), "{lost:?}");
 }
+
+/// Walks the keyboard focus of the editor to an atom (the arrow keys, from the first atom).
+fn focus_atom(e: &mut Editor, id: u32) {
+    e.key("Home", 0);
+    for k in ["arrowright", "arrowleft", "arrowup", "arrowdown"]
+        .iter()
+        .cycle()
+        .take(8)
+    {
+        if e.over.focus == Some(id) {
+            break;
+        }
+        e.key(k, 0);
+    }
+    assert_eq!(e.over.focus, Some(id));
+}
+
+#[test]
+fn a_curve_is_drawn_with_the_keyboard_alone_and_escape_cancels() {
+    let mut e = Editor::default();
+    e.import("CN").unwrap();
+    e.session.run(&[set_lp(2, 1)]).unwrap();
+    e.set_tool("curve:full");
+    // the source is the lone pair of the focused atom; the target the focused atom
+    focus_atom(&mut e, 2);
+    e.key("Enter", 0);
+    assert_eq!(e.said.0, "draw2.say.curveFromPair");
+    assert!(
+        e.doc().objects.is_empty(),
+        "nothing is drawn by the first Enter"
+    );
+    e.key("arrowleft", 0);
+    e.key("arrowright", 0);
+    focus_atom_from_here(&mut e, 1);
+    assert_eq!(e.key("Enter", 0) & CHANGED, CHANGED, "{}", e.error);
+    let o = &e.doc().objects[0];
+    assert_eq!((o.t, o.from, o.to), (ObjKind::Curve, 2, 1));
+    assert!(o.curve().fl && !o.curve().half);
+    assert_eq!(e.said.0, "draw2.say.curve");
+    // Shift+Enter on the source is the atom, not its pair; Shift+Enter on the target is the bond walked to reach it
+    e.set_tool("curve:half");
+    focus_atom(&mut e, 2);
+    e.key("Enter", mzdraw::editor::SHIFT);
+    assert_eq!(e.said.0, "draw2.say.curveFrom");
+    focus_atom_from_here(&mut e, 1);
+    e.key("Enter", mzdraw::editor::SHIFT);
+    let o = &e.doc().objects[1];
+    assert_eq!(
+        (o.from, o.to),
+        (2, 3),
+        "the atom and the bond between the two"
+    );
+    assert!(o.curve().half && !o.curve().fl);
+    // one undo step each, and Escape drops a source
+    assert_eq!(e.doc().objects.len(), 2);
+    e.undo();
+    assert_eq!(e.doc().objects.len(), 1);
+    focus_atom(&mut e, 1);
+    e.key("Enter", 0);
+    e.key("Escape", 0);
+    assert_eq!(e.said.0, "draw2.say.curveCancel");
+    focus_atom_from_here(&mut e, 2);
+    e.key("Enter", 0);
+    assert_eq!(
+        e.doc().objects.len(),
+        1,
+        "after Escape the next Enter is a source again"
+    );
+    // Shift+Enter with no bond walked is refused in words
+    e.key("Escape", 0);
+}
+
+fn focus_atom_from_here(e: &mut Editor, id: u32) {
+    for k in ["arrowright", "arrowleft", "arrowup", "arrowdown"]
+        .iter()
+        .cycle()
+        .take(8)
+    {
+        if e.over.focus == Some(id) {
+            break;
+        }
+        e.key(k, 0);
+    }
+    assert_eq!(e.over.focus, Some(id));
+}
+
+#[test]
+fn duplicate_and_paste_keep_the_pairs_and_the_curves() {
+    let mut s = amine();
+    // a second curve with two free ends, half, bowed
+    s.run(&[Op::ObjAdd {
+        id: None,
+        t: ObjKind::Curve,
+        x: 3.0,
+        y: 2.0,
+        x2: 5.0,
+        y2: 2.5,
+        text: String::new(),
+        runs: Vec::new(),
+        from: 0,
+        to: 0,
+        cv: Curve {
+            half: true,
+            bend: -0.6,
+            ..Curve::default()
+        },
+    }])
+    .unwrap();
+    let mut e = Editor::default();
+    e.import(&s.doc.to_json()).unwrap();
+    e.select_all();
+    let f = e.duplicate();
+    assert_eq!(f & CHANGED, CHANGED, "{}", e.error);
+    let d = e.doc();
+    assert_eq!(
+        d.atoms.iter().filter(|a| a.lp() == 1).count(),
+        2,
+        "the pair is copied"
+    );
+    let curves: Vec<_> = d.objects.iter().filter(|o| o.t == ObjKind::Curve).collect();
+    assert_eq!(curves.len(), 4);
+    let (old_a, old_f) = (curves[0], curves[1]);
+    let (new_a, new_f) = (curves[2], curves[3]);
+    // the anchored one is anchored to the copies, with its flag, bend and head
+    assert!(new_a.from != old_a.from && new_a.to != old_a.to);
+    assert!(d.atom(new_a.from).is_some() && d.atom(new_a.to).is_some());
+    assert_eq!(new_a.curve(), old_a.curve());
+    assert!(new_a.curve().fl && new_a.curve().bend == 0.4);
+    // the free one keeps its head and bow, and both ends are shifted by the same step (not left at the origin)
+    assert_eq!(new_f.curve(), old_f.curve());
+    let (dx, dy) = (new_f.x - old_f.x, new_f.y - old_f.y);
+    assert!(dx != 0.0 || dy != 0.0, "the copy is shifted");
+    assert!(((new_f.x2 - old_f.x2) - dx).abs() < 1e-9 && ((new_f.y2 - old_f.y2) - dy).abs() < 1e-9);
+    assert!(new_f.x2 != 0.0 || new_f.y2 != 0.0);
+    // the same through the clipboard
+    let mut e = Editor::default();
+    e.import(&s.doc.to_json()).unwrap();
+    e.select_all();
+    assert!(e.copy());
+    e.over.sel_atoms.clear();
+    e.over.sel_objs.clear();
+    assert_eq!(e.paste(None) & CHANGED, CHANGED, "{}", e.error);
+    let d = e.doc();
+    assert_eq!(d.atoms.iter().filter(|a| a.lp() == 1).count(), 2);
+    let pasted: Vec<_> = d.objects.iter().filter(|o| o.t == ObjKind::Curve).collect();
+    assert_eq!(pasted.len(), 4);
+    assert!(pasted[2].curve().fl && pasted[3].curve().half && pasted[3].curve().bend == -0.6);
+    assert!(pasted[2].from != 0 && d.atom(pasted[2].from).is_some());
+    // a curve copied without the atom it is anchored to keeps the place of that end as a point
+    let mut e = Editor::default();
+    e.import(&s.doc.to_json()).unwrap();
+    e.over.sel_atoms = vec![2];
+    e.over.sel_objs = vec![4];
+    assert!(e.copy());
+    let before = e.doc().objects[0].clone();
+    let (p, _, q) = curve::shape(e.doc(), &before);
+    e.over.sel_atoms.clear();
+    e.over.sel_objs.clear();
+    e.paste(None);
+    let copy = e.doc().objects.last().unwrap().clone();
+    assert_eq!(copy.t, ObjKind::Curve);
+    assert!(
+        copy.from != 0 && copy.to == 0,
+        "the pair end stays anchored, the carbon end is a point"
+    );
+    let _ = p;
+    assert!(
+        (copy.x2 - q.0).hypot(copy.y2 - q.1) < 5.0 && (copy.x2, copy.y2) != (0.0, 0.0),
+        "the point is near where the head was, not at the origin"
+    );
+}
+
+#[test]
+fn the_diff_of_a_curve_freed_at_an_exact_zero_applies_to_the_other_document() {
+    let a = amine().doc;
+    let mut b = a.clone();
+    // the start is freed and stands exactly on x = 0 (a stored 0 is the value of an anchored end too)
+    let o = b.objects.iter_mut().find(|o| o.id == 4).unwrap();
+    o.from = 0;
+    (o.x, o.y) = (0.0, 3.0);
+    let mut c = o.curve();
+    c.fl = false;
+    o.set_curve(&c);
+    let ops = mzdraw::diff::diff(&a, &b);
+    assert!(!ops.is_empty());
+    let mut s = Session::new(a.clone());
+    s.run(&ops).unwrap();
+    assert_eq!(s.doc.to_json(), b.to_json());
+    // and the other way, a point end anchored (the stored point goes to 0, 0)
+    let ops = mzdraw::diff::diff(&b, &a);
+    let mut s = Session::new(b);
+    s.run(&ops).unwrap();
+    assert_eq!(s.doc.to_json(), a.to_json());
+}
+
+#[test]
+fn a_document_with_a_pair_count_or_a_curve_field_it_cannot_read_is_refused() {
+    let base = |atom: &str, obj: &str| {
+        format!(
+            r#"{{"format":"mzdraw/1","next":6,"atoms":[{{"id":1,"el":"N","x":0,"y":0{atom}}},{{"id":2,"el":"C","x":1,"y":0}}],"bonds":[],"objects":[{{"id":5,"t":"curve","x":0,"y":0,"x2":1,"y2":1{obj}}}]}}"#
+        )
+    };
+    assert!(Document::from_json(&base(r#","lp":2"#, r#","head":"half","bend":0.5"#)).is_ok());
+    for (atom, obj) in [
+        (r#","lp":9"#, ""),
+        (r#","lp":"abc""#, ""),
+        (r#","lp":-1"#, ""),
+        ("", r#","head":"sideways""#),
+        ("", r#","bend":"wide""#),
+        ("", r#","bend":7"#),
+        ("", r#","fl":"yes""#),
+    ] {
+        assert_eq!(
+            Document::from_json(&base(atom, obj)).unwrap_err(),
+            "error.draw2.document",
+            "{atom} {obj}"
+        );
+    }
+}

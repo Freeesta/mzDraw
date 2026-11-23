@@ -332,7 +332,11 @@ impl Obj {
                 ObjKind::Text => no_end && !self.text.trim().is_empty(),
                 // (the length of a curve between two points is checked when the operation runs: removing the anchors of both ends
                 // can leave the two points together, and the document stays readable)
-                ObjKind::Curve => self.text.is_empty() && self.curve().valid(),
+                ObjKind::Curve => {
+                    self.text.is_empty()
+                        && self.curve().valid()
+                        && crate::curve::curve_fields_ok(self)
+                }
             }
     }
 }
@@ -643,6 +647,7 @@ impl Document {
             && self.next <= MAX_ID
             && self.coords_ok()
             && self.objects.iter().all(Obj::valid)
+            && self.atoms.iter().all(crate::curve::atom_fields_ok)
             && self
                 .objects
                 .iter()

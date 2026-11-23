@@ -1,0 +1,18 @@
+# Align, distribute, turn by a typed angle, nudge (arch-cd-15), built
+
+Four commands that arrange the selection (the whole drawing when nothing is selected), each one undo step, each only a list of existing operations (`move`, `rotate`): no new op, so a log from the page replays natively to the same bytes.
+
+| Command | What it does | Ops |
+|---|---|---|
+| `align:left\|centre\|right\|top\|middle\|bottom` | puts every item on that edge, or centre line, of the box of the whole selection (`top` is the largest y of the document) | one `move` per item that is not there |
+| `distribute:h\|v` | three or more items, ordered by the centre of their boxes (then by id): the first and the last of that order stay, the gaps between the boxes become equal; a box nested in another is not an end; boxes that touch exactly are not refused for a rounding error (the room may be short by up to 1e-9 of a bond length); if the items together are wider than the room between the two ends the command is refused (`error.draw2.arrangeFit`) and nothing moves | one `move` per item that moves |
+| `rotate:<deg>` | turns exactly the atoms named or selected about the centre of their box (the field "Turn by" of the Edit palette). The angle is taken modulo 360 (`rotate:1000000` is a turn by 280); more than 1,000,000 or not a number is `error.draw2.arrangeAngle` | one `rotate` |
+| `nudge:<dx>,<dy>` | moves exactly the atoms and objects named or selected by that many bond lengths; not two numbers is `error.draw2.arrangeShift` | one `move` |
+
+**Whole or as given.** `align` and `distribute` move whole structures: an atom in the selection stands for its connected structure, or one object, is an item. `nudge` and `rotate` act on the atoms as given: with part of a structure selected, only that part moves or turns (the stereo guard speaks if that changes a configuration). A shift of nothing, a turn of 0 or of whole turns, and a turn of one point change nothing, add no undo step and say so (`draw2.say.arrangedSame`), like an align or distribute that finds everything in place. The ops of a command do not depend on the order or the repeats of the selection (the ids given are sorted and each kept once, and items are sorted by their lowest id). A turn that rounds to a whole turn (359.99996) is a turn of nothing.
+
+An item's box is the box of its anchor points (atoms, the two ends of an arrow, the anchor of a plus or a text). Every shift is rounded to the 4 decimals of the document, and the same drawing always gives the same bytes. Arrows anchored to a structure that moves follow it as with any move (`following`), and the stereo guard speaks as for any geometry step. Arranging what is arranged already changes nothing and says so (`draw2.say.arrangedSame`); too few items is `error.draw2.arrangeTwo` (align) or `arrangeThree` (distribute); `rotate` with only objects selected is `arrangeAtoms`.
+
+CLI route (rule 15): in a replay request `"commands":["align:left", {"command":"distribute:h","args":{"atoms":[1,4,8]}}]` (a bare name is a command without arguments; `args` takes `atoms` and `objects`, and with neither the command acts on everything). The golden file is `tests/data/log/arrange.json`. The page: eight buttons (six align, two distribute) and the field "Turn by" in the Edit palette (`ed.command("align:left")`, `ed.command("rotate:45")`).
+
+Not built: `scale:<f>`: it needs the op `atoms.xy` of arch-std-15, which is not in `main`; the queue row of arch-std-15 stays the follow-up (decision of COO-MZDRAW; the study row I08 stays open). Text and labels are boxed by their anchor point, not by their drawn extent; centre on the view; guides while dragging and groups (out of this slice); the keys for nudging and for 15° turns are arch-std-05's.

@@ -111,7 +111,7 @@ impl Obj {
         }
     }
 
-    pub(crate) fn set_curve(&mut self, c: &Curve) {
+    pub fn set_curve(&mut self, c: &Curve) {
         self.more
             .retain(|m| !["head", "bend", "fl", "tl"].contains(&m.0.as_str()));
         if c.half {
@@ -128,6 +128,27 @@ impl Obj {
         }
         m::sort(&mut self.more);
     }
+}
+
+/// Whether the fields a version of this kind reads are of the shape it writes: `lp` a whole number 0 to 4, and on a curve `head`
+/// `"full"` or `"half"`, `bend` a number within range, `fl` and `tl` booleans. A document with another shape is unreadable
+/// (`error.draw2.document`): a value that cannot be read would be dropped without a word.
+pub(crate) fn atom_fields_ok(a: &Atom) -> bool {
+    field(&a.more, "lp").is_none_or(|t| t.parse::<u8>().is_ok_and(|n| n <= MAX_LP))
+}
+
+pub(crate) fn curve_fields_ok(o: &Obj) -> bool {
+    let head = field(&o.more, "head").is_none_or(|t| {
+        serde_json::from_str::<Value>(t).is_ok_and(|v| matches!(v.as_str(), Some("full" | "half")))
+    });
+    let bend = field(&o.more, "bend").is_none_or(|t| {
+        t.parse::<f64>()
+            .is_ok_and(|b| b.is_finite() && b.abs() <= MAX_BEND)
+    });
+    let flags = ["fl", "tl"]
+        .iter()
+        .all(|k| field(&o.more, k).is_none_or(|t| t == "true" || t == "false"));
+    head && bend && flags
 }
 
 /// Whether the anchors of an object exist in the document (any object but a curve: always).
@@ -244,6 +265,11 @@ fn anchor_point(doc: &Document, id: u32, lone: bool, fallback: (f64, f64)) -> (f
         return mid((p.x, p.y), (q.x, q.y));
     }
     fallback
+}
+
+/// The point an end anchored on `id` (an atom, a lone pair of it, or a bond) stands at.
+pub(crate) fn anchor_point_of(doc: &Document, id: u32, lone: bool) -> (f64, f64) {
+    anchor_point(doc, id, lone, (0.0, 0.0))
 }
 
 /// The point a curve end anchored on the bond `id` stands at (the middle of the bond).
