@@ -243,9 +243,12 @@ fn read_label(text: &str) -> Label {
         // what follows the formula is a comment only in parentheses (`+O (hydroxylation)`): a bare token after a term is never skipped (`+O 2H`
         // is not read as `+O`), so a wrong label cannot pass as a right one with a comment that is really more of the delta; it is unreadable
         let after = rest[token.len()..].trim();
-        if token.is_empty()
-            || !(after.is_empty() || (after.starts_with('(') && after.ends_with(')')))
-        {
+        // exactly ONE parenthesis group, with no parenthesis inside it and nothing after it (`+O (a) 2H (b)` and `+O (a)b)` are unreadable)
+        let comment = after.len() >= 2
+            && after.starts_with('(')
+            && after.ends_with(')')
+            && !after[1..after.len() - 1].contains(['(', ')']);
+        if token.is_empty() || !(after.is_empty() || comment) {
             return Label::Unreadable;
         }
         let Ok(counts) = mzlab_mol::delta::parse(&format!("+{token}")) else {

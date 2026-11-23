@@ -39,9 +39,14 @@ pub const MAX_EDGES: usize = 1000;
 /// What `pathway:build` adds to the width of the widest arrow text to make the gap between two columns (bond lengths).
 const LABEL_MARGIN: f64 = 1.0;
 
-/// Bond lengths of row gap for each arrow of the widest fan (3 or more arrows from one structure), measured on fans of 3, 5, 8 and 10 arrows
-/// with texts of 18 to 30 characters: the smallest value for which the estimated boxes of the texts meet no arrow and no text.
+/// Bond lengths of row gap for each arrow of the widest fan (3 or more arrows from one structure): at least this (and at least the width of the
+/// widest text, `LABEL_ROW_PER_WIDTH`), so that the estimated boxes of the texts meet no arrow and no text on fans of 3 to 10 arrows with texts
+/// of 4 to 60 characters (`tests/pathway_draw.rs`).
 const LABEL_ROW_PER_ARROW: f64 = 0.75;
+
+/// The part of the width of the widest text that a row gap must reach on a fan (the text of an arrow is wide, and the fan is dense near its
+/// root): 0.65 left 1 or 2 overlaps for texts of 29 to 52 characters on fans of 4 to 9 arrows, 1.0 left none.
+const LABEL_ROW_PER_WIDTH: f64 = 1.0;
 
 /// The statuses of a node.
 pub const STATUSES: [&str; 3] = ["observed", "tentative", "not_detected"];
@@ -407,9 +412,11 @@ pub fn build_ops(
         }
         let widest_fan = fan.values().copied().max().unwrap_or(0);
         if widest_fan >= 3 && widest > 0.0 {
-            wide.pathway_row_gap = style
-                .pathway_row_gap
-                .max((LABEL_ROW_PER_ARROW * widest_fan as f64).min(50.0));
+            wide.pathway_row_gap = style.pathway_row_gap.max(
+                (LABEL_ROW_PER_ARROW * widest_fan as f64)
+                    .max(LABEL_ROW_PER_WIDTH * widest)
+                    .min(50.0),
+            );
         }
         let tree =
             crate::pathway::command(&again, &wide).map_err(|r| Failure::Key(r.key(), r.id()))?;

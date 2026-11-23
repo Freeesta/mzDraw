@@ -1136,16 +1136,35 @@ fn a_pathway_of_sixteen_nodes_sixteen_edges_two_parents_many_branches_has_no_ove
 }
 
 #[test]
-fn a_very_long_label_on_a_wide_fan_is_still_flagged_by_the_check() {
-    // KNOWN LIMIT, not a pass. `pathway:build` widens the gap between two columns to the widest text and the gap between rows with the fan
-    // (0.75 bond lengths for each arrow), which clears texts of up to about 30 characters on fans of 3 to 10 arrows (tested below). A text of
-    // 50 characters on five arrows still lies on a neighbouring arrow: the structures stay clear and no arrow meets a box, and
-    // `label_box_overlaps` counts what the eye sees, with a warning for each.
-    let m = fan(5, "+C6H8O6 glucuronide conjugate of the parent compound");
-    let c = check_of(&m);
+fn a_label_laid_out_by_another_route_is_still_flagged_when_its_text_lies_on_a_neighbour() {
+    // `pathway:build` makes room for the text of its labels (tested below); a drawing whose labels were written AFTER its layout (here: a TP
+    // list laid out with its short deltas, then five long texts set by hand) has no such room, and the check flags what the eye sees: the
+    // structures stay clear, no arrow meets a box, and `label_box_overlaps` counts the texts that lie on a neighbouring arrow
+    let csv = "smiles,name,parent\nCC,root,\nCCO,k0,root\nCCN,k1,root\nCCCl,k2,root\nCCS,k3,root\nCCF,k4,root\n";
+    let doc = replay(
+        &json!({"commands": [{"command": "tp:import", "args": {"csv": csv}}], "out": "mzdraw"})
+            .to_string(),
+    )
+    .unwrap();
+    let ids: Vec<u64> = serde_json::from_str::<Value>(&doc).unwrap()["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|o| o["t"] == "arrow")
+        .map(|o| o["id"].as_u64().unwrap())
+        .collect();
+    assert_eq!(ids.len(), 5);
+    let log: Vec<Value> = ids.iter().map(|id| json!({"op": "obj.set", "id": id, "text": "+C6H8O6 (glucuronide conjugate of the parent)"})).collect();
+    let c: Value = serde_json::from_str(
+        &replay(&json!({"import": doc, "log": log, "out": "pathway-check"}).to_string()).unwrap(),
+    )
+    .unwrap();
     let (counts, list) = measures(&c);
     assert_eq!((counts[0], counts[1]), (0, 0), "{list:?}");
-    assert!(counts[2] >= 1, "the overlap is measured: {list:?}");
+    assert!(
+        counts[2] >= 1,
+        "the overlap is measured, never silent: {list:?}"
+    );
     assert!(
         list.iter()
             .all(|l| l.contains("labelOverlap") && l.contains("root>")),
@@ -1233,18 +1252,75 @@ fn fan(n: usize, label: &str) -> Value {
 
 #[test]
 fn a_fan_of_arrows_with_descriptive_labels_has_no_label_overlap() {
-    // the probes of the review: descriptive labels on fans of 3 or more arrows overlapped when the gap was only the setting
-    for (n, label) in [
-        (3, "+O (hydroxylation)"),
-        (4, "+O (hydroxylation)"),
-        (5, "+O (hydroxylation)"),
-        (8, "+C6H8O6 (glucuronide conjugate)"),
-        (8, "+C6H8O6 glucuronide conjugate"),
-        (10, "+O (hydroxylation)"),
-        (10, "+C6H8O6 (glucuronide conjugate)"),
+    // fans of 3 to 10 arrows, texts of 4 to 60 characters, as `pathway:build` lays them out (the probes of the review: lengths 29 and 31 on fans
+    // of 3, 4, 5 and 6, then 45 and 52 characters; `+O (hydroxylation)` and `+C6H8O6 glucuronide conjugate`)
+    let fill = |n: usize| format!("+C6H8O6 ({})", "x".repeat(n.saturating_sub(10)));
+    let mut labels: Vec<String> = [
+        "+O (hydroxylation)",
+        "+C6H8O6 (glucuronide conjugate)",
+        "+C6H8O6 glucuronide conjugate",
+        "glucuronide conjugate of the parent +C6H8O6",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    labels.extend([18, 25, 29, 31, 33, 40, 45, 52, 60].map(fill));
+    for label in &labels {
+        for n in 3..=10 {
+            let c = check_of(&fan(n, label));
+            let (counts, list) = measures(&c);
+            assert_eq!(
+                counts,
+                [0, 0, 0],
+                "{n} arrows, {} characters {label:?}: {list:?}",
+                label.chars().count()
+            );
+        }
+    }
+}
+
+#[test]
+fn only_one_balanced_group_of_parentheses_is_a_comment() {
+    // exactly one group, no parenthesis inside, nothing after it
+    for l in [
+        "+O (a) 2H (b)",
+        "+O (a) junk (b)",
+        "+O (a)b)",
+        "+O ((a))",
+        "+O (a)(b)",
+        "+O (a",
+        "+O a)",
+        "+O ()x)",
     ] {
-        let c = check_of(&fan(n, label));
-        let (counts, list) = measures(&c);
-        assert_eq!(counts, [0, 0, 0], "{n} arrows {label:?}: {list:?}");
+        let (result, c) = one_edge("CC", "CCO", l, None);
+        assert_eq!(
+            (result.as_str(), c["ok"].clone()),
+            ("unreadable", json!(false)),
+            "{l:?}"
+        );
+        let f = c["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["key"] == "pathway.edgeUnparsed")
+            .unwrap();
+        assert_eq!(f["severity"], "error", "{l:?}");
+    }
+    for l in [
+        "+C6H8O6 (glucuronide conjugate)",
+        "+O (hydroxylation)",
+        "+O ()",
+    ] {
+        let from_to = if l.starts_with("+C6") {
+            ("Oc1ccccc1", "OC1C(O)C(O)C(Oc2ccccc2)OC1C(=O)O")
+        } else {
+            ("CC", "CCO")
+        };
+        let (result, c) = one_edge(from_to.0, from_to.1, l, None);
+        assert_eq!(
+            (result.as_str(), c["ok"].clone()),
+            ("ok", json!(true)),
+            "{l:?}"
+        );
     }
 }
