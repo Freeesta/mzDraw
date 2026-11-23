@@ -141,6 +141,9 @@ pub struct Structure {
     pub iso: String,
     /// Whether an atom has no element (an R group or another label): the formula is then not a mass.
     pub open: bool,
+    /// Whether the structure holds a dative or a hydrogen bond: the engine reads the record, where it is a single bond, and
+    /// counts the hydrogens of the single-bond reading, so no mass or descriptor is made of it (`error.draw2.valuesLink`).
+    pub linked: bool,
     /// Whether the painter writes a name or a level under the structure (an annotation, or the data field `TP_ID`): the caption goes below it.
     pub annotated: bool,
     /// Its box in the document, `[x0, y0, x1, y1]`, y up.
@@ -267,7 +270,11 @@ pub fn scan(doc: &Document) -> Scan {
     }
     let structures = lists
         .into_iter()
-        .map(|members| {
+        .enumerate()
+        .map(|(si, members)| {
+            let linked = bonds_of[si]
+                .iter()
+                .any(|&k| doc.bonds.get(k).is_some_and(crate::doc::Bond::is_link));
             let (formula, composition, charge, open) = count(doc, &m, &members, &[]);
             let mut isos: Vec<String> = (members.iter())
                 .filter(|&&i| m.atoms[i].iso > 0)
@@ -304,6 +311,7 @@ pub fn scan(doc: &Document) -> Scan {
                 charge,
                 iso: isos.concat(),
                 open,
+                linked,
                 annotated,
                 bbox,
                 cap,
@@ -335,6 +343,9 @@ impl Scan {
         let s = self.structures.get(k).ok_or("error.draw2.valuesOpen")?;
         if s.open {
             return Err("error.draw2.valuesOpen");
+        }
+        if s.linked {
+            return Err("error.draw2.valuesLink");
         }
         if !covered(&s.composition) {
             return Err("error.draw2.propsElement");
@@ -396,6 +407,8 @@ impl Scan {
                     iso: s.iso.clone(),
                     result: if s.open {
                         Err("error.draw2.valuesOpen")
+                    } else if s.linked {
+                        Err("error.draw2.valuesLink")
                     } else {
                         engine(
                             &molfile(&self.record, &s.members, &self.bonds_of[k], &[]),
@@ -451,8 +464,12 @@ impl Scan {
             at[i] = k;
         }
         let mut cut = vec![0u32; members.len()];
-        for b in &self.record.bonds {
+        for (k, b) in self.record.bonds.iter().enumerate() {
             let (a, z) = (b.a as usize, b.b as usize);
+            // a dative or hydrogen bond is no valence of its ends: cut, it leaves no hydrogen behind
+            if doc.bonds.get(k).is_some_and(crate::doc::Bond::is_link) {
+                continue;
+            }
             if in_set[a] && !in_set[z] {
                 cut[at[a]] += u32::from(b.o);
             } else if in_set[z] && !in_set[a] {
@@ -460,7 +477,10 @@ impl Scan {
             }
         }
         let (formula, composition, charge, open) = count(doc, &self.record, &members, &cut);
+        let linked =
+            (bonds.iter()).any(|&k| doc.bonds.get(k).is_some_and(crate::doc::Bond::is_link));
         Some(Selected {
+            linked,
             sub: sub_record(&self.record, &members, &bonds, &cut),
             atoms: members.len(),
             formula,
@@ -480,6 +500,8 @@ pub struct Selected {
     pub composition: Vec<(String, u32)>,
     pub charge: i32,
     pub open: bool,
+    /// As `Structure::linked`.
+    pub linked: bool,
     molfile: String,
     sub: Mol,
 }
@@ -492,6 +514,9 @@ impl Selected {
         }
         if self.open {
             return Err("error.draw2.valuesOpen");
+        }
+        if self.linked {
+            return Err("error.draw2.valuesLink");
         }
         if !covered(&self.composition) {
             return Err("error.draw2.propsElement");
@@ -509,6 +534,9 @@ impl Selected {
         }
         if self.open {
             return Err("error.draw2.valuesOpen");
+        }
+        if self.linked {
+            return Err("error.draw2.valuesLink");
         }
         engine(&self.molfile, adducts)
     }

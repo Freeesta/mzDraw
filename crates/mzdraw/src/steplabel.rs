@@ -486,6 +486,8 @@ pub fn plan(
                 y2: None,
                 from: None,
                 to: None,
+                cv: Default::default(),
+                pt: [None, None],
             });
         } else {
             out.kept += 1;

@@ -261,6 +261,8 @@ pub enum ObjKind {
     Plus,
     /// A line of text starting at (`x`, `y`).
     Text,
+    /// An electron-pushing curved arrow (`curve.rs`): the ends are points (`x`, `y`, `x2`, `y2`) or anchors (`from`, `to`).
+    Curve,
 }
 
 /// An object next to the molecules: a reaction arrow, a plus sign or a text. Coordinates in bond lengths, as the atoms.
@@ -290,6 +292,7 @@ impl ObjKind {
             ObjKind::Arrow => "arrow",
             ObjKind::Plus => "plus",
             ObjKind::Text => "text",
+            ObjKind::Curve => "curve",
         }
     }
 
@@ -299,6 +302,7 @@ impl ObjKind {
             Some("arrow") => Ok(ObjKind::Arrow),
             Some("plus") => Ok(ObjKind::Plus),
             Some("text") => Ok(ObjKind::Text),
+            Some("curve") => Ok(ObjKind::Curve),
             _ => Err(()),
         }
     }
@@ -318,13 +322,21 @@ impl Obj {
             crate::runs::valid(&self.runs) && self.text == crate::runs::plain(&self.runs)
         };
         let no_end = self.x2 == 0.0 && self.y2 == 0.0;
-        let anchors_ok = self.t == ObjKind::Arrow || (self.from == 0 && self.to == 0);
+        let anchors_ok =
+            matches!(self.t, ObjKind::Arrow | ObjKind::Curve) || (self.from == 0 && self.to == 0);
         one_line
             && anchors_ok
             && match self.t {
                 ObjKind::Arrow => (self.x2 - self.x).abs() + (self.y2 - self.y).abs() > 1e-3,
                 ObjKind::Plus => no_end && self.text.is_empty(),
                 ObjKind::Text => no_end && !self.text.trim().is_empty(),
+                // (the length of a curve between two points is checked when the operation runs: removing the anchors of both ends
+                // can leave the two points together, and the document stays readable)
+                ObjKind::Curve => {
+                    self.text.is_empty()
+                        && self.curve().valid()
+                        && crate::curve::curve_fields_ok(self)
+                }
             }
     }
 }
@@ -635,6 +647,11 @@ impl Document {
             && self.next <= MAX_ID
             && self.coords_ok()
             && self.objects.iter().all(Obj::valid)
+            && self.atoms.iter().all(crate::curve::atom_fields_ok)
+            && self
+                .objects
+                .iter()
+                .all(|o| crate::curve::anchors_exist(self, o))
             && ids.iter().all(|&i| i < self.next)
             && pairs.windows(2).all(|w| w[0] != w[1])
             && self.atoms.iter().all(|a| {
@@ -719,11 +736,11 @@ impl Document {
             .collect()
     }
 
-    /// Sum of the bond orders on an atom.
+    /// Sum of the bond orders on an atom (a dative or hydrogen bond adds nothing: it takes no part in the valence).
     pub fn order_sum(&self, id: u32) -> u32 {
         self.bonds
             .iter()
-            .filter(|b| b.a == id || b.b == id)
+            .filter(|b| (b.a == id || b.b == id) && !b.is_link())
             .map(|b| b.o as u32)
             .sum()
     }
@@ -764,7 +781,8 @@ impl Document {
     /// The sum of the orders of the bonds at each atom id (an atom without a bond is absent).
     pub(crate) fn order_sums(&self) -> std::collections::HashMap<u32, u32> {
         let mut sums = std::collections::HashMap::with_capacity(self.atoms.len());
-        for b in &self.bonds {
+        // a dative or hydrogen bond takes no part in the valence of its ends
+        for b in self.bonds.iter().filter(|b| !b.is_link()) {
             *sums.entry(b.a).or_insert(0) += b.o as u32;
             if b.b != b.a {
                 *sums.entry(b.b).or_insert(0) += b.o as u32;

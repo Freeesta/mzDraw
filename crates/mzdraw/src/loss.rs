@@ -96,10 +96,14 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("arrow.text", [N, N, N, N, N, N, N, N, Y, Y]),
     ("atom.charge", [Y, Y, Y, Y, Y, Y, Y, Y, Y, Y]),
     ("atom.isotope", [Y, Y, Y, Y, Y, Y, Y, Y, Y, Y]),
+    ("atom.lp", [N, N, N, N, N, N, N, N, Y, Y]),
     ("atom.map", [Y, Y, Y, Y, Y, N, N, Y, Y, Y]),
     ("atom.radical", [Y, Y, P, Y, Y, Y, Y, Y, Y, Y]),
     ("bond.bdash", [N, N, N, N, N, N, N, N, Y, Y]),
+    ("bond.bold", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("bond.dash", [N, N, N, N, N, Y, N, N, Y, Y]),
+    ("bond.dative", [N, Y, N, N, Y, Y, N, N, Y, Y]),
+    ("bond.hbond", [N, Y, N, N, Y, Y, N, N, Y, Y]),
     ("bond.hash", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("bond.pos", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("caption", [N, N, N, N, N, P, N, N, Y, Y]),
@@ -109,6 +113,7 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("geometry", [Y, Y, P, P, Y, Y, Y, P, Y, Y]),
     ("labels", [N, N, N, N, N, N, N, N, Y, Y]),
     ("object.arrow", [N, N, N, N, Y, Y, N, Y, Y, Y]),
+    ("object.curve", [N, N, N, N, N, N, N, N, Y, Y]),
     ("object.plus", [N, N, N, N, Y, Y, N, P, Y, Y]),
     ("object.text", [N, N, N, N, Y, Y, N, N, Y, Y]),
     ("rlabel", [Y, Y, Y, Y, Y, Y, Y, Y, Y, Y]),
@@ -181,6 +186,9 @@ pub fn instances(d: &Document) -> Vec<Instance> {
                 }
             }
         }
+        if a.lp() != 0 {
+            push("atom.lp", a.lp().to_string(), a.id, 0, 0);
+        }
         if !a.col().is_empty() {
             push("colour", a.col(), a.id, 0, 0);
         }
@@ -195,7 +203,7 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         }
         // `col` is not unknown when it is a colour (it has its own row); a value that is not one (a newer file) is
         for (key, _) in (a.more.iter()).filter(|m| {
-            !["data", "ann"].contains(&m.0.as_str())
+            !["data", "ann", "lp"].contains(&m.0.as_str())
                 && (m.0 != "col" || a.col().is_empty())
                 && (m.0 != "cap" || a.cap().is_empty())
         }) {
@@ -221,6 +229,9 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         match b.kind().as_str() {
             "dash" => push("bond.dash", String::new(), 0, b.id, 0),
             "bdash" => push("bond.bdash", String::new(), 0, b.id, 0),
+            "bold" => push("bond.bold", String::new(), 0, b.id, 0),
+            "dative" => push("bond.dative", String::new(), 0, b.id, 0),
+            "hbond" => push("bond.hbond", String::new(), 0, b.id, 0),
             "hash" => push("bond.hash", String::new(), 0, b.id, 0),
             _ => {}
         }
@@ -249,6 +260,15 @@ pub fn instances(d: &Document) -> Vec<Instance> {
             }
             ObjKind::Plus => push("object.plus", String::new(), 0, 0, o.id),
             ObjKind::Text => push("object.text", o.text.clone(), 0, 0, o.id),
+            ObjKind::Curve => {
+                let c = o.curve();
+                let what = format!(
+                    "{}{}",
+                    if c.half { "half" } else { "full" },
+                    u8::from(o.from != 0) * 10 + u8::from(o.to != 0)
+                );
+                push("object.curve", what, 0, 0, o.id);
+            }
         }
         if !o.runs.is_empty() {
             // what the runs of a text carry, each kind with the text it is on
@@ -302,7 +322,10 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if !o.col().is_empty() {
             push("colour.object", o.col(), 0, 0, o.id);
         }
-        for (key, _) in (o.more.iter()).filter(|m| m.0 != "col" || o.col().is_empty()) {
+        let own = |k: &str| o.t == ObjKind::Curve && ["head", "bend", "fl", "tl"].contains(&k);
+        for (key, _) in
+            (o.more.iter()).filter(|m| !own(&m.0) && (m.0 != "col" || o.col().is_empty()))
+        {
             push("unknown", format!("object.{key}"), 0, 0, o.id);
         }
     }

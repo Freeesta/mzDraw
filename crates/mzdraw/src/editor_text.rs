@@ -135,6 +135,8 @@ impl Editor {
             y2: None,
             from: None,
             to: None,
+            cv: Default::default(),
+            pt: [None, None],
         }
     }
 

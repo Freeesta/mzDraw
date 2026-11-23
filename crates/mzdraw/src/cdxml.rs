@@ -305,7 +305,10 @@ impl Read {
             Some("2") => 2,
             Some("3") => 3,
             Some("1.5") => 4,
-            // dative, ionic, half orders, "single or double": a query bond for the reader
+            // a dative and a hydrogen bond run from the begin atom to the end atom (types 9 and 10 of the reader's door)
+            Some("dative") => 9,
+            Some("hydrogen") => 10,
+            // ionic, half orders, "single or double": a query bond for the reader
             Some(_) => 8,
         };
         // the narrow end of a wedge is the begin atom for the Begin displays, the end atom for the End ones
@@ -328,6 +331,7 @@ impl Read {
         let kind = match b.attr("Display") {
             Some("Dash") => "dash",
             Some("Hash") => "hash",
+            Some("Bold") => "bold",
             _ => "",
         };
         let side = match (order, b.attr("DoublePosition"), turned) {
@@ -397,7 +401,11 @@ pub(crate) fn from_tree(
         }
         for (b, (side, kind)) in d.bonds.iter_mut().zip(&r.bond_disp) {
             crate::bonddisp::pos_put(&mut b.more, side);
-            crate::bonddisp::k_put(&mut b.more, kind);
+            // (a dative or hydrogen bond read by the door of the reader has its kind already, and keeps it: a line that is also
+            // `Display="Bold"` stays what the order says)
+            if !kind.is_empty() && !b.is_link() {
+                crate::bonddisp::k_put(&mut b.more, kind);
+            }
         }
     } else {
         // a bond was refused: the bonds of the file and the drawing cannot be paired, so none keeps its display; it is said
@@ -423,6 +431,7 @@ impl Document {
             match d.kind().as_str() {
                 "dash" => out += " Display=\"Dash\"",
                 "hash" => out += " Display=\"Hash\"",
+                "bold" => out += " Display=\"Bold\"",
                 _ => {}
             }
         }
@@ -615,6 +624,15 @@ impl Document {
         for (k, b) in m.bonds.iter().enumerate() {
             let ends = (self.bonds.get(k).filter(|d| d.s != 0))
                 .and_then(|d| Some((d.s, *index.get(&d.a)?, *index.get(&d.b)?)));
+            // a dative and a hydrogen bond run from the begin atom (the donor) to the end atom
+            let link = (self.bonds.get(k)).and_then(|d| {
+                let name = match d.kind().as_str() {
+                    "dative" => "dative",
+                    "hbond" => "hydrogen",
+                    _ => return None,
+                };
+                Some((name, *index.get(&d.a)?, *index.get(&d.b)?))
+            });
             let (from, to, more) = match ends {
                 Some((s, narrow, wide)) => {
                     let display = match s {
@@ -623,6 +641,10 @@ impl Document {
                         _ => "Wavy",
                     };
                     (narrow, wide, format!(" Display=\"{display}\""))
+                }
+                None if link.is_some() => {
+                    let (name, i, j) = link.unwrap_or_default();
+                    (i, j, format!(" Order=\"{name}\""))
                 }
                 None if b.o > 1 => (b.a as usize, b.b as usize, format!(" Order=\"{}\"", b.o)),
                 None => (b.a as usize, b.b as usize, String::new()),
@@ -668,6 +690,8 @@ impl Document {
                         body(o)
                     )
                 }
+                // the public CDXML documents no curve between atoms and lone pairs: listed in the loss manifest, not written
+                ObjKind::Curve => {}
             }
         }
         for c in captions.iter().filter(|c| !c.lines.is_empty()) {

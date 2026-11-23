@@ -385,6 +385,7 @@ impl Editor {
                 rad: None,
                 h: None,
                 lab: None,
+                lp: None,
             };
             return if same {
                 0
@@ -424,7 +425,10 @@ impl Editor {
                 let Some(kind) = crate::bonddisp::k_canon(v) else {
                     return 0;
                 };
-                if mark != 0 || self.doc().bond(b).is_some_and(|x| x.kind() == kind) {
+                if mark != 0
+                    || (now != 1 && crate::bonddisp::single_only(&kind))
+                    || self.doc().bond(b).is_some_and(|x| x.kind() == kind)
+                {
                     return 0;
                 }
                 return self.run(&[bond_set(b, None, Some(kind))], "draw2.say.kind", v);
@@ -478,6 +482,7 @@ impl Editor {
             rad: None,
             h: None,
             lab: None,
+            lp: None,
         };
         self.run(&[set], "draw2.say.charge", &chg.to_string())
     }
@@ -632,9 +637,11 @@ impl Editor {
             let now = if pos.is_empty() { "auto" } else { &pos };
             checked(item(&format!("bond.pos.{k}"), k, "", true), now == k)
         });
-        let kinds = ["solid", "dash", "bdash", "hash"].map(|k| {
+        // a dative or hydrogen bond is a single bond without a mark
+        let kinds = ["solid", "dash", "bdash", "hash", "bold", "dative", "hbond"].map(|k| {
             let now = if kind.is_empty() { "solid" } else { &kind };
-            checked(item(&format!("bond.k.{k}"), k, "", s == 0), now == k)
+            let fits = s == 0 && (o == 1 || !crate::bonddisp::single_only(k));
+            checked(item(&format!("bond.k.{k}"), k, "", fits), now == k)
         });
         let mut items = vec![
             checked(item("bond.o.1", "Single", "1", true), (o, s) == (1, 0)),
@@ -646,7 +653,12 @@ impl Editor {
                 s == WEDGE_DOWN,
             ),
             checked(item("bond.s.wavy", "Wavy", "Y", true), s == WEDGE_WAVY),
-            item("bond.reverse", "Reverse direction", "", s != 0),
+            item(
+                "bond.reverse",
+                "Reverse direction",
+                "",
+                s != 0 || kind == "dative",
+            ),
         ];
         // the side of the second line is a choice of a double bond; the display of the line one of a bond without a mark
         if o == 2 {

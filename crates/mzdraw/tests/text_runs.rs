@@ -20,6 +20,7 @@ fn add_text(runs: Vec<Run>) -> Op {
         runs,
         from: 0,
         to: 0,
+        cv: Default::default(),
     }
 }
 
@@ -32,6 +33,8 @@ fn set_runs(id: u32, runs: Vec<Run>) -> Op {
         y2: None,
         from: None,
         to: None,
+        cv: Default::default(),
+        pt: [None, None],
     }
 }
 
@@ -83,6 +86,8 @@ fn obj_set_runs_has_an_exact_inverse_and_the_text_follows_the_runs() {
         y2: None,
         from: None,
         to: None,
+        cv: Default::default(),
+        pt: [None, None],
     }])
     .unwrap();
     assert!(s.doc.objects[0].runs.is_empty());
@@ -112,6 +117,8 @@ fn obj_set_runs_has_an_exact_inverse_and_the_text_follows_the_runs() {
             y2: None,
             from: None,
             to: None,
+            cv: Default::default(),
+            pt: [None, None],
         },
     ] {
         assert!(s.run(&[bad]).is_err());
@@ -135,6 +142,7 @@ fn runs_are_in_the_document_the_log_and_the_arrow_text() {
             runs: runs::parse("CH_3CN\nreflux"),
             from: 0,
             to: 0,
+            cv: Default::default(),
         },
     ])
     .unwrap();
@@ -286,6 +294,7 @@ fn plain_text(text: &str) -> Op {
         runs: vec![],
         from: 0,
         to: 0,
+        cv: Default::default(),
     }
 }
 

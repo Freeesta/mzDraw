@@ -216,6 +216,7 @@ fn data_is_set_by_an_operation_with_an_exact_inverse() {
         rad: None,
         h: None,
         lab: None,
+        lp: None,
     }])
     .unwrap();
     assert_eq!(s.doc.atoms[0].data().len(), 2);

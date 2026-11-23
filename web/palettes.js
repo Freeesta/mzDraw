@@ -16,11 +16,11 @@ const P = NAMES.id;
 const SPEC = /** @type {Record<string, any>} */ ({
   tools: { items: ["select", "move-here", "erase"], tool: true },
   // the kinds drawn most (single and double bond, the wedges, benzene, cyclohexane, cyclopentane, a charge, an arrow, a plus) stay in view when the palette is collapsed
-  bonds: { keep: ["bond:1", "bond:2", "bond:up", "bond:down", "chain"], items: ["bond:3", "bond:wavy", "bond:dash", "bond:bdash", "bond:hash"], tool: true },
+  bonds: { keep: ["bond:1", "bond:2", "bond:up", "bond:down", "chain"], items: ["bond:3", "bond:wavy", "bond:dash", "bond:bdash", "bond:hash", "bond:bold", "bond:dative", "bond:hbond"], tool: true },
   rings: { keep: ["ring:6a", "ring:6", "ring:5"], items: ["ring:3", "ring:4", "ring:7", "ring:8"], tool: true },
   atoms: { keep: ["atom:C", "atom:N", "atom:O"], items: ["atom:S", "atom:P", "atom:F", "atom:Cl", "atom:Br", "atom:I", "atom:H", "atom:B", "atom:Si"], head: "elements", more: "elements", owns: "atom:", fields: ["atom"], grid: true },
   charges: { keep: ["charge:+", "charge:-"], items: [], head: "label", owns: "label:", fields: ["label"], more: "label" },
-  objects: { keep: ["arrow", "plus", "scheme-row", "pathway-tree", "pathway-label"], items: [], head: "text", owns: "text:", fields: ["text"], more: "text" },
+  objects: { keep: ["arrow", "plus", "scheme-row", "pathway-tree", "pathway-label"], items: ["lonepair", "curve:full", "curve:half", "lonepairs-place"], head: "text", owns: "text:", fields: ["text"], more: "text" },
   file: { items: ["open", "save", "saveas", "clear", "prefs", "palettes"], head: "open" },
   history: { items: ["undo", "redo"], head: "undo" },
   edit: { items: ["cut", "copy", "paste", "duplicate", "all", "rotate-l", "rotate-r", "flip-h", "flip-v", "colour", "arrange", "scheme-orient"], head: "more" },

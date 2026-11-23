@@ -10,14 +10,14 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 36, RUNNING 3, QUEUED 49, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 40, RUNNING 2, QUEUED 46, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
 | `arch-cd-01-clean-up` | Clean Up Structure: the 2D layout of mzlab-mol on a drawing, stereo kept | SUPERSEDED | by arch-std-15 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-02-cip-labels` | CIP labels on the canvas (R/S, r/s, E/Z) from cip/1, live | SUPERSEDED | by arch-web-16 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-03-hover-hotkeys` | Hotkeys over the hovered bond and group hotkeys over an atom | QUEUED | no merged commit or built note names it | arch-std-06 (the command table of shortcuts) if it is on `main`: put the hover keys into that table | - |
-| `arch-cd-04-bond-display` | Double-bond position (centre, left, right) and dashed bond displays | RUNNING | PR #108 (docs/built/bond-display.md) | the bond field `k` (one field for bold, dashed, dative, hbond; V3000 types 9 and 10: COO decision 16), from... | - |
+| `arch-cd-04-bond-display` | Double-bond position (centre, left, right) and dashed bond displays | MERGED | PR #108, `b1916a5`; built/bond-display.md | the bond field `k` (one field for bold, dashed, dative, hbond; V3000 types 9 and 10: COO decision 16), from... | - |
 | `arch-cd-05-chain-tool` | Chain tool: drag out a zigzag, the carbon count shown while dragging | SUPERSEDED | by arch-web-08 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-06-arrow-kinds` | Arrow kinds, heads and conditions under the arrow | SUPERSEDED | by arch-web-13 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-07-rich-text` | Rich text: several lines, sub- and superscript runs, bold, italic, formula style | SUPERSEDED | by arch-web-14 (itself withdrawn for arch-std-21) (top of the prompt: "superseded: do not run") | - | - |
@@ -38,8 +38,8 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 36, 
 | `arch-cd-22-desktop-shell` | Desktop app, first slice: one window for macOS and Windows around the same module | QUEUED | no merged commit or built note names it | a decision of the owner on the shell (see work 1) | - |
 | `arch-cd-23-dative-hbond` | Dative (coordinate) and hydrogen bonds | SUPERSEDED | by arch-web-20 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-24-enhanced-stereo` | Enhanced stereo groups (ABS, AND, OR): assign, show, V3000 in and out | SUPERSEDED | by arch-std-12 (top of the prompt: "superseded: do not run") | - | - |
-| `arch-cd-25-curved-arrows` | Electron-pushing curved arrows anchored to atoms, bonds and lone pairs | QUEUED | no merged commit or built note names it | arch-web-13 (arrow kinds) if merged | - |
-| `arch-cd-26-history-panel` | History panel: every step of the session, jump back to any | RUNNING | PR #113 (docs/built/history-panel.md) | nothing | - |
+| `arch-cd-25-curved-arrows` | Electron-pushing curved arrows anchored to atoms, bonds and lone pairs | RUNNING | PR #116 (docs/built/curved-arrows.md) | arch-web-13 (arrow kinds) if merged | - |
+| `arch-cd-26-history-panel` | History panel: every step of the session, jump back to any | QUEUED | no merged commit or built note names it | nothing | - |
 | `arch-std-01-std-report-stereo` | conformance report `std/1`, stereo checks | MERGED | PR #46, `89011cc`; built/std-stereo.md; `conform.rs` | - | - |
 | `arch-std-02-std-report-geometry` | conformance report, geometry and label checks | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-03-palette-contrast` | element palettes with tested contrast, dark background | QUEUED | no merged commit or built note names it | - | UI-2 PR 3 (#64, built/tokens.md) is the prerequisite and is not this prompt |
@@ -48,8 +48,8 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 36, 
 | `arch-std-06-shortcut-settings` | one-key shortcuts that can be turned off and remapped | QUEUED | no merged commit or built note names it | - | built/proposal-layer.md and built/tp-06-pathway-page.md say its command table is not on main |
 | `arch-std-07-page-a11y-audit` | page audit against WCAG 2.2 AA, fixed where it fails | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-08-label-reversal` | group labels reversed on the left side | MERGED | PR #43, `5a3e3b9`; built/group-labels-reversed.md | - | - |
-| `arch-std-09-opensmiles-files` | SMILES files read as the OpenSMILES file rules say | RUNNING | no merge evidence yet | PR #107 | - |
-| `arch-std-10-label-display-modes` | carbon labels, hydrogen modes and the hash style | RUNNING | no merge evidence yet | PR #114; built/label-display-modes.md | - |
+| `arch-std-09-opensmiles-files` | SMILES files read as the OpenSMILES file rules say | MERGED | PR #107, `b111b73`; built/opensmiles-files.md | - | - |
+| `arch-std-10-label-display-modes` | carbon labels, hydrogen modes and the hash style | MERGED | PR #114, `0a8c19d`; built/label-display-modes.md | - | - |
 | `arch-std-11-unknown-double-bond` | double bonds of unknown geometry | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-12-enhanced-stereo` | enhanced stereo groups: document, operation, drawing | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-13-crossing-gap` | a gap in the rear bond where two bonds cross | QUEUED | no merged commit or built note names it | - | - |
@@ -68,7 +68,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 36, 
 | `arch-web-04-theme-i18n` | Host text and colours: the `t` hook, host theme tokens into the palette, reduced motion | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-05-viewer-form` | Read-only viewer and form association | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-07-selection` | Lasso, fragment selection, a band without dragging, focus on bonds and objects | QUEUED | no merged commit or built note names it | - | - |
-| `arch-web-08-chain` | Chain tool and the op `chain` | RUNNING | PR #109 (built/chain.md) | - | - |
+| `arch-web-08-chain` | Chain tool and the op `chain` | MERGED | PR #109, `1c8503c`; built/chain.md | - | - |
 | `arch-web-09-merge` | Merge atoms on drop and join pieces: the op `merge` | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-10-clean-up` | Clean up the drawing or the selection: the op `place` | WITHDRAWN | = arch-std-15 (one op `atoms.xy`) (backlog section 3) | - | - |
 | `arch-web-11-atom-popover` | Atom properties popover (any element, isotope, radical, hydrogens, charge, label); doub... | QUEUED | no merged commit or built note names it | - | - |
@@ -80,7 +80,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 36, 
 | `arch-web-17-values` | Calculated values: formula, masses, m/z of adducts | MERGED | PR #88, `c713c2b`; built/arch-web-17-values.md; `values.rs` | - | - |
 | `arch-web-18-abbreviations` | Abbreviations: expand and contract in place, user abbreviations | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-19-templates` | Template library and user templates: the op `tmpl` | QUEUED | no merged commit or built note names it | - | - |
-| `arch-web-20-bond-kinds` | Bond kinds: bold, dative, hydrogen bond | QUEUED | no merged commit or built note names it | - | the field `k` and `bonddisp.rs` (`k_canon`, `KINDS`) already exist from arch-cd-04 (PR #108) with `dash`, `bdash`, `hash`: extend them with `bold`, `dative`, `hbond`, do not add a second field |
+| `arch-web-20-bond-kinds` | Bond kinds: bold, dative, hydrogen bond | RUNNING | PR #115 (docs/built/arch-web-20-bond-kinds.md) | - | the field `k` and `bonddisp.rs` (`k_canon`, `KINDS`) already exist from arch-cd-04 (PR #108) with `dash`, `bdash`, `hash`: extend them with `bold`, `dative`, `hbond`, do not add a second field |
 | `arch-web-21-drop-copy-as` | Drop a file on the canvas; copy as MOL / KET / SMILES / image; PNG and HTML on the clip... | QUEUED | no merged commit or built note names it | - | - |
 | `plan-01-op-table` | one table of the `draw_edit/1` operations, served as JSON | MERGED | PR #52, `fd41029`; `schema.rs`; built/edit-schema.md | none (COO 16 agreement on ownership, backlog D1) | - |
 | `plan-02-velocity-bench` | drawing-speed benchmark `velocity/1` on a fixed task set | MERGED | PR #50, `2510e86`; built/velocity.md; `tools/velocity` | none | - |

@@ -285,7 +285,7 @@ fn gather(doc: &Document, style: &Style, o: &Opts) -> Vec<Unit> {
                     }),
                 }
             }
-            ObjKind::Arrow => {}
+            ObjKind::Arrow | ObjKind::Curve => {}
         }
     }
     for (a, notes) in arrows.iter().zip(notes) {
@@ -476,6 +476,8 @@ pub fn row(doc: &Document, style: &Style, o: &Opts) -> Result<Vec<Op>, &'static 
                                 y2: Some(hy),
                                 from: None,
                                 to: None,
+                                cv: Default::default(),
+                                pt: [None, None],
                             });
                         }
                     }

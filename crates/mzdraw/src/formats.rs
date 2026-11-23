@@ -128,7 +128,17 @@ impl Document {
                 (_, 'b') => {
                     let ends = (self.bonds.get(k).filter(|b| b.s != 0))
                         .and_then(|b| Some((b.s, *index.get(&b.a)?, *index.get(&b.b)?)));
-                    if let Some((s, i, j)) = ends {
+                    // a dative bond (type 9) and a hydrogen bond (type 10) run from the first atom to the second
+                    let link = self.bonds.get(k).and_then(|b| match b.kind().as_str() {
+                        "dative" => Some((9, b)),
+                        "hbond" => Some((10, b)),
+                        _ => None,
+                    });
+                    if let Some((t, b)) = link {
+                        if let (Some(i), Some(j)) = (index.get(&b.a), index.get(&b.b)) {
+                            marked = Some(format!("M  V30 {} {t} {} {}", k + 1, i + 1, j + 1));
+                        }
+                    } else if let Some((s, i, j)) = ends {
                         let cfg = match s {
                             WEDGE_UP => 1,
                             WEDGE_DOWN => 3,
@@ -220,6 +230,7 @@ fn stand_in(symbol: &str, info: &mut Imported) -> Option<String> {
 pub(crate) fn prepare(record: &str, info: &mut Imported) -> (String, Vec<(usize, String)>) {
     let mut lines: Vec<String> = record.lines().map(str::to_string).collect();
     let mut labels: Vec<(usize, String)> = Vec::new();
+    info.links.clear();
     let number = |labels: &mut Vec<(usize, String)>, atom: usize, n: &str| {
         let lab = format!("R{}", n.trim_end_matches(')'));
         if let (Some(l), Some(Kind::R(_))) =
@@ -257,7 +268,23 @@ pub(crate) fn prepare(record: &str, info: &mut Imported) -> (String, Vec<(usize,
                     k += 1;
                 }
                 (_, 'b') => {
-                    if matches!(f.get(1), Some(&("5" | "6" | "7" | "8"))) {
+                    // a dative (9) and a hydrogen bond (10) are kept: single bonds for the reader, their kind noted
+                    let kind = match f.get(1) {
+                        Some(&"9") => Some("dative"),
+                        Some(&"10") => Some("hbond"),
+                        _ => None,
+                    };
+                    if let Some(kind) = kind {
+                        let atom = |k: usize| {
+                            let a = f.get(k)?.parse::<usize>().ok()?;
+                            a.checked_sub(1)
+                        };
+                        if let (Some(from), Some(to)) = (atom(2), atom(3)) {
+                            info.links.push((from, to, kind));
+                        }
+                        f[1] = "1";
+                        *line = format!("M  V30 {}", f.join(" "));
+                    } else if matches!(f.get(1), Some(&("5" | "6" | "7" | "8"))) {
                         info.query_bonds += 1;
                         f[1] = "1";
                         *line = format!("M  V30 {}", f.join(" "));

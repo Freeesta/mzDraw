@@ -217,6 +217,8 @@ fn anchors_are_set_changed_and_cleared_and_each_step_undoes_exactly() {
             y2: None,
             from,
             to,
+            cv: Default::default(),
+            pt: [None, None],
         }])
         .unwrap();
         assert!(s.undo());
@@ -229,6 +231,8 @@ fn anchors_are_set_changed_and_cleared_and_each_step_undoes_exactly() {
             y2: None,
             from,
             to,
+            cv: Default::default(),
+            pt: [None, None],
         }])
         .unwrap();
     }
@@ -247,6 +251,7 @@ fn anchors_are_set_changed_and_cleared_and_each_step_undoes_exactly() {
         runs: Vec::new(),
         from: 1,
         to: 0,
+        cv: Default::default(),
     };
     assert!(t.run(&[add(mzdraw::ObjKind::Text)]).is_err());
 }

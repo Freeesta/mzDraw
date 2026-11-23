@@ -62,6 +62,10 @@ pub enum Tool {
     /// A reaction arrow, dragged or of a standard length.
     Arrow,
     Plus,
+    /// Lone pairs: a click on an atom adds a pair (up to four, then none).
+    LonePair,
+    /// An electron-pushing curve from a press to a release; `true` for a half head (one electron).
+    Curve(bool),
     /// A line of text to place, or to set on a text or an arrow.
     Text(String),
 }
@@ -71,6 +75,9 @@ pub enum Tool {
 pub const KIND_DASH: u8 = 4;
 pub const KIND_BDASH: u8 = 5;
 pub const KIND_HASH: u8 = 6;
+pub const KIND_BOLD: u8 = 7;
+pub const KIND_DATIVE: u8 = 8;
+pub const KIND_HBOND: u8 = 9;
 
 /// The display kind (`bonddisp::KINDS`) a `Tool::Bond` mark field stands for, empty for a wedge mark or none.
 pub(crate) fn kind_of_tool(s: u8) -> &'static str {
@@ -78,12 +85,15 @@ pub(crate) fn kind_of_tool(s: u8) -> &'static str {
         KIND_DASH => "dash",
         KIND_BDASH => "bdash",
         KIND_HASH => "hash",
+        KIND_BOLD => "bold",
+        KIND_DATIVE => "dative",
+        KIND_HBOND => "hbond",
         _ => "",
     }
 }
 
 impl Tool {
-    /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `bond:dash` / `bond:bdash` / `bond:hash` (display kinds), `erase`, `ring:6`, `ring:6a` (alternating
+    /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `bond:dash` / `bond:bdash` / `bond:hash` / `bond:bold` / `bond:dative` / `bond:hbond` (display kinds), `erase`, `ring:6`, `ring:6a` (alternating
     /// double bonds), `chain`, `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
     /// `text:<one line>`.
     pub fn parse(s: &str) -> Option<Tool> {
@@ -99,6 +109,9 @@ impl Tool {
                 "dash" => Tool::Bond(1, KIND_DASH),
                 "bdash" => Tool::Bond(1, KIND_BDASH),
                 "hash" => Tool::Bond(1, KIND_HASH),
+                "bold" => Tool::Bond(1, KIND_BOLD),
+                "dative" => Tool::Bond(1, KIND_DATIVE),
+                "hbond" => Tool::Bond(1, KIND_HBOND),
                 _ => Tool::Bond(arg.parse().ok().filter(|o| (1..=3).contains(o))?, 0),
             },
             "chain" => Tool::Chain,
@@ -114,6 +127,8 @@ impl Tool {
             "label" if crate::label::kind(arg).is_some() => Tool::Label(arg.into()),
             "arrow" => Tool::Arrow,
             "plus" => Tool::Plus,
+            "lonepair" => Tool::LonePair,
+            "curve" if matches!(arg, "" | "full" | "half") => Tool::Curve(arg == "half"),
             "text"
                 if !arg.trim().is_empty() && arg.chars().count() <= 200 && !arg.contains('\n') =>
             {
@@ -134,6 +149,9 @@ impl Tool {
             Tool::Bond(_, KIND_DASH) => "bond:dash".into(),
             Tool::Bond(_, KIND_BDASH) => "bond:bdash".into(),
             Tool::Bond(_, KIND_HASH) => "bond:hash".into(),
+            Tool::Bond(_, KIND_BOLD) => "bond:bold".into(),
+            Tool::Bond(_, KIND_DATIVE) => "bond:dative".into(),
+            Tool::Bond(_, KIND_HBOND) => "bond:hbond".into(),
             Tool::Bond(o, _) => format!("bond:{o}"),
             Tool::Chain => "chain".into(),
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),
@@ -141,6 +159,8 @@ impl Tool {
             Tool::Label(l) => format!("label:{l}"),
             Tool::Arrow => "arrow".into(),
             Tool::Plus => "plus".into(),
+            Tool::LonePair => "lonepair".into(),
+            Tool::Curve(half) => format!("curve:{}", if *half { "half" } else { "full" }),
             Tool::Text(t) => format!("text:{t}"),
         }
     }
@@ -202,6 +222,10 @@ pub struct Editor {
     pub(crate) gesture: crate::editor_touch::Gesture,
     /// The atom the keyboard focus came from (the bond walked last).
     pub(crate) focus_from: Option<u32>,
+    /// The curve whose middle handle is being dragged.
+    pub(crate) bend_drag: Option<u32>,
+    /// The source of a curve being made with the keyboard: the atom and whether it is its lone pair.
+    pub(crate) curve_from: Option<(u32, bool)>,
     /// The digits typed with the chain tool (the count of the chain the Enter key draws), at most two.
     pub(crate) chain_keys: String,
     /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
@@ -262,6 +286,7 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             || a.map != 0
             || a.h.is_some()
             || !a.lab.is_empty()
+            || a.lp() != 0
         {
             let some = |v: bool| v.then_some(());
             ops.push(Op::AtomSet {
@@ -273,6 +298,7 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
                 h: a.h,
                 lab: (!a.lab.is_empty()).then(|| a.lab.clone()),
                 map: (a.map != 0).then_some(a.map),
+                lp: (a.lp() != 0).then_some(a.lp()),
             });
         }
         // the data of a structure (the fields of an SDF record) comes along with the atom that keeps it
@@ -341,13 +367,24 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
     }
     for o in &new.objects {
         let arrow = o.t == ObjKind::Arrow;
+        let curve = o.t == ObjKind::Curve;
+        // an anchored end of a curve goes with its anchor; a free one is shifted like the rest
+        let (shift_a, shift_b) = (!curve || o.from == 0, !curve || o.to == 0);
         ops.push(Op::ObjAdd {
             id: Some(base + o.id),
             t: o.t,
-            x: o.x + dx,
-            y: o.y + dy,
-            x2: if arrow { o.x2 + dx } else { 0.0 },
-            y2: if arrow { o.y2 + dy } else { 0.0 },
+            x: if shift_a { o.x + dx } else { 0.0 },
+            y: if shift_a { o.y + dy } else { 0.0 },
+            x2: if (arrow || curve) && shift_b {
+                o.x2 + dx
+            } else {
+                0.0
+            },
+            y2: if (arrow || curve) && shift_b {
+                o.y2 + dy
+            } else {
+                0.0
+            },
             text: if o.runs.is_empty() {
                 o.text.clone()
             } else {
@@ -356,6 +393,7 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             runs: o.runs.clone(),
             from: if o.from == 0 { 0 } else { base + o.from },
             to: if o.to == 0 { 0 } else { base + o.to },
+            cv: if curve { o.curve() } else { Default::default() },
         });
         if !o.col().is_empty() {
             ops.push(Op::Colour {
@@ -390,6 +428,8 @@ impl Default for Editor {
             error: "",
             gesture: Default::default(),
             focus_from: None,
+            bend_drag: None,
+            curve_from: None,
             chain_keys: String::new(),
             style: Style::default(),
             layout: Default::default(),
@@ -512,6 +552,7 @@ impl Editor {
         match Tool::parse(name) {
             Some(t) => {
                 self.tool = t;
+                self.curve_from = None;
                 self.press = None;
                 self.over.preview = None;
                 self.over.chain = None;
@@ -725,6 +766,24 @@ impl Editor {
         self.hit_object(px, py, r)
     }
 
+    /// Whether the pointer is within `r` pixels of a curve (sampled as the painter draws it).
+    fn hit_curve(&self, o: &crate::doc::Obj, px: f64, py: f64, r: f64) -> bool {
+        let (p, c, q) = crate::curve::shape(self.doc(), o);
+        let pts: Vec<(f64, f64)> = (0..=crate::curve::CURVE_STEPS)
+            .map(|i| {
+                let t = f64::from(i) / f64::from(crate::curve::CURVE_STEPS);
+                let d = crate::curve::at(p, c, q, t);
+                self.view.to_px(d.0, d.1)
+            })
+            .collect();
+        pts.windows(2).any(|w| {
+            let (dx, dy) = (w[1].0 - w[0].0, w[1].1 - w[0].1);
+            let t = (((px - w[0].0) * dx + (py - w[0].1) * dy) / (dx * dx + dy * dy).max(1e-9))
+                .clamp(0.0, 1.0);
+            m::hypot(w[0].0 + t * dx - px, w[0].1 + t * dy - py) < r
+        })
+    }
+
     /// The object under the pointer: near the shaft of an arrow, on a plus sign, or on the line of a text.
     fn hit_object(&self, px: f64, py: f64, r: f64) -> Hit {
         let font = self.style.metrics(self.view.scale, true).font;
@@ -738,6 +797,7 @@ impl Editor {
                         .clamp(0.0, 1.0);
                     m::hypot(x + t * dx - px, y + t * dy - py) < r
                 }
+                ObjKind::Curve => self.hit_curve(o, px, py, r),
                 ObjKind::Plus => m::hypot(x - px, y - py) < r + font * 0.4,
                 ObjKind::Text => {
                     let (w, lines) = self.text_box(o);
@@ -1136,6 +1196,7 @@ impl Editor {
             h: None,
             lab: None,
             map: Some(map),
+            lp: None,
         };
         self.run(&[set], "draw2.say.map", &map.to_string())
     }

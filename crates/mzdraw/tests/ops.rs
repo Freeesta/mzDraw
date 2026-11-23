@@ -155,6 +155,7 @@ fn set_move_and_remove() {
         rad: None,
         h: None,
         lab: None,
+        lp: None,
     }])
     .unwrap();
     assert_eq!(
@@ -207,6 +208,7 @@ fn hydrogens_follow_the_valence_rules() {
             rad: None,
             h: None,
             lab: None,
+            lp: None,
         },
         set_order(5, 1),
     ])
@@ -376,7 +378,50 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
         )
     };
     let els = ["C", "N", "O", "S", "Cl", "Fe"];
-    match r.next(18) {
+    match r.next(20) {
+        18 => {
+            // a curved arrow: anchors on atoms, bonds, lone pairs and points; many of these are refused (no pair, same end twice)
+            let ((x, y), (x2, y2)) = (xy(r), xy(r));
+            let end = |r: &mut Rng| match r.next(4) {
+                0 => 0,
+                1 => bond_id(r),
+                _ => atom(r),
+            };
+            vec![Op::ObjAdd {
+                id: None,
+                t: ObjKind::Curve,
+                x,
+                y,
+                x2,
+                y2,
+                text: String::new(),
+                runs: Vec::new(),
+                from: end(r),
+                to: end(r),
+                cv: mzdraw::curve::Curve {
+                    half: r.next(2) == 1,
+                    bend: [0.0, 0.4, -0.7, 5.0][r.next(4)],
+                    fl: r.next(3) == 0,
+                    tl: r.next(3) == 0,
+                },
+            }]
+        }
+        19 => vec![Op::ObjSet {
+            id: obj_id(r),
+            text: None,
+            runs: None,
+            x2: None,
+            y2: None,
+            from: [None, Some(0), Some(atom(r))][r.next(3)],
+            to: [None, Some(0), Some(bond_id(r))][r.next(3)],
+            cv: mzdraw::curve::CurveSet {
+                half: [None, Some(true), Some(false)][r.next(3)],
+                bend: [None, Some(0.2), Some(-1.3)][r.next(3)],
+                fl: [None, Some(false), Some(true)][r.next(3)],
+                tl: None,
+            },
+            pt: [None, None],
+        }],
         0 | 1 => {
             let (x, y) = xy(r);
             let mut a = add(els[r.next(els.len())], x, y);
@@ -396,6 +441,8 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             rad: None,
             h: None,
             lab: None,
+            // lone pairs: set, taken away, refused (above four)
+            lp: [None, None, Some(0), Some(1), Some(2), Some(5)][r.next(6)],
         }],
         4 => vec![set_order(bond_id(r), 1 + r.next(3) as u8)],
         15 if r.next(3) == 0 => {
@@ -501,6 +548,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 } else {
                     0
                 },
+                cv: Default::default(),
             }]
         }
         15 => {
@@ -531,6 +579,8 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 // set, change and clear (0) the anchors; a set on a plus or a text is refused whole
                 from: (r.next(3) == 1).then(|| if r.next(2) == 1 { atom(r) } else { 0 }),
                 to: (r.next(3) == 1).then(|| if r.next(2) == 1 { atom(r) } else { 0 }),
+                cv: Default::default(),
+                pt: [None, None],
             }]
         }
         8 => {
@@ -576,8 +626,12 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             o: (r.next(2) == 1).then(|| 1 + r.next(3) as u8),
             s: (r.next(3) > 0).then(|| r.next(4) as u8),
             pos: (r.next(3) == 0).then(|| ["auto", "c", "l", "r", ""][r.next(5)].to_string()),
-            k: (r.next(3) == 0)
-                .then(|| ["solid", "dash", "bdash", "hash", ""][r.next(5)].to_string()),
+            k: (r.next(3) == 0).then(|| {
+                [
+                    "solid", "dash", "bdash", "hash", "bold", "dative", "hbond", "",
+                ][r.next(8)]
+                .to_string()
+            }),
             rev: r.next(2) == 1,
         }],
         10 => {
@@ -603,6 +657,7 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             rad: None,
             h: None,
             lab: Some(["Ph", "R1", "", "Nope", "CO2Me"][r.next(5)].into()),
+            lp: None,
         }],
         12 => vec![Op::BondAdd {
             id: None,
@@ -653,6 +708,9 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
 
 #[test]
 fn undo_restores_the_identical_document_and_redo_the_identical_result() {
+    // the random steps reach lone pairs and anchored curves, and curves whose anchor went (or the property would say nothing of them)
+    let (mut pairs, mut anchored, mut freed) = (0, 0, 0);
+    let mut anchored_once = std::collections::HashMap::new();
     for seed in 1..=40u64 {
         let mut r = Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15));
         let mut s = Session::default();
@@ -670,9 +728,25 @@ fn undo_restores_the_identical_document_and_redo_the_identical_result() {
             if s.steps() > steps {
                 states.push(s.doc.to_json());
             }
+            pairs += usize::from(s.doc.atoms.iter().any(|a| a.lp() > 0));
+            anchored += usize::from(
+                (s.doc.objects.iter()).any(|o| o.t == ObjKind::Curve && (o.from != 0 || o.to != 0)),
+            );
+            // a curve that had an anchored end and has a free one now: freed by `obj.set`, or by the removal of its anchor
+            for o in s.doc.objects.iter().filter(|o| o.t == ObjKind::Curve) {
+                let was = anchored_once.entry((seed, o.id)).or_insert((false, false));
+                was.0 |= o.from != 0;
+                was.1 |= o.to != 0;
+                if (was.0 && o.from == 0) || (was.1 && o.to == 0) {
+                    freed += 1;
+                    break;
+                }
+            }
             assert!(
                 Document::from_json(&s.doc.to_json()).is_ok(),
-                "always a consistent document (seed {seed})"
+                "always a consistent document (seed {seed}): {:?} after {ops:?}\n{}",
+                Document::from_json(&s.doc.to_json()).err(),
+                s.doc.to_json()
             );
         }
         let last = s.doc.to_json();
@@ -698,6 +772,10 @@ fn undo_restores_the_identical_document_and_redo_the_identical_result() {
         assert_eq!(again.doc.to_json(), last, "replay (seed {seed})");
         assert_eq!(again.log_json(), log);
     }
+    assert!(
+        pairs > 20 && anchored > 20 && freed > 5,
+        "{pairs} {anchored} {freed}"
+    );
 }
 
 #[test]
@@ -1015,6 +1093,7 @@ fn hostile_input_is_refused_without_a_panic() {
             runs: Vec::new(),
             from: 0,
             to: 0,
+            cv: Default::default(),
         },
         Op::AtomAdd {
             map: None,
@@ -1098,6 +1177,7 @@ fn unknown_fields_of_a_document_survive_reading_editing_and_writing() {
             rad: None,
             h: None,
             lab: None,
+            lp: None,
         },
         add("C", 9.0, 9.0),
     ])
@@ -1183,7 +1263,11 @@ fn pairs() -> Vec<(Document, Document, Rng)> {
 fn applying_the_diff_gives_the_second_document_and_a_diff_of_equals_is_empty() {
     let mut nonempty = 0;
     for (n, (a, b, _)) in pairs().into_iter().enumerate() {
-        assert!(mzdraw::diff::diff(&a, &a).is_empty(), "pair {n}");
+        assert!(
+            mzdraw::diff::diff(&a, &a).is_empty(),
+            "pair {n}: {:?}",
+            mzdraw::diff::diff(&a, &a)
+        );
         let ops = mzdraw::diff::diff(&a, &b);
         nonempty += usize::from(!ops.is_empty());
         let mut s = Session::new(a.clone());
@@ -1297,6 +1381,7 @@ fn the_diff_says_what_changed_with_the_operations_that_say_it() {
         h: Some(3),
         lab: None,
         map: None,
+        lp: None,
     }])
     .unwrap();
     let a = s.doc.clone();
@@ -1311,6 +1396,7 @@ fn the_diff_says_what_changed_with_the_operations_that_say_it() {
             h: None,
             lab: None,
             map: None,
+            lp: None,
         },
         Op::AtomSet {
             id: 3,
@@ -1321,6 +1407,7 @@ fn the_diff_says_what_changed_with_the_operations_that_say_it() {
             h: None,
             lab: None,
             map: Some(4),
+            lp: None,
         },
         Op::BondSet {
             id: 4,
@@ -1366,6 +1453,7 @@ fn the_diff_says_what_changed_with_the_operations_that_say_it() {
         runs: Vec::new(),
         from: 0,
         to: 0,
+        cv: Default::default(),
     }])
     .unwrap();
     let a = s.doc.clone();
@@ -1384,6 +1472,8 @@ fn the_diff_says_what_changed_with_the_operations_that_say_it() {
         y2: None,
         from: None,
         to: None,
+        cv: Default::default(),
+        pt: [None, None],
     }])
     .unwrap();
     let ops = mzdraw::diff::diff(&a, &s.doc);
@@ -1424,6 +1514,7 @@ fn a_patch_with_an_operation_that_names_no_id_is_one_hunk_and_never_panics() {
         runs: Vec::new(),
         from: 0,
         to: 0,
+        cv: Default::default(),
     };
     let patches: Vec<Vec<Op>> = vec![
         vec![add("N", 3.0, 3.0)],
@@ -1451,6 +1542,7 @@ fn a_patch_with_an_operation_that_names_no_id_is_one_hunk_and_never_panics() {
                 h: None,
                 lab: None,
                 map: None,
+                lp: None,
             },
             add("N", 3.0, 3.0),
         ],

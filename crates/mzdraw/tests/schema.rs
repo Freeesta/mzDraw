@@ -37,6 +37,7 @@ fn full_ops() -> Vec<Op> {
             rad: Some(1),
             h: Some(2),
             lab: Some("Ph".into()),
+            lp: Some(2),
         },
         Op::AtomData {
             id: 1,
@@ -105,6 +106,26 @@ fn full_ops() -> Vec<Op> {
             runs: vec![mzdraw::Run::plain("hv")],
             from: 1,
             to: 2,
+            cv: Default::default(),
+        },
+        // a curve says its own fields (no text, no runs); together the two hold every field of the row
+        Op::ObjAdd {
+            id: Some(8),
+            t: ObjKind::Curve,
+            x: 1.0,
+            y: 1.0,
+            x2: 3.0,
+            y2: 1.0,
+            text: String::new(),
+            runs: Vec::new(),
+            from: 1,
+            to: 2,
+            cv: mzdraw::curve::Curve {
+                half: true,
+                bend: 0.5,
+                fl: true,
+                tl: true,
+            },
         },
         Op::ObjSet {
             id: 7,
@@ -115,6 +136,13 @@ fn full_ops() -> Vec<Op> {
             y2: Some(2.0),
             from: Some(2),
             to: Some(0),
+            cv: mzdraw::curve::CurveSet {
+                half: Some(true),
+                bend: Some(0.5),
+                fl: Some(true),
+                tl: Some(false),
+            },
+            pt: [Some(1.0), Some(2.0)],
         },
         Op::Ring {
             n: 6,
@@ -155,12 +183,21 @@ fn every_operation_of_the_writer_is_a_row_with_exactly_its_fields() {
         .collect();
     assert_eq!(names, read);
     assert_eq!(read.len(), 18);
+    // the fields written by the samples of one row, together, are the fields of the row (a row may need two samples: an arrow and a
+    // curve say different fields of `obj.add`)
+    let mut said: std::collections::BTreeMap<String, BTreeSet<String>> = Default::default();
     for op in ops {
         let v: Value = serde_json::from_str(&op.to_json()).unwrap();
         let spec = schema::spec(v["op"].as_str().unwrap()).unwrap();
-        let table: BTreeSet<String> = spec.fields.iter().map(|f| f.key.to_string()).collect();
-        assert_eq!(keys(&v), table, "{}", spec.name);
+        said.entry(spec.name.to_string())
+            .or_default()
+            .extend(keys(&v));
         assert_eq!(Op::parse(&v).unwrap(), op);
+    }
+    for (name, got) in said {
+        let spec = schema::spec(&name).unwrap();
+        let table: BTreeSet<String> = spec.fields.iter().map(|f| f.key.to_string()).collect();
+        assert_eq!(got, table, "{name}");
     }
 }
 
@@ -171,6 +208,7 @@ fn sample(f: &schema::FieldSpec) -> Value {
         ("axis", _) => json!("h"),
         ("pos", _) => json!("l"),
         ("k", _) => json!("dash"),
+        ("head", _) => json!("half"),
         ("t", _) => json!("text"),
         (_, "uint") | (_, "int") => json!(1),
         (_, "number") => json!(1.5),

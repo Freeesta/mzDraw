@@ -117,6 +117,8 @@ pub struct Overlay {
     pub chain: Option<Vec<(f64, f64)>>,
     /// A rubber band, in pixels (x, y, w, h).
     pub band: Option<(f64, f64, f64, f64)>,
+    /// The bow a curve is being dragged to (its middle handle): the object id and the bow.
+    pub bend: Option<(u32, f64)>,
     /// The marks of an open proposal, laid over the drawing (filled by `Editor::scene`).
     pub marks: Vec<Mark>,
     /// The calculated values drawn under the structures (`display.values`), filled by the editor and by the exports.
@@ -277,7 +279,7 @@ struct Painter<'a> {
     lens: LensPaint,
     /// The ink of the bond being painted: ink, or the accent when the lens tints it.
     ink: f32,
-    /// The display of the line of the bond being painted: 0 plain, 1 dash, 2 bold dash, 3 hash (`bonddisp`).
+    /// The display of the line of the bond being painted: 0 plain, 1 dash, 2 bold dash, 3 hash, 4 bold, 5 dative (a plain line; its arrowhead is drawn by `bond`), 6 dotted (`bonddisp`).
     kind: u8,
 }
 
@@ -395,6 +397,9 @@ impl Painter<'_> {
             "dash" => 1,
             "bdash" => 2,
             "hash" => 3,
+            "bold" => 4,
+            "dative" if b.o == 1 => 5,
+            "hbond" if b.o == 1 => 6,
             _ => 0,
         };
         if b.s != 0 {
@@ -439,6 +444,23 @@ impl Painter<'_> {
                     self.seg(shift(s, k), shift(e, k), w);
                 }
             }
+            _ if self.kind == 5 => {
+                // an arrow from the donor `a` to the acceptor `b`: the line stops at the base of the head, which is a solid triangle
+                let head = (self.m.wedge * 1.8).min(len * 0.45);
+                let half = head * 0.4;
+                let base = (e.0 - ux * head, e.1 - uy * head);
+                self.line(
+                    s,
+                    (e.0 - ux * head * 0.9, e.1 - uy * head * 0.9),
+                    w,
+                    self.ink,
+                );
+                let (p, q) = (
+                    (base.0 - uy * half, base.1 + ux * half),
+                    (base.0 + uy * half, base.1 - ux * half),
+                );
+                self.push(&[TRI as f64, e.0, e.1, p.0, p.1, q.0, q.1, self.ink as f64]);
+            }
             _ => self.seg(s, e, w),
         }
     }
@@ -453,6 +475,20 @@ impl Painter<'_> {
         }
         let at = |t: f64| (p.0 + dx * t, p.1 + dy * t);
         let c = self.ink;
+        if self.kind == 4 {
+            // a heavy line
+            return self.line(p, q, w * 2.5, c);
+        }
+        if self.kind == 6 {
+            // dots a hash spacing apart (a round cap on a very short piece), at least two
+            let n = ((len / (self.m.hash * 0.8)).round() as usize).clamp(2, 60);
+            let tiny = (dx / len * w * 0.05, dy / len * w * 0.05);
+            for i in 0..n {
+                let m = at((i as f64 + 0.5) / n as f64);
+                self.line(m, (m.0 + tiny.0, m.1 + tiny.1), w * 1.6, c);
+            }
+            return;
+        }
         if self.kind == 3 {
             // ticks across the line, as long as the plain stroke of a hashed wedge is wide at its middle
             let n = ((len / self.m.hash).round() as usize).clamp(2, 40);
@@ -731,6 +767,86 @@ impl Painter<'_> {
         (reach / ux.abs()).min(row.max(0.0))
     }
 
+    /// An electron-pushing curve: a bowed line from its first end to its second, a full head (a pair) or a half head (one electron);
+    /// the anchors are resolved here from the document, with the drag of the atoms they stand on.
+    fn curve(&mut self, o: &Obj, mark: Option<f32>, ink: f32) {
+        let over = self.over;
+        let drag = over.drag;
+        let on = |id: u32| over.sel_atoms.contains(&id);
+        let (p, q) = crate::curve::ends(
+            self.doc,
+            o,
+            &|id| if on(id) { drag } else { (0.0, 0.0) },
+            if over.sel_objs.contains(&o.id) {
+                drag
+            } else {
+                (0.0, 0.0)
+            },
+        );
+        let c = o.curve();
+        let bend = over.bend.filter(|b| b.0 == o.id).map_or(c.bend, |b| b.1);
+        let ctl = crate::curve::control(p, q, bend);
+        let w = self.m.line;
+        let pts: Vec<(f64, f64)> = (0..=crate::curve::CURVE_STEPS)
+            .map(|i| {
+                let d = crate::curve::at(
+                    p,
+                    ctl,
+                    q,
+                    f64::from(i) / f64::from(crate::curve::CURVE_STEPS),
+                );
+                self.view.to_px(d.0, d.1)
+            })
+            .collect();
+        let tip = pts[pts.len() - 1];
+        let (tx, ty) = {
+            let e = self.view.to_px(ctl.0, ctl.1);
+            let (dx, dy) = (tip.0 - e.0, tip.1 - e.1);
+            let l = m::hypot(dx, dy).max(1e-6);
+            (dx / l, dy / l)
+        };
+        let head = (self.view.scale * 0.24).min(m::hypot(tip.0 - pts[0].0, tip.1 - pts[0].1) * 0.5);
+        let neck = (tip.0 - tx * head, tip.1 - ty * head);
+        let n = pts.len() - 1;
+        if let Some(col) = mark {
+            for i in 0..n {
+                self.line(pts[i], pts[i + 1], w * 6.0, col);
+            }
+        }
+        for i in 0..n {
+            let b = if i + 1 == n { neck } else { pts[i + 1] };
+            self.line(pts[i], b, w * 1.3, ink);
+        }
+        let (nx, ny) = (-ty * head * 0.45, tx * head * 0.45);
+        // a pair: both barbs; one electron: the barb on the left of the way it goes
+        let right = if c.half {
+            neck
+        } else {
+            (neck.0 - nx, neck.1 - ny)
+        };
+        self.push(&[
+            TRI as f64,
+            tip.0,
+            tip.1,
+            neck.0 + nx,
+            neck.1 + ny,
+            right.0,
+            right.1,
+            ink as f64,
+        ]);
+        if over.sel_objs.contains(&o.id) {
+            // the handle in the middle: drag it to bend the curve
+            let h = pts[pts.len() / 2];
+            self.push(&[
+                DISC as f64,
+                h.0,
+                h.1,
+                self.view.scale * 0.09,
+                colour::SELECT as f64,
+            ]);
+        }
+    }
+
     /// A reaction arrow (shaft, head, text above), a plus sign or a text; selected or hovered ones get a mark at their anchor.
     fn object(&mut self, o: &Obj) {
         let moving = self.over.drag != (0.0, 0.0) && self.over.sel_objs.contains(&o.id);
@@ -747,6 +863,7 @@ impl Painter<'_> {
         let w = self.m.line;
         let ink = crate::ink::index(&o.col()).unwrap_or(colour::INK);
         match o.t {
+            ObjKind::Curve => self.curve(o, mark, ink),
             ObjKind::Arrow => {
                 let e = self.view.to_px(o.x2 + dx, o.y2 + dy);
                 let len = m::hypot(e.0 - x, e.1 - y).max(1e-6);
@@ -1008,6 +1125,31 @@ impl Painter<'_> {
             }
             if a.map != 0 && self.m.maps {
                 self.map_number(a);
+            }
+            if a.lp() != 0 {
+                self.lone_pairs(a);
+            }
+        }
+    }
+
+    /// The lone pairs of an atom: two dots each, at the free sides of the atom.
+    fn lone_pairs(&mut self, a: &Atom) {
+        let (x, y) = self.pos(a);
+        let s = self.view.scale;
+        let r = (s * 0.035).max(1.2);
+        let dirs = crate::curve::lp_dirs(self.doc, a.id, a.lp());
+        let reach = s * crate::curve::LP_REACH;
+        for d in dirs {
+            let (ux, uy) = (m::cos(d), -m::sin(d));
+            let (cx, cy) = (x + ux * reach, y + uy * reach);
+            for k in [-1.0, 1.0] {
+                self.push(&[
+                    DISC as f64,
+                    cx - uy * s * 0.07 * k,
+                    cy + ux * s * 0.07 * k,
+                    r,
+                    f64::from(crate::ink::index(&a.col()).unwrap_or(colour::INK)),
+                ]);
             }
         }
     }
