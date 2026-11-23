@@ -1,4 +1,4 @@
-//! Every error key and import-note key the code writes has a text in the English catalog of the page (a missing one would show as
+//! Every error key, import-note key and layout-note key the code writes has a text in the English catalog of the page (a missing one would show as
 //! a raw key).
 
 fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
@@ -23,7 +23,7 @@ fn every_error_and_import_key_of_the_code_is_in_the_english_texts() {
     let mut seen = 0;
     for f in files {
         let text = std::fs::read_to_string(&f).unwrap();
-        for start in ["\"error.draw2.", "\"draw2.import."] {
+        for start in ["\"error.draw2.", "\"draw2.import.", "\"draw2.layout."] {
             for (i, _) in text.match_indices(start) {
                 let key: String = text[i + 1..]
                     .chars()

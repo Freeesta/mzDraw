@@ -31,6 +31,17 @@
           "layout.heads.bonds=bond:2"
         ]
       }
+    },
+    {
+      "error_key": "error.draw2.command",
+      "request": {
+        "commands": [
+          {
+            "args": {},
+            "command": "group:nope"
+          }
+        ]
+      }
     }
   ],
   "settings": [
@@ -80,6 +91,40 @@
         "out": "settings",
         "set": [
           "layout={\"snap\":20,\"palettes\":[{\"id\":\"tools\",\"collapsed\":true},{\"id\":\"bonds\",\"dock\":\"float\",\"x\":300,\"y\":200},{\"id\":\"rings\",\"dock\":\"bottom\"},{\"id\":\"view\",\"hidden\":true}]}",
+          "export.default=png"
+        ],
+        "style": "mzlab"
+      }
+    },
+    {
+      "name": "the click on a group button selects its face (the one set), a second click keeps the tool, and a member picked by its key becomes the face",
+      "out": "{\"export\":{\"default\":\"png\"},\"format\":\"mzdraw-settings/1\",\"layout\":{\"heads\":{\"bonds\":\"bond:up\"}},\"style\":{\"bold_width\":6.0,\"bond_length\":30.0,\"bond_spacing\":0.13,\"colour\":\"element\",\"font_size\":12.0,\"hash_spacing\":3.6,\"line_width\":1.35,\"margin\":2.04,\"pathway.col_gap\":2.5,\"pathway.margin\":0.35,\"pathway.max_angle\":40.0,\"pathway.min_arrow\":1.2,\"pathway.row_gap\":1.0,\"preset\":\"mzlab\",\"subscript_scale\":0.7}}",
+      "request": {
+        "commands": [
+          {
+            "args": {},
+            "command": "group:bonds"
+          },
+          {
+            "args": {},
+            "command": "group:bonds"
+          },
+          {
+            "args": {},
+            "command": "group:atoms"
+          }
+        ],
+        "events": [
+          [
+            "key",
+            "w",
+            0,
+            1000
+          ]
+        ],
+        "out": "settings",
+        "set": [
+          "layout.heads.bonds=bond:hash",
           "export.default=png"
         ],
         "style": "mzlab"

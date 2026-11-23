@@ -24,9 +24,17 @@ pub(crate) fn steps_of(name: &str) -> Option<(&str, usize)> {
     (matches!(kind, "undo" | "redo" | "jump") && plain).then(|| (kind, n.parse().unwrap_or(0)))
 }
 
+/// `group:<name>`: the click on the button of a group of the tools palette (`Editor::group_click`): it selects the member the button
+/// shows, unless that is the tool already. The group, `None` for any other name.
+pub(crate) fn group_of(name: &str) -> Option<&str> {
+    let g = name.strip_prefix("group:")?;
+    crate::tool_groups::Group::named(g).map(|_| g)
+}
+
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
     steps_of(name).is_some()
+        || group_of(name).is_some()
         || crate::arrange::is_arrange(name)
         || matches!(
             name,
@@ -57,6 +65,13 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
         // no argument; undoing or redoing no step at all is no command
         return match args.as_object() {
             Some(o) if o.is_empty() && (n > 0 || kind == "jump") => Ok(()),
+            _ => Err("error.draw2.request"),
+        };
+    }
+    if group_of(name).is_some() {
+        // no argument
+        return match args.as_object() {
+            Some(o) if o.is_empty() => Ok(()),
             _ => Err("error.draw2.request"),
         };
     }
@@ -376,6 +391,10 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     if name == "pathway:label" {
         let opts = crate::steplabel::Opts::parse(args).map_err(bad)?;
         return e.pathway_label(&opts).map(|_| ());
+    }
+    if let Some(g) = group_of(name) {
+        e.group_click(g);
+        return Ok(());
     }
     if name == "pathway:tree" {
         let ops = crate::pathway::command(e.doc(), &e.style).map_err(|r| OpError {
