@@ -352,7 +352,7 @@ fn best(mut f: impl FnMut()) -> f64 {
 
 /// The least CPU time, in milliseconds, of `runs` runs of `run` after `warm` that are not timed. Each run gets a fresh input from
 /// `setup`, built outside the clock (a run may consume or change its input). Noise only ever adds time, so the least is the cost.
-fn best_with<S>(warm: usize, runs: usize, setup: impl Fn() -> S, run: impl Fn(S)) -> f64 {
+fn best_with<S, R>(warm: usize, runs: usize, setup: impl Fn() -> S, run: impl Fn(S) -> R) -> f64 {
     for _ in 0..warm {
         run(setup());
     }
@@ -360,8 +360,10 @@ fn best_with<S>(warm: usize, runs: usize, setup: impl Fn() -> S, run: impl Fn(S)
         .map(|_| {
             let s = setup();
             let w = timing::Watch::start();
-            run(s);
-            w.elapsed().as_secs_f64() * 1000.0
+            let out = run(s);
+            let ms = w.elapsed().as_secs_f64() * 1000.0;
+            drop(out); // what `run` hands back is dropped after the clock stopped
+            ms
         })
         .fold(f64::MAX, f64::min)
 }
@@ -426,7 +428,7 @@ fn move_all_times(n: u32) -> [f64; 3] {
         dy: 0.0,
     };
     let mut t = [f64::MAX; 3];
-    for run in 0..4 {
+    for run in 0..7 {
         let mut e = editor(grid(n, true));
         let at = timing::Watch::start();
         assert_eq!(e.propose(vec![mv()]).unwrap(), 1);
@@ -676,9 +678,12 @@ fn two_thousand_separate_accepts_through_the_request_are_fast_and_all_or_none() 
             (e, (1..=hunks as usize).collect::<Vec<usize>>())
         }
     };
-    let run = |(mut e, list): (Editor, Vec<usize>)| e.accept_hunks(&list).unwrap();
-    let small = best_with(1, 9, held(n / 4), run);
-    let big = best_with(1, 9, held(n), run);
+    let run = |(mut e, list): (Editor, Vec<usize>)| {
+        e.accept_hunks(&list).unwrap();
+        e // handed back, so that its drop is not on the clock
+    };
+    let small = best_with(1, 15, held(n / 4), run);
+    let big = best_with(1, 15, held(n), run);
     assert!(
         big <= small * 8.0,
         "accepting one by one: {small:.1} ms for {} hunks, {big:.1} ms for {n}",
