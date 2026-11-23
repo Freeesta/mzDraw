@@ -14,6 +14,8 @@ export function unsavedDialog(ctx) {
   const root = $("d2-unsaved"), save = $("d2-unsaved-save"), discard = $("d2-unsaved-discard"), cancel = $("d2-unsaved-cancel");
   const buttons = [save, discard, cancel];
   let prior = /** @type {HTMLElement | null} */ (document.activeElement);
+  // a button reached by the keys gets its focus back; after a pointer the page's own rule applies (the canvas takes the focus)
+  if (prior && !prior.matches(":focus-visible")) prior = null;
   // the rest of the page is inert while the question is open (no pointer, key or assistive-technology route to it)
   const away = /** @type {HTMLElement[]} */ ([...document.body.children]).filter(el => el !== root && !el.inert && el.tagName !== "SCRIPT");
   open = new Promise(resolve => {

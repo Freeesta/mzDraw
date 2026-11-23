@@ -1564,7 +1564,7 @@ try {
     const order = []; for (let i = 0; i < 4; i++) { await pg.keyboard.press("Tab"); order.push(await focused()); }
     eq(order, ["d2-unsaved-discard", "d2-unsaved-cancel", "d2-unsaved-save", "d2-unsaved-discard"]);
     await pg.keyboard.press("Shift+Tab"); eq(await focused(), "d2-unsaved-save"); await pg.keyboard.press("Shift+Tab"); eq(await focused(), "d2-unsaved-cancel");
-    await pg.focus("#d2-canvas"); eq(await focused(), "d2-unsaved-save");
+    await pg.evaluate("document.getElementById('d2-canvas').focus()"); eq(await focused(), "d2-unsaved-cancel");     // the canvas is inert: the focus stays in the dialog
     // one question at a time, and the rest of the page is inert while it is open: a second New asked for now is refused (one file, not two)
     let files = 0; const count = () => files++; pg.on("download", count);
     eq(await pg.evaluate("[...document.body.children].filter(el => el.id !== 'd2-unsaved' && el.tagName !== 'SCRIPT').every(el => el.inert)"), true);
@@ -1591,8 +1591,7 @@ try {
     // only the native document is a saved point: a lossy export (SVG, molfile, SMILES, PNG, PDF) leaves the drawing unsaved
     await drawn();
     for (const id of ["svg", "molfile", "smiles"]) { await saveAs(pg, `#d2-ex-${id}`); await want(pg, { atoms: 3, dirty: true, unsaved: true }); }
-    await saveAs(pg, "#d2-ex-png"); await pg.waitForTimeout(300); await want(pg, { atoms: 3, dirty: true });
-    await saveAs(pg, "#d2-ex-pdf"); await pg.waitForTimeout(300); await want(pg, { atoms: 3, dirty: true });
+    for (const id of ["png", "pdf"]) { await Promise.all([pg.waitForEvent("download"), saveAs(pg, `#d2-ex-${id}`)]); await want(pg, { atoms: 3, dirty: true }); }
     await press.mouse(NEW); eq(await dlg(), true); await pg.click("#d2-unsaved-cancel");                // still asks after the exports
     await saveAs(pg, "#d2-ex-doc"); await want(pg, { atoms: 3, dirty: false, unsaved: false });
     await press.mouse(NEW); eq(await dlg(), false); await want(pg, { atoms: 0, dirty: false });       // saved: no question
