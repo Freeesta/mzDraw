@@ -16,9 +16,18 @@ pub(crate) fn reports_change(name: &str) -> bool {
     )
 }
 
+/// The history commands `undo:<n>`, `redo:<n>` (n steps, n from 1) and `jump:<n>` (to step number n, 0 is the start): the kind
+/// and the number; `None` for any other name or a number that is not a plain unsigned integer.
+pub(crate) fn steps_of(name: &str) -> Option<(&str, usize)> {
+    let (kind, n) = name.split_once(':')?;
+    let plain = !n.is_empty() && n.len() <= 9 && n.bytes().all(|b| b.is_ascii_digit());
+    (matches!(kind, "undo" | "redo" | "jump") && plain).then(|| (kind, n.parse().unwrap_or(0)))
+}
+
 /// Whether `name` is a command of this editor.
 pub(crate) fn known(name: &str) -> bool {
-    crate::arrange::is_arrange(name)
+    steps_of(name).is_some()
+        || crate::arrange::is_arrange(name)
         || matches!(
             name,
             "move"
@@ -43,6 +52,13 @@ pub(crate) fn known(name: &str) -> bool {
 pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     if !known(name) {
         return Err("error.draw2.command");
+    }
+    if let Some((kind, n)) = steps_of(name) {
+        // no argument; undoing or redoing no step at all is no command
+        return match args.as_object() {
+            Some(o) if o.is_empty() && (n > 0 || kind == "jump") => Ok(()),
+            _ => Err("error.draw2.request"),
+        };
     }
     if crate::arrange::is_arrange(name) {
         crate::arrange::parse(name)?;
@@ -274,6 +290,14 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     let bad = |key| OpError { key, id: 0 };
     if !known(name) {
         return Err(bad("error.draw2.command"));
+    }
+    if let Some((kind, n)) = steps_of(name) {
+        let ran = match kind {
+            "undo" => e.undo_steps(n),
+            "redo" => e.redo_steps(n),
+            _ => e.jump_to(n),
+        };
+        return ran.map(|_| ()).map_err(bad);
     }
     if crate::arrange::is_arrange(name) {
         let (mut atoms, mut objects) = arrange_args(args).map_err(bad)?;

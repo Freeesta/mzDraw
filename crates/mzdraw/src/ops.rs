@@ -1544,16 +1544,23 @@ impl Document {
 struct Step {
     ops: Vec<Op>,
     inv: Vec<Inv>,
+    /// What the step says about itself in the history list: (i18n key, what); `None` until the editor names it.
+    label: Option<Label>,
 }
+
+/// The words of one step in the history list: the i18n key and its parameter.
+pub type Label = (&'static str, String);
 
 /// A document with its history. `run` is one undo step.
 #[derive(Default)]
 pub struct Session {
     pub doc: Document,
     undo: Vec<Step>,
-    redo: Vec<Vec<Op>>,
+    redo: Vec<(Vec<Op>, Option<Label>)>,
     /// Counts every change of the history (a step, an undo, a redo): lets a caller know that nothing happened in between.
     generation: u64,
+    /// Steps below this count were offered a name already (`name_new_steps`): the naming only looks at the steps above it.
+    settled: usize,
 }
 
 impl Session {
@@ -1563,6 +1570,7 @@ impl Session {
             undo: Vec::new(),
             redo: Vec::new(),
             generation: 0,
+            settled: 0,
         }
     }
 
@@ -1570,7 +1578,11 @@ impl Session {
     pub fn run(&mut self, ops: &[Op]) -> Result<(), OpError> {
         let (done, inv) = self.doc.apply(ops)?;
         if !done.is_empty() {
-            self.undo.push(Step { ops: done, inv });
+            self.undo.push(Step {
+                ops: done,
+                inv,
+                label: None,
+            });
             self.redo.clear();
             self.generation += 1;
         }
@@ -1589,7 +1601,11 @@ impl Session {
                 last.ops.extend(done);
                 last.inv.extend(inv);
             }
-            None => self.undo.push(Step { ops: done, inv }),
+            None => self.undo.push(Step {
+                ops: done,
+                inv,
+                label: None,
+            }),
         }
         self.redo.clear();
         self.generation += 1;
@@ -1619,21 +1635,81 @@ impl Session {
             return false;
         };
         self.doc.revert(s.inv);
-        self.redo.push(s.ops);
+        self.redo.push((s.ops, s.label));
+        self.settled = self.settled.min(self.undo.len());
         self.generation += 1;
         true
     }
 
+    /// Redoes the next step. False, and nothing changes (the step stays waiting), when there is none or when its operations no longer
+    /// apply: they are the resolved operations of a step that applied to this very document, so that cannot happen unless `doc` was
+    /// changed directly after the undo.
     pub fn redo(&mut self) -> bool {
-        let Some(ops) = self.redo.pop() else {
+        let Some((ops, label)) = self.redo.pop() else {
             return false;
         };
-        // resolved operations of a step that applied before on this same document: they apply again
-        if let Ok((done, inv)) = self.doc.apply(&ops) {
-            self.undo.push(Step { ops: done, inv });
+        match self.doc.apply(&ops) {
+            Ok((done, inv)) => {
+                self.undo.push(Step {
+                    ops: done,
+                    inv,
+                    label,
+                });
+                self.settled = self.undo.len();
+                self.generation += 1;
+                true
+            }
+            Err(_) => {
+                self.redo.push((ops, label));
+                false
+            }
         }
-        self.generation += 1;
-        true
+    }
+
+    /// Number of steps that can be redone.
+    pub fn redo_steps(&self) -> usize {
+        self.redo.len()
+    }
+
+    /// Names the steps no one has named yet (the tail of the undo stack): with one such step, `one`; with more, `many`.
+    pub fn name_new_steps(&mut self, one: Label, many: &'static str) {
+        let from = self.settled.min(self.undo.len());
+        let tail = self.undo.len() - from;
+        for s in &mut self.undo[from..] {
+            if s.label.is_none() {
+                s.label = Some(if tail == 1 {
+                    one.clone()
+                } else {
+                    (many, String::new())
+                });
+            }
+        }
+        self.settled = self.undo.len();
+    }
+
+    /// The steps of the history in order of time, oldest first: the label of each and whether it is done (not undone).
+    /// Step `i` of the list is number `i + 1`; the redo stack is read from its far end, which is the next step to redo.
+    pub fn history(&self) -> Vec<(Label, bool)> {
+        let name = |l: &Option<Label>| l.clone().unwrap_or(("", String::new()));
+        let done = self.undo.iter().map(|s| (name(&s.label), true));
+        let undone = self.redo.iter().rev().map(|(_, l)| (name(l), false));
+        done.chain(undone).collect()
+    }
+
+    /// Undoes or redoes until exactly `n` steps are applied (0 is the start); false, and nothing changes, when there are fewer steps.
+    pub fn jump(&mut self, n: usize) -> bool {
+        if n > self.undo.len() + self.redo.len() {
+            return false;
+        }
+        while self.undo.len() > n {
+            self.undo();
+        }
+        while self.undo.len() < n {
+            if !self.redo() {
+                break;
+            }
+        }
+        self.undo.len() == n
     }
 
     /// The command log: every operation still applied, in order, as primitive operations with their ids.

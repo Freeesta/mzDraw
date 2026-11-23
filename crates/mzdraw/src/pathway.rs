@@ -1303,7 +1303,7 @@ pub fn findings(lay: &Layout) -> Vec<Finding> {
 
 /// The report `std/1` of a drawing with the findings of its pathway layout (none when the drawing has no pathway to lay out).
 pub fn report_with(doc: &Document, style: &Style) -> Report {
-    let mut r = crate::conform::report(doc);
+    let mut r = crate::conform::report_with(doc, style.hash_lines);
     if let Ok(lay) = layout(doc, style) {
         r.checks.extend(findings(&lay));
     }

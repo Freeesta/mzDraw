@@ -160,6 +160,9 @@ fn the_words_of_the_layout_are_in_the_schema_and_set_the_layout() {
     assert_eq!(
         schema["choices"],
         json!([
+            {"key": "style.carbon_labels", "values": ["none", "terminal", "all"], "default": "none"},
+            {"key": "style.hydrogens", "values": ["hetero", "all"], "default": "hetero"},
+            {"key": "style.hash_style", "values": ["wedge", "lines"], "default": "wedge"},
             {"key": "pathway.dir", "values": ["right", "down"], "default": "right"},
             {"key": "pathway.order", "values": ["id", "mz", "rt"], "default": "id"},
             {"key": "pathway.number", "values": ["layout", "mz", "rt"], "default": "layout"}
