@@ -10,7 +10,7 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, RUNNING 1, QUEUED 53, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, RUNNING 2, QUEUED 52, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
@@ -28,7 +28,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, 
 | `arch-cd-12-templates` | Template library: groups of ready fragments placed like rings | SUPERSEDED | by arch-web-19 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-13-user-templates` | User templates: save the selection, rename, remove, share as a file | SUPERSEDED | by arch-web-19 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-14-analysis-panel` | Analysis panel: formula, MW, exact mass, m/z, elemental analysis of the selection | SUPERSEDED | by arch-web-17 (top of the prompt: "superseded: do not run") | - | - |
-| `arch-cd-15-align-distribute` | Align, distribute, rotate by a typed angle and scale the selection | QUEUED | no merged commit or built note names it | arch-std-15 (op `atoms.xy`, PR #45) for scaling | - |
+| `arch-cd-15-align-distribute` | Align, distribute, rotate by a typed angle and scale the selection | RUNNING | PR #112; built/arch-cd-15-align-distribute.md | arch-std-15 (op `atoms.xy`) for scaling | `scale:<f>` left out until `atoms.xy` is in `main` (follow-up) |
 | `arch-cd-16-smart-paste` | Smart paste: pasted parts land in a free place, never on the drawing, without a rezoom | QUEUED | no merged commit or built note names it | nothing | - |
 | `arch-cd-17-shortcuts` | Rebindable shortcuts in the settings file, conflicts reported, a printable table | SUPERSEDED | by arch-std-06 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-18-palette-tear-off` | Palettes, refinement 1 on top of R1 (PR #35): tear-off flyouts, home on double-click, t... | QUEUED | no merged commit or built note names it | PR #35 (R1, `crates/mzdraw/src/palettes.rs`, `docs/mzdraw-ui.md` §4-§5) merged on `main` | built/palettes-page.md has floating and dockable palettes but no tear-off flyouts or named layouts |
@@ -48,7 +48,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, 
 | `arch-std-06-shortcut-settings` | one-key shortcuts that can be turned off and remapped | QUEUED | no merged commit or built note names it | - | built/proposal-layer.md and built/tp-06-pathway-page.md say its command table is not on main |
 | `arch-std-07-page-a11y-audit` | page audit against WCAG 2.2 AA, fixed where it fails | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-08-label-reversal` | group labels reversed on the left side | MERGED | PR #43, `5a3e3b9`; built/group-labels-reversed.md | - | - |
-| `arch-std-09-opensmiles-files` | SMILES files read as the OpenSMILES file rules say | QUEUED | no merged commit or built note names it | - | - |
+| `arch-std-09-opensmiles-files` | SMILES files read as the OpenSMILES file rules say | RUNNING | no merge evidence yet | PR #107 | - |
 | `arch-std-10-label-display-modes` | carbon labels, hydrogen modes and the hash style | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-11-unknown-double-bond` | double bonds of unknown geometry | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-12-enhanced-stereo` | enhanced stereo groups: document, operation, drawing | QUEUED | no merged commit or built note names it | - | - |

@@ -318,6 +318,10 @@ pub fn derive_expecting(
                 id: atom_ref(*id)?,
                 ann: ann.clone(),
             },
+            Op::AtomTitle { id, title } => Op::AtomTitle {
+                id: atom_ref(*id)?,
+                title: title.clone(),
+            },
             Op::AtomCap { id, lines } => Op::AtomCap {
                 id: atom_ref(*id)?,
                 lines: lines.clone(),

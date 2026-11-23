@@ -50,6 +50,10 @@ fn full_ops() -> Vec<Op> {
             mode: "mass".into(),
             adduct: "[M+H]+".into(),
         },
+        Op::AtomTitle {
+            id: 1,
+            title: "synthetic name".into(),
+        },
         Op::AtomCap {
             id: 1,
             lines: vec!["formula".into(), "logp".into()],

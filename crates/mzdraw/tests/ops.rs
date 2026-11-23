@@ -414,6 +414,14 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 ann: format!("[{}]", entries.join(",")),
             }]
         }
+        15 if r.next(3) == 0 => {
+            // a title on an atom: set, replaced, taken away
+            let words = ["", "ethanol", "a name with spaces", "caf\u{e9} 2"];
+            vec![Op::AtomTitle {
+                id: atom(r),
+                title: words[r.next(4)].into(),
+            }]
+        }
         15 if r.next(2) == 0 => {
             // data on an atom: set, replaced, taken away
             let fields = ["name", "CAS (synthetic)", "note"];
@@ -1219,7 +1227,7 @@ fn the_patch_is_in_the_fixed_order() {
         Op::AtomAdd { .. } => 3,
         Op::BondAdd { .. } => 4,
         Op::ObjAdd { .. } => 5,
-        Op::AtomSet { .. } | Op::AtomData { .. } | Op::AtomAnn { .. } => 6,
+        Op::AtomSet { .. } | Op::AtomData { .. } | Op::AtomAnn { .. } | Op::AtomTitle { .. } => 6,
         // the colour of an atom is said with the atom, the colour of a bond with the bond
         Op::AtomCap { .. } => 6,
         Op::Colour { atoms, .. } if !atoms.is_empty() => 6,
