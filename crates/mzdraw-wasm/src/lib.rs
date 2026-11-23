@@ -859,7 +859,7 @@ pub fn state() -> String {
             format!("[{}]", l.iter().map(|k| q(k)).collect::<Vec<_>>().join(","))
         });
         format!(
-            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"lines":{lines},"text":{},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{},"labels":{}}}"#,
+            r#"{{"tool":{},"outline":[{}],"focus":{focus},"style":{},"lens":{},"lensNote":{lens_note},"atoms":{},"bonds":{},"objects":{},"undo":{},"redo":{},"selected":{selected},"colour":{colour},"lines":{lines},"text":{},"moveHere":{},"clip":{},"say":{{"key":{},"what":{},"params":{{{}}}}},"notice":{{"key":{},"what":{}}},"error":{},"check":{},"std":{{"none":{},"lines":{}}},"proposal":{},"values":{},"labels":{},"dirty":{},"unsaved":{}}}"#,
             q(&e.tool.name()),
             outline.join(","),
             q(&e.style.name),
@@ -888,7 +888,61 @@ pub fn state() -> String {
             e.proposal_json(),
             e.values_json(),
             e.labels_json(),
+            e.dirty(),
+            e.unsaved(),
         )
+    })
+}
+
+/// Whether the page asks "Save changes?" before an action that replaces the drawing or leaves the page: `ask` when the drawing is
+/// dirty and holds something, else `go` (`Editor::guard`).
+#[wasm_bindgen]
+pub fn unsaved_guard() -> String {
+    with(|p| match p.editor.guard() {
+        mzdraw::editor_file::Guard::Ask => "ask",
+        mzdraw::editor_file::Guard::Go => "go",
+    })
+    .to_string()
+}
+
+/// What the page does for an answer to the question: `save` (write the file, call `mark_saved`, then go on), `go` (go on and forget
+/// the unsaved work) or `stop` (do nothing). The answers are `save`, `discard` and `cancel`; another is `error.draw2.request`.
+#[wasm_bindgen]
+pub fn unsaved_choice(answer: &str) -> Result<String, JsValue> {
+    mzdraw::editor_file::Choice::parse(answer)
+        .map(|c| c.does().to_string())
+        .ok_or_else(|| js_err("error.draw2.request"))
+}
+
+/// The drawing as it is now was written to a file or exported: it is the saved point (`dirty` is false until the next edit).
+#[wasm_bindgen]
+pub fn mark_saved() -> u32 {
+    act(|e| {
+        e.mark_saved();
+        0
+    })
+}
+
+/// A new, empty drawing as one undo step (the command `new`); unsaved work is `error.draw2.unsaved` unless `discard`. Flags as `command`.
+#[wasm_bindgen]
+pub fn new_drawing(discard: bool) -> Result<u32, JsValue> {
+    let mut refused = None;
+    let flags = act(|e| {
+        e.new_drawing(discard).unwrap_or_else(|key| {
+            refused = Some(key);
+            0
+        })
+    });
+    refused.map_or(Ok(flags), |key| Err(js_err(key)))
+}
+
+/// Opens a saved document in place of the drawing (the command `open`); unsaved work is `error.draw2.unsaved` unless `discard`.
+#[wasm_bindgen]
+pub fn open_drawing(text: &str, discard: bool) -> Result<u32, JsValue> {
+    with(|p| {
+        p.editor.open_drawing(text, discard).map_err(js_err)?;
+        recheck(p);
+        Ok(mzdraw::editor::REPAINT | CHANGED)
     })
 }
 

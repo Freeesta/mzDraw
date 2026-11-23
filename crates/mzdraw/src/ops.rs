@@ -1409,7 +1409,6 @@ struct Step {
 pub type Label = (&'static str, String);
 
 /// A document with its history. `run` is one undo step.
-#[derive(Default)]
 pub struct Session {
     pub doc: Document,
     undo: Vec<Step>,
@@ -1418,9 +1417,20 @@ pub struct Session {
     generation: u64,
     /// Steps below this count were offered a name already (`name_new_steps`): the naming only looks at the steps above it.
     settled: usize,
+    /// The saved point: how many steps were applied when the document was last saved, exported, opened or made new, or `None` when
+    /// that state can no longer be reached (a new step was made from an earlier one, or the last step grew in place). The document
+    /// is clean exactly when the applied steps are that many, so undoing back to the saved point makes it clean again.
+    saved: Option<usize>,
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        Session::new(Document::default())
+    }
 }
 
 impl Session {
+    /// A session whose document is clean: it is the saved point.
     pub fn new(doc: Document) -> Self {
         Session {
             doc,
@@ -1428,13 +1438,28 @@ impl Session {
             redo: Vec::new(),
             generation: 0,
             settled: 0,
+            saved: Some(0),
         }
+    }
+
+    /// Whether the document differs from the saved point (see `saved`). Exact: it counts steps, not bytes.
+    pub fn dirty(&self) -> bool {
+        self.saved != Some(self.undo.len())
+    }
+
+    /// The document as it is now is the saved point (saved, exported, opened, made new).
+    pub fn mark_saved(&mut self) {
+        self.saved = Some(self.undo.len());
     }
 
     /// Applies the operations as one step and forgets the redo stack. An empty group is not a step.
     pub fn run(&mut self, ops: &[Op]) -> Result<(), OpError> {
         let (done, inv) = self.doc.apply(ops)?;
         if !done.is_empty() {
+            // a saved point among the steps this one forgets (the redo stack) can never be reached again
+            if self.saved.is_some_and(|s| s > self.undo.len()) {
+                self.saved = None;
+            }
             self.undo.push(Step {
                 ops: done,
                 inv,
@@ -1452,6 +1477,10 @@ impl Session {
         let (done, inv) = self.doc.apply(ops)?;
         if done.is_empty() {
             return Ok(());
+        }
+        // the last step changes under the saved point, or the redo stack the point lived in is forgotten
+        if self.saved.is_some_and(|s| s >= self.undo.len().max(1)) {
+            self.saved = None;
         }
         match self.undo.last_mut() {
             Some(last) => {

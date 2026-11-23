@@ -11,9 +11,9 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 /// The keys of the envelope, in the order they are written. A key that does not apply is left out.
-pub const KEYS: [&str; 13] = [
+pub const KEYS: [&str; 14] = [
     "format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed",
-    "changed", "orient", "expect",
+    "changed", "dirty", "orient", "expect",
 ];
 
 /// The keys of an item of `orient`, in the order they are written (`at` only for status `overlap`).
@@ -375,6 +375,9 @@ pub struct Outcome {
     /// Only when a command of the request reports whether it changed the drawing (`commands::reports_change`): whether the commands
     /// changed it.
     pub changed: Option<bool>,
+    /// Whether the final drawing differs from the saved point (`Session::dirty`): a start text or file and a `save` command set it,
+    /// any edit clears it. Always written.
+    pub dirty: bool,
     /// Only when a command was `scheme:orient`: the result of each product structure of its last run (`orient::Step`).
     pub orient: Option<Vec<crate::orient::Step>>,
     /// `(request object, ok, detail)` per expectation, in request order; `None` when the request had no `expect`.
@@ -417,6 +420,7 @@ impl Outcome {
         if let Some(c) = self.changed {
             s.push_str(&format!(",\"changed\":{c}"));
         }
+        s.push_str(&format!(",\"dirty\":{}", self.dirty));
         if let Some(steps) = &self.orient {
             let items: Vec<String> = steps.iter().map(orient_json).collect();
             s.push_str(&format!(",\"orient\":[{}]", items.join(",")));

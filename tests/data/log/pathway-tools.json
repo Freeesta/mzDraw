@@ -302,7 +302,7 @@
   "results": [
     {
       "name": "the expect arm anchored holds after pathway:anchor and pathway:route (a verdict with the ok document)",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":11,\\\"atoms\\\":[{\\\"id\\\":6,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0},{\\\"id\\\":9,\\\"el\\\":\\\"C\\\",\\\"x\\\":3.0,\\\"y\\\":0.0},{\\\"id\\\":7,\\\"el\\\":\\\"C\\\",\\\"x\\\":4.0,\\\"y\\\":0.0}],\\\"bonds\\\":[{\\\"id\\\":3,\\\"a\\\":6,\\\"b\\\":2,\\\"o\\\":1},{\\\"id\\\":4,\\\"a\\\":9,\\\"b\\\":7,\\\"o\\\":1}],\\\"objects\\\":[{\\\"id\\\":10,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.8,\\\"y\\\":0.0,\\\"x2\\\":12.0,\\\"from\\\":2}]}\",\"created\":{},\"removed\":{},\"changed\":true,\"expect\":[{\"check\":{\"anchored\":{\"arrow\":10,\"from\":2}},\"ok\":true,\"detail\":\"\"}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":11,\\\"atoms\\\":[{\\\"id\\\":6,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0},{\\\"id\\\":9,\\\"el\\\":\\\"C\\\",\\\"x\\\":3.0,\\\"y\\\":0.0},{\\\"id\\\":7,\\\"el\\\":\\\"C\\\",\\\"x\\\":4.0,\\\"y\\\":0.0}],\\\"bonds\\\":[{\\\"id\\\":3,\\\"a\\\":6,\\\"b\\\":2,\\\"o\\\":1},{\\\"id\\\":4,\\\"a\\\":9,\\\"b\\\":7,\\\"o\\\":1}],\\\"objects\\\":[{\\\"id\\\":10,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.8,\\\"y\\\":0.0,\\\"x2\\\":12.0,\\\"from\\\":2}]}\",\"created\":{},\"removed\":{},\"changed\":true,\"dirty\":true,\"expect\":[{\"check\":{\"anchored\":{\"arrow\":10,\"from\":2}},\"ok\":true,\"detail\":\"\"}]}",
       "request": {
         "commands": [
           {
@@ -328,7 +328,7 @@
     },
     {
       "name": "the expect arm anchored is false for the other end (ok false, detail says what is anchored)",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"changed\":true,\"expect\":[{\"check\":{\"anchored\":{\"arrow\":10,\"from\":2,\"to\":7}},\"ok\":false,\"detail\":\"the arrow is anchored 2 to 0 (0: free)\"}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"changed\":true,\"dirty\":true,\"expect\":[{\"check\":{\"anchored\":{\"arrow\":10,\"from\":2,\"to\":7}},\"ok\":false,\"detail\":\"the arrow is anchored 2 to 0 (0: free)\"}]}",
       "request": {
         "commands": [
           {
@@ -355,7 +355,7 @@
     },
     {
       "name": "a dry run with expect: no out, created empty, changed true, the arm true",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{},\"removed\":{},\"changed\":true,\"expect\":[{\"check\":{\"anchored\":{\"arrow\":10,\"from\":2}},\"ok\":true,\"detail\":\"\"}]}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{},\"removed\":{},\"changed\":true,\"dirty\":true,\"expect\":[{\"check\":{\"anchored\":{\"arrow\":10,\"from\":2}},\"ok\":true,\"detail\":\"\"}]}",
       "request": {
         "commands": [
           {
@@ -382,7 +382,7 @@
     },
     {
       "name": "changed is true when pathway:route moves a displaced arrow",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":11,\\\"atoms\\\":[{\\\"id\\\":6,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0},{\\\"id\\\":9,\\\"el\\\":\\\"C\\\",\\\"x\\\":6.0,\\\"y\\\":0.0},{\\\"id\\\":7,\\\"el\\\":\\\"C\\\",\\\"x\\\":7.0,\\\"y\\\":0.0}],\\\"bonds\\\":[{\\\"id\\\":3,\\\"a\\\":6,\\\"b\\\":2,\\\"o\\\":1},{\\\"id\\\":4,\\\"a\\\":9,\\\"b\\\":7,\\\"o\\\":1}],\\\"objects\\\":[{\\\"id\\\":10,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.35,\\\"y\\\":0.0,\\\"x2\\\":5.65,\\\"from\\\":2,\\\"to\\\":7}]}\",\"created\":{},\"removed\":{},\"changed\":true}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":11,\\\"atoms\\\":[{\\\"id\\\":6,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0},{\\\"id\\\":9,\\\"el\\\":\\\"C\\\",\\\"x\\\":6.0,\\\"y\\\":0.0},{\\\"id\\\":7,\\\"el\\\":\\\"C\\\",\\\"x\\\":7.0,\\\"y\\\":0.0}],\\\"bonds\\\":[{\\\"id\\\":3,\\\"a\\\":6,\\\"b\\\":2,\\\"o\\\":1},{\\\"id\\\":4,\\\"a\\\":9,\\\"b\\\":7,\\\"o\\\":1}],\\\"objects\\\":[{\\\"id\\\":10,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.35,\\\"y\\\":0.0,\\\"x2\\\":5.65,\\\"from\\\":2,\\\"to\\\":7}]}\",\"created\":{},\"removed\":{},\"changed\":true,\"dirty\":true}",
       "request": {
         "commands": [
           {
@@ -395,7 +395,7 @@
     },
     {
       "name": "changed is false when pathway:route finds the arrow routed already",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":12,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0},{\\\"id\\\":3,\\\"el\\\":\\\"C\\\",\\\"x\\\":5.0,\\\"y\\\":3.0},{\\\"id\\\":4,\\\"el\\\":\\\"C\\\",\\\"x\\\":6.0,\\\"y\\\":3.0},{\\\"id\\\":5,\\\"el\\\":\\\"C\\\",\\\"x\\\":5.0,\\\"y\\\":-3.0},{\\\"id\\\":6,\\\"el\\\":\\\"C\\\",\\\"x\\\":6.0,\\\"y\\\":-3.0}],\\\"bonds\\\":[{\\\"id\\\":7,\\\"a\\\":1,\\\"b\\\":2,\\\"o\\\":1},{\\\"id\\\":8,\\\"a\\\":3,\\\"b\\\":4,\\\"o\\\":1},{\\\"id\\\":9,\\\"a\\\":5,\\\"b\\\":6,\\\"o\\\":1}],\\\"objects\\\":[{\\\"id\\\":10,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.0833,\\\"y\\\":0.35,\\\"x2\\\":4.9167,\\\"y2\\\":2.65,\\\"from\\\":1,\\\"to\\\":3},{\\\"id\\\":11,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.0833,\\\"y\\\":-0.35,\\\"x2\\\":4.9167,\\\"y2\\\":-2.65,\\\"from\\\":1,\\\"to\\\":5}]}\",\"created\":{},\"removed\":{},\"changed\":false}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"{\\\"format\\\":\\\"mzdraw/1\\\",\\\"next\\\":12,\\\"atoms\\\":[{\\\"id\\\":1,\\\"el\\\":\\\"C\\\",\\\"x\\\":0.0,\\\"y\\\":0.0},{\\\"id\\\":2,\\\"el\\\":\\\"C\\\",\\\"x\\\":1.0,\\\"y\\\":0.0},{\\\"id\\\":3,\\\"el\\\":\\\"C\\\",\\\"x\\\":5.0,\\\"y\\\":3.0},{\\\"id\\\":4,\\\"el\\\":\\\"C\\\",\\\"x\\\":6.0,\\\"y\\\":3.0},{\\\"id\\\":5,\\\"el\\\":\\\"C\\\",\\\"x\\\":5.0,\\\"y\\\":-3.0},{\\\"id\\\":6,\\\"el\\\":\\\"C\\\",\\\"x\\\":6.0,\\\"y\\\":-3.0}],\\\"bonds\\\":[{\\\"id\\\":7,\\\"a\\\":1,\\\"b\\\":2,\\\"o\\\":1},{\\\"id\\\":8,\\\"a\\\":3,\\\"b\\\":4,\\\"o\\\":1},{\\\"id\\\":9,\\\"a\\\":5,\\\"b\\\":6,\\\"o\\\":1}],\\\"objects\\\":[{\\\"id\\\":10,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.0833,\\\"y\\\":0.35,\\\"x2\\\":4.9167,\\\"y2\\\":2.65,\\\"from\\\":1,\\\"to\\\":3},{\\\"id\\\":11,\\\"t\\\":\\\"arrow\\\",\\\"x\\\":1.0833,\\\"y\\\":-0.35,\\\"x2\\\":4.9167,\\\"y2\\\":-2.65,\\\"from\\\":1,\\\"to\\\":5}]}\",\"created\":{},\"removed\":{},\"changed\":false,\"dirty\":false}",
       "request": {
         "commands": [
           {
@@ -408,7 +408,7 @@
     },
     {
       "name": "pathway:anchor on a plus sign is error.draw2.object (a verdict, stage command)",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.object\",\"id\":10},\"changed\":false}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.object\",\"id\":10},\"changed\":false,\"dirty\":false}",
       "request": {
         "commands": [
           {
@@ -424,7 +424,7 @@
     },
     {
       "name": "pathway:anchor on an id that is no object is error.draw2.noObject (a verdict, stage command)",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.noObject\",\"id\":99},\"changed\":false}",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.noObject\",\"id\":99},\"changed\":false,\"dirty\":false}",
       "request": {
         "commands": [
           {

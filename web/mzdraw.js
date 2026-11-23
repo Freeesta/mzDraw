@@ -6,6 +6,7 @@ import { NAMES } from "./names.js";
 import { contextMenu } from "./context.js";
 import { feedbackBoxes } from "./feedback.js";
 import { buildPrefs, applyTheme } from "./prefs.js";
+import { unsavedDialog } from "./unsaved.js";
 
 const I = /** @type {any} */ (window).I18N, t = (k, p = {}) => I.t(k, p);
 const $ = id => /** @type {HTMLElement} */ (document.getElementById(id));
@@ -550,10 +551,11 @@ const autosave = (() => {
     const n = JSON.parse(found), bar = $("d2-restore");
     $("d2-restore-text").textContent = t(n.objects ? "draw2.restore.found.objects" : "draw2.restore.found", n);
     const done = (/** @type {string} */ say) => { bar.hidden = true; paused = false; $("d2-live").textContent = t(say); size(); cv.focus({ preventScroll: true }); };
-    $("d2-restore-yes").addEventListener("click", () => {
-      try { last = text; after(ed.open(text)); after(ed.fit(cv.clientWidth, cv.clientHeight)); done("draw2.restore.done"); }
+    // the saved drawing replaces what was drawn while the offer waited: the guard asks first when that holds unsaved work
+    $("d2-restore-yes").addEventListener("click", () => guarded(discard => {
+      try { last = text; after(ed.open_drawing(text, discard)); after(ed.fit(cv.clientWidth, cv.clientHeight)); done("draw2.restore.done"); }
       catch (e) { $("d2-restore-text").textContent = I.err(JSON.parse(String(e))).message; }
-    }, { once: true });
+    }));   // not once: a Cancel in the question leaves the offer as it was
     $("d2-restore-no").addEventListener("click", async () => { await drop(); done("draw2.restore.dropped"); }, { once: true });
     bar.hidden = false; size();
   }
@@ -570,6 +572,7 @@ function run(c) {
   if (c === "zoom-in") after(ed.zoom(w / 2, h / 2, 1.25));
   else if (c === "zoom-out") after(ed.zoom(w / 2, h / 2, 0.8));
   else if (c === "fit") after(ed.fit(w, h));
+  else if (c === "clear") newDrawing();
   else if (c === "pathway-label") after(ed.command("pathway-label:" + t("draw2.label.isomer")) | CHANGED);
   else after(ed.command(c) | CHANGED);
   if (c === "copy" || c === "cut") navigator.clipboard?.writeText(ed.clipboard("molfile")).catch(() => { });       // best effort: the editor keeps its own copy
@@ -694,17 +697,17 @@ function add(text) {
   } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
 }
 
-/** one click on Save: the default format of the settings (`export.default`) @returns {void | Promise<void>} */
+/** one click on Save: the default format of the settings (`export.default`) @returns {boolean | Promise<boolean>} whether the file was written */
 function saveDefault() {
   const what = JSON.parse(ed.export_settings()).default;
   return what === "png" ? savePng() : what === "pdf" ? savePdf() : save(what, ...FILES[what]);
 }
 
-/** downloads a text as a file @param {string} what @param {string} name @param {string} type */
+/** downloads a text as a file; the module is told the drawing was saved @param {string} what @param {string} name @param {string} type @returns {boolean} whether it was written */
 function save(what, name, type) {
   const note = $("d2-ex-note"); note.textContent = "";
   try {
-    download(ed.save(what), name, type);
+    download(ed.save(what), name, type); after(ed.mark_saved());
     const lost = ed.maps_lost(what);   // the module says what the format cannot hold; nothing is dropped in silence
     // the TP table says what it left empty (cells with no engine, no adduct, no name...), each with its text
     const left = what.startsWith("tptable") ? JSON.parse(ed.save_notes()).map((/** @type {[string, number]} */ [key, n]) => t(key, { n })) : [];
@@ -714,7 +717,8 @@ function save(what, name, type) {
     if (caps) left.unshift(t("draw2.export.captionsLost", { n: caps }));
     if (lost) left.unshift(t("draw2.export.mapsLost", { n: lost }));
     if (left.length) { note.textContent = left.join(" "); $("d2-live").textContent = note.textContent; } else open("saveas", false);
-  } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
+    return true;
+  } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; return false; }
 }
 
 /** @param {BlobPart} data @param {string} name @param {string} type */
@@ -735,19 +739,37 @@ async function drawPng(plan) {
   return /** @type {Blob} */ (await new Promise(ok => c.toBlob(ok, "image/png")));
 }
 
-/** downloads the PDF the module writes (bytes, not text) */
+/** downloads the PDF the module writes (bytes, not text) @returns {boolean} whether it was written */
 function savePdf() {
   const note = $("d2-ex-note"); note.textContent = "";
-  try { download(ed.save_pdf(), "drawing.pdf", "application/pdf"); open("saveas", false); } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
+  try { download(ed.save_pdf(), "drawing.pdf", "application/pdf"); after(ed.mark_saved()); open("saveas", false); return true; } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; return false; }
 }
 
-/** saves a PNG: the SVG the module writes is drawn on a canvas of the size the module asks for; the module finishes the file */
+/** saves a PNG: the SVG the module writes is drawn on a canvas of the size the module asks for; the module finishes the file @returns {Promise<boolean>} whether it was written */
 async function savePng() {
   const note = $("d2-ex-note"); note.textContent = "";
   try {
     const blob = await drawPng(JSON.parse(ed.png_plan()));
-    download(ed.png_finish(new Uint8Array(await blob.arrayBuffer())), "drawing.png", "image/png"); open("saveas", false);
-  } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; }
+    download(ed.png_finish(new Uint8Array(await blob.arrayBuffer())), "drawing.png", "image/png"); after(ed.mark_saved()); open("saveas", false);
+    return true;
+  } catch (e) { note.textContent = I.err(JSON.parse(String(e))).message; return false; }
+}
+
+/** The unsaved-changes guard. The module says whether to ask (`unsaved_guard`) and what each answer does (`unsaved_choice`: `save`, `go`,
+ * `stop`); this only shows the question and forwards the answer. `go(discard)` is the action that replaces the drawing; it is run
+ * after a Save (the drawing is then clean) or after "Don't save" (with `discard` true), never after Cancel. @param {(discard: boolean) => void} go */
+async function guarded(go) {
+  if (ed.unsaved_guard() === "go") { go(false); return; }
+  const answer = await unsavedDialog({ t, fallback: () => cv.focus({ preventScroll: true }) });
+  const does = ed.unsaved_choice(answer);
+  if (does === "stop") { $("d2-live").textContent = t("draw2.unsaved.cancelled"); return; }
+  if (does === "save" && !(await saveDefault())) return;   // a refused save keeps the drawing and says why in the export note
+  go(does === "go");
+}
+
+/** a new drawing: the command `new` of the module, after the guard; the old drawing can be brought back with Undo */
+function newDrawing() {
+  return guarded(discard => { try { after(ed.new_drawing(discard) | CHANGED); } catch (e) { $("d2-live").textContent = I.err(JSON.parse(String(e))).message; } });
 }
 
 /** copies the selection as a PNG (the context menu): drawn as above, finished by the module with the selection inside, given to the clipboard */
@@ -900,6 +922,8 @@ try {
     pick: (/** @type {string} */ palette, /** @type {string} */ id) => { open(palette, true); const l = /** @type {HTMLInputElement} */ ($(id)); l.focus(); l.select(); } });
   events(); clipboardEvents(); panels(); await styles(); preferences(); layout(); refresh();
   document.addEventListener("visibilitychange", () => { if (document.hidden) autosave.flush(); });
+  // closing or reloading the tab with unsaved work: the browser's own prompt, only when the module says there is something to lose
+  window.addEventListener("beforeunload", e => { if (ed.unsaved_guard() === "ask") { e.preventDefault(); e.returnValue = ""; } });
   await autosave.offer();
   document.documentElement.dataset.d2Ready = "1";
 } catch (e) {
