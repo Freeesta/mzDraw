@@ -1575,6 +1575,24 @@ try {
     eq((await doc()).bonds[0].k, undefined);
   });
 
+  await step("tablet with touch and a pen: after a pen stroke the first finger tap once the palm window is over draws (a tap inside it is a palm by design), finger and pen alternate, the keyboard undo is unaffected", async () => {
+    // the shared page, straight after the pen step above: a finger within half a second of a pen event is a palm (editor_touch.rs), so a
+    // test that taps right after a pen stroke loses that tap whole. The wait is on the page's own clock, never a fixed sleep.
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const penTap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); return pg.evaluate("performance.now()"); };
+    const palmOver = t0 => until(pg, `performance.now() - ${t0} > 650`);
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "chain");
+    for (let round = 0; round < 3; round++) {
+      const t0 = await penTap(cx - 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });
+      await tool(pg, "clear"); await want(pg, { atoms: 0 }); await tool(pg, "chain");
+      await palmOver(t0);
+      await pg.touchscreen.tap(cx + 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });         // the first tap after the window draws
+      await pg.keyboard.press("Control+z"); await want(pg, { atoms: 0, bonds: 0 });                  // the keyboard route is unaffected
+    }
+  });
+
   await step("tablet with touch and a pen: the chain tool adds two bonds by a tap and draws a zigzag by a finger drag and by a pen drag, the count is shown while it is held, each gesture is one undo step", async () => {
     // (a page of its own: a tap that follows synthetic touch or pen events is dropped by the browser, so the tap comes first)
     const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
