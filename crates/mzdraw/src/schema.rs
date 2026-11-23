@@ -454,6 +454,8 @@ const fn r(
 pub const REQUEST: &[RequestSpec] = &[
     r("request", "import", "string", "a structure text to start from: `{doc}` JSON, a molfile or a SMILES"),
     r("request", "import_base64", "string", "the bytes of a file to start from in base64 (a binary CDX, or a PNG or PDF saved by {name}), read after `import`"),
+    r("request", "paste", "string", "a structure text pasted as the page pastes it, after `commands`: at the view centre when that place is free, else at the nearest free place to its right and below"),
+    r("request", "canvas", "number[2]", "the canvas size `[w, h]` in pixels the paste takes the view centre from (default `[400, 400]`)"),
     r("request", "style", "string|object", "the style of the SVG: a preset name or a settings file"),
     r("request", "set", "string[]", "settings applied after `style`, each `<section>.<key>=<value>`"),
     r("set", "display.maps", "on|off", "draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file)"),

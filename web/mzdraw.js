@@ -55,6 +55,7 @@ function place(a) {
 function size() {
   const r = devicePixelRatio || 1;
   cv.width = Math.round(cv.clientWidth * r); cv.height = Math.round(cv.clientHeight * r);
+  if (ed) ed.canvas(cv.clientWidth, cv.clientHeight);
   paint();
 }
 

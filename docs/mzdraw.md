@@ -121,6 +121,8 @@ The replay request (`mzlab-cli mol draw`) is one JSON object whose fields and `e
 |---|---|---|---|
 | request | `import` | string | a structure text to start from: `mzdraw/1` JSON, a molfile or a SMILES |
 | request | `import_base64` | string | the bytes of a file to start from in base64 (a binary CDX, or a PNG or PDF saved by mzDraw), read after `import` |
+| request | `paste` | string | a structure text pasted as the page pastes it, after `commands`: at the view centre when that place is free, else at the nearest free place to its right and below |
+| request | `canvas` | number[2] | the canvas size `[w, h]` in pixels the paste takes the view centre from (default `[400, 400]`) |
 | request | `style` | string\|object | the style of the SVG: a preset name or a settings file |
 | request | `set` | string[] | settings applied after `style`, each `<section>.<key>=<value>` |
 | set | `display.maps` | on\|off | draw the atom-to-atom map numbers at the atoms (default on; key `maps` of the settings file) |

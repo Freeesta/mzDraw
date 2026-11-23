@@ -220,6 +220,15 @@ pub fn pan(dx: f64, dy: f64) -> u32 {
     act(|e| e.pan(dx, dy))
 }
 
+/// Tells the editor the size of the canvas in pixels, so that a paste lands at the view centre; the view does not change.
+#[wasm_bindgen]
+pub fn canvas(w: f64, h: f64) -> u32 {
+    act(|e| {
+        e.set_canvas(w, h);
+        0
+    })
+}
+
 #[wasm_bindgen]
 pub fn fit(w: f64, h: f64) -> u32 {
     act(|e| e.fit(w, h))
