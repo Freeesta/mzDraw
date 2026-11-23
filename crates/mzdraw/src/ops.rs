@@ -1462,21 +1462,29 @@ impl Session {
         true
     }
 
+    /// Redoes the next step. False, and nothing changes (the step stays waiting), when there is none or when its operations no longer
+    /// apply: they are the resolved operations of a step that applied to this very document, so that cannot happen unless `doc` was
+    /// changed directly after the undo.
     pub fn redo(&mut self) -> bool {
         let Some((ops, label)) = self.redo.pop() else {
             return false;
         };
-        // resolved operations of a step that applied before on this same document: they apply again
-        if let Ok((done, inv)) = self.doc.apply(&ops) {
-            self.undo.push(Step {
-                ops: done,
-                inv,
-                label,
-            });
-            self.settled = self.undo.len();
+        match self.doc.apply(&ops) {
+            Ok((done, inv)) => {
+                self.undo.push(Step {
+                    ops: done,
+                    inv,
+                    label,
+                });
+                self.settled = self.undo.len();
+                self.generation += 1;
+                true
+            }
+            Err(_) => {
+                self.redo.push((ops, label));
+                false
+            }
         }
-        self.generation += 1;
-        true
     }
 
     /// Number of steps that can be redone.
@@ -1522,7 +1530,7 @@ impl Session {
                 break;
             }
         }
-        true
+        self.undo.len() == n
     }
 
     /// The command log: every operation still applied, in order, as primitive operations with their ids.

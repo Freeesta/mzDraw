@@ -3797,6 +3797,15 @@ try {
       eq(h2.steps.map(s => s.index), [4, 3, 2, 1]); eq(h2.steps[0].what, "F"); assert(h2.steps.every(s => s.state !== "undone"), "no step waits for a redo");
       await until(pg, "document.querySelectorAll('#d2-history-list li').length === 5");
     });
+    await step("history panel: a refresh between the press and the release of a click does not lose it (the rows are kept while the history is the same)", async () => {
+      await pg.click(row(4)); await want(pg, { atoms: 4 });
+      const [x, y] = await center(pg, row(2));
+      await pg.mouse.move(x, y); await pg.mouse.down();
+      await pg.evaluate("document.getElementById('d2-history').dispatchEvent(new Event('toggle'))");   // the list is asked to refresh in between
+      await frames(pg);
+      await pg.mouse.up(); await want(pg, { atoms: 2 }); eq(await current(), "2");
+      await pg.click(row(4)); await want(pg, { atoms: 4 });
+    });
     await step("history panel: the twin command jump:<n> gives the same document as the click, and a number past the newest step changes nothing", async () => {
       const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
       await pg.click(row(2)); const byClick = await doc(); await pg.click(row(4));

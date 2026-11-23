@@ -232,3 +232,63 @@ fn random_jumps_always_land_on_the_drawing_of_that_step() {
         assert_eq!(history(&e)["at"], n);
     }
 }
+
+#[test]
+fn a_jump_that_changes_nothing_is_no_change() {
+    let mut e = Editor::default();
+    five(&mut e);
+    // the page command at the step the drawing is at: no flag, nothing to repaint or save
+    assert_eq!(e.history_command("jump:5"), Some(0));
+    assert_eq!(e.history_command("redo:2"), Some(0), "nothing to redo");
+    assert_ne!(e.history_command("jump:4").unwrap() & CHANGED, 0);
+    assert_eq!(e.history_command("jump:4"), Some(0));
+    assert_eq!(e.error, "");
+}
+
+#[test]
+fn the_words_of_the_steps_survive_undo_then_redo() {
+    let mut e = Editor::default();
+    five(&mut e);
+    let before = history(&e)["steps"].clone();
+    e.undo();
+    e.undo();
+    e.undo();
+    e.redo();
+    e.redo();
+    e.redo();
+    let mid = history(&e);
+    assert_eq!(
+        mid["steps"], before,
+        "undo then redo leaves the list as it was"
+    );
+    e.jump_to(0).unwrap();
+    e.jump_to(5).unwrap();
+    let after = history(&e);
+    assert_eq!(after["steps"], before);
+    assert_eq!(after["start"], "done");
+    assert_eq!(after["steps"][0]["what"], "P");
+    e.jump_to(0).unwrap();
+    assert_eq!(history(&e)["start"], "current");
+}
+
+#[test]
+fn a_redo_that_cannot_apply_is_refused_and_the_step_waits() {
+    use mzdraw::ops::Session;
+    use mzdraw::Op;
+    let add =
+        |id: u32| Op::parse(&json!({"op":"atom.add","id":id,"el":"C","x":0.0,"y":0.0})).unwrap();
+    let mut s = Session::new(Default::default());
+    s.run(&[add(1)]).unwrap();
+    assert!(s.undo());
+    // the drawing is changed behind the history: the atom the step adds is there already
+    let mut other = Editor::default();
+    other.import("C").unwrap();
+    s.doc = other.doc().clone();
+    assert!(
+        !s.redo(),
+        "the step does not apply: no redo, and no claim of one"
+    );
+    assert_eq!(s.steps(), 0);
+    assert_eq!(s.redo_steps(), 1, "the step stays in the list");
+    assert!(!s.jump(1), "a jump that cannot arrive says so");
+}

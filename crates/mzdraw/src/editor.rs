@@ -534,7 +534,7 @@ impl Editor {
             .name_new_steps(("draw2.history.op", name), "draw2.history.step");
     }
 
-    /// The history of the session: `history/1`, `{"format":"history/1","at":N,"steps":[{"say","what","index","state"}]}`, newest
+    /// The history of the session: `history/1`, `{"format":"history/1","at":N,"start","steps":[{"say","what","index","state"}]}`, newest
     /// first. `index` is the number of the step (1 is the first, `jump:<index>` leaves the drawing as that step made it, `jump:0` is
     /// the start); `state` is `done`, `current` (the newest done step: where the drawing is) or `undone` (a step `redo` brings back).
     /// `at` is the number of the current step, 0 at the start.
@@ -567,7 +567,8 @@ impl Editor {
             })
             .collect();
         format!(
-            r#"{{"format":"history/1","at":{at},"steps":[{}]}}"#,
+            r#"{{"format":"history/1","at":{at},"start":"{}","steps":[{}]}}"#,
+            if at == 0 { "current" } else { "done" },
             rows.join(",")
         )
     }
@@ -581,11 +582,17 @@ impl Editor {
     /// of them, and 0 (and the refusal in `error`) when it cannot run.
     pub fn history_command(&mut self, name: &str) -> Option<u32> {
         crate::commands::steps_of(name)?;
+        let before = self.session.generation();
         Some(
             match crate::commands::run(self, name, &serde_json::json!({})) {
                 Ok(()) => {
                     self.error = "";
-                    REPAINT | CHANGED
+                    // a jump that changed nothing is not a change of the drawing
+                    if self.session.generation() == before {
+                        0
+                    } else {
+                        REPAINT | CHANGED
+                    }
                 }
                 Err(e) => {
                     self.error = e.key;

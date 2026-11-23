@@ -246,11 +246,16 @@ function valuesText(v, adducts) {
 
 /** the history list (`history()` of the module: the steps newest first, the current one marked): it only paints them, a click or Enter
  *  on a row sends `jump:<index>` and the module undoes or redoes to that step */
+/** the last `history()` text the list was built from @type {string} */
+let shown = "";
 function historyList() {
   const box = $("d2-history"), list = $("d2-history-list");
   if (!(/** @type {HTMLDetailsElement} */ (box)).open) return;
-  const h = JSON.parse(ed.history()), had = list.contains(document.activeElement), keep = /** @type {HTMLElement | null} */ (document.activeElement)?.dataset.index;
-  const rows = [...h.steps, { say: "draw2.history.start", what: "", index: 0, state: h.at === 0 ? "current" : "done" }];
+  const text = ed.history();
+  if (text === shown && list.childElementCount) return;      // nothing changed: the rows stay, so a press that began on one still ends on it
+  shown = text;
+  const h = JSON.parse(text), had = list.contains(document.activeElement), keep = /** @type {HTMLElement | null} */ (document.activeElement)?.dataset.index;
+  const rows = [...h.steps, { say: "draw2.history.start", what: "", index: 0, state: h.start }];
   list.replaceChildren(...rows.map((/** @type {any} */ r, /** @type {number} */ i) => {
     const li = document.createElement("li");
     li.setAttribute("role", "option"); li.dataset.index = String(r.index); li.dataset.state = r.state;

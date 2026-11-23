@@ -2,7 +2,7 @@
   "histories": [
     {
       "name": "five steps of a log, nothing undone",
-      "out": "{\"format\":\"history/1\",\"at\":5,\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"current\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"done\"}]}",
+      "out": "{\"format\":\"history/1\",\"at\":5,\"start\":\"done\",\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"current\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"done\"}]}",
       "request": {
         "log": [
           {
@@ -46,7 +46,7 @@
     },
     {
       "name": "two undone: the current step is the third, two steps wait for a redo",
-      "out": "{\"format\":\"history/1\",\"at\":3,\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"current\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"done\"}]}",
+      "out": "{\"format\":\"history/1\",\"at\":3,\"start\":\"done\",\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"current\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"done\"}]}",
       "request": {
         "commands": [
           {
@@ -95,7 +95,7 @@
     },
     {
       "name": "back to the start: no step is current",
-      "out": "{\"format\":\"history/1\",\"at\":0,\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"undone\"}]}",
+      "out": "{\"format\":\"history/1\",\"at\":0,\"start\":\"current\",\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"undone\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"undone\"}]}",
       "request": {
         "commands": [
           {
@@ -144,7 +144,7 @@
     },
     {
       "name": "undo four, redo one, then jump to the end",
-      "out": "{\"format\":\"history/1\",\"at\":5,\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"current\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"done\"}]}",
+      "out": "{\"format\":\"history/1\",\"at\":5,\"start\":\"done\",\"steps\":[{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":5,\"state\":\"current\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":4,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"bond.add\",\"index\":3,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":2,\"state\":\"done\"},{\"say\":\"draw2.history.op\",\"what\":\"atom.add\",\"index\":1,\"state\":\"done\"}]}",
       "request": {
         "commands": [
           {
