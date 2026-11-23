@@ -1533,6 +1533,7 @@ try {
   await step("tablet with touch and a pen: bold, dative and hydrogen bonds by a tap and by a pen, each press one undo step", async () => {
     const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "select"); await pg.touchscreen.tap(cx + 200, cy + 200);
     await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
     const mid = [cx + 17, cy - 10];
     for (const [t, k] of [["bond:bold", "bold"], ["bond:dative", "dative"], ["bond:hbond", "hbond"]]) {
@@ -1557,6 +1558,8 @@ try {
     for (let i = 0; i < 6; i++) await tool(pg, "undo");
     eq((await doc()).bonds.length, 1);
     eq((await doc()).bonds[0].k, undefined);
+    // a pen press leaves the next tap on the canvas unanswered: a tap on empty canvas with the select tool takes it, so the next step starts clean
+    await tool(pg, "select"); await pg.touchscreen.tap(cx + 200, cy + 200);
   });
 
   await step("tablet with touch and a pen: the side of a double bond and the dashed tools by a tap and by a pen, each press one undo step", async () => {
