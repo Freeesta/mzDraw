@@ -844,6 +844,41 @@ try {
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
   });
 
+  await step("arrange: the selection is aligned, distributed, turned by a typed angle and scaled from the Edit palette, with the keyboard and with the mouse; each is one undo step and the drawing equals the golden bytes of the command", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/arrange.json"), "utf8")).cases;
+    const g = name => gold.find(c => c.name === name);
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9, objects: 1 });
+    const start = await pg.evaluate("window.MZDRAW.save('mzdraw')"), save = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+    // keyboard: select all, the buttons reached by their focus, Enter
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 11 });
+    const BT = c => `[data-testid="d2-${c}"]`;
+    await reveal(pg, BT("align:top")); await pg.focus(BT("align:top")); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: align top").out.mzdraw);
+    await shot(pg, "cd-15-arrange");
+    await tool(pg, "undo"); eq(await save(), start);                               // one step
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
+    await reveal(pg, BT("distribute:h")); await pg.focus(BT("distribute:h")); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: distribute across").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
+    // the angle and the factor are typed in their fields (Enter applies)
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
+    await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "90"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: turn by 90").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
+    await reveal(pg, "#d2-scale"); await pg.fill("#d2-scale", "2"); await pg.press("#d2-scale", "Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: scale by 2").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
+    // a nonsense angle is refused in words and nothing changes
+    await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "abc"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
+    eq(await pg.getAttribute("#d2-rotate", "aria-invalid"), "true"); eq(await save(), start);
+    // mouse: nothing selected, so everything is arranged
+    await tool(pg, "select"); await pg.mouse.click(cx, cy + 300); await want(pg, { selected: 0 });
+    await tool(pg, "align:top"); await frames(pg);
+    eq(await save(), g("whole drawing: align top").out.mzdraw);
+    await tool(pg, "undo"); eq(await save(), start);
+  });
+
   // tp-06: "Arrange pathway", the button of the objects palette and the item of the canvas menu, on the messy star of tp-05 and the others of tests/data/log/pathway-page.json
   const pgold = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway-page.json"), "utf8")).cases;       // the page's golden: bytes of the command `pathway:tree`
   const cycle = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway.json"), "utf8")).refused[0].request.import;
@@ -1433,6 +1468,34 @@ try {
     await frames(pg);
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), gold.out.mzdraw);
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), messy);
+  });
+
+  await step("tablet with touch and a pen: the buttons align, distribute and the fields turn and scale arrange the drawing by a tap and by a pen, and each is undone", async () => {
+    const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/arrange.json"), "utf8")).cases;
+    const g = name => gold.find(c => c.name === name).out.mzdraw;
+    await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold[0].request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 9, objects: 1 });
+    const save = () => pg.evaluate("window.MZDRAW.save('mzdraw')"), start = await save();
+    const BT = c => `[data-testid="d2-${c}"]`;
+    await tool(pg, "all"); await want(pg, { selected: 11 });
+    await reveal(pg, BT("align:top")); await pg.tap(BT("align:top")); await frames(pg);
+    eq(await save(), g("whole drawing: align top"));
+    await shot(pg, "cd-15-arrange-touch");
+    await tool(pg, "undo"); eq(await save(), start);
+    await tool(pg, "all");
+    await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "90"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
+    eq(await save(), g("whole drawing: turn by 90"));
+    await tool(pg, "undo"); eq(await save(), start);
+    // a pen presses the distribute button
+    const cdp = await pg.context().newCDPSession(pg);
+    await tool(pg, "all");
+    await reveal(pg, BT("distribute:h"));
+    const b = await pg.locator(BT("distribute:h")).boundingBox(), px = b.x + b.width / 2, py = b.y + b.height / 2;
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: px, y: py, pointerType: "pen", button: "none", buttons: 0 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: px, y: py, pointerType: "pen", button: "left", buttons: 1, clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: px, y: py, pointerType: "pen", button: "left", buttons: 0, clickCount: 1 });
+    await frames(pg);
+    eq(await save(), g("whole drawing: distribute across"));
+    await tool(pg, "undo"); eq(await save(), start);
   });
 
   await step("tablet with touch and a pen: on a reloaded page the button Arrange pathway lays the messy star out by a tap and by a pen; a cycle is refused with its text; each press is undone", async () => {

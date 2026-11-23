@@ -211,10 +211,10 @@ Rows grouped by area; the ID is used by the prompts (§6). Source keys refer to 
 | I03 | style applied to a selection; style sheets merged into a document | CD-UG17, CDD-G §13.2 | | LATER | - | M |
 | I04 | dark mode (interface and drawing) | CD-RN23 (dark style sheet), CDD-G §2.3.2 | | SHOULD: preset `dark` is planned | `style.preset=dark` | S |
 | I05 | page setup, margins, print, several pages | CD-UG17, MS/marvin_creating-a-multipage-document.html, CDD-G §13.4.2 and §17.12 | a page model | LATER (print: SHOULD in the desktop app) | settings `page` | M |
-| I06 | align (left, centre, right, top, middle, bottom), distribute, centre | CD-UG17 (Alt+Shift+Ctrl+letter), M/marvin_sketch-js-comparison.html (guides), CDD-G §12.4 | moves whole structures and objects | MUST: tidy schemes; all have it | `move` ops; commands `align:<edge>`, `distribute:h\|v` | S |
-| I07 | rotate by a typed angle; 1° and 15° steps from the keyboard | CD-UG17 (Ctrl+R), M/marvin_shortcuts-and-tricks.html (Alt+arrow 1°, Shift+Alt+arrow 15°), CDD-G §12.4 | | SHOULD: 15° buttons are built | `rotate deg` | S |
-| I08 | scale the selection | CD-UG17 (Ctrl+K), MS/marvin_geometric-transformation-of-structures-and-objects.html, CDD-G §12.4 | | SHOULD | `atoms.xy` (D01) | S |
-| I09 | nudge the selection with the arrow keys | CDW/demos/2d-sketcher | | SHOULD: arrows walk the focus today | `move` | S |
+| I06 | align (left, centre, right, top, middle, bottom), distribute, centre | CD-UG17 (Alt+Shift+Ctrl+letter), M/marvin_sketch-js-comparison.html (guides), CDD-G §12.4 | moves whole structures and objects | MUST · built (arch-cd-15) | `move` ops; commands `align:<edge>`, `distribute:h\|v` | - |
+| I07 | rotate by a typed angle; 1° and 15° steps from the keyboard | CD-UG17 (Ctrl+R), M/marvin_shortcuts-and-tricks.html (Alt+arrow 1°, Shift+Alt+arrow 15°), CDD-G §12.4 | | SHOULD · built (arch-cd-15: typed angle; the keys are arch-std-05) | `rotate deg` | - |
+| I08 | scale the selection | CD-UG17 (Ctrl+K), MS/marvin_geometric-transformation-of-structures-and-objects.html, CDD-G §12.4 | | SHOULD · built (arch-cd-15, as one `move` per atom) | `move` | - |
+| I09 | nudge the selection with the arrow keys | CDW/demos/2d-sketcher | | SHOULD · built (arch-std-05 keys; arch-cd-15 `nudge:<dx>,<dy>`) | `move` | - |
 | I10 | select inverse, reselect, select a whole piece | CDD-G §12.2 | | SHOULD | - | S |
 | I11 | lasso selection | CDD-G §4.2.2 (key S), CDW/demos/2d-sketcher | free-form selection | SHOULD: a band exists | - | S |
 
