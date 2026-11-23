@@ -73,6 +73,9 @@ async function until(pg, expr, ms = 10000) {
     await new Promise(r => setTimeout(r, 25));
   }
 }
+/** a finger within half a second of a pen event is a palm (editor_touch.rs): waits, on the page's own clock, until that window is over
+ * since `t0`, a `performance.now()` read just after the pen's last event; never a fixed sleep */
+const palmOver = (pg, t0) => until(pg, `performance.now() - ${t0} > 650`);
 async function context(browser, opts, init = null) {
   const ctx = await browser.newContext({ acceptDownloads: true, ...opts });
   if (init) await ctx.addInitScript(init);
@@ -329,6 +332,7 @@ async function loop(pg, cx, cy, tap, name) {
   await until(pg, "!document.querySelector('#d2-warnings li[data-code=valence]')");
 }
 
+let penAt = 0;                                          // page time of the last pen event of the step before, for palmOver
 const browser = await chromium.launch();
 try {
   let { ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
@@ -1657,13 +1661,12 @@ try {
     const cdp = await pg.context().newCDPSession(pg);
     const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
     const penTap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); return pg.evaluate("performance.now()"); };
-    const palmOver = t0 => until(pg, `performance.now() - ${t0} > 650`);
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await tool(pg, "chain");
     for (let round = 0; round < 3; round++) {
       const t0 = await penTap(cx - 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });
       await tool(pg, "clear"); await want(pg, { atoms: 0 }); await tool(pg, "chain");
-      await palmOver(t0);
+      await palmOver(pg, t0);
       await pg.touchscreen.tap(cx + 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });         // the first tap after the window draws
       await pg.keyboard.press("Control+z"); await want(pg, { atoms: 0, bonds: 0 });                  // the keyboard route is unaffected
     }
@@ -1813,6 +1816,7 @@ try {
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: px, y: py, pointerType: "pen", button: "none", buttons: 0 });
     await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: px, y: py, pointerType: "pen", button: "left", buttons: 1, clickCount: 1 });
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: px, y: py, pointerType: "pen", button: "left", buttons: 0, clickCount: 1 });
+    penAt = await pg.evaluate("performance.now()");
     await frames(pg);
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), lg.out.mzdraw);
     await tool(pg, "undo"); eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), before);
@@ -1820,6 +1824,7 @@ try {
   });
 
   await step("atom map by touch: tap the atom, tap the field, type, tap Set; the number is drawn and written to SMILES and RXN files", async () => {
+    await palmOver(pg, penAt);                           // the step before ended with a pen: a finger within half a second of it is a palm
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await tool(pg, "bond:1"); await pg.touchscreen.tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
     await tool(pg, "select"); await pg.touchscreen.tap(cx, cy); await want(pg, { selected: 1 });

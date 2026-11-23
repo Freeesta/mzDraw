@@ -14,6 +14,9 @@ No production code is changed: the rule is the wanted behaviour (the resting han
 - `crates/mzdraw/tests/touch.rs`: `a_tap_inside_the_palm_window_after_the_pen_is_lost_whole_and_the_first_one_after_it_draws`: after a pen stroke, finger taps with one id inside the window draw nothing and leave nothing held; the first tap after the window draws, and so does the next.
 - `tests/e2e.mjs`, one step on the shared tablet page straight after the pen step: three rounds of a pen tap (chain tool), Clear, the chain tool, a wait on the page's own clock (`performance.now()`, no fixed sleep) until the palm window is over, then a finger tap that must draw, and the keyboard undo. Finger and pen alternate.
 
+## The same cause behind a CI flake
+`e2e "atom map by touch"` timed out once on CI (queue row of CI run 44912250675) and again on this PR's head: the step before it ends with a pen tap, then `undo`, `clear`, and the next step taps with a finger within the 500 ms palm window. It now starts with `palmOver(pg, penAt)`, the same wait on the page clock (`penAt` is read just after the pen's last event of the step before). Other steps that begin with a finger tap after a pen step are not changed here.
+
 ## Not built
 - A change of the palm window or of its start (the pen's lift instead of its last event): not wanted without a measurement on a real tablet.
 - The CLI twin: no new operation, no change of a function of the page.
