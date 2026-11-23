@@ -2087,22 +2087,34 @@ try {
     lines: async pg => { const d = await pg.evaluate("window.MZDRAW.scene()"), out = []; for (let i = 0; i < d.length;) { const op = d[i]; if (op === 1) { out.push([d[i + 1], d[i + 2], d[i + 3], d[i + 4]].map(v => Math.round(v * 100) / 100).join(",")); i += 7; } else i += op === 2 ? 7 : op === 3 ? 6 : op === 6 ? 8 : op === 7 ? 13 : 5; } return out; },
     text: "(() => { const d = new DataTransfer(); d.setData('text/plain', 'c1ccccc1'); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); })()",
   };
+  /** the middle of the lines the page paints is the middle of the canvas (the page told the module its size) */
+  const centred = async pg => {
+    const p = (await pasted.lines(pg)).map(l => l.split(",").map(Number)), w = await pg.evaluate("[document.getElementById('d2-canvas').clientWidth, document.getElementById('d2-canvas').clientHeight]");
+    const xs = p.flatMap(l => [l[0], l[2]]), ys = p.flatMap(l => [l[1], l[3]]);
+    const mid = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+    assert(Math.abs(mid[0] - w[0] / 2) < 4 && Math.abs(mid[1] - w[1] / 2) < 4, `a paste on an empty drawing is at the view centre: ${mid} vs ${w}`);
+  };
   const apart = async pg => { const a = await pasted.atoms(pg); let m = Infinity; for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) m = Math.min(m, Math.hypot(a[i].x - a[j].x, a[i].y - a[j].y)); assert(m > 0.5, "no two atoms closer than half a bond: " + m); };
   const still = async (pg, before) => { const now = new Set(await pasted.lines(pg)); assert(before.every(l => now.has(l)), "the view did not move: what was drawn is where it was"); };
   await step("smart paste by keyboard and mouse: a SMILES pasted twice and a copy pasted from the context menu land apart, in a free place, and the view does not move", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0 }); await pg.focus("#d2-canvas");
     await pg.evaluate(pasted.text); await want(pg, { atoms: 6, bonds: 6 });
+    await centred(pg);
     const first = await pasted.lines(pg);
     await pg.evaluate(pasted.text); await want(pg, { atoms: 12, bonds: 12 });
     await apart(pg); await still(pg, first);
     await pg.keyboard.press("Control+a"); await pg.keyboard.press("Control+c");
     await until(pg, "!document.querySelector('[data-testid=\"d2-paste\"]').disabled");
+    // a real Ctrl+V of the own clipboard (the page forwards the key's paste event to the module)
+    const typed = await pasted.lines(pg);
+    await pg.keyboard.press("Control+v"); await want(pg, { atoms: 24 });
+    await apart(pg); await still(pg, typed);
     const box = await pg.locator("#d2-canvas").boundingBox(), seen = await pasted.lines(pg);
     await pg.mouse.click(box.x + 60, box.y + 60, { button: "right" }); await shown(pg);
-    await pg.click(item("edit.paste")); await shown(pg, false); await want(pg, { atoms: 24 });
+    await pg.click(item("edit.paste")); await shown(pg, false); await want(pg, { atoms: 36 });
     await apart(pg); await still(pg, seen);
     await shot(pg, "smart-paste");
-    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 12 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 24 });
   });
   await ctx.close();
 

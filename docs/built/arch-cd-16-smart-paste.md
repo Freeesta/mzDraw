@@ -27,6 +27,12 @@ request (its i18n key). Golden cases: `tests/data/log/smart-paste.json`.
 `crates/mzdraw/tests/smart_paste.rs` (centre of an empty view, no overlap on repeated pastes, view unchanged, one undo step, determinism);
 the golden file above (wasm == native, `tests/parity.mjs`); e2e: keyboard, context menu (mouse), touch and pen.
 
+## Limits (tested)
+
+- A text object is one anchor point for the placement: its drawn extent is not reserved, so a long text may reach a neighbour (`a_paste_with_an_arrow_and_a_text_keeps_clear_of_a_drawing`).
+- A part wider than 80 bonds is placed by the same rule (box over the centre, then the free cells); `a_part_wider_than_eighty_bonds_...`.
+- Fallbacks: quadrant right and below full, then any direction within 40 bonds, then two bonds right of the drawing (`when_the_quadrant_is_full_...`, `when_no_cell_is_free_...`).
+
 ## Not built
 
 - Copy as SMILES, molfile, KET, image (arch-web-21); native clipboard formats of the desktop shell (J07).

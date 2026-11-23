@@ -1,6 +1,8 @@
 //! Wedge marks as the drawing and the stereo of the record derived from them, rotate and flip, and the clipboard, driven as the page
 //! drives them.
 
+mod common;
+
 use mzdraw::editor::{CHANGED, CTRL, HANDLED, MOUSE, SHIFT, TOOL};
 use mzdraw::scene::{LINE, TRI};
 use mzdraw::{svg, Axis, Document, Editor};
@@ -224,6 +226,7 @@ fn copy_cut_paste_and_duplicate() {
         rec.stereo
     );
     let before = e.doc().to_json();
+    let src = e.doc().clone();
     // a paste is one undo step, lands in a free place (not on the drawing), becomes the selection and picks the Select tool
     e.set_tool("bond:1");
     let f = e.paste(None);
@@ -233,7 +236,7 @@ fn copy_cut_paste_and_duplicate() {
     assert_eq!((e.over.sel_atoms.len(), e.over.sel_bonds.len()), (6, 5));
     let (a, b) = (e.doc().atoms[0].clone(), e.doc().atoms[6].clone());
     let (dx, dy) = (b.x - a.x, b.y - a.y);
-    assert!((dx, dy) != (0.0, 0.0), "the copy is not on the source");
+    assert_eq!((dx, dy), (-1.25, -4.0), "the deterministic free place");
     for i in 0..6 {
         let (p, q) = (&e.doc().atoms[i], &e.doc().atoms[6 + i]);
         assert!(
@@ -241,35 +244,42 @@ fn copy_cut_paste_and_duplicate() {
             "a translation"
         );
     }
-    let apart = |e: &Editor, from: usize| {
-        let at = &e.doc().atoms;
-        at[from..].iter().all(|n| {
-            at[..from]
-                .iter()
-                .all(|o| (n.x - o.x).hypot(n.y - o.y) > 0.5)
-        })
+    let clear = |e: &Editor, before: &Document| {
+        common::assert_clear(
+            &common::occupied(before, 0),
+            &common::occupied(e.doc(), before.next - 1),
+        )
     };
-    assert!(apart(&e, 6));
+    clear(&e, &src);
     assert_eq!(
         e.doc().bonds.iter().filter(|b| b.s != 0).count(),
         2,
         "the copy keeps its wedge"
     );
-    // the second paste lands in a free place too
+    // the second paste lands in a free place too: clear of the source and of the first copy
+    let two = e.doc().clone();
     e.paste(None);
-    assert!(apart(&e, 12));
+    clear(&e, &two);
+    let third: Vec<(f64, f64)> = e.doc().atoms[12..].iter().map(|a| (a.x, a.y)).collect();
+    assert!(third.iter().all(|t| e.doc().atoms[..12]
+        .iter()
+        .all(|o| (t.0 - o.x).hypot(t.1 - o.y) > 0.5)));
     e.undo();
     e.undo();
     assert_eq!(e.doc().to_json(), before);
-    // the same text coming back from the system clipboard is pasted the same way
+    // the same text coming back from the system clipboard is pasted the same way (same place as the first paste)
     e.paste(Some(&e.clipboard("mzdraw")));
     assert_eq!(e.doc().atoms.len(), 12);
-    assert!(apart(&e, 6));
+    assert_eq!(
+        (e.doc().atoms[6].x - a.x, e.doc().atoms[6].y - a.y),
+        (dx, dy)
+    );
+    clear(&e, &src);
     e.undo();
+    // a text from elsewhere is placed the same way, clear of the drawing
     e.paste(Some("CCO"));
     assert_eq!(e.doc().atoms.len(), 9);
-    assert!(apart(&e, 6));
-    assert_eq!(e.over.sel_atoms.len(), 3);
+    clear(&e, &src);
     // a text that is no structure changes nothing and says why
     let n = e.doc().to_json();
     e.paste(Some("not a structure at all ((("));
