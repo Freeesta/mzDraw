@@ -884,7 +884,6 @@ fn every_notation_a_mass_spectrometrist_writes_is_read_and_a_wrong_one_fails() {
                 "+C6H8O6",
                 "glucuronidation +C6H8O6",
                 "+C6H8O6 (glucuronidation)",
-                "+C6H8O6 glucuronide",
             ],
         ),
         ("CCO", "CCOC", vec!["+CH2", "+1CH2"]),
@@ -1137,20 +1136,115 @@ fn a_pathway_of_sixteen_nodes_sixteen_edges_two_parents_many_branches_has_no_ove
 }
 
 #[test]
-fn a_very_long_label_on_a_steep_fan_is_flagged_by_the_check_because_the_layout_does_not_make_room_for_it(
-) {
-    // KNOWN LIMIT, not a pass: the layout makes room for the visible LENGTH of an arrow (tp-05), not for the horizontal text of a steep one,
-    // so the text of an arrow of the five-arrow fan from the root lies on a neighbouring arrow (and the two arrows that converge on one product have texts that meet). The structures stay clear and the arrows
-    // do not meet a box; `label_box_overlaps` counts what the eye sees, and a warning names each.
-    let m = big_model("+C6H8O6 glucuronide conjugate of the parent");
+fn a_very_long_label_on_a_wide_fan_is_still_flagged_by_the_check() {
+    // KNOWN LIMIT, not a pass. `pathway:build` widens the gap between two columns to the widest text and the gap between rows with the fan
+    // (0.75 bond lengths for each arrow), which clears texts of up to about 30 characters on fans of 3 to 10 arrows (tested below). A text of
+    // 50 characters on five arrows still lies on a neighbouring arrow: the structures stay clear and no arrow meets a box, and
+    // `label_box_overlaps` counts what the eye sees, with a warning for each.
+    let m = fan(5, "+C6H8O6 glucuronide conjugate of the parent compound");
     let c = check_of(&m);
     let (counts, list) = measures(&c);
     assert_eq!((counts[0], counts[1]), (0, 0), "{list:?}");
     assert!(counts[2] >= 1, "the overlap is measured: {list:?}");
-    assert!(list.iter().all(|l| l.contains("labelOverlap")), "{list:?}");
     assert!(
-        list.iter().filter(|l| l.contains("n0>")).count() >= 4,
-        "the fan from the root: {list:?}"
+        list.iter()
+            .all(|l| l.contains("labelOverlap") && l.contains("root>")),
+        "{list:?}"
     );
-    no_two_structure_boxes_overlap(&m);
+}
+
+#[test]
+fn a_bare_token_after_a_term_is_unreadable_never_a_comment() {
+    // `+O 2H` on a pure +O must not pass as `+O`; the same for any bare word or formula after a term
+    for l in [
+        "+O 2H",
+        "+O H",
+        "+O H2O",
+        "+O glucuronide",
+        "+C6H8O6 glucuronide",
+        "+O (hydroxylation) 2H",
+    ] {
+        let (result, c) = one_edge("CC", "CCO", l, None);
+        assert_eq!(
+            (result.as_str(), c["ok"].clone()),
+            ("unreadable", json!(false)),
+            "{l:?}"
+        );
+    }
+    // a comment in parentheses, and a word before the first term, are still comments
+    for l in ["+O (hydroxylation)", "hydroxylation +O", "+O(CYP)"] {
+        let (result, c) = one_edge("CC", "CCO", l, None);
+        assert_eq!(
+            (result.as_str(), c["ok"].clone()),
+            ("ok", json!(true)),
+            "{l:?}"
+        );
+    }
+}
+
+#[test]
+fn an_observed_mz_that_is_not_a_number_above_zero_is_an_error_not_a_silent_pass() {
+    let doc = replay(&with_out(&json!({"format": "pathway/1", "nodes": [{"id": "x", "smiles": "CCO", "ion": "[M+H]+", "mz": 47.05}]}), "mzdraw")).unwrap();
+    for bad in [
+        "NaN", "nan", "0x10", "59,0139", "-5", "0", "inf", "1e999", "abc",
+    ] {
+        let r = json!({"import": doc, "out": "pathway-check", "log": [{"op": "atom.data", "id": 1, "data": [["TP_ID", "x"], ["MZ", bad], ["ADDUCT", "[M+H]+"]]}]});
+        let c: Value = serde_json::from_str(&replay(&r.to_string()).unwrap()).unwrap();
+        assert_eq!(c["ok"], json!(false), "{bad}: {c}");
+        let f = c["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["key"] == "pathway.mzUnreadable")
+            .unwrap_or_else(|| panic!("{bad}: {c}"));
+        assert_eq!(
+            (f["severity"].clone(), f["item"].clone()),
+            (json!("error"), json!("x")),
+            "{bad}"
+        );
+        assert_eq!(c["nodes"][0]["observed"]["mz"], Value::Null, "{bad}");
+        assert!(
+            replay_at(&r.to_string(), 0).unwrap().check_failed,
+            "{bad}: exit 3"
+        );
+    }
+    // a good one is none of this
+    let r = json!({"import": doc, "out": "pathway-check", "log": [{"op": "atom.data", "id": 1, "data": [["TP_ID", "x"], ["MZ", "47.05"], ["ADDUCT", "[M+H]+"]]}]});
+    let c: Value = serde_json::from_str(&replay(&r.to_string()).unwrap()).unwrap();
+    assert!(
+        !keys(&c).contains(&"pathway.mzUnreadable".to_string()),
+        "{c}"
+    );
+}
+
+/// A root with `n` children, every arrow with this label.
+fn fan(n: usize, label: &str) -> Value {
+    let kids = [
+        "CCO", "CCN", "CCCl", "CCS", "CCF", "CCBr", "CCC", "CCCC", "CCCO", "CCCN",
+    ];
+    let mut nodes = vec![json!({"id": "root", "smiles": "CC"})];
+    let mut edges = Vec::new();
+    for (i, k) in kids.iter().take(n).enumerate() {
+        nodes.push(json!({"id": format!("k{i}"), "smiles": k}));
+        edges.push(json!({"from": "root", "to": format!("k{i}"), "label": label}));
+    }
+    json!({"format": "pathway/1", "nodes": nodes, "edges": edges})
+}
+
+#[test]
+fn a_fan_of_arrows_with_descriptive_labels_has_no_label_overlap() {
+    // the probes of the review: descriptive labels on fans of 3 or more arrows overlapped when the gap was only the setting
+    for (n, label) in [
+        (3, "+O (hydroxylation)"),
+        (4, "+O (hydroxylation)"),
+        (5, "+O (hydroxylation)"),
+        (8, "+C6H8O6 (glucuronide conjugate)"),
+        (8, "+C6H8O6 glucuronide conjugate"),
+        (10, "+O (hydroxylation)"),
+        (10, "+C6H8O6 (glucuronide conjugate)"),
+    ] {
+        let c = check_of(&fan(n, label));
+        let (counts, list) = measures(&c);
+        assert_eq!(counts, [0, 0, 0], "{n} arrows {label:?}: {list:?}");
+    }
 }

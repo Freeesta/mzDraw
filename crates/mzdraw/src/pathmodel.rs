@@ -36,6 +36,13 @@ pub const FORMAT: &str = "pathway/1";
 pub const MAX_NODES: usize = 500;
 pub const MAX_EDGES: usize = 1000;
 
+/// What `pathway:build` adds to the width of the widest arrow text to make the gap between two columns (bond lengths).
+const LABEL_MARGIN: f64 = 1.0;
+
+/// Bond lengths of row gap for each arrow of the widest fan (3 or more arrows from one structure), measured on fans of 3, 5, 8 and 10 arrows
+/// with texts of 18 to 30 characters: the smallest value for which the estimated boxes of the texts meet no arrow and no text.
+const LABEL_ROW_PER_ARROW: f64 = 0.75;
+
 /// The statuses of a node.
 pub const STATUSES: [&str; 3] = ["observed", "tentative", "not_detected"];
 
@@ -384,8 +391,28 @@ pub fn build_ops(
     if model.edges.iter().any(|e| !e.label.is_empty()) {
         let mut again = doc.clone();
         again.apply(&ops).map_err(key)?;
+        // the gap between two columns is at least the width of the widest text plus a margin: the horizontal text of an arrow then has
+        // room along every arrow, which makes a steep fan shallow (the rule `label` of tp-05 makes room for the visible LENGTH only)
+        let widest = (again.objects.iter())
+            .filter(|o| o.t == crate::doc::ObjKind::Arrow && o.from != 0 && o.to != 0)
+            .map(|o| crate::pathway::label_width(&o.text, style))
+            .fold(0.0, f64::max);
+        let mut wide = style.clone();
+        wide.pathway_col_gap = style.pathway_col_gap.max((widest + LABEL_MARGIN).min(50.0));
+        // a fan of 3 or more arrows from one structure: the horizontal text of each arrow lies across its neighbours unless the rows are far
+        // enough apart, so the gap between two rows grows with the fan (LABEL_ROW_PER_ARROW bond lengths for each arrow of the widest fan)
+        let mut fan: HashMap<&str, usize> = HashMap::new();
+        for e in &model.edges {
+            *fan.entry(e.from.as_str()).or_default() += 1;
+        }
+        let widest_fan = fan.values().copied().max().unwrap_or(0);
+        if widest_fan >= 3 && widest > 0.0 {
+            wide.pathway_row_gap = style
+                .pathway_row_gap
+                .max((LABEL_ROW_PER_ARROW * widest_fan as f64).min(50.0));
+        }
         let tree =
-            crate::pathway::command(&again, style).map_err(|r| Failure::Key(r.key(), r.id()))?;
+            crate::pathway::command(&again, &wide).map_err(|r| Failure::Key(r.key(), r.id()))?;
         ops.extend(tree);
     }
     Ok(ops)

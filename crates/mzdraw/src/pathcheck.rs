@@ -7,12 +7,13 @@
 //! **What is checked** (finding keys, `severity`; the texts are `pathway.*` in `web/lang/mzdraw.js`):
 //! - `pathway.edgeMismatch` (error): the label of an arrow is a formula delta and the delta of the two structures is another. The label is
 //!   read as a mass spectrometrist writes it (`read_label`): signed terms with an optional leading count and spaces (`+O`, `-CH2`, `+2H`,
-//!   `+O-2H`, `+O2-2H`, `+2 H`, `-Cl+OH`), a free word before or after (`glucuronidation +C6H8O6`, `+O (hydroxylation)`), the word of an
+//!   `+O-2H`, `+O2-2H`, `+2 H`, `-Cl+OH`), a free word before the first term (`glucuronidation +C6H8O6`), a comment in parentheses after a term (`+O (hydroxylation)`), never a bare token after a term (`+O 2H` is unreadable, not `+O`), the word of an
 //!   isomer; the comparison is on element counts, so it is exact. A signed number (`+15.9949`) is compared with the difference of the two
 //!   monoisotopic masses within `da` (needs the engine), also where the two structures have no honest formula delta.
 //! - `pathway.edgeUnparsed` (error, or warn with `lenient_labels`): a label that is given and cannot be read; it never passes in silence.
 //!   `pathway.edgeUnlabelled` (info). `pathway.edgeUnchecked` (info): a structure with a free-text label, two structures with the same
 //!   atoms and another net charge (a formula label), or a numeric label with no engine.
+//! - `pathway.mzUnreadable` (error): the observed `MZ` of a node is not a finite number above 0 (`NaN`, `0x10`, `59,0139`): it never passes.
 //! - `pathway.formulaMismatch` (error): the `FORMULA` a node states is not the formula of its structure (counts; a trailing charge is
 //!   ignored). `pathway.isotopesNotCompared` (warn): a structure with isotopes: formulas and deltas count elements, the masses count isotopes.
 //! - `pathway.ionMismatch` (error): the observed `MZ` differs from the m/z of its `ADDUCT` by more than `ppm`; with no adduct typed, the
@@ -239,10 +240,11 @@ fn read_label(text: &str) -> Label {
             .chars()
             .take_while(char::is_ascii_alphanumeric)
             .collect();
-        // what follows the formula (a word, a bracket) is a comment, but only after a space
-        let after = &rest[token.len()..];
+        // what follows the formula is a comment only in parentheses (`+O (hydroxylation)`): a bare token after a term is never skipped (`+O 2H`
+        // is not read as `+O`), so a wrong label cannot pass as a right one with a comment that is really more of the delta; it is unreadable
+        let after = rest[token.len()..].trim();
         if token.is_empty()
-            || !(after.is_empty() || after.starts_with(|c: char| c.is_whitespace() || c == '('))
+            || !(after.is_empty() || (after.starts_with('(') && after.ends_with(')')))
         {
             return Label::Unreadable;
         }
@@ -447,7 +449,22 @@ pub fn report(
         let obs_text = data(&s.ids, &index, "MZ");
         let ion_text = data(&s.ids, &index, "ADDUCT");
         let mut observed = Value::Null;
-        if let (Ok(obs), Some(m)) = (obs_text.parse::<f64>(), meas) {
+        // an observed m/z that is not a finite number above 0 (`NaN`, `0x10`, `59,0139`, `-5`) is an error, whatever the engine: it must not pass
+        let obs_ok = obs_text
+            .parse::<f64>()
+            .ok()
+            .filter(|x| x.is_finite() && *x > 0.0);
+        if !obs_text.is_empty() && obs_ok.is_none() {
+            find(
+                &mut findings,
+                "error",
+                "pathway.mzUnreadable",
+                &node_id,
+                format!("the observed m/z {obs_text:?} is not a number above 0"),
+            );
+            observed = json!({"adduct": ion_text, "mz": null, "expected": null, "ppm": null});
+        }
+        if let (Some(obs), Some(m)) = (obs_ok, meas) {
             // the UNROUNDED expected m/z decides; only the printed number is rounded
             let calc_of = |name: &str| -> Option<f64> {
                 if let Some(own) = &own {
@@ -530,8 +547,8 @@ pub fn report(
             } else {
                 observed = json!({"adduct": adduct, "mz": obs, "expected": null, "ppm": null});
             }
-        } else if !obs_text.is_empty() && obs_text.parse::<f64>().is_ok() {
-            observed = json!({"adduct": ion_text, "mz": obs_text.parse::<f64>().unwrap_or(0.0), "expected": null, "ppm": null});
+        } else if let Some(obs) = obs_ok {
+            observed = json!({"adduct": ion_text, "mz": obs, "expected": null, "ppm": null});
         }
         nodes.push(json!({
             "id": node_id,
@@ -783,7 +800,11 @@ pub fn report(
     let ok = count("error") == 0;
     // what could not be looked at: every node's masses and ions without the engine, and each edge left unchecked
     let unchecked = if engine.is_none() { nodes.len() } else { 0 }
-        + edges.iter().filter(|e| e["result"] == "unchecked").count();
+        + edges.iter().filter(|e| e["result"] == "unchecked").count()
+        + findings
+            .iter()
+            .filter(|f| f.key == "pathway.ionNotComputed")
+            .count();
     let polarity = ["negative", "both", "positive"][(opts.polarity + 1) as usize];
     let doc_json = json!({
         "format": FORMAT,

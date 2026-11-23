@@ -903,6 +903,7 @@ I18N.add("en", {
   "error.draw2.tpNone": "Focus or select an atom of the parent first.",
   "pathway.edgeMismatch": "The label of this arrow does not match the two structures: the formulas or masses differ by something else.",
   "pathway.formulaMismatch": "The formula stated for this node is not the formula of its structure.",
+  "pathway.mzUnreadable": "The observed m/z of this node is not a number above zero (NaN, a comma for the decimal point and other texts are refused), so it was not checked.",
   "pathway.ionMismatch": "The observed m/z of this node is farther from the expected ion than the tolerance.",
   "pathway.layout": "The pathway cannot be laid out (a cycle, or too many structures), so it cannot be checked.",
   "pathway.generationMismatch": "The generation stated for this node is not its column (the longest path from a root).",

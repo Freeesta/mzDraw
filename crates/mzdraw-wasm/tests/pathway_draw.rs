@@ -315,6 +315,8 @@ fn an_adduct_the_engine_has_no_shift_for_is_an_info_not_an_error() {
         .unwrap()
         .iter()
         .any(|f| f["key"] == "pathway.ionNotComputed" && f["item"] == "P"));
+    // a node whose ion could not be computed is counted as unchecked
+    assert_eq!(c["counts"]["unchecked"], json!(1), "{c}");
 }
 
 #[test]
