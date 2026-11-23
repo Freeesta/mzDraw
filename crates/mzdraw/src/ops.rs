@@ -74,7 +74,7 @@ pub enum Op {
     },
     /// Sets the order, the wedge mark, the side of the second line (`pos`) and/or the display kind (`k`) of a bond; a new order
     /// other than 1 drops the mark, a new order other than 2 drops `pos`, a new mark drops `k`. `pos` is `auto`, `c`, `l` or `r`
-    /// (double bonds only) and `k` is `solid`, `dash`, `bdash` or `hash` (see `bonddisp`). `rev` swaps the two ends (the narrow
+    /// (double bonds only) and `k` is `solid`, `dash`, `bdash`, `hash`, `bold`, `dative` or `hbond` (see `bonddisp`; the last two only on a single bond). `rev` swaps the two ends (the narrow
     /// end of a wedge moves to the other atom).
     BondSet {
         id: u32,
@@ -1072,15 +1072,21 @@ impl Document {
                     None if order == 2 => now.pos(),
                     None => String::new(),
                 };
+                // (a dative or hydrogen bond is a single bond: another order takes the kind away, as a mark does)
                 let kind = match k {
                     Some(v) => match crate::bonddisp::k_canon(v) {
                         Some(v) => v,
                         None => return err("error.draw2.bond", *id),
                     },
-                    None if mark == 0 => now.kind(),
+                    None if mark == 0
+                        && (order == 1 || !crate::bonddisp::single_only(&now.kind())) =>
+                    {
+                        now.kind()
+                    }
                     None => String::new(),
                 };
                 let fits = (1..=3).contains(&order)
+                    && (order == 1 || !crate::bonddisp::single_only(&kind))
                     && wedge_fits(order, mark)
                     && (side.is_empty() || order == 2)
                     && (kind.is_empty() || mark == 0);

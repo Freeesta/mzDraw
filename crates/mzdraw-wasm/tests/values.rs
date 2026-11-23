@@ -287,6 +287,7 @@ fn every_key_the_engine_can_refuse_with_has_a_text_in_the_catalog() {
         "error.label.request",
         "error.sel.request",
         "error.draw2.valuesOpen",
+        "error.draw2.valuesLink",
         "error.draw2.valuesSize",
         "error.draw2.valuesAlone",
         "error.draw2.valuesEngine",

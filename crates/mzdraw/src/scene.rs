@@ -277,7 +277,7 @@ struct Painter<'a> {
     lens: LensPaint,
     /// The ink of the bond being painted: ink, or the accent when the lens tints it.
     ink: f32,
-    /// The display of the line of the bond being painted: 0 plain, 1 dash, 2 bold dash, 3 hash (`bonddisp`).
+    /// The display of the line of the bond being painted: 0 plain, 1 dash, 2 bold dash, 3 hash, 4 bold, 5 dative (a plain line; its arrowhead is drawn by `bond`), 6 dotted (`bonddisp`).
     kind: u8,
 }
 
@@ -395,6 +395,9 @@ impl Painter<'_> {
             "dash" => 1,
             "bdash" => 2,
             "hash" => 3,
+            "bold" => 4,
+            "dative" if b.o == 1 => 5,
+            "hbond" if b.o == 1 => 6,
             _ => 0,
         };
         if b.s != 0 {
@@ -439,6 +442,23 @@ impl Painter<'_> {
                     self.seg(shift(s, k), shift(e, k), w);
                 }
             }
+            _ if self.kind == 5 => {
+                // an arrow from the donor `a` to the acceptor `b`: the line stops at the base of the head, which is a solid triangle
+                let head = (self.m.wedge * 1.8).min(len * 0.45);
+                let half = head * 0.4;
+                let base = (e.0 - ux * head, e.1 - uy * head);
+                self.line(
+                    s,
+                    (e.0 - ux * head * 0.9, e.1 - uy * head * 0.9),
+                    w,
+                    self.ink,
+                );
+                let (p, q) = (
+                    (base.0 - uy * half, base.1 + ux * half),
+                    (base.0 + uy * half, base.1 - ux * half),
+                );
+                self.push(&[TRI as f64, e.0, e.1, p.0, p.1, q.0, q.1, self.ink as f64]);
+            }
             _ => self.seg(s, e, w),
         }
     }
@@ -453,6 +473,20 @@ impl Painter<'_> {
         }
         let at = |t: f64| (p.0 + dx * t, p.1 + dy * t);
         let c = self.ink;
+        if self.kind == 4 {
+            // a heavy line
+            return self.line(p, q, w * 2.5, c);
+        }
+        if self.kind == 6 {
+            // dots a hash spacing apart (a round cap on a very short piece), at least two
+            let n = ((len / (self.m.hash * 0.8)).round() as usize).clamp(2, 60);
+            let tiny = (dx / len * w * 0.05, dy / len * w * 0.05);
+            for i in 0..n {
+                let m = at((i as f64 + 0.5) / n as f64);
+                self.line(m, (m.0 + tiny.0, m.1 + tiny.1), w * 1.6, c);
+            }
+            return;
+        }
         if self.kind == 3 {
             // ticks across the line, as long as the plain stroke of a hashed wedge is wide at its middle
             let n = ((len / self.m.hash).round() as usize).clamp(2, 40);

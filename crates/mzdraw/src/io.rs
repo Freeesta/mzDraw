@@ -62,6 +62,10 @@ pub struct Imported {
     /// CDXML: bonds that carried a display (`Dash`, `Hash`) or the side of a double bond, in a file where the reader refused a bond
     /// (so the bonds of the file and of the drawing cannot be paired): the display of every bond is left out, counted.
     pub bond_display_left: usize,
+    /// The dative (type 9) and hydrogen (type 10) bonds of the record being read, as (donor atom, other atom, kind), atoms from 0:
+    /// read as single bonds by the reader of `mzlab-mol`, which has no such bond; `labelled` gives them their kind and direction
+    /// back. Empty between records.
+    pub links: Vec<(usize, usize, &'static str)>,
 }
 
 impl Imported {
@@ -692,6 +696,24 @@ pub(crate) fn labelled(
     let grouped = |g: &&mzlab_mol::StereoGroup| g.kind != mzlab_mol::GroupKind::Abs;
     info.stereo_groups += m.groups.iter().filter(grouped).count();
     let (mut d, placeholder) = Document::from_mol(m);
+    // the bonds the file drew from one atom to the other: dative and hydrogen bonds (the donor is the first atom of the line)
+    for (from, to, kind) in std::mem::take(&mut info.links) {
+        let ids = (
+            d.atoms.get(from).map(|a| a.id),
+            d.atoms.get(to).map(|a| a.id),
+        );
+        // the reader may order the bonds as it likes: the bond is found by its two atoms
+        if let (Some(f), Some(t)) = ids
+            && let Some(b) = d
+                .bonds
+                .iter_mut()
+                .find(|b| (b.a, b.b) == (f, t) || (b.a, b.b) == (t, f))
+        {
+            b.o = 1;
+            crate::bonddisp::k_put(&mut b.more, kind);
+            (b.a, b.b) = (f, t);
+        }
+    }
     for (i, lab) in labels {
         if let Some(a) = d.atoms.get_mut(i) {
             (a.el, a.h, a.lab) = ("C".into(), None, lab);
