@@ -1084,6 +1084,27 @@ impl Painter<'_> {
                     .find(|(k, v)| k == "TP_ID" && !v.is_empty())
                     .map(|(_, v)| v)
             });
+            // a product that is only tentative or was not detected says so next to its name
+            let status = of.iter().find_map(|a| {
+                a.data()
+                    .into_iter()
+                    .find(|(k, v)| {
+                        k == "STATUS" && matches!(v.as_str(), "tentative" | "not_detected")
+                    })
+                    .map(|(_, v)| {
+                        // the words the document carries (the language of whoever built it), else the English default
+                        let text = a
+                            .data()
+                            .into_iter()
+                            .find(|(k, w)| k == "STATUS_TEXT" && !w.is_empty());
+                        text.map_or_else(|| v.replace('_', " "), |(_, w)| w)
+                    })
+            });
+            let name = match (name, status) {
+                (Some(n), Some(s)) => Some(format!("{n} ({s})")),
+                (None, Some(s)) => Some(format!("({s})")),
+                (n, None) => n,
+            };
             let label = match (name, level) {
                 (Some(n), Some(l)) => format!("{n} \u{b7} {l}"),
                 (Some(n), None) => n,

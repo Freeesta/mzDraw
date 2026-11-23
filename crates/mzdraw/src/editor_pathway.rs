@@ -216,6 +216,13 @@ impl Editor {
         Ok(changed)
     }
 
+    /// `pathway-check/1` of the drawing (`pathcheck::report`), with the engine of this editor; remembers whether it found an error.
+    pub(crate) fn pathway_check(&self) -> Result<String, &'static str> {
+        let r = crate::pathcheck::report(self.doc(), &self.style, self.measurer, &self.check_opts)?;
+        self.check_failed.set(!r.ok);
+        Ok(r.json)
+    }
+
     /// The page's button "Label arrows": `pathway:label` with the isomer word of the page's language (empty: the default word).
     pub fn pathway_label_page(&mut self, isomer: &str) -> u32 {
         let mut opts = crate::steplabel::Opts::default();

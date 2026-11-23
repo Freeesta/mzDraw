@@ -236,6 +236,12 @@ pub fn fit(w: f64, h: f64) -> u32 {
     act(|e| e.fit(w, h))
 }
 
+/// The words a pathway node that is tentative or not detected shows next to its name, in the language of the page; call before `add`.
+#[wasm_bindgen]
+pub fn set_status_words(tentative: &str, not_detected: &str) {
+    with(|p| p.editor.set_status_words(tentative, not_detected));
+}
+
 /// Adds a structure text (SMILES, molfile or SDF, `mzdraw/1`) to the drawing; returns `{"format", "placeholder", "notes"}`, the
 /// notes being what the page has to say about the import, as `[i18n key, count]` pairs.
 #[wasm_bindgen]
