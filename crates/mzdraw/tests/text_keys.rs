@@ -12,6 +12,29 @@ fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
     }
 }
 
+/// The finding keys of the pathway checks (`pathway.*`, written by `pathcheck.rs` only: other files use `pathway.` for settings) have a text.
+#[test]
+fn every_finding_key_of_the_pathway_check_is_in_the_english_texts() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let lang = std::fs::read_to_string(root.join("web/lang/mzdraw.js")).unwrap();
+    let code = std::fs::read_to_string(root.join("crates/mzdraw/src/pathcheck.rs")).unwrap();
+    let (mut seen, mut missing) = (0, Vec::new());
+    for (i, _) in code.match_indices("\"pathway.") {
+        let key: String = code[i + 1..]
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '.')
+            .collect();
+        if code[i + 1 + key.len()..].starts_with('"') {
+            seen += 1;
+            if !lang.contains(&format!("\"{key}\":")) {
+                missing.push(key);
+            }
+        }
+    }
+    assert!(seen >= 15, "{seen}");
+    assert!(missing.is_empty(), "no English text for: {missing:?}");
+}
+
 #[test]
 fn every_error_and_import_key_of_the_code_is_in_the_english_texts() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");

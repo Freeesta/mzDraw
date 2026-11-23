@@ -699,6 +699,7 @@ function events() {
 function add(text) {
   const note = $("d2-note");
   try {
+    ed.set_status_words(t("draw2.status.tentative"), t("draw2.status.notDetected"));   // the words of the page's language for a pathway model
     const info = JSON.parse(typeof text === "string" ? ed.add(text) : ed.add_bytes(text));
     note.textContent = info.notes.map((/** @type {[string, number]} */ [key, n]) => t(key, { n })).join(" ");
     after(ed.fit(cv.clientWidth, cv.clientHeight) | CHANGED);

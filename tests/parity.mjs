@@ -109,7 +109,9 @@ for (const c of fx.losses) {
 // through the plain replay (no engine: the formulas, never a made-up number), which the `.wasm` and the native example answer alike
 for (const c of fx.values) {
   const request = JSON.stringify(c.request), [onPage, onCli] = c.plain ? [site(request), native(request)] : [siteGlue(request), nativeGlue(request)];
-  check(onPage.status === 0 && onCli.status === 0, `${c.name}: runs on both sides (${onPage.stderr} ${onCli.stderr})`);
+  // a failed pathway check (`ok` false) makes the native example exit 3 (the .wasm and the glue door answer with the text alone, status 0)
+  const exitWanted = c.plain && c.request.out === "pathway-check" && JSON.parse(c.out).ok === false ? 3 : 0;
+  check(onPage.status === 0 && onCli.status === exitWanted, `${c.name}: runs on both sides (${onPage.stderr} ${onCli.stderr}); native exit ${onCli.status}, wanted ${exitWanted}`);
   check(onPage.stdout === onCli.stdout, `${c.name}: wasm == native`);
   check(onPage.stdout === c.out, `${c.name}: the recorded bytes`);
   // the engine was there: `values/1` says so, a table has masses with four decimals, a drawing has the mass text

@@ -247,7 +247,7 @@
   "values": [
     {
       "name": "pathway-draw: the checks of a good model (engine: masses, expected ions per polarity, ppm, delta masses)",
-      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":0,\"info\":0,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":93.0699},{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":123.0441},{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.0295,\"ppm\":0.0},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":true,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "out": "{\"checked\":true,\"counts\":{\"arrow_box_crossings\":0,\"edge_crossings\":0,\"edges\":3,\"error\":0,\"info\":0,\"label_box_overlaps\":0,\"nodes\":4,\"unchecked\":0,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":93.0699},{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.3},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.1},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":123.0441},{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.0295,\"ppm\":0.0},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":true,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
       "request": {
         "commands": [
           {
@@ -327,7 +327,7 @@
     },
     {
       "name": "pathway-draw: a wrong edge label and a wrong observed m/z fail the check (ok false, the document is written all the same)",
-      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":2,\"info\":0,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"-CH2\",\"result\":\"mismatch\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[{\"detail\":\"[M-H]-: observed 121.05, expected 121.0295, 169.4 ppm\",\"item\":\"M2\",\"key\":\"pathway.ionMismatch\",\"severity\":\"error\"},{\"detail\":\"labelled -CH2, the formulas differ by +O\",\"item\":\"P>M3\",\"key\":\"pathway.edgeMismatch\",\"severity\":\"error\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":93.0699},{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":123.0441},{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.05,\"ppm\":169.4},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":false,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "out": "{\"checked\":true,\"counts\":{\"arrow_box_crossings\":0,\"edge_crossings\":0,\"edges\":3,\"error\":2,\"info\":0,\"label_box_overlaps\":0,\"nodes\":4,\"unchecked\":0,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"-CH2\",\"result\":\"mismatch\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[{\"detail\":\"[M-H]-: observed 121.05, expected 121.0295, 169.4 ppm\",\"item\":\"M2\",\"key\":\"pathway.ionMismatch\",\"severity\":\"error\"},{\"detail\":\"labelled -CH2, the formulas differ by +O\",\"item\":\"P>M3\",\"key\":\"pathway.edgeMismatch\",\"severity\":\"error\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":93.0699},{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.3},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.1},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":123.0441},{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.05,\"ppm\":169.4},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":false,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
       "request": {
         "commands": [
           {
@@ -407,7 +407,7 @@
     },
     {
       "name": "pathway-draw: numeric labels are compared with the delta mass within da",
-      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":1,\"info\":0,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+15.9949\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+14.0\",\"result\":\"mismatch\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[{\"detail\":\"labelled +14.0, the masses differ by +13.9793\",\"item\":\"M1>M2\",\"key\":\"pathway.edgeMismatch\",\"severity\":\"error\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":93.0699},{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":123.0441},{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.0295,\"ppm\":0.0},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":false,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "out": "{\"checked\":true,\"counts\":{\"arrow_box_crossings\":0,\"edge_crossings\":0,\"edges\":3,\"error\":1,\"info\":0,\"label_box_overlaps\":0,\"nodes\":4,\"unchecked\":0,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+15.9949\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+14.0\",\"result\":\"mismatch\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[{\"detail\":\"labelled +14.0, the masses differ by +13.9793\",\"item\":\"M1>M2\",\"key\":\"pathway.edgeMismatch\",\"severity\":\"error\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":93.0699},{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.3},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.1},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":123.0441},{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.0295,\"ppm\":0.0},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":false,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
       "request": {
         "commands": [
           {
@@ -487,7 +487,7 @@
     },
     {
       "name": "pathway-draw: negative polarity only",
-      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":0,\"info\":0,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.0295,\"ppm\":0.0},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":true,\"polarity\":\"negative\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "out": "{\"checked\":true,\"counts\":{\"arrow_box_crossings\":0,\"edge_crossings\":0,\"edges\":3,\"error\":0,\"info\":0,\"label_box_overlaps\":0,\"nodes\":4,\"unchecked\":0,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.3},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.1},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.0295,\"ppm\":0.0},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":true,\"polarity\":\"negative\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
       "request": {
         "args": {
           "polarity": "negative"
@@ -741,7 +741,7 @@
     },
     {
       "name": "pathway-draw: the plain replay has no engine, so no mass and no ion (the formulas and the deltas are checked)",
-      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":0,\"info\":1,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":null,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":null,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":null,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":false,\"findings\":[{\"detail\":\"no engine: masses, ions and numeric labels were not checked\",\"item\":\"\",\"key\":\"pathway.engine\",\"severity\":\"info\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[],\"label\":\"Toluene\",\"monoisotopic_mass\":null,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":null,\"mz\":93.0699,\"ppm\":null},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":null,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":null,\"mz\":109.0648,\"ppm\":null},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":null,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":null,\"mz\":121.0295,\"ppm\":null},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[],\"label\":\"p-Cresol\",\"monoisotopic_mass\":null,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":true,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "out": "{\"checked\":false,\"counts\":{\"arrow_box_crossings\":0,\"edge_crossings\":0,\"edges\":3,\"error\":0,\"info\":1,\"label_box_overlaps\":0,\"nodes\":4,\"unchecked\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":null,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":null,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":null,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":false,\"findings\":[{\"detail\":\"no engine: masses, ions and numeric labels were not checked\",\"item\":\"\",\"key\":\"pathway.engine\",\"severity\":\"info\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[],\"label\":\"Toluene\",\"monoisotopic_mass\":null,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":null,\"mz\":93.0699,\"ppm\":null},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":null,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":null,\"mz\":109.0648,\"ppm\":null},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":null,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":null,\"mz\":121.0295,\"ppm\":null},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[],\"label\":\"p-Cresol\",\"monoisotopic_mass\":null,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":true,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
       "plain": true,
       "request": {
         "commands": [
@@ -810,6 +810,133 @@
                     "label": "p-Cresol",
                     "smiles": "Oc1ccc(C)cc1",
                     "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "pathway-check"
+      }
+    },
+    {
+      "name": "pathway-draw: the verdict uses the unrounded expected m/z (acetic acid [M-H]-, observed 59.0133 is -9.4 ppm, not -10.2)",
+      "out": "{\"checked\":true,\"counts\":{\"arrow_box_crossings\":0,\"edge_crossings\":0,\"edges\":0,\"error\":0,\"info\":0,\"label_box_overlaps\":0,\"nodes\":1,\"unchecked\":0,\"warn\":0},\"edges\":[],\"engine\":true,\"findings\":[],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"\",\"formula\":\"C2H4O2\",\"generation\":null,\"id\":\"x\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":61.0284},{\"adduct\":\"[M-H]-\",\"mz\":59.0139}],\"label\":\"x\",\"monoisotopic_mass\":60.0211,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":59.0139,\"mz\":59.0133,\"ppm\":-9.4},\"status\":\"observed\"}],\"ok\":true,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "id": "x",
+                    "ion": "[M-H]-",
+                    "mz": 59.0133,
+                    "smiles": "CC(=O)O"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "pathway-check"
+      }
+    },
+    {
+      "name": "pathway-draw: a charged structure is its own ion (tetramethylammonium, observed 74.0964) and the delta mass to the neutral has no electron",
+      "out": "{\"checked\":true,\"counts\":{\"arrow_box_crossings\":0,\"edge_crossings\":0,\"edges\":1,\"error\":0,\"info\":0,\"label_box_overlaps\":0,\"nodes\":2,\"unchecked\":0,\"warn\":0},\"edges\":[{\"delta\":\"+CH3\",\"delta_mass\":15.0235,\"from\":\"a\",\"label\":\"+CH3\",\"result\":\"ok\",\"to\":\"b\"}],\"engine\":true,\"findings\":[],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"\",\"formula\":\"C3H9N\",\"generation\":0,\"id\":\"a\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":60.0808},{\"adduct\":\"[M-H]-\",\"mz\":58.0662}],\"label\":\"a\",\"monoisotopic_mass\":59.0735,\"observed\":null,\"status\":\"observed\"},{\"branch\":\"\",\"formula\":\"C4H12N+\",\"generation\":1,\"id\":\"b\",\"ions\":[{\"adduct\":\"[M]+\",\"mz\":74.0964}],\"label\":\"b\",\"monoisotopic_mass\":74.097,\"observed\":{\"adduct\":\"[M]+\",\"expected\":74.0964,\"mz\":74.0964,\"ppm\":-0.3},\"status\":\"observed\"}],\"ok\":true,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "a",
+                    "label": "+CH3",
+                    "to": "b"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "id": "a",
+                    "smiles": "CN(C)C"
+                  },
+                  {
+                    "id": "b",
+                    "mz": 74.0964,
+                    "smiles": "C[N+](C)(C)C"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "pathway-check"
+      }
+    },
+    {
+      "name": "pathway-draw: leading counts, spaces and words around a label are read; a label that cannot be read is an error (plain replay: the masses are unchecked)",
+      "out": "{\"checked\":false,\"counts\":{\"arrow_box_crossings\":1,\"edge_crossings\":0,\"edges\":5,\"error\":1,\"info\":1,\"label_box_overlaps\":1,\"nodes\":5,\"unchecked\":5,\"warn\":2},\"edges\":[{\"delta\":\"+O-H2\",\"delta_mass\":null,\"from\":\"a\",\"label\":\"+O-2H\",\"result\":\"ok\",\"to\":\"b\"},{\"delta\":\"+O2-H2\",\"delta_mass\":null,\"from\":\"c\",\"label\":\"+2O-2H\",\"result\":\"ok\",\"to\":\"b\"},{\"delta\":\"-O\",\"delta_mass\":null,\"from\":\"a\",\"label\":\"-O\",\"result\":\"ok\",\"to\":\"c\"},{\"delta\":\"-C4\",\"delta_mass\":null,\"from\":\"e\",\"label\":\"oxidation (CYP)\",\"result\":\"unreadable\",\"to\":\"c\"},{\"delta\":\"+H2\",\"delta_mass\":null,\"from\":\"e\",\"label\":\"hydrogenation +2H\",\"result\":\"ok\",\"to\":\"d\"}],\"engine\":false,\"findings\":[{\"detail\":\"no engine: masses, ions and numeric labels were not checked\",\"item\":\"\",\"key\":\"pathway.engine\",\"severity\":\"info\"},{\"detail\":\"oxidation (CYP)\",\"item\":\"e>c\",\"key\":\"pathway.edgeUnparsed\",\"severity\":\"error\"},{\"detail\":\"\",\"item\":\"a>b\",\"key\":\"pathway.crossing\",\"severity\":\"warn\"},{\"detail\":\"\",\"item\":\"a>b,e>c\",\"key\":\"pathway.labelOverlap\",\"severity\":\"warn\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"\",\"formula\":\"C2H6O\",\"generation\":0,\"id\":\"a\",\"ions\":[],\"label\":\"a\",\"monoisotopic_mass\":null,\"observed\":null,\"status\":\"observed\"},{\"branch\":\"\",\"formula\":\"C2H4O2\",\"generation\":2,\"id\":\"b\",\"ions\":[],\"label\":\"b\",\"monoisotopic_mass\":null,\"observed\":null,\"status\":\"observed\"},{\"branch\":\"\",\"formula\":\"C2H6\",\"generation\":1,\"id\":\"c\",\"ions\":[],\"label\":\"c\",\"monoisotopic_mass\":null,\"observed\":null,\"status\":\"observed\"},{\"branch\":\"\",\"formula\":\"C6H8\",\"generation\":1,\"id\":\"d\",\"ions\":[],\"label\":\"d\",\"monoisotopic_mass\":null,\"observed\":null,\"status\":\"observed\"},{\"branch\":\"\",\"formula\":\"C6H6\",\"generation\":0,\"id\":\"e\",\"ions\":[],\"label\":\"e\",\"monoisotopic_mass\":null,\"observed\":null,\"status\":\"observed\"}],\"ok\":false,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "plain": true,
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "a",
+                    "label": "+O-2H",
+                    "to": "b"
+                  },
+                  {
+                    "from": "c",
+                    "label": "+2O-2H",
+                    "to": "b"
+                  },
+                  {
+                    "from": "e",
+                    "label": "hydrogenation +2H",
+                    "to": "d"
+                  },
+                  {
+                    "from": "a",
+                    "label": "-O",
+                    "to": "c"
+                  },
+                  {
+                    "from": "e",
+                    "label": "oxidation (CYP)",
+                    "to": "c"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "id": "a",
+                    "smiles": "CCO"
+                  },
+                  {
+                    "id": "b",
+                    "smiles": "CC(=O)O"
+                  },
+                  {
+                    "id": "c",
+                    "smiles": "CC"
+                  },
+                  {
+                    "id": "d",
+                    "smiles": "C1=CCC=CC1"
+                  },
+                  {
+                    "id": "e",
+                    "smiles": "c1ccccc1"
                   }
                 ]
               }

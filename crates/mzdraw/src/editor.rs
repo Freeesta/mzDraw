@@ -261,6 +261,8 @@ pub struct Editor {
     pub check_failed: std::cell::Cell<bool>,
     /// The tolerances and the polarity of `save("pathway-check")` (the `args` of the request).
     pub check_opts: crate::pathcheck::Opts,
+    /// The words a pathway node that is tentative or not detected shows next to its name, in the language of the page (`set_status_words`).
+    pub status_words: Option<(String, String)>,
     /// The calculated values of the structures as `refresh_values` last found them, and of the selection with the atoms it was for.
     pub(crate) measured: Vec<crate::values::Entry>,
     pub(crate) measured_error: &'static str,
@@ -444,6 +446,7 @@ impl Default for Editor {
             table_notes: std::cell::RefCell::default(),
             check_failed: std::cell::Cell::new(false),
             check_opts: crate::pathcheck::Opts::default(),
+            status_words: None,
             measured: Vec::new(),
             measured_error: "",
             measured_adducts: Vec::new(),
@@ -999,17 +1002,26 @@ impl Editor {
         }
     }
 
+    /// The words (tentative, not detected) the next pathway model is drawn with; the page passes those of its language. Empty texts or texts
+    /// above 32 characters are ignored (the painter's English stays).
+    pub fn set_status_words(&mut self, tentative: &str, not_detected: &str) {
+        let ok =
+            |s: &str| !s.is_empty() && s.chars().count() <= 32 && !s.chars().any(char::is_control);
+        self.status_words = (ok(tentative) && ok(not_detected))
+            .then(|| (tentative.to_string(), not_detected.to_string()));
+    }
+
     /// A pathway model `pathway/1` (`pathmodel`) as the Add field and the file button take it: the command `pathway:build`, one undo step. A
     /// refusal adds nothing; the lines of the nodes and edges that failed are said as for a TP list.
     fn import_model(&mut self, text: &str) -> Result<io::Imported, &'static str> {
         let model: serde_json::Value =
             serde_json::from_str(text).map_err(|_| crate::pathmodel::KEY_MODEL)?;
         let nodes = model["nodes"].as_array().map_or(0, Vec::len);
-        match crate::commands::run(
-            self,
-            "pathway:build",
-            &serde_json::json!({ "model": model }),
-        ) {
+        let mut args = serde_json::json!({ "model": model });
+        if let Some((t, n)) = &self.status_words {
+            args["words"] = serde_json::json!({ "tentative": t, "not_detected": n });
+        }
+        match crate::commands::run(self, "pathway:build", &args) {
             Ok(()) => {
                 self.notice = ("", String::new());
                 Ok(io::Imported {

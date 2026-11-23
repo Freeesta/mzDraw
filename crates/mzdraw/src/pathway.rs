@@ -207,7 +207,7 @@ fn field(doc: &Document, atoms: &[u32], name: &str) -> Option<f64> {
 }
 
 /// The width of the text of an arrow as the painter sets it (bond lengths): the font of the arrow text is 0.85 of the label font.
-fn label_width(text: &str, style: &Style) -> f64 {
+pub(crate) fn label_width(text: &str, style: &Style) -> f64 {
     if text.is_empty() {
         return 0.0;
     }

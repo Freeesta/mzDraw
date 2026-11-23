@@ -13,7 +13,8 @@
 //! field is new, so a log of the result replays to the same bytes natively and in the `.wasm`.
 //!
 //! **Data kept on a structure** (after the reserved fields of `tp_list::FIELDS`): `NODE_ID` (the `id` of the model), `FORMULA` (the
-//! formula the model states), `STATUS` (`observed`, `tentative`, `not_detected`; `observed` is the default and is not written),
+//! formula the model states), `STATUS` (`observed`, `tentative`, `not_detected`; `observed` is the default and is not written) and
+//! `STATUS_TEXT` (the words shown next to the name, in the language of the caller; English when the caller gave none),
 //! `GENERATION`, `BRANCH`. The shown name `TP_ID` is the `label` (else the `id`); the checks (`pathcheck`) read the drawing, not the
 //! model, so they work on any file that carries these fields.
 //!
@@ -281,7 +282,12 @@ pub fn parse(v: &Value) -> Result<Model, Failure> {
 
 /// The operations of `pathway:build`: the list of `tp:import` made from the model, then the data of each structure and the labels the
 /// model gives to its arrows, all on one copy of the drawing so that the caller runs them as one undo step.
-pub fn build_ops(doc: &Document, style: &Style, v: &Value) -> Result<Vec<Op>, Failure> {
+pub fn build_ops(
+    doc: &Document,
+    style: &Style,
+    v: &Value,
+    words: Option<&(String, String)>,
+) -> Result<Vec<Op>, Failure> {
     let model = parse(v)?;
     let rows: Vec<Value> = model
         .nodes
@@ -336,6 +342,15 @@ pub fn build_ops(doc: &Document, style: &Style, v: &Value) -> Result<Vec<Op>, Fa
         }
         if !n.status.is_empty() && n.status != "observed" {
             extra.push(("STATUS", n.status.clone()));
+            // the words the drawing shows, in the language of the caller; without them the painter's English
+            if let Some((tentative, absent)) = words {
+                let w = if n.status == "tentative" {
+                    tentative
+                } else {
+                    absent
+                };
+                extra.push(("STATUS_TEXT", w.clone()));
+            }
         }
         if let Some(g) = n.generation {
             extra.push(("GENERATION", g.to_string()));
@@ -363,6 +378,15 @@ pub fn build_ops(doc: &Document, style: &Style, v: &Value) -> Result<Vec<Op>, Fa
                 pt: [None, None],
             });
         }
+    }
+    // the layout ran before the labels of the model were set: run it again on the drawing as it now is, so that the room for the text of
+    // each arrow is the room for the text it really has (the rule `label` of tp-05), and the arrows are routed to the moved structures
+    if model.edges.iter().any(|e| !e.label.is_empty()) {
+        let mut again = doc.clone();
+        again.apply(&ops).map_err(key)?;
+        let tree =
+            crate::pathway::command(&again, style).map_err(|r| Failure::Key(r.key(), r.id()))?;
+        ops.extend(tree);
     }
     Ok(ops)
 }

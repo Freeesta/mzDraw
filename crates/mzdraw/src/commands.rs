@@ -209,13 +209,31 @@ fn pathway_args(name: &str, args: &Value) -> Result<Option<u32>, &'static str> {
     }
 }
 
-/// The arguments of `pathway:build`: `{"model": {"format":"pathway/1", ...}}`, nothing else (the model itself is checked when it runs, with
-/// every problem listed).
-fn build_args(args: &Value) -> Result<&Value, &'static str> {
-    let obj = args.as_object().ok_or("error.draw2.request")?;
-    match (obj.get("model"), obj.len()) {
-        (Some(m @ Value::Object(_)), 1) => Ok(m),
-        _ => Err("error.draw2.request"),
+/// The arguments of `pathway:build`: `{"model": {"format":"pathway/1", ...}}` and, optionally, `"words": {"tentative": TEXT, "not_detected": TEXT}`
+/// (the words the drawing shows next to the name of such a node, in the language of the caller; the page passes the words of its catalog).
+/// The model itself is checked when it runs, with every problem listed.
+pub(crate) type Words = (String, String);
+
+fn build_args(args: &Value) -> Result<(&Value, Option<Words>), &'static str> {
+    const BAD: &str = "error.draw2.request";
+    let obj = args.as_object().ok_or(BAD)?;
+    let model = match obj.get("model") {
+        Some(m @ Value::Object(_)) => m,
+        _ => return Err(BAD),
+    };
+    let word = |v: &Value| -> Option<String> {
+        let s = v.as_str()?;
+        (!s.is_empty() && s.chars().count() <= 32 && !s.chars().any(char::is_control))
+            .then(|| s.to_string())
+    };
+    match (obj.get("words"), obj.len()) {
+        (None, 1) => Ok((model, None)),
+        (Some(Value::Object(w)), 2) if w.len() == 2 => {
+            let t = w.get("tentative").and_then(word).ok_or(BAD)?;
+            let n = w.get("not_detected").and_then(word).ok_or(BAD)?;
+            Ok((model, Some((t, n))))
+        }
+        _ => Err(BAD),
     }
 }
 
@@ -415,9 +433,9 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
         };
     }
     if name == "pathway:build" {
-        let model = build_args(args).map_err(bad)?;
+        let (model, words) = build_args(args).map_err(bad)?;
         e.failed_rows.clear();
-        return match crate::pathmodel::build_ops(e.doc(), &e.style, model) {
+        return match crate::pathmodel::build_ops(e.doc(), &e.style, model, words.as_ref()) {
             Ok(ops) => {
                 let n = ops.len().to_string();
                 e.session.run(&ops)?;

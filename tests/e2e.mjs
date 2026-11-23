@@ -4271,7 +4271,11 @@ try {
   const pdModel = readFileSync(path.join(root, "tests/data/pathway-draw/oxidation.json"), "utf8");
   const pdGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway-draw.json"), "utf8")).values;
   const pdSame = async what => {
-    eq(await pg.evaluate("window.MZDRAW.save('svg')"), pdGold[4].out, what + ": the SVG is the golden");
+    // the page gives the editor the words of its language for the status (data STATUS_TEXT): the SVG is the replay of the same request with those words
+    const words = await pg.evaluate("({ tentative: I18N.t('draw2.status.tentative'), not_detected: I18N.t('draw2.status.notDetected') })");
+    const withWords = JSON.parse(JSON.stringify(pdGold[4].request)); withWords.commands[0].args.words = words;
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), await pg.evaluate(r => window.MZDRAW.replay(JSON.stringify(r)), withWords), what + ": the SVG is the replay of the request with the page's words");
+    assert((await pg.evaluate("window.MZDRAW.save('svg')")).includes("Benzoic acid (" + words.tentative + ")"), what + ": the status in the words of the page");
     eq(await pg.evaluate("window.MZDRAW.save('pathway-check')"), pdGold[0].out, what + ": the checks are the golden (masses and ions of the engine)");
     eq(await pg.evaluate("window.MZDRAW.save('ket')"), pdGold[6].out, what + ": the KET is the golden");
   };
@@ -4280,7 +4284,7 @@ try {
     await want(pg, { atoms: 32 }); await tool(pg, "fit"); await frames(pg);
     await pdSame("keyboard");
     const c = JSON.parse(await pg.evaluate("window.MZDRAW.save('pathway-check')"));
-    eq([c.ok, c.engine, c.counts.nodes, c.counts.edges, c.counts.crossings], [true, true, 4, 3, 0]);
+    eq([c.ok, c.engine, c.counts.nodes, c.counts.edges, c.counts.arrow_box_crossings], [true, true, 4, 3, 0]);
     await shot(pg, "pathway-draw");                                                                            // deviceScaleFactor 2
     await tool(pg, "undo"); await want(pg, { atoms: 0 }); await tool(pg, "redo"); await want(pg, { atoms: 32 });
     await pdSame("redo");

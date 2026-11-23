@@ -106,7 +106,13 @@ fn a_model_becomes_a_laid_out_drawing_with_its_data_in_one_step() {
 #[test]
 fn the_layout_has_one_column_per_generation_and_nothing_overlaps() {
     let c = check_of(&model());
-    assert_eq!(c["counts"]["crossings"], 0, "{c}");
+    for k in [
+        "arrow_box_crossings",
+        "edge_crossings",
+        "label_box_overlaps",
+    ] {
+        assert_eq!(c["counts"][k], 0, "{k}: {c}");
+    }
     let boxes: Value =
         serde_json::from_str(&replay(&with_out(&model(), "boxes")).unwrap()).unwrap();
     let list = boxes["structures"].as_array().unwrap();
@@ -343,7 +349,11 @@ fn a_label_that_does_not_match_the_structures_is_flagged_and_the_check_fails() {
         ("-Cl+OH", "mismatch", 1),
         ("isomer", "mismatch", 1),
         ("+O", "ok", 0),
-        ("hydroxylation", "unparsed", 0),
+        // words only: a label that is given and cannot be read is an error, never a pass
+        ("hydroxylation", "unreadable", 1),
+        ("+O-", "unreadable", 1),
+        ("+O,", "unreadable", 1),
+        ("N-oxidation", "unreadable", 1),
     ] {
         let mut m = model();
         m["edges"][2]["label"] = json!(label);
@@ -463,17 +473,29 @@ fn a_failed_check_has_its_own_exit_flag_apart_from_a_refusal() {
 #[test]
 fn the_native_example_exits_with_3_for_a_failed_check_and_1_for_a_refusal() {
     use std::io::Write;
+    // the example is built here (never skipped): the test would otherwise pass when the example is absent
     let exe = std::env::current_exe().unwrap();
-    let exe = exe
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("examples/replay");
-    if !exe.exists() {
-        eprintln!("skipped: {} is not built", exe.display());
-        return;
+    let profile_dir = exe.parent().unwrap().parent().unwrap().to_path_buf();
+    let mut build =
+        std::process::Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()));
+    build.args([
+        "build",
+        "--locked",
+        "-q",
+        "-p",
+        "mzdraw",
+        "--example",
+        "replay",
+    ]);
+    if profile_dir.ends_with("release") {
+        build.arg("--release");
     }
+    assert!(
+        build.status().expect("cargo runs").success(),
+        "the example replay builds"
+    );
+    let exe = profile_dir.join("examples/replay");
+    assert!(exe.exists(), "{} is built", exe.display());
     let run = |request: String| {
         let mut p = std::process::Command::new(&exe)
             .stdin(std::process::Stdio::piped())
@@ -568,11 +590,70 @@ fn svg_pdf_and_the_document_read_back_as_the_same_drawing() {
     assert_eq!(c, e.save("pathway-check").unwrap());
 }
 
+/// The drawing as numbers: (element, x, y) of each atom in order, the bonds as (index, index, order), the arrows as their end points, the texts.
+type Shape = (
+    Vec<(String, f64, f64)>,
+    Vec<(usize, usize, u64)>,
+    Vec<[f64; 4]>,
+    BTreeSet<String>,
+);
+
+fn shape(e: &Editor) -> Shape {
+    let v: Value = serde_json::from_str(&e.save("mzdraw").unwrap()).unwrap();
+    let atoms = v["atoms"].as_array().unwrap();
+    let at = |id: &Value| atoms.iter().position(|a| a["id"] == *id).unwrap();
+    (
+        atoms
+            .iter()
+            .map(|a| {
+                (
+                    a["el"].as_str().unwrap().to_string(),
+                    a["x"].as_f64().unwrap(),
+                    a["y"].as_f64().unwrap(),
+                )
+            })
+            .collect(),
+        v["bonds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| (at(&b["a"]), at(&b["b"]), b["o"].as_u64().unwrap_or(1)))
+            .collect(),
+        v["objects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|o| o["t"] == "arrow")
+            .map(|o| {
+                [
+                    o["x"].as_f64().unwrap(),
+                    o["y"].as_f64().unwrap(),
+                    o["x2"].as_f64().unwrap(),
+                    o["y2"].as_f64().unwrap(),
+                ]
+            })
+            .collect(),
+        v["objects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|o| o["t"] == "text" || o["t"] == "arrow")
+            .filter_map(|o| {
+                o["text"]
+                    .as_str()
+                    .filter(|t| !t.is_empty())
+                    .map(str::to_string)
+            })
+            .collect(),
+    )
+}
+
 #[test]
-fn cdxml_and_ket_read_back_the_same_structures_and_the_same_graph_once_the_arrows_are_anchored() {
+fn cdxml_and_ket_read_back_the_same_atoms_bonds_positions_arrows_and_labels() {
     let e = built();
     let (nodes, edges) = graph(&e);
     assert_eq!((nodes.len(), edges.len()), (4, 3));
+    let want = shape(&e);
     for kind in ["cdxml", "ket"] {
         let text = e.save(kind).unwrap();
         let mut back = Editor::default();
@@ -584,7 +665,39 @@ fn cdxml_and_ket_read_back_the_same_structures_and_the_same_graph_once_the_arrow
             "{kind}: {lost}"
         );
         assert!(graph(&back).1.is_empty(), "{kind}: free arrows");
-        back.run_command("pathway:route", &json!({})).ok();
+        // the numbers, before the arrows are anchored again: counts, elements, positions, bond orders, arrow end points, label texts
+        let got = shape(&back);
+        assert_eq!(
+            (got.0.len(), got.1.len(), got.2.len()),
+            (want.0.len(), want.1.len(), want.2.len()),
+            "{kind}: counts"
+        );
+        // CDXML puts the page on an origin of its own: positions are compared from the first atom
+        let (ox, oy) = (got.0[0].1 - want.0[0].1, got.0[0].2 - want.0[0].2);
+        for (i, (g, w)) in got.0.iter().zip(&want.0).enumerate() {
+            assert_eq!(g.0, w.0, "{kind}: element of atom {i}");
+            assert!(
+                (g.1 - ox - w.1).abs() < 0.01 && (g.2 - oy - w.2).abs() < 0.01,
+                "{kind}: atom {i} at {:?}, was {:?}",
+                (g.1 - ox, g.2 - oy),
+                (w.1, w.2)
+            );
+        }
+        assert_eq!(got.1, want.1, "{kind}: bonds");
+        for (g, w) in got.2.iter().zip(&want.2) {
+            let moved = [g[0] - ox, g[1] - oy, g[2] - ox, g[3] - oy];
+            assert!(
+                moved.iter().zip(w).all(|(a, b)| (a - b).abs() < 0.01),
+                "{kind}: arrow {moved:?}, was {w:?}"
+            );
+        }
+        assert_eq!(
+            got.3, want.3,
+            "{kind}: the label texts (on the arrows or above them)"
+        );
+        // anchored again, the graph is the same
+        back.run_command("pathway:route", &json!({}))
+            .expect("pathway:route runs");
         for id in arrow_ids(&back) {
             back.run_command("pathway:anchor", &json!({"arrow": id}))
                 .unwrap();
@@ -592,19 +705,6 @@ fn cdxml_and_ket_read_back_the_same_structures_and_the_same_graph_once_the_arrow
         let (n2, e2) = graph(&back);
         assert_eq!(n2, nodes, "{kind}: the same structures");
         assert_eq!(e2, edges, "{kind}: the same graph");
-        // the labels come back as texts
-        let texts: BTreeSet<String> = serde_json::from_str::<Value>(&back.save("mzdraw").unwrap())
-            .unwrap()["objects"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|o| o["t"] == "text")
-            .map(|o| o["text"].as_str().unwrap().to_string())
-            .collect();
-        assert!(
-            ["+O", "+O-H2"].iter().all(|t| texts.contains(*t)),
-            "{kind}: {texts:?}"
-        );
     }
 }
 
@@ -619,12 +719,65 @@ fn arrow_ids(e: &Editor) -> Vec<u64> {
 }
 
 #[test]
-fn the_status_is_drawn_under_the_structure_in_every_vector_output() {
+fn the_status_is_drawn_by_the_painter_into_the_svg_and_the_pdf_not_into_cdxml_or_ket() {
     let e = built();
     let svg = e.save("svg").unwrap();
     assert!(svg.contains("Benzoic acid (tentative)"), "{svg}");
     assert!(svg.contains("p-Cresol (not detected)"));
     assert!(!svg.contains("Toluene ("));
+    // the PDF is painted from the same scene: its text is text
+    let pdf = String::from_utf8_lossy(&e.pdf()).into_owned();
+    assert!(
+        pdf.contains("Benzoic acid \\(tentative\\)"),
+        "the PDF draws the status"
+    );
+    // CDXML and KET carry the structures, the arrows and their texts, not the data fields or the words under a structure: the loss
+    // manifest lists the data, and neither file has the word
+    for kind in ["cdxml", "ket"] {
+        let text = e.save(kind).unwrap();
+        assert!(
+            !text.contains("tentative") && !text.contains("not detected"),
+            "{kind}"
+        );
+        assert!(
+            e.save(&format!("loss:{kind}"))
+                .unwrap()
+                .contains("\"data\""),
+            "{kind}"
+        );
+    }
+}
+
+#[test]
+fn the_words_of_the_status_are_the_callers_and_travel_with_the_document() {
+    let mut r = build(&model());
+    r["commands"][0]["args"]["words"] =
+        json!({"tentative": "provvisorio", "not_detected": "non rilevato"});
+    r["out"] = json!("svg");
+    let svg = replay(&r.to_string()).unwrap();
+    assert!(
+        svg.contains("Benzoic acid (provvisorio)") && svg.contains("p-Cresol (non rilevato)"),
+        "{svg}"
+    );
+    // the page route: the words are given to the editor, the document keeps them
+    let mut e = Editor::default();
+    e.set_status_words("provvisorio", "non rilevato");
+    e.import(MODEL).unwrap();
+    assert_eq!(e.save("svg").unwrap(), svg);
+    // the words are checked: both, 1 to 32 characters, no control characters
+    for words in [
+        json!({"tentative": "x"}),
+        json!({"tentative": "", "not_detected": "y"}),
+        json!({"tentative": "a\nb", "not_detected": "y"}),
+        json!(3),
+    ] {
+        let mut r = build(&model());
+        r["commands"][0]["args"]["words"] = words;
+        assert_eq!(
+            replay(&r.to_string()).unwrap_err().key,
+            "error.draw2.request"
+        );
+    }
 }
 
 // --- the page's way in: the Add field and the file button take the model -----------------------------------------------------------
@@ -687,4 +840,317 @@ fn a_number_is_the_same_text_whatever_wrote_the_json() {
     assert!(replay(&with_out(&m, "mzdraw"))
         .unwrap()
         .contains(r#"["RT","6.10"]"#));
+}
+
+// --- the notation of a label, isotopes, the unchecked state and the layout of a larger pathway -------------------------------------
+
+/// The result of the one edge of a two-node model (`from` to `to`, both SMILES) with this label, and the whole check.
+fn one_edge(from: &str, to: &str, label: &str, args: Option<Value>) -> (String, Value) {
+    let m = json!({"format": "pathway/1",
+        "nodes": [{"id": "a", "smiles": from}, {"id": "b", "smiles": to}],
+        "edges": [{"from": "a", "to": "b", "label": label}]});
+    let doc = replay(&with_out(&m, "mzdraw")).unwrap();
+    let mut r = json!({"import": doc, "out": "pathway-check"});
+    if let Some(a) = args {
+        r["args"] = a;
+    }
+    let c: Value = serde_json::from_str(&replay(&r.to_string()).unwrap()).unwrap();
+    (c["edges"][0]["result"].as_str().unwrap().to_string(), c)
+}
+
+#[test]
+fn every_notation_a_mass_spectrometrist_writes_is_read_and_a_wrong_one_fails() {
+    // (from, to, labels that are right)
+    let right = [
+        (
+            "c1ccccc1",
+            "C1=CCC=CC1",
+            vec![
+                "+2H",
+                "+H2",
+                "+2 H",
+                "+ 2H",
+                "+H2 (hydrogenation)",
+                "hydrogenation +2H",
+            ],
+        ),
+        ("C1=CCC=CC1", "c1ccccc1", vec!["-2H", "-H2", "\u{2212}2H"]),
+        ("CCO", "CC(=O)O", vec!["+O-2H", "+O-H2", "-2H+O", "+O -2H"]),
+        ("CC", "CC(=O)O", vec!["+O2-2H", "+2O-2H", "+2O -H2"]),
+        (
+            "Oc1ccccc1",
+            "OC1C(O)C(O)C(Oc2ccccc2)OC1C(=O)O",
+            vec![
+                "+C6H8O6",
+                "glucuronidation +C6H8O6",
+                "+C6H8O6 (glucuronidation)",
+                "+C6H8O6 glucuronide",
+            ],
+        ),
+        ("CCO", "CCOC", vec!["+CH2", "+1CH2"]),
+        ("CCCl", "CCO", vec!["-Cl+OH", "+OH-Cl", "-Cl +OH"]),
+        ("CCO", "CC", vec!["-O"]),
+    ];
+    for (from, to, labels) in right {
+        for l in labels {
+            let (result, c) = one_edge(from, to, l, None);
+            assert_eq!(
+                (result.as_str(), c["ok"].clone()),
+                ("ok", json!(true)),
+                "{from} > {to} {l:?}: {c}"
+            );
+        }
+    }
+    // wrong labels fail, and with exit semantics of a failed check (ok false); `+O-2H` for a loss of H2 was passing before
+    for (from, to, l) in [
+        ("CC=O", "CC(=O)O", "+O-2H"),
+        ("CCO", "CC=O", "+O-2H"),
+        ("CCO", "CC(=O)O", "+O-H"),
+        ("CCO", "CC(=O)O", "+2O-2H"),
+        ("c1ccccc1", "C1=CCC=CC1", "+4H"),
+        ("c1ccccc1", "C1=CCC=CC1", "-2H"),
+        (
+            "Oc1ccccc1",
+            "OC1C(O)C(O)C(Oc2ccccc2)OC1C(=O)O",
+            "glucuronidation +C6H8O5",
+        ),
+    ] {
+        let (result, c) = one_edge(from, to, l, None);
+        assert_eq!(
+            (result.as_str(), c["ok"].clone()),
+            ("mismatch", json!(false)),
+            "{from} > {to} {l:?}: {c}"
+        );
+        let r = replay_at(&json!({"import": replay(&with_out(&json!({"format": "pathway/1", "nodes": [{"id": "a", "smiles": from}, {"id": "b", "smiles": to}], "edges": [{"from": "a", "to": "b", "label": l}]}), "mzdraw")).unwrap(), "out": "pathway-check"}).to_string(), 0).unwrap();
+        assert!(r.check_failed, "{l:?}: exit code 3");
+    }
+}
+
+#[test]
+fn a_label_that_cannot_be_read_is_an_error_unless_the_caller_is_lenient() {
+    for l in [
+        "hydroxylation",
+        "oxidation (CYP)",
+        "N-oxidation",
+        "+",
+        "+O,",
+        "+O;",
+    ] {
+        let (result, c) = one_edge("CC", "CCO", l, None);
+        assert_eq!(
+            (result.as_str(), c["ok"].clone()),
+            ("unreadable", json!(false)),
+            "{l:?}"
+        );
+        let f = c["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["key"] == "pathway.edgeUnparsed")
+            .unwrap();
+        assert_eq!(f["severity"], "error", "{l:?}");
+        // lenient: still named, still visible, a warning
+        let (result, c) = one_edge("CC", "CCO", l, Some(json!({"lenient_labels": true})));
+        assert_eq!(
+            (result.as_str(), c["ok"].clone()),
+            ("unreadable", json!(true)),
+            "{l:?}"
+        );
+        let f = c["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["key"] == "pathway.edgeUnparsed")
+            .unwrap();
+        assert_eq!(f["severity"], "warn", "{l:?}");
+        assert_eq!(c["counts"]["warn"], 1);
+    }
+}
+
+#[test]
+fn isotopes_are_named_never_silently_ignored() {
+    let (result, c) = one_edge("[13CH3]CO", "[13CH3]C=O", "-2H", None);
+    assert_eq!(result, "ok", "{c}");
+    let f: Vec<&Value> = c["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["key"] == "pathway.isotopesNotCompared")
+        .collect();
+    assert_eq!(f.len(), 2, "one for each structure: {c}");
+    assert!(f[0]["detail"].as_str().unwrap().contains("13C"));
+    assert_eq!(f[0]["severity"], "warn");
+    // a drawing without isotopes has none
+    let (_, c) = one_edge("CCO", "CC=O", "-2H", None);
+    assert!(!keys(&c).contains(&"pathway.isotopesNotCompared".to_string()));
+}
+
+#[test]
+fn without_the_engine_the_summary_says_unchecked_and_the_caller_may_require_it() {
+    let c = check_of(&model());
+    assert_eq!(
+        (c["ok"].clone(), c["checked"].clone(), c["engine"].clone()),
+        (json!(true), json!(false), json!(false))
+    );
+    assert_eq!(
+        c["counts"]["unchecked"], 4,
+        "every node's masses and ions: {c}"
+    );
+    // required: the same check is a failed one (an error finding, exit 3), the document written all the same
+    let doc = replay(&with_out(&model(), "mzdraw")).unwrap();
+    let r = json!({"import": doc, "out": "pathway-check", "args": {"require_engine": true}})
+        .to_string();
+    let c: Value = serde_json::from_str(&replay(&r).unwrap()).unwrap();
+    assert_eq!(c["ok"], json!(false));
+    let f = c["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["key"] == "pathway.engine")
+        .unwrap();
+    assert_eq!(f["severity"], "error");
+    assert!(replay_at(&r, 0).unwrap().check_failed);
+    // a numeric label without the engine is counted too
+    let (result, c) = one_edge("CCO", "CC(=O)O", "+13.9793", None);
+    assert_eq!(result, "unchecked");
+    assert_eq!(c["counts"]["unchecked"], 3);
+}
+
+/// A pathway of 16 nodes and 16 edges (a tree of 15 and the second parent of one product): a root, five branches of different depth, a convergent product (n12 has two parents), a node without a generation, and the text of every arrow as given.
+fn big_model(label: &str) -> Value {
+    let smiles = [
+        "CC", "CCC", "CCO", "CCN", "CCCl", "CCS", "CCCC", "CCCO", "CCCN", "CCCCl", "CCCS", "CCOC",
+        "CCNC", "CCCCC", "CCCCO", "CCOCC",
+    ];
+    let nodes: Vec<Value> = smiles
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            let mut n =
+                json!({"id": format!("n{i}"), "smiles": s, "label": format!("Product number {i}")});
+            if i != 5 {
+                n["generation"] = json!([0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3][i]);
+            }
+            n
+        })
+        .collect();
+    let pairs = [
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (0, 4),
+        (0, 5),
+        (1, 6),
+        (2, 7),
+        (3, 8),
+        (4, 9),
+        (5, 10),
+        (2, 11),
+        (8, 12),
+        (6, 13),
+        (7, 14),
+        (11, 15),
+    ];
+    let mut edges: Vec<Value> = pairs
+        .iter()
+        .map(|(a, b)| json!({"from": format!("n{a}"), "to": format!("n{b}"), "label": label}))
+        .collect();
+    // two parents for n12 (n8 and n9, both in layer 2): the sixteenth edge
+    edges.push(json!({"from": "n9", "to": "n12", "label": label}));
+    json!({"format": "pathway/1", "nodes": nodes, "edges": edges})
+}
+
+/// The three measures of the layout of the check, and the finding keys behind them.
+fn measures(c: &Value) -> ([u64; 3], Vec<String>) {
+    let k = |n: &str| c["counts"][n].as_u64().unwrap();
+    let list = c["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| {
+            f["key"].as_str().unwrap().contains("rossing")
+                || f["key"].as_str().unwrap().contains("Overlap")
+        })
+        .map(|f| format!("{} {}", f["key"], f["item"]))
+        .collect();
+    (
+        [
+            k("arrow_box_crossings"),
+            k("edge_crossings"),
+            k("label_box_overlaps"),
+        ],
+        list,
+    )
+}
+
+fn no_two_structure_boxes_overlap(m: &Value) {
+    let boxes: Value = serde_json::from_str(&replay(&with_out(m, "boxes")).unwrap()).unwrap();
+    let list = boxes["structures"].as_array().unwrap();
+    assert_eq!(list.len(), 16);
+    let f = |v: &Value, k: &str| v[k].as_f64().unwrap();
+    for (i, a) in list.iter().enumerate() {
+        for b in &list[i + 1..] {
+            let apart = f(a, "x1") <= f(b, "x0")
+                || f(b, "x1") <= f(a, "x0")
+                || f(a, "y1") <= f(b, "y0")
+                || f(b, "y1") <= f(a, "y0");
+            assert!(apart, "{a} overlaps {b}");
+        }
+    }
+}
+
+#[test]
+fn a_pathway_of_sixteen_nodes_sixteen_edges_two_parents_many_branches_has_no_overlap_and_no_crossing(
+) {
+    // the labels of the arrows are as long as the delta of a real step (`+O`, `-CH2`, `+C6H8O6`) and the boxes are clear
+    for label in ["+CH2", "+O-2H", "+C6H8O6"] {
+        let m = big_model(label);
+        assert_eq!(
+            (
+                m["nodes"].as_array().unwrap().len(),
+                m["edges"].as_array().unwrap().len()
+            ),
+            (16, 16)
+        );
+        let c = check_of(&m);
+        assert_eq!(
+            (c["counts"]["nodes"].clone(), c["counts"]["edges"].clone()),
+            (json!(16), json!(16))
+        );
+        let (counts, list) = measures(&c);
+        assert_eq!(counts, [0, 0, 0], "{label}: {list:?}");
+        no_two_structure_boxes_overlap(&m);
+        // one column per layer: the generation of the model is the layer of the layout (a node that states none gets its layer)
+        let nodes = c["nodes"].as_array().unwrap();
+        let layer = |i: usize| nodes[i]["generation"].as_u64().unwrap();
+        assert_eq!(
+            [layer(0), layer(1), layer(6), layer(13)],
+            [0, 1, 2, 3],
+            "{label}"
+        );
+        assert_eq!(layer(5), 1, "the node without a generation has its layer");
+        assert!(
+            !keys(&c).contains(&"pathway.generationMismatch".to_string()),
+            "{label}: {c}"
+        );
+    }
+}
+
+#[test]
+fn a_very_long_label_on_a_steep_fan_is_flagged_by_the_check_because_the_layout_does_not_make_room_for_it(
+) {
+    // KNOWN LIMIT, not a pass: the layout makes room for the visible LENGTH of an arrow (tp-05), not for the horizontal text of a steep one,
+    // so the text of an arrow of the five-arrow fan from the root lies on a neighbouring arrow (and the two arrows that converge on one product have texts that meet). The structures stay clear and the arrows
+    // do not meet a box; `label_box_overlaps` counts what the eye sees, and a warning names each.
+    let m = big_model("+C6H8O6 glucuronide conjugate of the parent");
+    let c = check_of(&m);
+    let (counts, list) = measures(&c);
+    assert_eq!((counts[0], counts[1]), (0, 0), "{list:?}");
+    assert!(counts[2] >= 1, "the overlap is measured: {list:?}");
+    assert!(list.iter().all(|l| l.contains("labelOverlap")), "{list:?}");
+    assert!(
+        list.iter().filter(|l| l.contains("n0>")).count() >= 4,
+        "the fan from the root: {list:?}"
+    );
+    no_two_structure_boxes_overlap(&m);
 }
