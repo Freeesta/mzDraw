@@ -310,7 +310,8 @@ const MIN_EZ_RING: usize = 8;
 /// The record with an `unknown` element on each double bond that can carry E/Z and has none (a SMILES `CC=CC`, a molfile double
 /// bond marked "either"): drawn, its geometry would say E or Z, so the drawing marks it "either". Tetrahedral centres are left as
 /// they are. A double bond can carry E/Z when it is in no ring smaller than `MIN_EZ_RING`, neither end has another double bond
-/// (an allene), and each end has one other neighbour, or two of different constitution (`classes`). Two substituents that differ
+/// (an allene), and each end has one other neighbour (or, with none, one hydrogen: the =NH of an imine), or two of different
+/// constitution (`classes`). Two substituents that differ
 /// only through stereo elsewhere are not seen (no mark: the drawing says what it said before). Linear in practice, unlike a full
 /// search of the stereo sites, which can try every assignment of the other sites.
 fn with_unknown_double_bonds(m: &Mol) -> Mol {
@@ -329,11 +330,14 @@ fn with_unknown_double_bonds(m: &Mol) -> Mol {
             adj[c].push((a, b.o));
         }
     }
+    // an end has a substituent besides the other end: an atom, or a lone hydrogen facing a lone pair (the =NH of an imine)
+    let lone_h = |at: usize| m.atoms.get(at).is_some_and(|x| x.h == 1);
+    let bare = |at: usize, other: usize| adj[at].iter().any(|x| x.0 != other) || lone_h(at);
     let mut rec = m.clone();
     let open: Vec<(usize, usize)> = (m.bonds.iter())
         .filter(|b| b.o == 2 && (b.a as usize) < n && (b.b as usize) < n && !has(b.a, b.b))
         .map(|b| (b.a as usize, b.b as usize))
-        .filter(|&(a, b)| adj[a].len() > 1 && adj[b].len() > 1)
+        .filter(|&(a, b)| bare(a, b) && bare(b, a))
         .collect();
     if open.is_empty() {
         return rec;
@@ -348,6 +352,7 @@ fn with_unknown_double_bonds(m: &Mol) -> Mol {
         let cumulated = adj[at].iter().any(|x| x.0 != other && x.1 == 2);
         !cumulated
             && match subs[..] {
+                [] => lone_h(at),
                 [_] => true,
                 [x, y] => cls[x] != cls[y],
                 _ => false,

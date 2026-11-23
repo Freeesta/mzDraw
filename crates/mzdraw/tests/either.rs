@@ -50,6 +50,12 @@ fn an_import_marks_exactly_the_double_bonds_that_can_carry_e_z_and_have_none() {
         "C=CC=CC=CC=CC=C",
         "CC=CC=CC.C=C",
         "FC(Cl)=C(Br)I",
+        "CC=N",
+        "N=NC",
+        "CC(C)=N",
+        "C=N",
+        "CN=NC",
+        "OC=NN",
     ] {
         let d = doc(smiles);
         let mut sites: Vec<(u32, u32)> =
