@@ -60,6 +60,10 @@ pub enum Tool {
     /// A reaction arrow, dragged or of a standard length.
     Arrow,
     Plus,
+    /// Lone pairs: a click on an atom adds a pair (up to four, then none).
+    LonePair,
+    /// An electron-pushing curve from a press to a release; `true` for a half head (one electron).
+    Curve(bool),
     /// A line of text to place, or to set on a text or an arrow.
     Text(String),
 }
@@ -111,6 +115,8 @@ impl Tool {
             "label" if crate::label::kind(arg).is_some() => Tool::Label(arg.into()),
             "arrow" => Tool::Arrow,
             "plus" => Tool::Plus,
+            "lonepair" => Tool::LonePair,
+            "curve" if matches!(arg, "" | "full" | "half") => Tool::Curve(arg == "half"),
             "text"
                 if !arg.trim().is_empty() && arg.chars().count() <= 200 && !arg.contains('\n') =>
             {
@@ -137,6 +143,8 @@ impl Tool {
             Tool::Label(l) => format!("label:{l}"),
             Tool::Arrow => "arrow".into(),
             Tool::Plus => "plus".into(),
+            Tool::LonePair => "lonepair".into(),
+            Tool::Curve(half) => format!("curve:{}", if *half { "half" } else { "full" }),
             Tool::Text(t) => format!("text:{t}"),
         }
     }
@@ -196,6 +204,8 @@ pub struct Editor {
     pub(crate) gesture: crate::editor_touch::Gesture,
     /// The atom the keyboard focus came from (the bond walked last).
     pub(crate) focus_from: Option<u32>,
+    /// The curve whose middle handle is being dragged.
+    pub(crate) bend_drag: Option<u32>,
     /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
     pub style: Style,
     /// Where the palettes of the page are, and what Save writes: the `layout` and `export` objects of the settings file.
@@ -265,6 +275,7 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
                 h: a.h,
                 lab: (!a.lab.is_empty()).then(|| a.lab.clone()),
                 map: (a.map != 0).then_some(a.map),
+                lp: None,
             });
         }
         // the data of a structure (the fields of an SDF record) comes along with the atom that keeps it
@@ -348,6 +359,7 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
             runs: o.runs.clone(),
             from: if o.from == 0 { 0 } else { base + o.from },
             to: if o.to == 0 { 0 } else { base + o.to },
+            cv: Default::default(),
         });
         if !o.col().is_empty() {
             ops.push(Op::Colour {
@@ -381,6 +393,7 @@ impl Default for Editor {
             error: "",
             gesture: Default::default(),
             focus_from: None,
+            bend_drag: None,
             style: Style::default(),
             layout: Default::default(),
             export: Default::default(),
@@ -585,6 +598,24 @@ impl Editor {
         self.hit_object(px, py, r)
     }
 
+    /// Whether the pointer is within `r` pixels of a curve (sampled as the painter draws it).
+    fn hit_curve(&self, o: &crate::doc::Obj, px: f64, py: f64, r: f64) -> bool {
+        let (p, c, q) = crate::curve::shape(self.doc(), o);
+        let pts: Vec<(f64, f64)> = (0..=crate::curve::CURVE_STEPS)
+            .map(|i| {
+                let t = f64::from(i) / f64::from(crate::curve::CURVE_STEPS);
+                let d = crate::curve::at(p, c, q, t);
+                self.view.to_px(d.0, d.1)
+            })
+            .collect();
+        pts.windows(2).any(|w| {
+            let (dx, dy) = (w[1].0 - w[0].0, w[1].1 - w[0].1);
+            let t = (((px - w[0].0) * dx + (py - w[0].1) * dy) / (dx * dx + dy * dy).max(1e-9))
+                .clamp(0.0, 1.0);
+            m::hypot(w[0].0 + t * dx - px, w[0].1 + t * dy - py) < r
+        })
+    }
+
     /// The object under the pointer: near the shaft of an arrow, on a plus sign, or on the line of a text.
     fn hit_object(&self, px: f64, py: f64, r: f64) -> Hit {
         let font = self.style.metrics(self.view.scale, true).font;
@@ -598,6 +629,7 @@ impl Editor {
                         .clamp(0.0, 1.0);
                     m::hypot(x + t * dx - px, y + t * dy - py) < r
                 }
+                ObjKind::Curve => self.hit_curve(o, px, py, r),
                 ObjKind::Plus => m::hypot(x - px, y - py) < r + font * 0.4,
                 ObjKind::Text => {
                     let (w, lines) = self.text_box(o);
@@ -987,6 +1019,7 @@ impl Editor {
             h: None,
             lab: None,
             map: Some(map),
+            lp: None,
         };
         self.run(&[set], "draw2.say.map", &map.to_string())
     }

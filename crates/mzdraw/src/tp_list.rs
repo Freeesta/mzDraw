@@ -901,6 +901,7 @@ pub fn import_ops(doc: &Document, style: &Style, input: &Input) -> Result<Vec<Op
                 runs: Vec::new(),
                 from: first[j],
                 to: first[i],
+                cv: Default::default(),
             });
             next += 1;
             arrows += 1;

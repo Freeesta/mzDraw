@@ -668,6 +668,8 @@ impl Document {
                         body(o)
                     )
                 }
+                // the public CDXML documents no curve between atoms and lone pairs: listed in the loss manifest, not written
+                ObjKind::Curve => {}
             }
         }
         for c in captions.iter().filter(|c| !c.lines.is_empty()) {

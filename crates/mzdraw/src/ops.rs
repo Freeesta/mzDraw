@@ -2,6 +2,7 @@
 //! records an exact inverse, so undo restores the document byte for byte; a `Session` is a document with its undo and redo stacks.
 
 use crate::build;
+use crate::curve::{Curve, CurveSet};
 use crate::doc::{round4, Atom, Bond, Document, Obj, ObjKind, Writer, MAX_ID};
 use crate::m;
 use serde::Deserialize;
@@ -44,6 +45,8 @@ pub enum Op {
         lab: Option<String>,
         /// The atom-to-atom map number, 1..=999; 0 takes it away.
         map: Option<u16>,
+        /// The lone pairs drawn on the atom, 0-4 (`curve`).
+        lp: Option<u8>,
     },
     /// Replaces the data kept on an atom (the data fields of its structure: name and value pairs, `doc::data_valid`); an empty
     /// list takes them away.
@@ -124,6 +127,9 @@ pub enum Op {
         /// Arrows: an atom of the structure the arrow leaves and of the one it reaches (0: a free end).
         from: u32,
         to: u32,
+        /// Curves (`t` "curve"): the head, the bow and whether an end is the lone pair of its atom (`curve.rs`); the default
+        /// for any other object.
+        cv: Curve,
     },
     /// Sets the text, the end point and/or the anchors of an object (`from`, `to`: an atom id, or 0 to free the end).
     ObjSet {
@@ -135,6 +141,10 @@ pub enum Op {
         y2: Option<f64>,
         from: Option<u32>,
         to: Option<u32>,
+        /// Curves only: the head, the bow, the lone-pair flags of the ends.
+        cv: CurveSet,
+        /// Curves only: the first point (`x`, `y`; the second is `x2`, `y2`), kept for an end that is a point.
+        pt: [Option<f64>; 2],
     },
     /// A ring of `n` atoms (3-8), `arom` = alternating double bonds: fused on the bond `bond`, or with the atom `atom` as a corner, or
     /// centred on (`x`, `y`).
@@ -223,6 +233,7 @@ impl Op {
                 h,
                 lab,
                 map,
+                lp,
             } => {
                 w.text("op", "atom.set");
                 w.int("id", i64::from(*i));
@@ -237,6 +248,7 @@ impl Op {
                     w.text("lab", lab);
                 }
                 int(&mut w, "map", map.map(i64::from));
+                int(&mut w, "lp", lp.map(i64::from));
             }
             Op::AtomData { id: i, data } => {
                 w.text("op", "atom.data");
@@ -353,6 +365,7 @@ impl Op {
                 runs,
                 from,
                 to,
+                cv,
             } => {
                 w.text("op", "obj.add");
                 int(&mut w, "id", id(i));
@@ -375,6 +388,9 @@ impl Op {
                         w.int(k, i64::from(v));
                     }
                 }
+                if *t == ObjKind::Curve {
+                    curve_write(&mut w, &CurveSet::from(*cv));
+                }
             }
             Op::ObjSet {
                 id: i,
@@ -384,9 +400,16 @@ impl Op {
                 y2,
                 from,
                 to,
+                cv,
+                pt,
             } => {
                 w.text("op", "obj.set");
                 w.int("id", i64::from(*i));
+                for (k, v) in [("x", pt[0]), ("y", pt[1])] {
+                    if let Some(v) = v {
+                        w.num(k, v);
+                    }
+                }
                 if let Some(text) = text {
                     w.text("text", text);
                 }
@@ -403,6 +426,7 @@ impl Op {
                         w.int(k, i64::from(*v));
                     }
                 }
+                curve_write(&mut w, cv);
             }
             Op::Ring {
                 n,
@@ -527,6 +551,7 @@ impl Op {
                 h: g.u("h")?,
                 lab: g.s("lab")?,
                 map: g.u("map")?,
+                lp: g.u("lp")?,
             },
             "atom.data" => Op::AtomData {
                 id: g.u("id")?.ok_or(())?,
@@ -620,6 +645,15 @@ impl Op {
                 runs: g.runs("runs")?.unwrap_or_default(),
                 from: g.u("from")?.unwrap_or(0),
                 to: g.u("to")?.unwrap_or(0),
+                cv: {
+                    let c = curve_read(g)?;
+                    Curve {
+                        half: c.half.unwrap_or(false),
+                        bend: c.bend.unwrap_or(0.0),
+                        fl: c.fl.unwrap_or(false),
+                        tl: c.tl.unwrap_or(false),
+                    }
+                },
             },
             "obj.set" => Op::ObjSet {
                 id: g.u("id")?.ok_or(())?,
@@ -629,6 +663,8 @@ impl Op {
                 y2: g.f("y2")?,
                 from: g.u("from")?,
                 to: g.u("to")?,
+                cv: curve_read(g)?,
+                pt: [g.f("x")?, g.f("y")?],
             },
             "ring" => Op::Ring {
                 n: g.u("n")?.ok_or(())?,
@@ -641,6 +677,35 @@ impl Op {
             _ => return Err(()),
         })
     }
+}
+
+fn curve_write(w: &mut Writer, c: &CurveSet) {
+    if let Some(h) = c.half {
+        w.text("head", if h { "half" } else { "full" });
+    }
+    if let Some(b) = c.bend {
+        w.num("bend", b);
+    }
+    for (k, v) in [("fl", c.fl), ("tl", c.tl)] {
+        if let Some(v) = v {
+            w.raw(k, if v { "true" } else { "false" });
+        }
+    }
+}
+
+fn curve_read(g: &Fields) -> Result<CurveSet, ()> {
+    let flag = |k: &str| g.opt(k, serde_json::Value::as_bool);
+    Ok(CurveSet {
+        half: match g.s("head")?.as_deref() {
+            None => None,
+            Some("half") => Some(true),
+            Some("full") => Some(false),
+            Some(_) => return Err(()),
+        },
+        bend: g.f("bend")?,
+        fl: flag("fl")?,
+        tl: flag("tl")?,
+    })
 }
 
 /// Why an operation was refused: an i18n key and the id it is about.
@@ -870,6 +935,7 @@ impl Document {
             h,
             lab,
             map,
+            lp,
         } = op
         else {
             return Ok(());
@@ -882,6 +948,9 @@ impl Document {
         }
         if map.is_some_and(|m| m > crate::doc::MAX_MAP) {
             return err("error.draw2.map", *id);
+        }
+        if lp.is_some_and(|n| n > crate::curve::MAX_LP) {
+            return err("error.draw2.lp", *id);
         }
         if lab
             .as_ref()
@@ -904,6 +973,9 @@ impl Document {
         a.rad = rad.unwrap_or(a.rad).min(3);
         a.h = h.or(a.h);
         a.map = map.unwrap_or(a.map);
+        if let Some(n) = lp {
+            a.set_lp(*n);
+        }
         Ok(())
     }
 
@@ -1138,8 +1210,11 @@ impl Document {
                     };
                     inv.push(Inv::SetObj(self.objects[i].clone()));
                     let o = &mut self.objects[i];
-                    (o.x, o.y) = (round4(o.x + dx), round4(o.y + dy));
-                    if o.t == ObjKind::Arrow {
+                    // an anchored end of a curve goes with its anchor, not with the object
+                    if o.t != ObjKind::Curve || o.from == 0 {
+                        (o.x, o.y) = (round4(o.x + dx), round4(o.y + dy));
+                    }
+                    if o.t == ObjKind::Arrow || (o.t == ObjKind::Curve && o.to == 0) {
                         (o.x2, o.y2) = (round4(o.x2 + dx), round4(o.y2 + dy));
                     }
                 }
@@ -1207,6 +1282,7 @@ impl Document {
                 runs,
                 from,
                 to,
+                cv,
             } => {
                 let runs = crate::runs::canon(runs.clone());
                 let mut o = Obj {
@@ -1229,6 +1305,12 @@ impl Document {
                 if let Err(key) = crate::runs::check(&o.runs) {
                     return err(key, o.id);
                 }
+                if o.t == ObjKind::Curve {
+                    o.set_curve(cv);
+                    self.curve_anchor(&mut o)?;
+                } else if *cv != Curve::default() {
+                    return err("error.draw2.object", o.id);
+                }
                 if !o.valid() {
                     return err("error.draw2.object", o.id);
                 }
@@ -1249,6 +1331,7 @@ impl Document {
                     runs: o.runs.clone(),
                     from: o.from,
                     to: o.to,
+                    cv: o.curve(),
                 });
                 self.objects.push(o);
             }
@@ -1260,6 +1343,8 @@ impl Document {
                 y2,
                 from,
                 to,
+                cv,
+                pt,
             } => {
                 let Some(i) = self.objects.iter().position(|o| o.id == *id) else {
                     return err("error.draw2.noObject", *id);
@@ -1280,10 +1365,37 @@ impl Document {
                     o.text = t.clone();
                     o.runs = Vec::new();
                 }
+                let old = self.objects[i].clone();
+                if o.t != ObjKind::Curve && (!cv.is_empty() || pt.iter().any(Option::is_some)) {
+                    return err("error.draw2.object", *id);
+                }
+                // an end of a curve freed in place keeps where it stands
+                if o.t == ObjKind::Curve {
+                    let (p, q) = crate::curve::ends(self, &old, &|_| (0.0, 0.0), (0.0, 0.0));
+                    if *from == Some(0) && old.from != 0 {
+                        (o.x, o.y) = (round4(p.0), round4(p.1));
+                    }
+                    if *to == Some(0) && old.to != 0 {
+                        (o.x2, o.y2) = (round4(q.0), round4(q.1));
+                    }
+                }
+                o.x = pt[0].map_or(o.x, round4);
+                o.y = pt[1].map_or(o.y, round4);
                 o.x2 = x2.map_or(o.x2, round4);
                 o.y2 = y2.map_or(o.y2, round4);
                 o.from = from.unwrap_or(o.from);
                 o.to = to.unwrap_or(o.to);
+                if o.t == ObjKind::Curve {
+                    let mut c = o.curve().apply(cv);
+                    if *from == Some(0) {
+                        c.fl = cv.fl.unwrap_or(false);
+                    }
+                    if *to == Some(0) {
+                        c.tl = cv.tl.unwrap_or(false);
+                    }
+                    o.set_curve(&c);
+                    self.curve_anchor(&mut o)?;
+                }
                 if !o.valid() {
                     return err("error.draw2.object", *id);
                 }
@@ -1296,9 +1408,42 @@ impl Document {
                     y2: y2.map(round4),
                     from: *from,
                     to: *to,
+                    cv: CurveSet {
+                        bend: cv.bend.map(round4),
+                        ..*cv
+                    },
+                    pt: pt.map(|v| v.map(round4)),
                 });
             }
             _ => {}
+        }
+        Ok(())
+    }
+
+    /// Checks the anchors of a curve (they exist, the two ends differ) and keeps the stored point of an anchored end at 0, 0 (what is
+    /// drawn comes from the anchor). A lone-pair end on an atom with no pair is drawn at the atom: the pairs of an atom are said by
+    /// `atom.set lp`, and a diff may say the curve first.
+    fn curve_anchor(&self, o: &mut Obj) -> Result<(), OpError> {
+        let c = o.curve();
+        if !c.valid() {
+            return err("error.draw2.object", o.id);
+        }
+        let flat = o.from == 0 && o.to == 0 && (o.x2 - o.x).abs() + (o.y2 - o.y).abs() <= 1e-3;
+        if flat {
+            return err("error.draw2.object", o.id);
+        }
+        let same = o.from != 0 && o.from == o.to && c.fl == c.tl;
+        if !crate::curve::anchor_ok(self, o.from, c.fl)
+            || !crate::curve::anchor_ok(self, o.to, c.tl)
+            || same
+        {
+            return err("error.draw2.anchor", o.id);
+        }
+        if o.from != 0 {
+            (o.x, o.y) = (0.0, 0.0);
+        }
+        if o.to != 0 {
+            (o.x2, o.y2) = (0.0, 0.0);
         }
         Ok(())
     }
@@ -1324,6 +1469,10 @@ impl Document {
             atoms.iter().copied().collect(),
             bonds.iter().copied().collect(),
         );
+        // a curve whose anchor goes keeps its end where it stood (the object as it was is the undo)
+        for (i, o) in crate::curve::detach(self, &gone_atoms, &gone_bonds) {
+            inv.push(Inv::SetObj(std::mem::replace(&mut self.objects[i], o)));
+        }
         for i in (0..self.bonds.len()).rev() {
             let b = &self.bonds[i];
             if gone_bonds.contains(&b.id) || gone_atoms.contains(&b.a) || gone_atoms.contains(&b.b)

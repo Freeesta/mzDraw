@@ -136,6 +136,7 @@ pub fn derive_expecting(
             h: None,
             lab: None,
             map: Some(next_map),
+            lp: None,
         });
     }
 
@@ -176,6 +177,7 @@ pub fn derive_expecting(
                 h: a.h,
                 lab: Some(a.lab.clone()).filter(|l| !l.is_empty()),
                 map: None,
+                lp: None,
             });
         }
     }
@@ -279,6 +281,7 @@ pub fn derive_expecting(
                 h,
                 lab,
                 map,
+                lp,
             } => {
                 let id = atom_ref(*id)?;
                 if let Some(m) = map {
@@ -293,6 +296,7 @@ pub fn derive_expecting(
                     h: *h,
                     lab: lab.clone(),
                     map: *map,
+                    lp: *lp,
                 }
             }
             Op::BondSet {
@@ -409,6 +413,7 @@ pub fn derive_expecting(
         runs: Vec::new(),
         from,
         to: anchor,
+        cv: Default::default(),
     };
     after
         .apply(std::slice::from_ref(&arrow))

@@ -28,6 +28,7 @@ fn obj(t: ObjKind, x: f64, y: f64, x2: f64, y2: f64, text: &str) -> Op {
         runs: Vec::new(),
         from: 0,
         to: 0,
+        cv: Default::default(),
     }
 }
 
@@ -54,6 +55,8 @@ fn objects_are_added_set_moved_removed_and_undone() {
         y2: None,
         from: None,
         to: None,
+        cv: Default::default(),
+        pt: [None, None],
     };
     s.run(&[set(1, Some("Pd/C, H2"), Some(3.0))]).unwrap();
     assert_eq!(

@@ -181,6 +181,7 @@ pub fn command(what: &str) -> u32 {
         "scheme-row" => e.scheme_row(),
         "pathway-tree" => e.pathway_tree(),
         "scheme-orient" => e.scheme_orient(),
+        "lonepairs-place" => e.place_lone_pairs(),
         "pathway-label" => e.pathway_label_page(""),
         w if w.starts_with("pathway-label:") => e.pathway_label_page(&w["pathway-label:".len()..]),
         "move-here" => e.set_move_here(!e.move_here),

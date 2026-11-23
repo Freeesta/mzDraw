@@ -37,6 +37,7 @@ fn full_ops() -> Vec<Op> {
             rad: Some(1),
             h: Some(2),
             lab: Some("Ph".into()),
+            lp: Some(2),
         },
         Op::AtomData {
             id: 1,
@@ -96,7 +97,7 @@ fn full_ops() -> Vec<Op> {
         },
         Op::ObjAdd {
             id: Some(7),
-            t: ObjKind::Arrow,
+            t: ObjKind::Curve,
             x: 1.0,
             y: 1.0,
             x2: 3.0,
@@ -105,6 +106,12 @@ fn full_ops() -> Vec<Op> {
             runs: vec![mzdraw::Run::plain("hv")],
             from: 1,
             to: 2,
+            cv: mzdraw::curve::Curve {
+                half: true,
+                bend: 0.5,
+                fl: true,
+                tl: true,
+            },
         },
         Op::ObjSet {
             id: 7,
@@ -115,6 +122,13 @@ fn full_ops() -> Vec<Op> {
             y2: Some(2.0),
             from: Some(2),
             to: Some(0),
+            cv: mzdraw::curve::CurveSet {
+                half: Some(true),
+                bend: Some(0.5),
+                fl: Some(true),
+                tl: Some(false),
+            },
+            pt: [Some(1.0), Some(2.0)],
         },
         Op::Ring {
             n: 6,
@@ -164,6 +178,7 @@ fn sample(f: &schema::FieldSpec) -> Value {
         ("axis", _) => json!("h"),
         ("pos", _) => json!("l"),
         ("k", _) => json!("dash"),
+        ("head", _) => json!("half"),
         ("t", _) => json!("text"),
         (_, "uint") | (_, "int") => json!(1),
         (_, "number") => json!(1.5),

@@ -318,6 +318,15 @@ pub fn json(doc: &Document, style: &Style) -> Result<String, &'static str> {
     for (shown, o) in doc.objects.iter().take(MAX_LISTED).enumerate() {
         let r: Rect = match o.t {
             ObjKind::Arrow => [o.x.min(o.x2), o.y.min(o.y2), o.x.max(o.x2), o.y.max(o.y2)],
+            ObjKind::Curve => {
+                let (p, c, q) = crate::curve::shape(doc, o);
+                [
+                    p.0.min(q.0).min(c.0),
+                    p.1.min(q.1).min(c.1),
+                    p.0.max(q.0).max(c.0),
+                    p.1.max(q.1).max(c.1),
+                ]
+            }
             ObjKind::Plus => [
                 o.x - f * 0.65,
                 o.y - f * 0.65,

@@ -389,6 +389,7 @@ fn every_feature_the_document_can_hold_has_a_row_and_every_format_a_column() {
         "arrow.text",
         "atom.charge",
         "atom.isotope",
+        "atom.lp",
         "atom.map",
         "atom.radical",
         "bond.bdash",
@@ -402,6 +403,7 @@ fn every_feature_the_document_can_hold_has_a_row_and_every_format_a_column() {
         "geometry",
         "labels",
         "object.arrow",
+        "object.curve",
         "object.plus",
         "object.text",
         "rlabel",
@@ -420,7 +422,7 @@ fn every_feature_the_document_can_hold_has_a_row_and_every_format_a_column() {
             assert!(mzdraw::loss::carry(what, f).is_some(), "{what} {f}");
         }
     }
-    assert_eq!(mzdraw::loss::TABLE.len(), 32);
+    assert_eq!(mzdraw::loss::TABLE.len(), 34);
 }
 
 #[test]

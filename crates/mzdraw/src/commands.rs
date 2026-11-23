@@ -32,6 +32,7 @@ pub(crate) fn known(name: &str) -> bool {
             | "tp:derive"
             | "tp:import"
             | "tp:number"
+            | "lonepairs"
     )
 }
 
@@ -53,6 +54,9 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     }
     if name == "tp:number" {
         return number_args(args).map(|_| ());
+    }
+    if name == "lonepairs" {
+        return lonepairs_args(args).map(|_| ());
     }
     if name == "scheme:orient" {
         // no argument: it orients every structure after an arrow on the one before it
@@ -111,6 +115,25 @@ fn import_args(args: &Value) -> Result<crate::tp_list::Input<'_>, &'static str> 
     match (obj.get("csv"), obj.get("rows"), obj.len()) {
         (Some(Value::String(t)), None, 1) => Ok(crate::tp_list::Input::Csv(t)),
         (None, Some(r @ Value::Array(_)), 1) => Ok(crate::tp_list::Input::Rows(r)),
+        _ => Err(BAD),
+    }
+}
+
+/// The arguments of `lonepairs`: `{"atoms": [ids]}`, which may be left out (every atom).
+fn lonepairs_args(args: &Value) -> Result<Vec<u32>, &'static str> {
+    const BAD: &str = "error.draw2.request";
+    let obj = args.as_object().ok_or(BAD)?;
+    match (obj.get("atoms"), obj.len()) {
+        (None, 0) => Ok(Vec::new()),
+        (Some(Value::Array(l)), 1) => l
+            .iter()
+            .map(|v| {
+                v.as_u64()
+                    .and_then(|n| u32::try_from(n).ok())
+                    .filter(|&n| n > 0)
+            })
+            .collect::<Option<Vec<u32>>>()
+            .ok_or(BAD),
         _ => Err(BAD),
     }
 }
@@ -247,6 +270,22 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
                 Err(bad(crate::tp_list::KEY_ROWS))
             }
         };
+    }
+    if name == "lonepairs" {
+        let atoms = lonepairs_args(args).map_err(bad)?;
+        if let Some(&id) = atoms.iter().find(|&&i| e.doc().atom(i).is_none()) {
+            return Err(OpError {
+                key: "error.draw2.noAtom",
+                id,
+            });
+        }
+        let ops = crate::curve::lone_pair_ops(e.doc(), &atoms);
+        if ops.is_empty() {
+            e.said = ("draw2.say.lonepairsNone", String::new());
+            return Ok(());
+        }
+        e.said = ("draw2.say.lonepairsPlaced", ops.len().to_string());
+        return e.session.run(&ops);
     }
     if name == "tp:number" {
         let force = number_args(args).map_err(bad)?;

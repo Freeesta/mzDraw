@@ -163,6 +163,7 @@ fn atom_set_map_has_an_exact_inverse() {
         h: None,
         lab: None,
         map: Some(map),
+        lp: None,
     };
     s.run(&[set(4)]).unwrap();
     assert_eq!(s.doc.atoms[0].map, 4);

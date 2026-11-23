@@ -385,6 +385,7 @@ impl Editor {
                 rad: None,
                 h: None,
                 lab: None,
+                lp: None,
             };
             return if same {
                 0
@@ -478,6 +479,7 @@ impl Editor {
             rad: None,
             h: None,
             lab: None,
+            lp: None,
         };
         self.run(&[set], "draw2.say.charge", &chg.to_string())
     }
