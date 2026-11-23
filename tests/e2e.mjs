@@ -625,9 +625,9 @@ try {
     // the context menu of a double bond: the side and the line style
     await tool(pg, "select");
     await pg.mouse.click(...mid, { button: "right" });
-    await pg.click('[data-testid="d2-ctx-bond.pos.r"]'); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === 'r'");
+    await pg.click('[data-testid="d2-ctx-bond.pos"]'); await pg.click('[data-testid="d2-ctx-bond.pos.r"]'); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].pos === 'r'");
     await pg.mouse.click(...mid, { button: "right" });
-    await pg.click('[data-testid="d2-ctx-bond.k.hash"]'); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'hash'");
+    await pg.click('[data-testid="d2-ctx-bond.k"]'); await pg.click('[data-testid="d2-ctx-bond.k.hash"]'); await until(pg, "JSON.parse(window.MZDRAW.save('mzdraw')).bonds[0].k === 'hash'");
     // the command log says it, and undo takes each away
     const log = JSON.parse(await pg.evaluate("window.MZDRAW.save('log')"));
     eq(log.slice(-2).map(o => [o.op, o.pos, o.k]), [["bond.set", "r", undefined], ["bond.set", undefined, "hash"]]);
@@ -2027,7 +2027,7 @@ try {
     eq((await menuNow(pg)).ids, ["bond.o.1", "bond.o.2", "bond.o.3", "bond.s.up", "bond.s.down", "bond.s.wavy", "bond.reverse", "bond.pos", "bond.pos.auto", "bond.pos.c", "bond.pos.l", "bond.pos.r", "bond.k", "bond.k.solid", "bond.k.dash", "bond.k.bdash", "bond.k.hash", "edit.colour", "colour.auto", "colour.black", "colour.red", "colour.orange", "colour.yellow", "colour.green", "colour.teal", "colour.blue", "colour.purple", "colour.magenta", "colour.brown", "colour.grey", "colour.custom", "bond.delete"]);   // the group Colour of colour-selection is folded in the menu and listed here with its children
     // an item that is not offered is not on the keyboard walk
     await pg.focus("#d2-menu .ctx"); const walk = [];
-    for (let i = 0; i < 9; i++) { await pg.keyboard.press("ArrowDown"); walk.push((await menuNow(pg)).active); }
+    for (let i = 0; i < 12; i++) { await pg.keyboard.press("ArrowDown"); walk.push((await menuNow(pg)).active); }
     assert(!walk.includes("bond.reverse") && walk.includes("bond.delete") && walk.includes("bond.o.1"), "the walk skips the disabled item: " + walk);
     eq(await pg.getAttribute(item("bond.reverse"), "aria-disabled"), "true");
     await pg.click(item("bond.s.up")); await shown(pg, false);
