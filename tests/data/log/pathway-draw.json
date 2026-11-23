@@ -1,0 +1,823 @@
+{
+  "results": [
+    {
+      "name": "pathway-draw: a dry run builds the model and writes nothing",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{\"atoms\":[1,2,3,4,5,6,7,15,16,17,18,19,20,21,22,31,32,33,34,35,36,37,38,39,49,50,51,52,53,54,55,56],\"bonds\":[8,9,10,11,12,13,14,23,24,25,26,27,28,29,30,40,41,42,43,44,45,46,47,48,57,58,59,60,61,62,63,64],\"objects\":[65,66,67]},\"removed\":{},\"dirty\":true}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M1"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+O-H2",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.0295,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "dry_run": true
+      }
+    },
+    {
+      "name": "pathway-draw: a model with problems is a verdict that lists every one of them",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":false,\"created\":{},\"removed\":{},\"failed\":{\"stage\":\"command\",\"op\":0,\"key\":\"error.draw2.pathRows\",\"id\":0,\"rows\":[{\"line\":2,\"key\":\"error.draw2.pathNodeStatus\"},{\"line\":5,\"key\":\"error.draw2.pathEdgeEnd\"}]},\"dirty\":false}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "nowhere"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+O-H2",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1",
+                    "status": "maybe"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.0295,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "report": true
+      }
+    }
+  ],
+  "values": [
+    {
+      "name": "pathway-draw: the checks of a good model (engine: masses, expected ions per polarity, ppm, delta masses)",
+      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":0,\"info\":0,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":93.0699},{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":123.0441},{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.0295,\"ppm\":0.0},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":true,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M1"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+O-H2",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.0295,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "pathway-check"
+      }
+    },
+    {
+      "name": "pathway-draw: a wrong edge label and a wrong observed m/z fail the check (ok false, the document is written all the same)",
+      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":2,\"info\":0,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"-CH2\",\"result\":\"mismatch\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[{\"detail\":\"[M-H]-: observed 121.05, expected 121.0295, 169.4 ppm\",\"item\":\"M2\",\"key\":\"pathway.ionMismatch\",\"severity\":\"error\"},{\"detail\":\"labelled -CH2, the formulas differ by +O\",\"item\":\"P>M3\",\"key\":\"pathway.edgeMismatch\",\"severity\":\"error\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":93.0699},{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":123.0441},{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.05,\"ppm\":169.4},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":false,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M1"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+O-H2",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "-CH2",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.05,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "pathway-check"
+      }
+    },
+    {
+      "name": "pathway-draw: numeric labels are compared with the delta mass within da",
+      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":1,\"info\":0,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+15.9949\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+14.0\",\"result\":\"mismatch\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[{\"detail\":\"labelled +14.0, the masses differ by +13.9793\",\"item\":\"M1>M2\",\"key\":\"pathway.edgeMismatch\",\"severity\":\"error\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":93.0699},{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":123.0441},{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.0295,\"ppm\":0.0},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M+H]+\",\"mz\":109.0648},{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":false,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+15.9949",
+                    "to": "M1"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+14.0",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.0295,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "pathway-check"
+      }
+    },
+    {
+      "name": "pathway-draw: negative polarity only",
+      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":0,\"info\":0,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":13.9793,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":15.9949,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":true,\"findings\":[],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":91.0553}],\"label\":\"Toluene\",\"monoisotopic_mass\":92.0626,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":93.0699,\"mz\":93.0699,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":108.0575,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":109.0648,\"mz\":109.0648,\"ppm\":0.0},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":121.0295}],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":122.0368,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":121.0295,\"mz\":121.0295,\"ppm\":0.0},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[{\"adduct\":\"[M-H]-\",\"mz\":107.0502}],\"label\":\"p-Cresol\",\"monoisotopic_mass\":108.0575,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":true,\"polarity\":\"negative\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "request": {
+        "args": {
+          "polarity": "negative"
+        },
+        "import": "{\"format\":\"mzdraw/1\",\"next\":68,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.866,\"y\":3.0,\"data\":[[\"TP_ID\",\"Toluene\"],[\"MZ\",\"93.0699\"],[\"RT\",\"6.1\"],[\"ADDUCT\",\"[M+H]+\"],[\"NODE_ID\",\"P\"],[\"FORMULA\",\"C7H8\"],[\"GENERATION\",\"0\"],[\"BRANCH\",\"A\"]]},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":2.0},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":1.5},{\"id\":4,\"el\":\"C\",\"x\":1.7321,\"y\":0.5},{\"id\":5,\"el\":\"C\",\"x\":0.866,\"y\":0.0},{\"id\":6,\"el\":\"C\",\"x\":0.0,\"y\":0.5},{\"id\":7,\"el\":\"C\",\"x\":0.0,\"y\":1.5},{\"id\":15,\"el\":\"O\",\"x\":4.6521,\"y\":0.635,\"data\":[[\"TP_ID\",\"Benzyl alcohol\"],[\"MZ\",\"109.0648\"],[\"RT\",\"4.0\"],[\"ADDUCT\",\"[M+H]+\"],[\"NODE_ID\",\"M1\"],[\"FORMULA\",\"C7H8O\"],[\"GENERATION\",\"1\"],[\"BRANCH\",\"A\"]]},{\"id\":16,\"el\":\"C\",\"x\":5.5181,\"y\":0.135},{\"id\":17,\"el\":\"C\",\"x\":5.5181,\"y\":-0.865},{\"id\":18,\"el\":\"C\",\"x\":6.3842,\"y\":-1.365},{\"id\":19,\"el\":\"C\",\"x\":6.3842,\"y\":-2.365},{\"id\":20,\"el\":\"C\",\"x\":5.5181,\"y\":-2.865},{\"id\":21,\"el\":\"C\",\"x\":4.6521,\"y\":-2.365},{\"id\":22,\"el\":\"C\",\"x\":4.6521,\"y\":-1.365},{\"id\":31,\"el\":\"O\",\"x\":10.7563,\"y\":0.635,\"data\":[[\"TP_ID\",\"Benzoic acid\"],[\"MZ\",\"121.0295\"],[\"RT\",\"3.2\"],[\"ADDUCT\",\"[M-H]-\"],[\"NODE_ID\",\"M2\"],[\"FORMULA\",\"C7H6O2\"],[\"STATUS\",\"tentative\"],[\"GENERATION\",\"2\"],[\"BRANCH\",\"A\"]]},{\"id\":32,\"el\":\"C\",\"x\":9.8902,\"y\":0.135},{\"id\":33,\"el\":\"O\",\"x\":9.0242,\"y\":0.635},{\"id\":34,\"el\":\"C\",\"x\":9.8902,\"y\":-0.865},{\"id\":35,\"el\":\"C\",\"x\":10.7563,\"y\":-1.365},{\"id\":36,\"el\":\"C\",\"x\":10.7563,\"y\":-2.365},{\"id\":37,\"el\":\"C\",\"x\":9.8902,\"y\":-2.865},{\"id\":38,\"el\":\"C\",\"x\":9.0242,\"y\":-2.365},{\"id\":39,\"el\":\"C\",\"x\":9.0242,\"y\":-1.365},{\"id\":49,\"el\":\"O\",\"x\":5.3081,\"y\":2.115,\"data\":[[\"TP_ID\",\"p-Cresol\"],[\"NODE_ID\",\"M3\"],[\"FORMULA\",\"C7H8O\"],[\"STATUS\",\"not_detected\"],[\"GENERATION\",\"1\"],[\"BRANCH\",\"B\"]]},{\"id\":50,\"el\":\"C\",\"x\":5.3081,\"y\":3.115},{\"id\":51,\"el\":\"C\",\"x\":6.1742,\"y\":3.615},{\"id\":52,\"el\":\"C\",\"x\":6.1742,\"y\":4.615},{\"id\":53,\"el\":\"C\",\"x\":5.3081,\"y\":5.115},{\"id\":54,\"el\":\"C\",\"x\":5.3081,\"y\":6.115},{\"id\":55,\"el\":\"C\",\"x\":4.4421,\"y\":4.615},{\"id\":56,\"el\":\"C\",\"x\":4.4421,\"y\":3.615}],\"bonds\":[{\"id\":8,\"a\":1,\"b\":2,\"o\":1},{\"id\":9,\"a\":2,\"b\":3,\"o\":1},{\"id\":10,\"a\":2,\"b\":7,\"o\":2},{\"id\":11,\"a\":3,\"b\":4,\"o\":2},{\"id\":12,\"a\":4,\"b\":5,\"o\":1},{\"id\":13,\"a\":5,\"b\":6,\"o\":2},{\"id\":14,\"a\":6,\"b\":7,\"o\":1},{\"id\":23,\"a\":15,\"b\":16,\"o\":1},{\"id\":24,\"a\":16,\"b\":17,\"o\":1},{\"id\":25,\"a\":17,\"b\":18,\"o\":1},{\"id\":26,\"a\":17,\"b\":22,\"o\":2},{\"id\":27,\"a\":18,\"b\":19,\"o\":2},{\"id\":28,\"a\":19,\"b\":20,\"o\":1},{\"id\":29,\"a\":20,\"b\":21,\"o\":2},{\"id\":30,\"a\":21,\"b\":22,\"o\":1},{\"id\":40,\"a\":31,\"b\":32,\"o\":1},{\"id\":41,\"a\":32,\"b\":33,\"o\":2},{\"id\":42,\"a\":32,\"b\":34,\"o\":1},{\"id\":43,\"a\":34,\"b\":35,\"o\":1},{\"id\":44,\"a\":34,\"b\":39,\"o\":2},{\"id\":45,\"a\":35,\"b\":36,\"o\":2},{\"id\":46,\"a\":36,\"b\":37,\"o\":1},{\"id\":47,\"a\":37,\"b\":38,\"o\":2},{\"id\":48,\"a\":38,\"b\":39,\"o\":1},{\"id\":57,\"a\":49,\"b\":50,\"o\":1},{\"id\":58,\"a\":50,\"b\":51,\"o\":1},{\"id\":59,\"a\":50,\"b\":56,\"o\":2},{\"id\":60,\"a\":51,\"b\":52,\"o\":2},{\"id\":61,\"a\":52,\"b\":53,\"o\":1},{\"id\":62,\"a\":53,\"b\":54,\"o\":1},{\"id\":63,\"a\":53,\"b\":55,\"o\":2},{\"id\":64,\"a\":55,\"b\":56,\"o\":1}],\"objects\":[{\"id\":65,\"t\":\"arrow\",\"x\":2.0821,\"y\":0.817,\"x2\":3.8821,\"y2\":-0.194,\"text\":\"+O\",\"from\":1,\"to\":15},{\"id\":66,\"t\":\"arrow\",\"x\":6.7342,\"y\":-0.995,\"x2\":8.5342,\"y2\":-0.995,\"text\":\"+O-H2\",\"from\":15,\"to\":31},{\"id\":67,\"t\":\"arrow\",\"x\":2.0821,\"y\":2.183,\"x2\":4.0921,\"y2\":3.312,\"text\":\"+O\",\"from\":1,\"to\":49}]}",
+        "out": "pathway-check"
+      }
+    },
+    {
+      "name": "pathway-draw: the SVG of the built pathway",
+      "out": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"391.09pt\" height=\"337.8pt\" viewBox=\"0 0 391.09 337.8\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-5367d8b5 d-5367d8b5\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":68,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.866,\"y\":3.0,\"data\":[[\"TP_ID\",\"Toluene\"],[\"MZ\",\"93.0699\"],[\"RT\",\"6.1\"],[\"ADDUCT\",\"[M+H]+\"],[\"NODE_ID\",\"P\"],[\"FORMULA\",\"C7H8\"],[\"GENERATION\",\"0\"],[\"BRANCH\",\"A\"]]},{\"id\":2,\"el\":\"C\",\"x\":0.866,\"y\":2.0},{\"id\":3,\"el\":\"C\",\"x\":1.7321,\"y\":1.5},{\"id\":4,\"el\":\"C\",\"x\":1.7321,\"y\":0.5},{\"id\":5,\"el\":\"C\",\"x\":0.866,\"y\":0.0},{\"id\":6,\"el\":\"C\",\"x\":0.0,\"y\":0.5},{\"id\":7,\"el\":\"C\",\"x\":0.0,\"y\":1.5},{\"id\":15,\"el\":\"O\",\"x\":4.6521,\"y\":0.635,\"data\":[[\"TP_ID\",\"Benzyl alcohol\"],[\"MZ\",\"109.0648\"],[\"RT\",\"4\"],[\"ADDUCT\",\"[M+H]+\"],[\"NODE_ID\",\"M1\"],[\"FORMULA\",\"C7H8O\"],[\"GENERATION\",\"1\"],[\"BRANCH\",\"A\"]]},{\"id\":16,\"el\":\"C\",\"x\":5.5181,\"y\":0.135},{\"id\":17,\"el\":\"C\",\"x\":5.5181,\"y\":-0.865},{\"id\":18,\"el\":\"C\",\"x\":6.3842,\"y\":-1.365},{\"id\":19,\"el\":\"C\",\"x\":6.3842,\"y\":-2.365},{\"id\":20,\"el\":\"C\",\"x\":5.5181,\"y\":-2.865},{\"id\":21,\"el\":\"C\",\"x\":4.6521,\"y\":-2.365},{\"id\":22,\"el\":\"C\",\"x\":4.6521,\"y\":-1.365},{\"id\":31,\"el\":\"O\",\"x\":10.7563,\"y\":0.635,\"data\":[[\"TP_ID\",\"Benzoic acid\"],[\"MZ\",\"121.0295\"],[\"RT\",\"3.2\"],[\"ADDUCT\",\"[M-H]-\"],[\"NODE_ID\",\"M2\"],[\"FORMULA\",\"C7H6O2\"],[\"STATUS\",\"tentative\"],[\"GENERATION\",\"2\"],[\"BRANCH\",\"A\"]]},{\"id\":32,\"el\":\"C\",\"x\":9.8902,\"y\":0.135},{\"id\":33,\"el\":\"O\",\"x\":9.0242,\"y\":0.635},{\"id\":34,\"el\":\"C\",\"x\":9.8902,\"y\":-0.865},{\"id\":35,\"el\":\"C\",\"x\":10.7563,\"y\":-1.365},{\"id\":36,\"el\":\"C\",\"x\":10.7563,\"y\":-2.365},{\"id\":37,\"el\":\"C\",\"x\":9.8902,\"y\":-2.865},{\"id\":38,\"el\":\"C\",\"x\":9.0242,\"y\":-2.365},{\"id\":39,\"el\":\"C\",\"x\":9.0242,\"y\":-1.365},{\"id\":49,\"el\":\"O\",\"x\":5.3081,\"y\":2.115,\"data\":[[\"TP_ID\",\"p-Cresol\"],[\"NODE_ID\",\"M3\"],[\"FORMULA\",\"C7H8O\"],[\"STATUS\",\"not_detected\"],[\"GENERATION\",\"1\"],[\"BRANCH\",\"B\"]]},{\"id\":50,\"el\":\"C\",\"x\":5.3081,\"y\":3.115},{\"id\":51,\"el\":\"C\",\"x\":6.1742,\"y\":3.615},{\"id\":52,\"el\":\"C\",\"x\":6.1742,\"y\":4.615},{\"id\":53,\"el\":\"C\",\"x\":5.3081,\"y\":5.115},{\"id\":54,\"el\":\"C\",\"x\":5.3081,\"y\":6.115},{\"id\":55,\"el\":\"C\",\"x\":4.4421,\"y\":4.615},{\"id\":56,\"el\":\"C\",\"x\":4.4421,\"y\":3.615}],\"bonds\":[{\"id\":8,\"a\":1,\"b\":2,\"o\":1},{\"id\":9,\"a\":2,\"b\":3,\"o\":1},{\"id\":10,\"a\":2,\"b\":7,\"o\":2},{\"id\":11,\"a\":3,\"b\":4,\"o\":2},{\"id\":12,\"a\":4,\"b\":5,\"o\":1},{\"id\":13,\"a\":5,\"b\":6,\"o\":2},{\"id\":14,\"a\":6,\"b\":7,\"o\":1},{\"id\":23,\"a\":15,\"b\":16,\"o\":1},{\"id\":24,\"a\":16,\"b\":17,\"o\":1},{\"id\":25,\"a\":17,\"b\":18,\"o\":1},{\"id\":26,\"a\":17,\"b\":22,\"o\":2},{\"id\":27,\"a\":18,\"b\":19,\"o\":2},{\"id\":28,\"a\":19,\"b\":20,\"o\":1},{\"id\":29,\"a\":20,\"b\":21,\"o\":2},{\"id\":30,\"a\":21,\"b\":22,\"o\":1},{\"id\":40,\"a\":31,\"b\":32,\"o\":1},{\"id\":41,\"a\":32,\"b\":33,\"o\":2},{\"id\":42,\"a\":32,\"b\":34,\"o\":1},{\"id\":43,\"a\":34,\"b\":35,\"o\":1},{\"id\":44,\"a\":34,\"b\":39,\"o\":2},{\"id\":45,\"a\":35,\"b\":36,\"o\":2},{\"id\":46,\"a\":36,\"b\":37,\"o\":1},{\"id\":47,\"a\":37,\"b\":38,\"o\":2},{\"id\":48,\"a\":38,\"b\":39,\"o\":1},{\"id\":57,\"a\":49,\"b\":50,\"o\":1},{\"id\":58,\"a\":50,\"b\":51,\"o\":1},{\"id\":59,\"a\":50,\"b\":56,\"o\":2},{\"id\":60,\"a\":51,\"b\":52,\"o\":2},{\"id\":61,\"a\":52,\"b\":53,\"o\":1},{\"id\":62,\"a\":53,\"b\":54,\"o\":1},{\"id\":63,\"a\":53,\"b\":55,\"o\":2},{\"id\":64,\"a\":55,\"b\":56,\"o\":1}],\"objects\":[{\"id\":65,\"t\":\"arrow\",\"x\":2.0821,\"y\":0.817,\"x2\":3.8821,\"y2\":-0.194,\"text\":\"+O\",\"from\":1,\"to\":15},{\"id\":66,\"t\":\"arrow\",\"x\":6.7342,\"y\":-0.995,\"x2\":8.5342,\"y2\":-0.995,\"text\":\"+O-H2\",\"from\":15,\"to\":31},{\"id\":67,\"t\":\"arrow\",\"x\":2.0821,\"y\":2.183,\"x2\":4.0921,\"y2\":3.312,\"text\":\"+O\",\"from\":1,\"to\":49}]}</metadata>\n<title id=\"t-5367d8b5\">C7H8, C7H8O, C7H6O2 and C7H8O with a reaction arrow</title>\n<desc id=\"d-5367d8b5\">Reaction scheme: C7H8, C7H8O, C7H6O2 and C7H8O, with a reaction arrow.</desc>\n<line x1=\"60.18\" y1=\"127.65\" x2=\"60.18\" y2=\"157.65\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"157.65\" x2=\"86.16\" y2=\"172.65\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"157.65\" x2=\"34.2\" y2=\"172.65\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"59.01\" y1=\"162.83\" x2=\"39.27\" y2=\"174.23\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"172.65\" x2=\"86.16\" y2=\"202.65\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"82.26\" y1=\"176.25\" x2=\"82.26\" y2=\"199.05\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"86.16\" y1=\"202.65\" x2=\"60.18\" y2=\"217.65\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"60.18\" y1=\"217.65\" x2=\"34.2\" y2=\"202.65\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"59.01\" y1=\"212.47\" x2=\"39.27\" y2=\"201.07\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"34.2\" y1=\"202.65\" x2=\"34.2\" y2=\"172.65\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"180.21\" y1=\"202.32\" x2=\"199.74\" y2=\"213.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"199.74\" y1=\"213.6\" x2=\"199.74\" y2=\"243.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"199.74\" y1=\"243.6\" x2=\"225.73\" y2=\"258.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"199.74\" y1=\"243.6\" x2=\"173.76\" y2=\"258.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"198.58\" y1=\"248.78\" x2=\"178.83\" y2=\"260.18\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"225.73\" y1=\"258.6\" x2=\"225.73\" y2=\"288.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"221.83\" y1=\"262.2\" x2=\"221.83\" y2=\"285\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"225.73\" y1=\"288.6\" x2=\"199.74\" y2=\"303.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"199.74\" y1=\"303.6\" x2=\"173.76\" y2=\"288.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"198.58\" y1=\"298.42\" x2=\"178.83\" y2=\"287.02\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"173.76\" y1=\"288.6\" x2=\"173.76\" y2=\"258.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"350.45\" y1=\"202.32\" x2=\"330.91\" y2=\"213.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"331.88\" y1=\"211.91\" x2=\"312.34\" y2=\"200.63\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"329.93\" y1=\"215.29\" x2=\"310.39\" y2=\"204.01\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"330.91\" y1=\"213.6\" x2=\"330.91\" y2=\"243.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"330.91\" y1=\"243.6\" x2=\"356.89\" y2=\"258.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"330.91\" y1=\"243.6\" x2=\"304.93\" y2=\"258.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"329.74\" y1=\"248.78\" x2=\"309.99\" y2=\"260.18\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"356.89\" y1=\"258.6\" x2=\"356.89\" y2=\"288.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"352.99\" y1=\"262.2\" x2=\"352.99\" y2=\"285\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"356.89\" y1=\"288.6\" x2=\"330.91\" y2=\"303.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"330.91\" y1=\"303.6\" x2=\"304.93\" y2=\"288.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"329.74\" y1=\"298.42\" x2=\"309.99\" y2=\"287.02\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"304.93\" y1=\"288.6\" x2=\"304.93\" y2=\"258.6\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"193.44\" y1=\"146.76\" x2=\"193.44\" y2=\"124.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"193.44\" y1=\"124.2\" x2=\"219.43\" y2=\"109.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"193.44\" y1=\"124.2\" x2=\"167.46\" y2=\"109.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"192.28\" y1=\"119.02\" x2=\"172.53\" y2=\"107.62\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"219.43\" y1=\"109.2\" x2=\"219.43\" y2=\"79.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"215.53\" y1=\"105.6\" x2=\"215.53\" y2=\"82.8\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"219.43\" y1=\"79.2\" x2=\"193.44\" y2=\"64.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"193.44\" y1=\"64.2\" x2=\"193.44\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"193.44\" y1=\"64.2\" x2=\"167.46\" y2=\"79.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"192.28\" y1=\"69.38\" x2=\"172.53\" y2=\"80.78\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<line x1=\"167.46\" y1=\"79.2\" x2=\"167.46\" y2=\"109.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n<text x=\"173.76\" y=\"198.6\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"161.16\" y=\"198.6\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"356.89\" y=\"198.6\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"361.09\" y=\"198.6\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"304.93\" y=\"198.6\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"193.44\" y=\"154.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"middle\" dominant-baseline=\"central\">O</text>\n<text x=\"197.64\" y=\"154.2\" font-size=\"12\" fill=\"#c02020\" text-anchor=\"start\" dominant-baseline=\"central\">H</text>\n<text x=\"60.18\" y=\"235.29\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">Toluene</text>\n<text x=\"199.74\" y=\"321.24\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">Benzyl alcohol</text>\n<text x=\"330.91\" y=\"321.24\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">Benzoic acid (tentative)</text>\n<text x=\"193.44\" y=\"171.84\" font-size=\"9.6\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">p-Cresol (not detected)</text>\n<line x1=\"96.66\" y1=\"193.14\" x2=\"142.82\" y2=\"219.06\" stroke=\"#000000\" stroke-width=\"1.75\"/>\n<polygon points=\"150.66,223.47 141.05,222.2 144.58,215.92\" fill=\"#000000\"/>\n<text x=\"128.36\" y=\"199.93\" font-size=\"10.2\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">+O</text>\n<line x1=\"236.23\" y1=\"247.5\" x2=\"281.23\" y2=\"247.5\" stroke=\"#000000\" stroke-width=\"1.75\"/>\n<polygon points=\"290.23,247.5 281.23,251.1 281.23,243.9\" fill=\"#000000\"/>\n<text x=\"263.23\" y=\"237.9\" font-size=\"10.2\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">+O−H2</text>\n<line x1=\"96.66\" y1=\"152.16\" x2=\"149.12\" y2=\"122.7\" stroke=\"#000000\" stroke-width=\"1.75\"/>\n<polygon points=\"156.96,118.29 150.88,125.84 147.35,119.56\" fill=\"#000000\"/>\n<text x=\"122.11\" y=\"126.85\" font-size=\"10.2\" fill=\"#000000\" text-anchor=\"middle\" dominant-baseline=\"central\">+O</text>\n</svg>\n",
+      "plain": true,
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M1"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+O-H2",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.0295,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "svg"
+      }
+    },
+    {
+      "name": "pathway-draw: the CDXML of the built pathway",
+      "out": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"55.98 123.45\"/>\n<n id=\"3\" p=\"55.98 153.45\"/>\n<n id=\"4\" p=\"81.96 168.45\"/>\n<n id=\"5\" p=\"81.96 198.45\"/>\n<n id=\"6\" p=\"55.98 213.45\"/>\n<n id=\"7\" p=\"30.00 198.45\"/>\n<n id=\"8\" p=\"30.00 168.45\"/>\n<n id=\"9\" p=\"169.56 194.40\" Element=\"8\" NumHydrogens=\"1\"><t><s font=\"3\" size=\"10\" face=\"0\">OH</s></t></n>\n<n id=\"10\" p=\"195.54 209.40\"/>\n<n id=\"11\" p=\"195.54 239.40\"/>\n<n id=\"12\" p=\"221.53 254.40\"/>\n<n id=\"13\" p=\"221.53 284.40\"/>\n<n id=\"14\" p=\"195.54 299.40\"/>\n<n id=\"15\" p=\"169.56 284.40\"/>\n<n id=\"16\" p=\"169.56 254.40\"/>\n<n id=\"17\" p=\"352.69 194.40\" Element=\"8\" NumHydrogens=\"1\"><t><s font=\"3\" size=\"10\" face=\"0\">OH</s></t></n>\n<n id=\"18\" p=\"326.71 209.40\"/>\n<n id=\"19\" p=\"300.73 194.40\" Element=\"8\" NumHydrogens=\"0\"><t><s font=\"3\" size=\"10\" face=\"0\">O</s></t></n>\n<n id=\"20\" p=\"326.71 239.40\"/>\n<n id=\"21\" p=\"352.69 254.40\"/>\n<n id=\"22\" p=\"352.69 284.40\"/>\n<n id=\"23\" p=\"326.71 299.40\"/>\n<n id=\"24\" p=\"300.73 284.40\"/>\n<n id=\"25\" p=\"300.73 254.40\"/>\n<n id=\"26\" p=\"189.24 150.00\" Element=\"8\" NumHydrogens=\"1\"><t><s font=\"3\" size=\"10\" face=\"0\">OH</s></t></n>\n<n id=\"27\" p=\"189.24 120.00\"/>\n<n id=\"28\" p=\"215.23 105.00\"/>\n<n id=\"29\" p=\"215.23 75.00\"/>\n<n id=\"30\" p=\"189.24 60.00\"/>\n<n id=\"31\" p=\"189.24 30.00\"/>\n<n id=\"32\" p=\"163.26 75.00\"/>\n<n id=\"33\" p=\"163.26 105.00\"/>\n<b id=\"34\" B=\"2\" E=\"3\"/>\n<b id=\"35\" B=\"3\" E=\"4\"/>\n<b id=\"36\" B=\"3\" E=\"8\" Order=\"2\"/>\n<b id=\"37\" B=\"4\" E=\"5\" Order=\"2\"/>\n<b id=\"38\" B=\"5\" E=\"6\"/>\n<b id=\"39\" B=\"6\" E=\"7\" Order=\"2\"/>\n<b id=\"40\" B=\"7\" E=\"8\"/>\n<b id=\"41\" B=\"9\" E=\"10\"/>\n<b id=\"42\" B=\"10\" E=\"11\"/>\n<b id=\"43\" B=\"11\" E=\"12\"/>\n<b id=\"44\" B=\"11\" E=\"16\" Order=\"2\"/>\n<b id=\"45\" B=\"12\" E=\"13\" Order=\"2\"/>\n<b id=\"46\" B=\"13\" E=\"14\"/>\n<b id=\"47\" B=\"14\" E=\"15\" Order=\"2\"/>\n<b id=\"48\" B=\"15\" E=\"16\"/>\n<b id=\"49\" B=\"17\" E=\"18\"/>\n<b id=\"50\" B=\"18\" E=\"19\" Order=\"2\"/>\n<b id=\"51\" B=\"18\" E=\"20\"/>\n<b id=\"52\" B=\"20\" E=\"21\"/>\n<b id=\"53\" B=\"20\" E=\"25\" Order=\"2\"/>\n<b id=\"54\" B=\"21\" E=\"22\" Order=\"2\"/>\n<b id=\"55\" B=\"22\" E=\"23\"/>\n<b id=\"56\" B=\"23\" E=\"24\" Order=\"2\"/>\n<b id=\"57\" B=\"24\" E=\"25\"/>\n<b id=\"58\" B=\"26\" E=\"27\"/>\n<b id=\"59\" B=\"27\" E=\"28\"/>\n<b id=\"60\" B=\"27\" E=\"33\" Order=\"2\"/>\n<b id=\"61\" B=\"28\" E=\"29\" Order=\"2\"/>\n<b id=\"62\" B=\"29\" E=\"30\"/>\n<b id=\"63\" B=\"30\" E=\"31\"/>\n<b id=\"64\" B=\"30\" E=\"32\" Order=\"2\"/>\n<b id=\"65\" B=\"32\" E=\"33\"/>\n</fragment>\n<graphic id=\"66\" SupersededBy=\"67\" BoundingBox=\"146.46 219.27 92.46 188.94\" GraphicType=\"Line\" ArrowType=\"FullHead\"/>\n<arrow id=\"67\" Head3D=\"146.46 219.27 0\" Tail3D=\"92.46 188.94 0\" ArrowheadHead=\"Full\"/>\n<t id=\"68\" p=\"119.46 189.11\"><s font=\"3\" size=\"10\" face=\"0\">+O</s></t>\n<graphic id=\"69\" SupersededBy=\"70\" BoundingBox=\"286.03 243.30 232.03 243.30\" GraphicType=\"Line\" ArrowType=\"FullHead\"/>\n<arrow id=\"70\" Head3D=\"286.03 243.30 0\" Tail3D=\"232.03 243.30 0\" ArrowheadHead=\"Full\"/>\n<t id=\"71\" p=\"259.03 228.30\"><s font=\"3\" size=\"10\" face=\"0\">+O-H2</s></t>\n<graphic id=\"72\" SupersededBy=\"73\" BoundingBox=\"152.76 114.09 92.46 147.96\" GraphicType=\"Line\" ArrowType=\"FullHead\"/>\n<arrow id=\"73\" Head3D=\"152.76 114.09 0\" Tail3D=\"92.46 147.96 0\" ArrowheadHead=\"Full\"/>\n<t id=\"74\" p=\"122.61 116.03\"><s font=\"3\" size=\"10\" face=\"0\">+O</s></t>\n</page>\n</CDXML>\n",
+      "plain": true,
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M1"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+O-H2",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.0295,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "cdxml"
+      }
+    },
+    {
+      "name": "pathway-draw: the KET of the built pathway",
+      "out": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"},{\"type\":\"arrow\",\"data\":{\"mode\":\"open-angle\",\"pos\":[{\"x\":2.0821,\"y\":0.817,\"z\":0},{\"x\":3.8821,\"y\":-0.194,\"z\":0}]}},{\"type\":\"text\",\"data\":{\"content\":\"{\\\"blocks\\\":[{\\\"text\\\":\\\"+O\\\",\\\"type\\\":\\\"unstyled\\\",\\\"depth\\\":0,\\\"inlineStyleRanges\\\":[],\\\"entityRanges\\\":[],\\\"data\\\":{}}],\\\"entityMap\\\":{}}\",\"position\":{\"x\":2.9821,\"y\":0.8115,\"z\":0}}},{\"type\":\"arrow\",\"data\":{\"mode\":\"open-angle\",\"pos\":[{\"x\":6.7342,\"y\":-0.995,\"z\":0},{\"x\":8.5342,\"y\":-0.995,\"z\":0}]}},{\"type\":\"text\",\"data\":{\"content\":\"{\\\"blocks\\\":[{\\\"text\\\":\\\"+O-H2\\\",\\\"type\\\":\\\"unstyled\\\",\\\"depth\\\":0,\\\"inlineStyleRanges\\\":[],\\\"entityRanges\\\":[],\\\"data\\\":{}}],\\\"entityMap\\\":{}}\",\"position\":{\"x\":7.6342,\"y\":-0.495,\"z\":0}}},{\"type\":\"arrow\",\"data\":{\"mode\":\"open-angle\",\"pos\":[{\"x\":2.0821,\"y\":2.183,\"z\":0},{\"x\":4.0921,\"y\":3.312,\"z\":0}]}},{\"type\":\"text\",\"data\":{\"content\":\"{\\\"blocks\\\":[{\\\"text\\\":\\\"+O\\\",\\\"type\\\":\\\"unstyled\\\",\\\"depth\\\":0,\\\"inlineStyleRanges\\\":[],\\\"entityRanges\\\":[],\\\"data\\\":{}}],\\\"entityMap\\\":{}}\",\"position\":{\"x\":3.0871,\"y\":3.2475,\"z\":0}}}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.866,3.0,0]},{\"label\":\"C\",\"location\":[0.866,2.0,0]},{\"label\":\"C\",\"location\":[1.7321,1.5,0]},{\"label\":\"C\",\"location\":[1.7321,0.5,0]},{\"label\":\"C\",\"location\":[0.866,0.0,0]},{\"label\":\"C\",\"location\":[0.0,0.5,0]},{\"label\":\"C\",\"location\":[0.0,1.5,0]},{\"label\":\"O\",\"location\":[4.6521,0.635,0]},{\"label\":\"C\",\"location\":[5.5181,0.135,0]},{\"label\":\"C\",\"location\":[5.5181,-0.865,0]},{\"label\":\"C\",\"location\":[6.3842,-1.365,0]},{\"label\":\"C\",\"location\":[6.3842,-2.365,0]},{\"label\":\"C\",\"location\":[5.5181,-2.865,0]},{\"label\":\"C\",\"location\":[4.6521,-2.365,0]},{\"label\":\"C\",\"location\":[4.6521,-1.365,0]},{\"label\":\"O\",\"location\":[10.7563,0.635,0]},{\"label\":\"C\",\"location\":[9.8902,0.135,0]},{\"label\":\"O\",\"location\":[9.0242,0.635,0]},{\"label\":\"C\",\"location\":[9.8902,-0.865,0]},{\"label\":\"C\",\"location\":[10.7563,-1.365,0]},{\"label\":\"C\",\"location\":[10.7563,-2.365,0]},{\"label\":\"C\",\"location\":[9.8902,-2.865,0]},{\"label\":\"C\",\"location\":[9.0242,-2.365,0]},{\"label\":\"C\",\"location\":[9.0242,-1.365,0]},{\"label\":\"O\",\"location\":[5.3081,2.115,0]},{\"label\":\"C\",\"location\":[5.3081,3.115,0]},{\"label\":\"C\",\"location\":[6.1742,3.615,0]},{\"label\":\"C\",\"location\":[6.1742,4.615,0]},{\"label\":\"C\",\"location\":[5.3081,5.115,0]},{\"label\":\"C\",\"location\":[5.3081,6.115,0]},{\"label\":\"C\",\"location\":[4.4421,4.615,0]},{\"label\":\"C\",\"location\":[4.4421,3.615,0]}],\"bonds\":[{\"type\":1,\"atoms\":[0,1]},{\"type\":1,\"atoms\":[1,2]},{\"type\":2,\"atoms\":[1,6]},{\"type\":2,\"atoms\":[2,3]},{\"type\":1,\"atoms\":[3,4]},{\"type\":2,\"atoms\":[4,5]},{\"type\":1,\"atoms\":[5,6]},{\"type\":1,\"atoms\":[7,8]},{\"type\":1,\"atoms\":[8,9]},{\"type\":1,\"atoms\":[9,10]},{\"type\":2,\"atoms\":[9,14]},{\"type\":2,\"atoms\":[10,11]},{\"type\":1,\"atoms\":[11,12]},{\"type\":2,\"atoms\":[12,13]},{\"type\":1,\"atoms\":[13,14]},{\"type\":1,\"atoms\":[15,16]},{\"type\":2,\"atoms\":[16,17]},{\"type\":1,\"atoms\":[16,18]},{\"type\":1,\"atoms\":[18,19]},{\"type\":2,\"atoms\":[18,23]},{\"type\":2,\"atoms\":[19,20]},{\"type\":1,\"atoms\":[20,21]},{\"type\":2,\"atoms\":[21,22]},{\"type\":1,\"atoms\":[22,23]},{\"type\":1,\"atoms\":[24,25]},{\"type\":1,\"atoms\":[25,26]},{\"type\":2,\"atoms\":[25,31]},{\"type\":2,\"atoms\":[26,27]},{\"type\":1,\"atoms\":[27,28]},{\"type\":1,\"atoms\":[28,29]},{\"type\":2,\"atoms\":[28,30]},{\"type\":1,\"atoms\":[30,31]}]}}",
+      "plain": true,
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M1"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+O-H2",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.0295,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "ket"
+      }
+    },
+    {
+      "name": "pathway-draw: the PDF of the built pathway",
+      "out": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgL05hbWVzIDw8IC9FbWJlZGRlZEZpbGVzIDw8IC9OYW1lcyBbKG16ZHJhdy5qc29uKSA2IDAgUiAobXpkcmF3Lm1vbCkgOCAwIFJdID4+ID4+ID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgMzkxLjA5IDMzNy44XSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiA+PiA+PiAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhIC9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nID4+CmVuZG9iago1IDAgb2JqCjw8ICAvTGVuZ3RoIDMyODkgPj4Kc3RyZWFtCjEgSgowIDAgMCBSRyAxLjM1IHcgNjAuMTggMjEwLjE1IG0gNjAuMTggMTgwLjE1IGwgUwowIDAgMCBSRyAxLjM1IHcgNjAuMTggMTgwLjE1IG0gODYuMTYgMTY1LjE1IGwgUwowIDAgMCBSRyAxLjM1IHcgNjAuMTggMTgwLjE1IG0gMzQuMiAxNjUuMTUgbCBTCjAgMCAwIFJHIDEuMzUgdyA1OS4wMSAxNzQuOTcgbSAzOS4yNyAxNjMuNTcgbCBTCjAgMCAwIFJHIDEuMzUgdyA4Ni4xNiAxNjUuMTUgbSA4Ni4xNiAxMzUuMTUgbCBTCjAgMCAwIFJHIDEuMzUgdyA4Mi4yNiAxNjEuNTUgbSA4Mi4yNiAxMzguNzUgbCBTCjAgMCAwIFJHIDEuMzUgdyA4Ni4xNiAxMzUuMTUgbSA2MC4xOCAxMjAuMTUgbCBTCjAgMCAwIFJHIDEuMzUgdyA2MC4xOCAxMjAuMTUgbSAzNC4yIDEzNS4xNSBsIFMKMCAwIDAgUkcgMS4zNSB3IDU5LjAxIDEyNS4zMyBtIDM5LjI3IDEzNi43MyBsIFMKMCAwIDAgUkcgMS4zNSB3IDM0LjIgMTM1LjE1IG0gMzQuMiAxNjUuMTUgbCBTCjAgMCAwIFJHIDEuMzUgdyAxODAuMjEgMTM1LjQ4IG0gMTk5Ljc0IDEyNC4yIGwgUwowIDAgMCBSRyAxLjM1IHcgMTk5Ljc0IDEyNC4yIG0gMTk5Ljc0IDk0LjIgbCBTCjAgMCAwIFJHIDEuMzUgdyAxOTkuNzQgOTQuMiBtIDIyNS43MyA3OS4yIGwgUwowIDAgMCBSRyAxLjM1IHcgMTk5Ljc0IDk0LjIgbSAxNzMuNzYgNzkuMiBsIFMKMCAwIDAgUkcgMS4zNSB3IDE5OC41OCA4OS4wMiBtIDE3OC44MyA3Ny42MiBsIFMKMCAwIDAgUkcgMS4zNSB3IDIyNS43MyA3OS4yIG0gMjI1LjczIDQ5LjIgbCBTCjAgMCAwIFJHIDEuMzUgdyAyMjEuODMgNzUuNiBtIDIyMS44MyA1Mi44IGwgUwowIDAgMCBSRyAxLjM1IHcgMjI1LjczIDQ5LjIgbSAxOTkuNzQgMzQuMiBsIFMKMCAwIDAgUkcgMS4zNSB3IDE5OS43NCAzNC4yIG0gMTczLjc2IDQ5LjIgbCBTCjAgMCAwIFJHIDEuMzUgdyAxOTguNTggMzkuMzggbSAxNzguODMgNTAuNzggbCBTCjAgMCAwIFJHIDEuMzUgdyAxNzMuNzYgNDkuMiBtIDE3My43NiA3OS4yIGwgUwowIDAgMCBSRyAxLjM1IHcgMzUwLjQ1IDEzNS40OCBtIDMzMC45MSAxMjQuMiBsIFMKMCAwIDAgUkcgMS4zNSB3IDMzMS44OCAxMjUuODkgbSAzMTIuMzQgMTM3LjE3IGwgUwowIDAgMCBSRyAxLjM1IHcgMzI5LjkzIDEyMi41MSBtIDMxMC4zOSAxMzMuNzkgbCBTCjAgMCAwIFJHIDEuMzUgdyAzMzAuOTEgMTI0LjIgbSAzMzAuOTEgOTQuMiBsIFMKMCAwIDAgUkcgMS4zNSB3IDMzMC45MSA5NC4yIG0gMzU2Ljg5IDc5LjIgbCBTCjAgMCAwIFJHIDEuMzUgdyAzMzAuOTEgOTQuMiBtIDMwNC45MyA3OS4yIGwgUwowIDAgMCBSRyAxLjM1IHcgMzI5Ljc0IDg5LjAyIG0gMzA5Ljk5IDc3LjYyIGwgUwowIDAgMCBSRyAxLjM1IHcgMzU2Ljg5IDc5LjIgbSAzNTYuODkgNDkuMiBsIFMKMCAwIDAgUkcgMS4zNSB3IDM1Mi45OSA3NS42IG0gMzUyLjk5IDUyLjggbCBTCjAgMCAwIFJHIDEuMzUgdyAzNTYuODkgNDkuMiBtIDMzMC45MSAzNC4yIGwgUwowIDAgMCBSRyAxLjM1IHcgMzMwLjkxIDM0LjIgbSAzMDQuOTMgNDkuMiBsIFMKMCAwIDAgUkcgMS4zNSB3IDMyOS43NCAzOS4zOCBtIDMwOS45OSA1MC43OCBsIFMKMCAwIDAgUkcgMS4zNSB3IDMwNC45MyA0OS4yIG0gMzA0LjkzIDc5LjIgbCBTCjAgMCAwIFJHIDEuMzUgdyAxOTMuNDQgMTkxLjA0IG0gMTkzLjQ0IDIxMy42IGwgUwowIDAgMCBSRyAxLjM1IHcgMTkzLjQ0IDIxMy42IG0gMjE5LjQzIDIyOC42IGwgUwowIDAgMCBSRyAxLjM1IHcgMTkzLjQ0IDIxMy42IG0gMTY3LjQ2IDIyOC42IGwgUwowIDAgMCBSRyAxLjM1IHcgMTkyLjI4IDIxOC43OCBtIDE3Mi41MyAyMzAuMTggbCBTCjAgMCAwIFJHIDEuMzUgdyAyMTkuNDMgMjI4LjYgbSAyMTkuNDMgMjU4LjYgbCBTCjAgMCAwIFJHIDEuMzUgdyAyMTUuNTMgMjMyLjIgbSAyMTUuNTMgMjU1IGwgUwowIDAgMCBSRyAxLjM1IHcgMjE5LjQzIDI1OC42IG0gMTkzLjQ0IDI3My42IGwgUwowIDAgMCBSRyAxLjM1IHcgMTkzLjQ0IDI3My42IG0gMTkzLjQ0IDMwMy42IGwgUwowIDAgMCBSRyAxLjM1IHcgMTkzLjQ0IDI3My42IG0gMTY3LjQ2IDI1OC42IGwgUwowIDAgMCBSRyAxLjM1IHcgMTkyLjI4IDI2OC40MiBtIDE3Mi41MyAyNTcuMDIgbCBTCjAgMCAwIFJHIDEuMzUgdyAxNjcuNDYgMjU4LjYgbSAxNjcuNDYgMjI4LjYgbCBTCkJUIC9GMSAxMiBUZiAwLjc1MyAwLjEyNSAwLjEyNSByZyAxNjkuNTYgMTM1IFRkIChPKSBUaiBFVApCVCAvRjEgMTIgVGYgMC43NTMgMC4xMjUgMC4xMjUgcmcgMTYxLjE2IDEzNSBUZCAoSCkgVGogRVQKQlQgL0YxIDEyIFRmIDAuNzUzIDAuMTI1IDAuMTI1IHJnIDM1Mi42OSAxMzUgVGQgKE8pIFRqIEVUCkJUIC9GMSAxMiBUZiAwLjc1MyAwLjEyNSAwLjEyNSByZyAzNjEuMDkgMTM1IFRkIChIKSBUaiBFVApCVCAvRjEgMTIgVGYgMC43NTMgMC4xMjUgMC4xMjUgcmcgMzAwLjczIDEzNSBUZCAoTykgVGogRVQKQlQgL0YxIDEyIFRmIDAuNzUzIDAuMTI1IDAuMTI1IHJnIDE4OS4yNCAxNzkuNCBUZCAoTykgVGogRVQKQlQgL0YxIDEyIFRmIDAuNzUzIDAuMTI1IDAuMTI1IHJnIDE5Ny42NCAxNzkuNCBUZCAoSCkgVGogRVQKQlQgL0YxIDkuNiBUZiAwIDAgMCByZyA0My40OCA5OS4xNSBUZCAoVG9sdWVuZSkgVGogRVQKQlQgL0YxIDkuNiBUZiAwIDAgMCByZyAxNjcuMzkgMTMuMiBUZCAoQmVuenlsIGFsY29ob2wpIFRqIEVUCkJUIC9GMSA5LjYgVGYgMCAwIDAgcmcgMjcxLjY4IDEzLjIgVGQgKEJlbnpvaWMgYWNpZCBcKHRlbnRhdGl2ZVwpKSBUaiBFVApCVCAvRjEgOS42IFRmIDAgMCAwIHJnIDEzNC4xMiAxNjIuNiBUZCAocC1DcmVzb2wgXChub3QgZGV0ZWN0ZWRcKSkgVGogRVQKMCAwIDAgUkcgMS43NSB3IDk2LjY2IDE0NC42NiBtIDE0Mi44MiAxMTguNzQgbCBTCjAgMCAwIHJnIDE1MC42NiAxMTQuMzMgbSAxNDEuMDUgMTE1LjYgbCAxNDQuNTggMTIxLjg4IGwgaCBmCkJUIC9GMSAxMC4yIFRmIDAgMCAwIHJnIDEyMS44NCAxMzQuMyBUZCAoK08pIFRqIEVUCjAgMCAwIFJHIDEuNzUgdyAyMzYuMjMgOTAuMyBtIDI4MS4yMyA5MC4zIGwgUwowIDAgMCByZyAyOTAuMjMgOTAuMyBtIDI4MS4yMyA4Ni43IGwgMjgxLjIzIDkzLjkgbCBoIGYKQlQgL0YxIDEwLjIgVGYgMCAwIDAgcmcgMjQ3LjMxIDk2LjMzIFRkICgrT1wyMjZIMikgVGogRVQKMCAwIDAgUkcgMS43NSB3IDk2LjY2IDE4NS42NCBtIDE0OS4xMiAyMTUuMSBsIFMKMCAwIDAgcmcgMTU2Ljk2IDIxOS41MSBtIDE1MC44OCAyMTEuOTYgbCAxNDcuMzUgMjE4LjI0IGwgaCBmCkJUIC9GMSAxMC4yIFRmIDAgMCAwIHJnIDExNS41OCAyMDcuMzggVGQgKCtPKSBUaiBFVAoKZW5kc3RyZWFtCmVuZG9iago2IDAgb2JqCjw8IC9UeXBlIC9GaWxlc3BlYyAvRiAobXpkcmF3Lmpzb24pIC9VRiAobXpkcmF3Lmpzb24pIC9FRiA8PCAvRiA3IDAgUiA+PiA+PgplbmRvYmoKNyAwIG9iago8PCAvVHlwZSAvRW1iZWRkZWRGaWxlIC9TdWJ0eXBlIC9hcHBsaWNhdGlvbiMyRmpzb24gL1BhcmFtcyA8PCAvU2l6ZSAzMTc1ID4+IC9MZW5ndGggMzE3NSA+PgpzdHJlYW0KeyJmb3JtYXQiOiJtemRyYXcvMSIsIm5leHQiOjY4LCJhdG9tcyI6W3siaWQiOjEsImVsIjoiQyIsIngiOjAuODY2LCJ5IjozLjAsImRhdGEiOltbIlRQX0lEIiwiVG9sdWVuZSJdLFsiTVoiLCI5My4wNjk5Il0sWyJSVCIsIjYuMSJdLFsiQUREVUNUIiwiW00rSF0rIl0sWyJOT0RFX0lEIiwiUCJdLFsiRk9STVVMQSIsIkM3SDgiXSxbIkdFTkVSQVRJT04iLCIwIl0sWyJCUkFOQ0giLCJBIl1dfSx7ImlkIjoyLCJlbCI6IkMiLCJ4IjowLjg2NiwieSI6Mi4wfSx7ImlkIjozLCJlbCI6IkMiLCJ4IjoxLjczMjEsInkiOjEuNX0seyJpZCI6NCwiZWwiOiJDIiwieCI6MS43MzIxLCJ5IjowLjV9LHsiaWQiOjUsImVsIjoiQyIsIngiOjAuODY2LCJ5IjowLjB9LHsiaWQiOjYsImVsIjoiQyIsIngiOjAuMCwieSI6MC41fSx7ImlkIjo3LCJlbCI6IkMiLCJ4IjowLjAsInkiOjEuNX0seyJpZCI6MTUsImVsIjoiTyIsIngiOjQuNjUyMSwieSI6MC42MzUsImRhdGEiOltbIlRQX0lEIiwiQmVuenlsIGFsY29ob2wiXSxbIk1aIiwiMTA5LjA2NDgiXSxbIlJUIiwiNCJdLFsiQUREVUNUIiwiW00rSF0rIl0sWyJOT0RFX0lEIiwiTTEiXSxbIkZPUk1VTEEiLCJDN0g4TyJdLFsiR0VORVJBVElPTiIsIjEiXSxbIkJSQU5DSCIsIkEiXV19LHsiaWQiOjE2LCJlbCI6IkMiLCJ4Ijo1LjUxODEsInkiOjAuMTM1fSx7ImlkIjoxNywiZWwiOiJDIiwieCI6NS41MTgxLCJ5IjotMC44NjV9LHsiaWQiOjE4LCJlbCI6IkMiLCJ4Ijo2LjM4NDIsInkiOi0xLjM2NX0seyJpZCI6MTksImVsIjoiQyIsIngiOjYuMzg0MiwieSI6LTIuMzY1fSx7ImlkIjoyMCwiZWwiOiJDIiwieCI6NS41MTgxLCJ5IjotMi44NjV9LHsiaWQiOjIxLCJlbCI6IkMiLCJ4Ijo0LjY1MjEsInkiOi0yLjM2NX0seyJpZCI6MjIsImVsIjoiQyIsIngiOjQuNjUyMSwieSI6LTEuMzY1fSx7ImlkIjozMSwiZWwiOiJPIiwieCI6MTAuNzU2MywieSI6MC42MzUsImRhdGEiOltbIlRQX0lEIiwiQmVuem9pYyBhY2lkIl0sWyJNWiIsIjEyMS4wMjk1Il0sWyJSVCIsIjMuMiJdLFsiQUREVUNUIiwiW00tSF0tIl0sWyJOT0RFX0lEIiwiTTIiXSxbIkZPUk1VTEEiLCJDN0g2TzIiXSxbIlNUQVRVUyIsInRlbnRhdGl2ZSJdLFsiR0VORVJBVElPTiIsIjIiXSxbIkJSQU5DSCIsIkEiXV19LHsiaWQiOjMyLCJlbCI6IkMiLCJ4Ijo5Ljg5MDIsInkiOjAuMTM1fSx7ImlkIjozMywiZWwiOiJPIiwieCI6OS4wMjQyLCJ5IjowLjYzNX0seyJpZCI6MzQsImVsIjoiQyIsIngiOjkuODkwMiwieSI6LTAuODY1fSx7ImlkIjozNSwiZWwiOiJDIiwieCI6MTAuNzU2MywieSI6LTEuMzY1fSx7ImlkIjozNiwiZWwiOiJDIiwieCI6MTAuNzU2MywieSI6LTIuMzY1fSx7ImlkIjozNywiZWwiOiJDIiwieCI6OS44OTAyLCJ5IjotMi44NjV9LHsiaWQiOjM4LCJlbCI6IkMiLCJ4Ijo5LjAyNDIsInkiOi0yLjM2NX0seyJpZCI6MzksImVsIjoiQyIsIngiOjkuMDI0MiwieSI6LTEuMzY1fSx7ImlkIjo0OSwiZWwiOiJPIiwieCI6NS4zMDgxLCJ5IjoyLjExNSwiZGF0YSI6W1siVFBfSUQiLCJwLUNyZXNvbCJdLFsiTk9ERV9JRCIsIk0zIl0sWyJGT1JNVUxBIiwiQzdIOE8iXSxbIlNUQVRVUyIsIm5vdF9kZXRlY3RlZCJdLFsiR0VORVJBVElPTiIsIjEiXSxbIkJSQU5DSCIsIkIiXV19LHsiaWQiOjUwLCJlbCI6IkMiLCJ4Ijo1LjMwODEsInkiOjMuMTE1fSx7ImlkIjo1MSwiZWwiOiJDIiwieCI6Ni4xNzQyLCJ5IjozLjYxNX0seyJpZCI6NTIsImVsIjoiQyIsIngiOjYuMTc0MiwieSI6NC42MTV9LHsiaWQiOjUzLCJlbCI6IkMiLCJ4Ijo1LjMwODEsInkiOjUuMTE1fSx7ImlkIjo1NCwiZWwiOiJDIiwieCI6NS4zMDgxLCJ5Ijo2LjExNX0seyJpZCI6NTUsImVsIjoiQyIsIngiOjQuNDQyMSwieSI6NC42MTV9LHsiaWQiOjU2LCJlbCI6IkMiLCJ4Ijo0LjQ0MjEsInkiOjMuNjE1fV0sImJvbmRzIjpbeyJpZCI6OCwiYSI6MSwiYiI6MiwibyI6MX0seyJpZCI6OSwiYSI6MiwiYiI6MywibyI6MX0seyJpZCI6MTAsImEiOjIsImIiOjcsIm8iOjJ9LHsiaWQiOjExLCJhIjozLCJiIjo0LCJvIjoyfSx7ImlkIjoxMiwiYSI6NCwiYiI6NSwibyI6MX0seyJpZCI6MTMsImEiOjUsImIiOjYsIm8iOjJ9LHsiaWQiOjE0LCJhIjo2LCJiIjo3LCJvIjoxfSx7ImlkIjoyMywiYSI6MTUsImIiOjE2LCJvIjoxfSx7ImlkIjoyNCwiYSI6MTYsImIiOjE3LCJvIjoxfSx7ImlkIjoyNSwiYSI6MTcsImIiOjE4LCJvIjoxfSx7ImlkIjoyNiwiYSI6MTcsImIiOjIyLCJvIjoyfSx7ImlkIjoyNywiYSI6MTgsImIiOjE5LCJvIjoyfSx7ImlkIjoyOCwiYSI6MTksImIiOjIwLCJvIjoxfSx7ImlkIjoyOSwiYSI6MjAsImIiOjIxLCJvIjoyfSx7ImlkIjozMCwiYSI6MjEsImIiOjIyLCJvIjoxfSx7ImlkIjo0MCwiYSI6MzEsImIiOjMyLCJvIjoxfSx7ImlkIjo0MSwiYSI6MzIsImIiOjMzLCJvIjoyfSx7ImlkIjo0MiwiYSI6MzIsImIiOjM0LCJvIjoxfSx7ImlkIjo0MywiYSI6MzQsImIiOjM1LCJvIjoxfSx7ImlkIjo0NCwiYSI6MzQsImIiOjM5LCJvIjoyfSx7ImlkIjo0NSwiYSI6MzUsImIiOjM2LCJvIjoyfSx7ImlkIjo0NiwiYSI6MzYsImIiOjM3LCJvIjoxfSx7ImlkIjo0NywiYSI6MzcsImIiOjM4LCJvIjoyfSx7ImlkIjo0OCwiYSI6MzgsImIiOjM5LCJvIjoxfSx7ImlkIjo1NywiYSI6NDksImIiOjUwLCJvIjoxfSx7ImlkIjo1OCwiYSI6NTAsImIiOjUxLCJvIjoxfSx7ImlkIjo1OSwiYSI6NTAsImIiOjU2LCJvIjoyfSx7ImlkIjo2MCwiYSI6NTEsImIiOjUyLCJvIjoyfSx7ImlkIjo2MSwiYSI6NTIsImIiOjUzLCJvIjoxfSx7ImlkIjo2MiwiYSI6NTMsImIiOjU0LCJvIjoxfSx7ImlkIjo2MywiYSI6NTMsImIiOjU1LCJvIjoyfSx7ImlkIjo2NCwiYSI6NTUsImIiOjU2LCJvIjoxfV0sIm9iamVjdHMiOlt7ImlkIjo2NSwidCI6ImFycm93IiwieCI6Mi4wODIxLCJ5IjowLjgxNywieDIiOjMuODgyMSwieTIiOi0wLjE5NCwidGV4dCI6IitPIiwiZnJvbSI6MSwidG8iOjE1fSx7ImlkIjo2NiwidCI6ImFycm93IiwieCI6Ni43MzQyLCJ5IjotMC45OTUsIngyIjo4LjUzNDIsInkyIjotMC45OTUsInRleHQiOiIrTy1IMiIsImZyb20iOjE1LCJ0byI6MzF9LHsiaWQiOjY3LCJ0IjoiYXJyb3ciLCJ4IjoyLjA4MjEsInkiOjIuMTgzLCJ4MiI6NC4wOTIxLCJ5MiI6My4zMTIsInRleHQiOiIrTyIsImZyb20iOjEsInRvIjo0OX1dfQplbmRzdHJlYW0KZW5kb2JqCjggMCBvYmoKPDwgL1R5cGUgL0ZpbGVzcGVjIC9GIChtemRyYXcubW9sKSAvVUYgKG16ZHJhdy5tb2wpIC9FRiA8PCAvRiA5IDAgUiA+PiA+PgplbmRvYmoKOSAwIG9iago8PCAvVHlwZSAvRW1iZWRkZWRGaWxlIC9TdWJ0eXBlIC9jaGVtaWNhbCMyRngtbWRsLW1vbGZpbGUgL1BhcmFtcyA8PCAvU2l6ZSAyMDc0ID4+IC9MZW5ndGggMjA3NCA+PgpzdHJlYW0KbXpEcmF3CiAgbXpMYWIgICAgICAgICAgICAgMkQKCiAgMCAgMCAgMCAgICAgMCAgMCAgICAgICAgICAgIDk5OSBWMzAwMApNICBWMzAgQkVHSU4gQ1RBQgpNICBWMzAgQ09VTlRTIDMyIDMyIDAgMCAwCk0gIFYzMCBCRUdJTiBBVE9NCk0gIFYzMCAxIEMgMC44NjYwMDAgMy4wMDAwMDAgMC4wMDAwMDAgMApNICBWMzAgMiBDIDAuODY2MDAwIDIuMDAwMDAwIDAuMDAwMDAwIDAKTSAgVjMwIDMgQyAxLjczMjEwMCAxLjUwMDAwMCAwLjAwMDAwMCAwCk0gIFYzMCA0IEMgMS43MzIxMDAgMC41MDAwMDAgMC4wMDAwMDAgMApNICBWMzAgNSBDIDAuODY2MDAwIDAuMDAwMDAwIDAuMDAwMDAwIDAKTSAgVjMwIDYgQyAwLjAwMDAwMCAwLjUwMDAwMCAwLjAwMDAwMCAwCk0gIFYzMCA3IEMgMC4wMDAwMDAgMS41MDAwMDAgMC4wMDAwMDAgMApNICBWMzAgOCBPIDQuNjUyMTAwIDAuNjM1MDAwIDAuMDAwMDAwIDAKTSAgVjMwIDkgQyA1LjUxODEwMCAwLjEzNTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAxMCBDIDUuNTE4MTAwIC0wLjg2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAxMSBDIDYuMzg0MjAwIC0xLjM2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAxMiBDIDYuMzg0MjAwIC0yLjM2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAxMyBDIDUuNTE4MTAwIC0yLjg2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAxNCBDIDQuNjUyMTAwIC0yLjM2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAxNSBDIDQuNjUyMTAwIC0xLjM2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAxNiBPIDEwLjc1NjMwMCAwLjYzNTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAxNyBDIDkuODkwMjAwIDAuMTM1MDAwIDAuMDAwMDAwIDAKTSAgVjMwIDE4IE8gOS4wMjQyMDAgMC42MzUwMDAgMC4wMDAwMDAgMApNICBWMzAgMTkgQyA5Ljg5MDIwMCAtMC44NjUwMDAgMC4wMDAwMDAgMApNICBWMzAgMjAgQyAxMC43NTYzMDAgLTEuMzY1MDAwIDAuMDAwMDAwIDAKTSAgVjMwIDIxIEMgMTAuNzU2MzAwIC0yLjM2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAyMiBDIDkuODkwMjAwIC0yLjg2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAyMyBDIDkuMDI0MjAwIC0yLjM2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAyNCBDIDkuMDI0MjAwIC0xLjM2NTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAyNSBPIDUuMzA4MTAwIDIuMTE1MDAwIDAuMDAwMDAwIDAKTSAgVjMwIDI2IEMgNS4zMDgxMDAgMy4xMTUwMDAgMC4wMDAwMDAgMApNICBWMzAgMjcgQyA2LjE3NDIwMCAzLjYxNTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAyOCBDIDYuMTc0MjAwIDQuNjE1MDAwIDAuMDAwMDAwIDAKTSAgVjMwIDI5IEMgNS4zMDgxMDAgNS4xMTUwMDAgMC4wMDAwMDAgMApNICBWMzAgMzAgQyA1LjMwODEwMCA2LjExNTAwMCAwLjAwMDAwMCAwCk0gIFYzMCAzMSBDIDQuNDQyMTAwIDQuNjE1MDAwIDAuMDAwMDAwIDAKTSAgVjMwIDMyIEMgNC40NDIxMDAgMy42MTUwMDAgMC4wMDAwMDAgMApNICBWMzAgRU5EIEFUT00KTSAgVjMwIEJFR0lOIEJPTkQKTSAgVjMwIDEgMSAxIDIKTSAgVjMwIDIgMSAyIDMKTSAgVjMwIDMgMiAyIDcKTSAgVjMwIDQgMiAzIDQKTSAgVjMwIDUgMSA0IDUKTSAgVjMwIDYgMiA1IDYKTSAgVjMwIDcgMSA2IDcKTSAgVjMwIDggMSA4IDkKTSAgVjMwIDkgMSA5IDEwCk0gIFYzMCAxMCAxIDEwIDExCk0gIFYzMCAxMSAyIDEwIDE1Ck0gIFYzMCAxMiAyIDExIDEyCk0gIFYzMCAxMyAxIDEyIDEzCk0gIFYzMCAxNCAyIDEzIDE0Ck0gIFYzMCAxNSAxIDE0IDE1Ck0gIFYzMCAxNiAxIDE2IDE3Ck0gIFYzMCAxNyAyIDE3IDE4Ck0gIFYzMCAxOCAxIDE3IDE5Ck0gIFYzMCAxOSAxIDE5IDIwCk0gIFYzMCAyMCAyIDE5IDI0Ck0gIFYzMCAyMSAyIDIwIDIxCk0gIFYzMCAyMiAxIDIxIDIyCk0gIFYzMCAyMyAyIDIyIDIzCk0gIFYzMCAyNCAxIDIzIDI0Ck0gIFYzMCAyNSAxIDI1IDI2Ck0gIFYzMCAyNiAxIDI2IDI3Ck0gIFYzMCAyNyAyIDI2IDMyCk0gIFYzMCAyOCAyIDI3IDI4Ck0gIFYzMCAyOSAxIDI4IDI5Ck0gIFYzMCAzMCAxIDI5IDMwCk0gIFYzMCAzMSAyIDI5IDMxCk0gIFYzMCAzMiAxIDMxIDMyCk0gIFYzMCBFTkQgQk9ORApNICBWMzAgRU5EIENUQUIKTSAgRU5ECgplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCAxMAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMDE0NiAwMDAwMCBuIAowMDAwMDAwMjAzIDAwMDAwIG4gCjAwMDAwMDAzMzQgMDAwMDAgbiAKMDAwMDAwMDQzMSAwMDAwMCBuIAowMDAwMDAzNzczIDAwMDAwIG4gCjAwMDAwMDM4NjQgMDAwMDAgbiAKMDAwMDAwNzE2NSAwMDAwMCBuIAowMDAwMDA3MjU0IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgMTAgL1Jvb3QgMSAwIFIgL0lEIFs8MzU5YTc4Zjk4NWYyMDcyNzFhNmE5NGQyNGNkM2NhYzI+IDwzNTlhNzhmOTg1ZjIwNzI3MWE2YTk0ZDI0Y2QzY2FjMj5dID4+CnN0YXJ0eHJlZgo5NDYwCiUlRU9GCg==",
+      "plain": true,
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M1"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+O-H2",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.0295,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "pdf"
+      }
+    },
+    {
+      "name": "pathway-draw: the plain replay has no engine, so no mass and no ion (the formulas and the deltas are checked)",
+      "out": "{\"counts\":{\"crossings\":0,\"edges\":3,\"error\":0,\"info\":1,\"nodes\":4,\"warn\":0},\"edges\":[{\"delta\":\"+O\",\"delta_mass\":null,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M1\"},{\"delta\":\"+O-H2\",\"delta_mass\":null,\"from\":\"M1\",\"label\":\"+O-H2\",\"result\":\"ok\",\"to\":\"M2\"},{\"delta\":\"+O\",\"delta_mass\":null,\"from\":\"P\",\"label\":\"+O\",\"result\":\"ok\",\"to\":\"M3\"}],\"engine\":false,\"findings\":[{\"detail\":\"no engine: masses, ions and numeric labels were not checked\",\"item\":\"\",\"key\":\"pathway.engine\",\"severity\":\"info\"}],\"format\":\"pathway-check/1\",\"nodes\":[{\"branch\":\"A\",\"formula\":\"C7H8\",\"generation\":0,\"id\":\"P\",\"ions\":[],\"label\":\"Toluene\",\"monoisotopic_mass\":null,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":null,\"mz\":93.0699,\"ppm\":null},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M1\",\"ions\":[],\"label\":\"Benzyl alcohol\",\"monoisotopic_mass\":null,\"observed\":{\"adduct\":\"[M+H]+\",\"expected\":null,\"mz\":109.0648,\"ppm\":null},\"status\":\"observed\"},{\"branch\":\"A\",\"formula\":\"C7H6O2\",\"generation\":2,\"id\":\"M2\",\"ions\":[],\"label\":\"Benzoic acid\",\"monoisotopic_mass\":null,\"observed\":{\"adduct\":\"[M-H]-\",\"expected\":null,\"mz\":121.0295,\"ppm\":null},\"status\":\"tentative\"},{\"branch\":\"B\",\"formula\":\"C7H8O\",\"generation\":1,\"id\":\"M3\",\"ions\":[],\"label\":\"p-Cresol\",\"monoisotopic_mass\":null,\"observed\":null,\"status\":\"not_detected\"}],\"ok\":true,\"polarity\":\"both\",\"tolerance\":{\"da\":0.005,\"ppm\":10.0}}",
+      "plain": true,
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "model": {
+                "edges": [
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M1"
+                  },
+                  {
+                    "from": "M1",
+                    "label": "+O-H2",
+                    "to": "M2"
+                  },
+                  {
+                    "from": "P",
+                    "label": "+O",
+                    "to": "M3"
+                  }
+                ],
+                "format": "pathway/1",
+                "nodes": [
+                  {
+                    "branch": "A",
+                    "formula": "C7H8",
+                    "generation": 0,
+                    "id": "P",
+                    "ion": "[M+H]+",
+                    "label": "Toluene",
+                    "mz": 93.0699,
+                    "rt": 6.1,
+                    "smiles": "Cc1ccccc1",
+                    "status": "observed"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M1",
+                    "ion": "[M+H]+",
+                    "label": "Benzyl alcohol",
+                    "mz": 109.0648,
+                    "rt": 4.0,
+                    "smiles": "OCc1ccccc1"
+                  },
+                  {
+                    "branch": "A",
+                    "formula": "C7H6O2",
+                    "generation": 2,
+                    "id": "M2",
+                    "ion": "[M-H]-",
+                    "label": "Benzoic acid",
+                    "mz": 121.0295,
+                    "rt": 3.2,
+                    "smiles": "OC(=O)c1ccccc1",
+                    "status": "tentative"
+                  },
+                  {
+                    "branch": "B",
+                    "formula": "C7H8O",
+                    "generation": 1,
+                    "id": "M3",
+                    "label": "p-Cresol",
+                    "smiles": "Oc1ccc(C)cc1",
+                    "status": "not_detected"
+                  }
+                ]
+              }
+            },
+            "command": "pathway:build"
+          }
+        ],
+        "out": "pathway-check"
+      }
+    }
+  ]
+}

@@ -257,6 +257,10 @@ pub struct Editor {
     pub measurer: Option<crate::values::Measurer>,
     /// What the last `save("tptable")` or `save("tptable-csv")` left empty, as (i18n key, count): said by `lost_on_save` and the page.
     pub table_notes: std::cell::RefCell<Vec<(&'static str, usize)>>,
+    /// Whether the last `save("pathway-check")` found an error (the CLI answers with its own exit code).
+    pub check_failed: std::cell::Cell<bool>,
+    /// The tolerances and the polarity of `save("pathway-check")` (the `args` of the request).
+    pub check_opts: crate::pathcheck::Opts,
     /// The calculated values of the structures as `refresh_values` last found them, and of the selection with the atoms it was for.
     pub(crate) measured: Vec<crate::values::Entry>,
     pub(crate) measured_error: &'static str,
@@ -438,6 +442,8 @@ impl Default for Editor {
             textp: Default::default(),
             measurer: None,
             table_notes: std::cell::RefCell::default(),
+            check_failed: std::cell::Cell::new(false),
+            check_opts: crate::pathcheck::Opts::default(),
             measured: Vec::new(),
             measured_error: "",
             measured_adducts: Vec::new(),
@@ -911,6 +917,8 @@ impl Editor {
                 *self.table_notes.borrow_mut() = notes;
                 text
             }
+            // the checks of a pathway drawing (`pathway-check/1`): formulas, deltas against the labels, expected ions, layout
+            "pathway-check" => self.pathway_check()?,
             // `loss:FORMAT`: what that format would drop or change of this drawing (`loss/1`)
             k if k.starts_with("loss:") => {
                 let target = &k["loss:".len()..];
@@ -951,6 +959,9 @@ impl Editor {
 
     /// Adds the structure of a text (SMILES, molfile or SDF, `mzdraw/1`) to the right of the drawing, as one undo step.
     pub fn import(&mut self, text: &str) -> Result<io::Imported, &'static str> {
+        if crate::pathmodel::looks_like(text) {
+            return self.import_model(text);
+        }
         if crate::tp_list::looks_like(text) {
             return self.import_list(text);
         }
@@ -988,12 +999,51 @@ impl Editor {
         }
     }
 
+    /// A pathway model `pathway/1` (`pathmodel`) as the Add field and the file button take it: the command `pathway:build`, one undo step. A
+    /// refusal adds nothing; the lines of the nodes and edges that failed are said as for a TP list.
+    fn import_model(&mut self, text: &str) -> Result<io::Imported, &'static str> {
+        let model: serde_json::Value =
+            serde_json::from_str(text).map_err(|_| crate::pathmodel::KEY_MODEL)?;
+        let nodes = model["nodes"].as_array().map_or(0, Vec::len);
+        match crate::commands::run(
+            self,
+            "pathway:build",
+            &serde_json::json!({ "model": model }),
+        ) {
+            Ok(()) => {
+                self.notice = ("", String::new());
+                Ok(io::Imported {
+                    format: "pathway",
+                    records: nodes,
+                    ..io::Imported::default()
+                })
+            }
+            Err(e) => {
+                if !self.failed_rows.is_empty() {
+                    let lines: Vec<String> = (self.failed_rows.iter().take(10))
+                        .map(|r| r.0.to_string())
+                        .collect();
+                    let more = if self.failed_rows.len() > 10 {
+                        ", \u{2026}"
+                    } else {
+                        ""
+                    };
+                    self.notice = ("draw2.say.tpRows", format!("{}{more}", lines.join(", ")));
+                }
+                Err(e.key)
+            }
+        }
+    }
+
     /// `import` for the bytes of a file: also a PNG saved by mzDraw, which carries its document.
     pub fn import_bytes(&mut self, bytes: &[u8]) -> Result<io::Imported, &'static str> {
-        if let Ok(text) = std::str::from_utf8(bytes)
-            && crate::tp_list::looks_like(text)
-        {
-            return self.import_list(text);
+        if let Ok(text) = std::str::from_utf8(bytes) {
+            if crate::pathmodel::looks_like(text) {
+                return self.import_model(text);
+            }
+            if crate::tp_list::looks_like(text) {
+                return self.import_list(text);
+            }
         }
         let read = io::import_bytes(bytes)?;
         self.add_read(read).map(|r| r.0)

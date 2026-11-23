@@ -44,6 +44,8 @@ pub mod orient;
 pub mod outcome;
 pub mod outline;
 pub mod palettes;
+pub mod pathcheck;
+pub mod pathmodel;
 pub mod pathway;
 pub mod pdf;
 pub mod png;

@@ -50,6 +50,7 @@ pub(crate) fn known(name: &str) -> bool {
                 | "tp:derive"
                 | "tp:import"
                 | "tp:number"
+                | "pathway:build"
                 | "new"
                 | "open"
                 | "save"
@@ -96,6 +97,9 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     }
     if name == "tp:number" {
         return number_args(args).map(|_| ());
+    }
+    if name == "pathway:build" {
+        return build_args(args).map(|_| ());
     }
     if name == "lonepairs" {
         return lonepairs_args(args).map(|_| ());
@@ -201,6 +205,16 @@ fn pathway_args(name: &str, args: &Value) -> Result<Option<u32>, &'static str> {
     let id = obj.get("arrow").and_then(Value::as_u64);
     match id {
         Some(i) if obj.len() == 1 && i > 0 && i <= u64::from(u32::MAX) => Ok(Some(i as u32)),
+        _ => Err("error.draw2.request"),
+    }
+}
+
+/// The arguments of `pathway:build`: `{"model": {"format":"pathway/1", ...}}`, nothing else (the model itself is checked when it runs, with
+/// every problem listed).
+fn build_args(args: &Value) -> Result<&Value, &'static str> {
+    let obj = args.as_object().ok_or("error.draw2.request")?;
+    match (obj.get("model"), obj.len()) {
+        (Some(m @ Value::Object(_)), 1) => Ok(m),
         _ => Err("error.draw2.request"),
     }
 }
@@ -397,6 +411,23 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
             Err(crate::tp_list::Failure::Rows(rows)) => {
                 e.failed_rows = rows;
                 Err(bad(crate::tp_list::KEY_ROWS))
+            }
+        };
+    }
+    if name == "pathway:build" {
+        let model = build_args(args).map_err(bad)?;
+        e.failed_rows.clear();
+        return match crate::pathmodel::build_ops(e.doc(), &e.style, model) {
+            Ok(ops) => {
+                let n = ops.len().to_string();
+                e.session.run(&ops)?;
+                e.said = ("draw2.say.tpImported", n);
+                Ok(())
+            }
+            Err(crate::tp_list::Failure::Key(key, id)) => Err(OpError { key, id }),
+            Err(crate::tp_list::Failure::Rows(rows)) => {
+                e.failed_rows = rows;
+                Err(bad(crate::pathmodel::KEY_ROWS))
             }
         };
     }

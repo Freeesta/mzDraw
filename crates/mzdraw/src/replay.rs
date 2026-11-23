@@ -192,6 +192,10 @@ impl Request {
                 crate::tp::sites_args(a)?;
                 Some(a.clone())
             }
+            (Some(a), None) if v.get("out").and_then(|o| o.as_str()) == Some("pathway-check") => {
+                crate::pathcheck::Opts::parse(Some(a))?;
+                Some(a.clone())
+            }
             (Some(_), None) => return Err(BAD),
             _ => None,
         };
@@ -426,6 +430,8 @@ impl Request {
 pub struct Reply {
     pub text: String,
     pub ok: bool,
+    /// The output was `pathway-check` and it found an error: a CLI answers with its own exit code (3), apart from a refusal (1).
+    pub check_failed: bool,
 }
 
 /// The output `Editor::save` writes, or the context menu of `context:<x>,<y>` (for the golden parity of the menu).
@@ -495,7 +501,11 @@ pub fn replay_with(
     // the diff of two documents stands alone and answers its own document (not `draw-result/1`)
     if let Some((a, b)) = &r.diff {
         let text = crate::diff::json(a, &crate::diff::diff(a, b));
-        return Ok(Reply { text, ok: true });
+        return Ok(Reply {
+            text,
+            ok: true,
+            check_failed: false,
+        });
     }
     let mut e = Editor::default();
     if let Some(text) = &r.import {
@@ -598,12 +608,20 @@ pub fn replay_with(
             lang,
         };
         let text = crate::feedback::build(&params).map_err(fail)?.json();
-        return Ok(Reply { text, ok: true });
+        return Ok(Reply {
+            text,
+            ok: true,
+            check_failed: false,
+        });
     }
     if let Some(select) = &r.values {
         let text =
             crate::values::document_json(e.doc(), &e.style.adducts, select.as_deref(), engine);
-        return Ok(Reply { text, ok: true });
+        return Ok(Reply {
+            text,
+            ok: true,
+            check_failed: false,
+        });
     }
     if let Some((select, form, keys)) = &r.props {
         let text = crate::values::document_props(
@@ -614,7 +632,11 @@ pub fn replay_with(
             form.as_deref().map(|f| (f, keys.as_slice())),
         )
         .map_err(fail)?;
-        return Ok(Reply { text, ok: true });
+        return Ok(Reply {
+            text,
+            ok: true,
+            check_failed: false,
+        });
     }
     // the numbers an export draws under the structures (`display.values` mass and mz, or a molecule's chosen lines)
     if engine.is_some()
@@ -630,9 +652,18 @@ pub fn replay_with(
         e.measurer = engine;
         e.refresh_values();
     }
-    // the TP table takes its masses from the engine too
-    if engine.is_some() && r.out.as_deref().is_some_and(|o| o.starts_with("tptable")) {
+    // the TP table and the pathway check take their masses from the engine too
+    if engine.is_some()
+        && r.out
+            .as_deref()
+            .is_some_and(|o| o.starts_with("tptable") || o == "pathway-check")
+    {
         e.measurer = engine;
+    }
+    if let Some(a) = &r.out_args
+        && r.out.as_deref() == Some("pathway-check")
+    {
+        e.check_opts = crate::pathcheck::Opts::parse(Some(a)).map_err(fail)?;
     }
     let kind = r.out.as_deref().unwrap_or(crate::brand::SLUG);
     let written = produce(&mut e, kind, &flags, r.out_args.as_ref());
@@ -648,9 +679,11 @@ pub fn replay_with(
         },
     };
     if !r.envelope() {
-        return written
-            .map_err(fail_out)
-            .map(|text| Reply { text, ok: true });
+        return written.map_err(fail_out).map(|text| Reply {
+            text,
+            ok: true,
+            check_failed: e.check_failed.get(),
+        });
     }
     // an `out` the request cannot mean is an invalid request whatever the verdict; a refusal of the drawing (no arrow, no SMILES) only counts when it is written
     if matches!(written, Err("error.draw2.request")) {
@@ -696,5 +729,6 @@ pub fn replay_with(
     Ok(Reply {
         ok: outcome.ok(),
         text: outcome.json(),
+        check_failed: e.check_failed.get(),
     })
 }

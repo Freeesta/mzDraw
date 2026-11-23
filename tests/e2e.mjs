@@ -4265,6 +4265,61 @@ try {
   });
   await ctx.close();
 
+  // pathway-draw: the declarative model `pathway/1` taken by the Add field and the file button (the command `pathway:build`), by keyboard, by touch and by a
+  // pen; the page equals the golden of tests/data/log/pathway-draw.json (the SVG, and the checks with the engine of the bridge); a refused model changes nothing
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  const pdModel = readFileSync(path.join(root, "tests/data/pathway-draw/oxidation.json"), "utf8");
+  const pdGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/pathway-draw.json"), "utf8")).values;
+  const pdSame = async what => {
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), pdGold[4].out, what + ": the SVG is the golden");
+    eq(await pg.evaluate("window.MZDRAW.save('pathway-check')"), pdGold[0].out, what + ": the checks are the golden (masses and ions of the engine)");
+    eq(await pg.evaluate("window.MZDRAW.save('ket')"), pdGold[6].out, what + ": the KET is the golden");
+  };
+  await step("pathway model by keyboard: the model is put in the Add field and Enter pressed; the drawing, the checks and the vector outputs are the goldens; one undo and one redo; a refused model changes nothing and says its lines", async () => {
+    await pg.fill("#d2-text", pdModel); await pg.focus("#d2-add"); await pg.keyboard.press("Enter");
+    await want(pg, { atoms: 32 }); await tool(pg, "fit"); await frames(pg);
+    await pdSame("keyboard");
+    const c = JSON.parse(await pg.evaluate("window.MZDRAW.save('pathway-check')"));
+    eq([c.ok, c.engine, c.counts.nodes, c.counts.edges, c.counts.crossings], [true, true, 4, 3, 0]);
+    await shot(pg, "pathway-draw");                                                                            // deviceScaleFactor 2
+    await tool(pg, "undo"); await want(pg, { atoms: 0 }); await tool(pg, "redo"); await want(pg, { atoms: 32 });
+    await pdSame("redo");
+    // a model with two errors: nothing is added, the live line names the lines, the error has its words
+    const bad = JSON.parse(pdModel); bad.nodes[1].status = "maybe"; bad.edges[0].to = "nowhere";
+    const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
+    await pg.fill("#d2-text", JSON.stringify(bad)); await pg.focus("#d2-add"); await pg.keyboard.press("Enter");
+    await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
+    const words = await pg.evaluate("I18N.t('error.draw2.pathRows')");
+    eq(await pg.innerText("#d2-note"), words); assert(words.includes("none of it was drawn"), words);
+    eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), before, "nothing was added");
+    eq(JSON.parse(await pg.evaluate("window.MZDRAW.state()")).notice.what, "2, 5", "the lines of the failing nodes and edges");
+    // the check of the drawing, asked from the page for another polarity, is the same document with the negative ions only
+    const neg = JSON.parse(await pg.evaluate(`window.MZDRAW.replay(JSON.stringify({ import: window.MZDRAW.save('mzdraw'), out: 'pathway-check', args: { polarity: 'negative' } }))`));
+    assert(neg.nodes.every(n => n.ions.every(i => i.adduct.endsWith("-"))), "negative ions only");
+  });
+  await step("pathway model by touch (a tablet): Open a file is tapped and the model chosen; the page equals the goldens", async () => {
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+    await want(pg, { atoms: 0 });
+    const ob = await pg.locator('[data-testid="d2-open"]').boundingBox();
+    const [chooser] = await Promise.all([pg.waitForEvent("filechooser"), pg.touchscreen.tap(ob.x + ob.width / 2, ob.y + ob.height / 2)]);
+    await chooser.setFiles({ name: "pathway.json", mimeType: "application/json", buffer: Buffer.from(pdModel) });
+    await want(pg, { atoms: 32 }); await tool(pg, "fit"); await frames(pg);
+    await pdSame("touch");
+    await shot(pg, "pathway-draw-tablet");
+  });
+  await step("pathway model by a pen: the Add button is pressed with a pen; the page equals the goldens", async () => {
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));   // the Add field is on the page of a desktop
+    await want(pg, { atoms: 0 });
+    await pg.fill("#d2-text", pdModel);
+    const cdp = await pg.context().newCDPSession(pg);
+    await reveal(pg, "#d2-add"); await pg.focus("#d2-add"); await frames(pg);                                // the panel settles when the text field loses the focus
+    const bb = await pg.locator("#d2-add").boundingBox(), px = bb.x + bb.width / 2, py = bb.y + bb.height / 2;
+    for (const [type, buttons] of [["mouseMoved", 0], ["mousePressed", 1], ["mouseReleased", 0]]) await cdp.send("Input.dispatchMouseEvent", { type, x: px, y: py, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons, clickCount: 1 });
+    await want(pg, { atoms: 32 }); await frames(pg);
+    await pdSame("pen");
+  });
+  await ctx.close();
+
   // plan-16: an agent's proposal shown as a layer, accepted or rejected hunk by hunk
   const SMI = "CCO.CC(=O)N.CCCl.c1ccccc1";
   const EDIT = [{ op: "atom.set", id: 3, el: "S" }, { op: "atom.add", id: 30, el: "C", x: 5.2321, y: 1.866 }, { op: "bond.add", id: 31, a: 7, b: 30, o: 1 },

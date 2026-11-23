@@ -103,6 +103,7 @@ impl Editor {
                 "steps",
                 "tptable",
                 "tptable-csv",
+                "pathway-check",
             ]
             .contains(&kind)
     }
