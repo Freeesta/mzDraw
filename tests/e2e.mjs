@@ -900,7 +900,7 @@ try {
     await reveal(pg, BT("distribute:h")); await pg.focus(BT("distribute:h")); await pg.keyboard.press("Enter"); await frames(pg);
     eq(await save(), g("whole drawing: distribute across").out.mzdraw);
     await tool(pg, "undo"); eq(await save(), start);
-    // the angle and the factor are typed in their fields (Enter applies)
+    // the angle is typed in its field (Enter applies)
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a");
     await reveal(pg, "#d2-rotate"); await pg.fill("#d2-rotate", "90"); await pg.press("#d2-rotate", "Enter"); await frames(pg);
     eq(await save(), g("whole drawing: turn by 90").out.mzdraw);

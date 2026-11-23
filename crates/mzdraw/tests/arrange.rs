@@ -446,3 +446,88 @@ fn bad_commands_are_not_commands() {
     assert!(mzdraw::arrange::parse("nudge:0.5,-1").is_ok());
     assert!(!mzdraw::arrange::is_arrange("scale:2"));
 }
+
+#[test]
+fn nudge_and_turn_sort_and_dedupe_the_atoms_they_are_given() {
+    let (mut a, ids) = three();
+    let (mut b, _) = three();
+    let mut l = ids[0].clone();
+    l.reverse();
+    let mut rep = l.clone();
+    rep.extend(ids[0].iter().copied());
+    for (e, set) in [(&mut a, ids[0].clone()), (&mut b, rep)] {
+        e.over.sel_atoms = set;
+        e.arrange("nudge:1,0");
+        e.arrange("rotate:30");
+    }
+    assert_eq!(
+        a.doc().to_json(),
+        b.doc().to_json(),
+        "a repeated id moved or turned an atom twice"
+    );
+    assert_eq!(
+        format!("{:?}", a.session.log()),
+        format!("{:?}", b.session.log())
+    );
+    // two orders give the same log
+    let (mut c, _) = three();
+    c.over.sel_atoms = l;
+    c.arrange("nudge:1,0");
+    c.arrange("rotate:30");
+    assert_eq!(
+        format!("{:?}", a.session.log()),
+        format!("{:?}", c.session.log())
+    );
+}
+
+#[test]
+fn a_turn_that_rounds_to_a_whole_turn_is_no_change() {
+    let (mut e, ids) = three();
+    select(&mut e, &ids);
+    let (before, steps) = (e.doc().to_json(), e.session.steps());
+    for cmd in ["rotate:359.99996", "rotate:-359.99996", "rotate:719.99996"] {
+        e.arrange(cmd);
+        assert_eq!(e.said.0, "draw2.say.arrangedSame", "{cmd}");
+        assert_eq!(
+            (e.doc().to_json(), e.session.steps()),
+            (before.clone(), steps),
+            "{cmd}"
+        );
+    }
+}
+
+/// Boxes that touch exactly (gap 0) are distributed, not refused for a rounding error: for the edges 0.2067, 0.3863, 0.8358 and 2.5027
+/// the gap comes out as -2.2e-16 in floating point.
+#[test]
+fn touching_boxes_are_distributed_and_not_refused() {
+    let mut e = Editor::default();
+    let edges = [0.2067, 0.3863, 0.8358, 2.5027];
+    let mut ops = Vec::new();
+    for k in 0..3u32 {
+        ops.push(Op::AtomAdd {
+            id: Some(k * 2 + 1),
+            el: "C".into(),
+            x: edges[k as usize],
+            y: f64::from(k),
+            map: None,
+        });
+        ops.push(Op::AtomAdd {
+            id: Some(k * 2 + 2),
+            el: "C".into(),
+            x: edges[k as usize + 1],
+            y: f64::from(k),
+            map: None,
+        });
+        ops.push(Op::BondAdd {
+            id: Some(10 + k),
+            a: k * 2 + 1,
+            b: k * 2 + 2,
+            o: 1,
+            s: 0,
+        });
+    }
+    e.session.run(&ops).unwrap();
+    e.select_all();
+    e.arrange("distribute:h");
+    assert_eq!(e.error, "", "refused: {}", e.error);
+}

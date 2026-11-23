@@ -183,6 +183,14 @@ pub fn plan(doc: &Document, cmd: Cmd, atoms: &[u32], objects: &[u32]) -> Result<
     if atoms.is_empty() && objects.is_empty() {
         return Err("error.draw2.arrangeNone");
     }
+    // each id once, in id order: the ops do not depend on the order or the repeats of the selection
+    let norm = |l: &[u32]| {
+        let mut v = l.to_vec();
+        v.sort_unstable();
+        v.dedup();
+        v
+    };
+    let (atoms, objects) = (&norm(atoms)[..], &norm(objects)[..]);
     match cmd {
         // acts on exactly the atoms and objects named (a part of a structure is moved as given); a shift of nothing changes nothing
         Cmd::Nudge(dx, dy) => {
@@ -205,6 +213,8 @@ pub fn plan(doc: &Document, cmd: Cmd, atoms: &[u32], objects: &[u32]) -> Result<
             // acts on exactly the atoms named, about the centre of their box; a whole number of turns, or one atom, changes nothing
             let (x, y) = centre(doc, atoms)?;
             let deg = round4(deg % 360.0);
+            // 359.99996 rounds to 360: a whole turn
+            let deg = if deg.abs() >= 360.0 { 0.0 } else { deg };
             let one_point = atoms.iter().all(|&i| {
                 doc.atom(i)
                     .zip(doc.atom(atoms[0]))
@@ -262,9 +272,11 @@ pub fn plan(doc: &Document, cmd: Cmd, atoms: &[u32], objects: &[u32]) -> Result<
             let size: f64 = its.iter().map(|it| hi(it) - lo(it)).sum();
             let gap = (span - size) / (n - 1) as f64;
             // the items are wider together than the room between the ends: equal gaps would overlap them
-            if gap < 0.0 {
+            // (boxes that touch exactly may come out a rounding error short: up to 1e-9 of a bond length is no overlap)
+            if gap < -1e-9 {
                 return Err("error.draw2.arrangeFit");
             }
+            let gap = gap.max(0.0);
             // the first item stays; each next one starts a gap after the end of the one before it
             let mut at = lo(&its[0]);
             let mut ops = Vec::new();
