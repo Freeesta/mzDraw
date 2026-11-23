@@ -683,7 +683,7 @@ fn duplicate_and_paste_keep_the_pairs_and_the_curves() {
     e.over.sel_objs = vec![4];
     assert!(e.copy());
     let before = e.doc().objects[0].clone();
-    let (p, _, q) = curve::shape(e.doc(), &before);
+    let (_, _, q) = curve::shape(e.doc(), &before);
     e.over.sel_atoms.clear();
     e.over.sel_objs.clear();
     e.paste(None);
@@ -693,7 +693,6 @@ fn duplicate_and_paste_keep_the_pairs_and_the_curves() {
         copy.from != 0 && copy.to == 0,
         "the pair end stays anchored, the carbon end is a point"
     );
-    let _ = p;
     assert!(
         (copy.x2 - q.0).hypot(copy.y2 - q.1) < 5.0 && (copy.x2, copy.y2) != (0.0, 0.0),
         "the point is near where the head was, not at the origin"
