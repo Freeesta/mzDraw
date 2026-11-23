@@ -43,4 +43,4 @@ A display tool drawn over a bond with a wedge mark clears the mark and sets the 
 
 ## Not built
 
-`bold`, `dative`, `hbond` (arch-web-20); the double bond of unknown geometry (arch-std-11); hover keys (arch-cd-03); a bond-display preference; reading dashed/bold displays from molfile or KET.
+`bold`, `dative`, `hbond` (now built: see `docs/built/arch-web-20-bond-kinds.md`); the double bond of unknown geometry (arch-std-11); hover keys (arch-cd-03); a bond-display preference; reading dashed/bold displays from molfile or KET.

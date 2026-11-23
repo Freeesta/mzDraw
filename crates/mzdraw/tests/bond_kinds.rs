@@ -477,3 +477,217 @@ fn the_menu_offers_the_kinds_the_bond_can_take() {
     let after = e.doc().bond(single).unwrap();
     assert_eq!((after.a, after.b), (before.b, before.a));
 }
+
+// ---- the chemistry of a dative and a hydrogen bond (review of #115) ----------------------------------------------------------------
+//
+// The rule: a dative bond and a hydrogen bond are NOT valence of their ends. Hydrogens are derived from the valence of the covalent
+// bonds only, so the donor and the acceptor keep the hydrogens of the atoms alone (H3N->BH3 is H6BN, not H4BN with a bond that
+// consumed one hydrogen on each side). RDKit counts a dative bond for the acceptor (its atoms carry explicit hydrogen counts); a
+// drawing whose hydrogens are derived would give boron two hydrogens, BH2, so the choice here is "neither end".
+
+/// `smiles` (two pieces, atoms 1 and 2 the ends) joined by a bond of the kind `k`, drawn from atom 1 to atom 2.
+fn joined(smiles: &str, k: &str) -> Document {
+    let mut e = Editor::default();
+    e.import(smiles).unwrap();
+    let mut s = session(e.doc());
+    s.run(&[Op::BondAdd {
+        id: None,
+        a: 1,
+        b: 2,
+        o: 1,
+        s: 0,
+    }])
+    .unwrap();
+    let id = s.doc.bonds.last().unwrap().id;
+    s.run(&[kind(id, k)]).unwrap();
+    s.doc
+}
+
+fn refusing(_: &str, _: &[String]) -> Result<mzdraw::values::Measured, &'static str> {
+    panic!("the engine must not be asked for a structure with a dative or hydrogen bond");
+}
+
+#[test]
+fn ammonia_to_borane_keeps_the_hydrogens_of_both_and_the_formula_is_the_adduct() {
+    let d = joined("N.B", "dative");
+    // N has 3 and B has 3 hydrogens: NH3->BH3
+    assert_eq!(
+        d.atoms.iter().map(|a| d.hydrogens(a)).collect::<Vec<_>>(),
+        [3, 3]
+    );
+    let scan = mzdraw::values::scan(&d);
+    assert_eq!(scan.structures.len(), 1, "one connected structure");
+    let s = &scan.structures[0];
+    assert_eq!((s.formula.as_str(), s.charge, s.atoms), ("H6BN", 0, 2));
+    let comp: Vec<(&str, u32)> = s
+        .composition
+        .iter()
+        .map(|(e, n)| (e.as_str(), *n))
+        .collect();
+    // (the order is the one of `outline::hill`, which puts the hydrogens first when there is no carbon)
+    assert_eq!(comp, [("H", 6), ("B", 1), ("N", 1)]);
+    // the plain single bond of the same drawing is H3N-BH3 minus a hydrogen on each end: the dative bond is what keeps them
+    let mut single = d.clone();
+    single.bonds[0].more.clear();
+    let s = &mzdraw::values::scan(&single).structures[0];
+    assert_eq!(s.formula, "H4BN");
+}
+
+#[test]
+fn water_and_ammonia_held_by_a_hydrogen_bond_keep_their_own_hydrogens() {
+    let d = joined("O.N", "hbond");
+    assert_eq!(
+        d.atoms.iter().map(|a| d.hydrogens(a)).collect::<Vec<_>>(),
+        [2, 3]
+    );
+    let s = &mzdraw::values::scan(&d).structures[0];
+    assert_eq!((s.formula.as_str(), s.charge), ("H5NO", 0));
+}
+
+#[test]
+fn no_mass_and_no_descriptor_is_made_of_a_structure_the_engine_would_read_as_a_single_bond() {
+    // the engine reads the record, where the kinds are single bonds, and counts the hydrogens of that reading (H4BN, H3NO):
+    // a number that disagrees with the formula is not written; the formula stays
+    for (smiles, k, formula) in [("N.B", "dative", "H6BN"), ("O.N", "hbond", "H5NO")] {
+        let d = joined(smiles, k);
+        let scan = mzdraw::values::scan(&d);
+        assert!(scan.structures[0].linked);
+        let entries = scan.measure(&[], refusing).unwrap();
+        assert_eq!(entries[0].formula, formula);
+        assert_eq!(entries[0].result, Err("error.draw2.valuesLink"));
+        assert_eq!(scan.props(0).unwrap_err(), "error.draw2.valuesLink");
+        let sel = scan.selection(&d, &[1, 2]).unwrap();
+        assert_eq!(
+            sel.measure(&[], refusing).unwrap_err(),
+            "error.draw2.valuesLink"
+        );
+        assert_eq!(sel.props().unwrap_err(), "error.draw2.valuesLink");
+    }
+    // a structure without one is measured as before (the engine is asked)
+    let plain = drawn("CCO");
+    let scan = mzdraw::values::scan(plain.doc());
+    assert!(!scan.structures[0].linked);
+}
+
+#[test]
+fn a_selection_cut_through_a_dative_or_hydrogen_bond_leaves_no_hydrogen_behind() {
+    // N alone, taken from NH3->BH3: NH3 (a covalent single bond cut would close with one hydrogen: NH4)
+    let d = joined("N.B", "dative");
+    let scan = mzdraw::values::scan(&d);
+    assert_eq!(scan.selection(&d, &[1]).unwrap().formula, "H3N");
+    assert_eq!(scan.selection(&d, &[2]).unwrap().formula, "H3B");
+    let mut single = d.clone();
+    single.bonds[0].more.clear();
+    let scan = mzdraw::values::scan(&single);
+    assert_eq!(scan.selection(&single, &[1]).unwrap().formula, "H3N");
+}
+
+#[test]
+fn the_exact_files_of_the_two_fixtures() {
+    let d = joined("N.B", "dative");
+    assert_eq!(d.to_smiles().unwrap(), "[NH3][BH3]");
+    assert_eq!(
+        d.to_molfile(),
+        "mzDraw\n  mzLab             2D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 N   0  0  0  0  0  4  0  0  0  0  0  0\n    2.0000    0.0000    0.0000 B   0  0  0  0  0  4  0  0  0  0  0  0\n  1  2  1  0  0  0  0\nM  END\n"
+    );
+    assert!(d.to_molfile_v3000().contains("M  V30 1 9 1 2\n"));
+    let h = joined("O.N", "hbond");
+    assert_eq!(h.to_smiles().unwrap(), "[OH2][NH3]");
+    assert_eq!(
+        h.to_molfile(),
+        "mzDraw\n  mzLab             2D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 O   0  0  0  0  0  3  0  0  0  0  0  0\n    2.0000    0.0000    0.0000 N   0  0  0  0  0  4  0  0  0  0  0  0\n  1  2  1  0  0  0  0\nM  END\n"
+    );
+    assert!(h.to_molfile_v3000().contains("M  V30 1 10 1 2\n"));
+}
+
+/// The foreign CDXML of the tests holds `Order="dative"` from a ring carbon (an aromatic C of the ring) to a list atom: a nonsense
+/// bond chemically, synthetic on purpose. Before arch-web-20 it was a query bond read as single: the ring carbon had no hydrogen
+/// left (title formula C12H9NR3+). A dative bond is not the donor's valence, so the carbon keeps its hydrogen: C12H10NR3+.
+#[test]
+fn the_dative_bond_of_the_foreign_cdxml_leaves_its_donor_its_hydrogen() {
+    let (d, info) = import(include_str!("../../../tests/data/foreign.cdxml")).unwrap();
+    let dative: Vec<_> = d.bonds.iter().filter(|b| b.kind() == "dative").collect();
+    assert_eq!(dative.len(), 1);
+    let donor = d.atom(dative[0].a).unwrap();
+    assert_eq!((donor.el.as_str(), d.hydrogens(donor)), ("C", 1));
+    let scan = mzdraw::values::scan(&d);
+    assert_eq!(scan.structures[0].formula, "C12H10NR3+");
+    assert_eq!(scan.structures[1].formula, "C2H4ClFO");
+    assert!(info
+        .notes()
+        .iter()
+        .all(|n| n.0 != "draw2.import.queryBonds"));
+    // the same bond read as a single bond: the ring carbon would have had none
+    let mut single = d.clone();
+    for b in &mut single.bonds {
+        b.more.retain(|m| m.0 != "k");
+    }
+    assert_eq!(
+        mzdraw::values::scan(&single).structures[0].formula,
+        "C12H9NR3+"
+    );
+}
+
+#[test]
+fn a_cdxml_bond_that_is_dative_or_hydrogen_and_bold_stays_what_the_order_says() {
+    let c = complex();
+    for (order, want) in [("dative", "dative"), ("hydrogen", "hbond")] {
+        let text = c.to_cdxml().replace(
+            &format!("Order=\"{order}\""),
+            &format!("Order=\"{order}\" Display=\"Bold\""),
+        );
+        assert!(text.contains("Display=\"Bold\""));
+        let (back, _) = import(&text).unwrap();
+        assert_eq!(
+            back.bonds.iter().filter(|b| b.kind() == want).count(),
+            1,
+            "{order}: {:?}",
+            kinds(&back)
+        );
+        assert_eq!(back.bonds.iter().filter(|b| b.kind() == "bold").count(), 0);
+    }
+}
+
+#[test]
+fn a_v3000_reaction_keeps_each_molecules_links_and_directions() {
+    // reactant 1: B->N written as "9 2 1" (the donor is atom 2); reactant 2: water and ammonia, "10 3 1": the first atom first;
+    // product: plain bonds. Every molecule is read through its own door: the links of one do not leak into the next.
+    let mol = |atoms: &[(&str, f64)], bonds: &[&str]| {
+        let mut t = format!(
+            "M  V30 BEGIN CTAB\nM  V30 COUNTS {} {} 0 0 0\nM  V30 BEGIN ATOM\n",
+            atoms.len(),
+            bonds.len()
+        );
+        for (i, (el, x)) in atoms.iter().enumerate() {
+            t += &format!("M  V30 {} {el} {x} 0 0 0\n", i + 1);
+        }
+        t += "M  V30 END ATOM\nM  V30 BEGIN BOND\n";
+        for (i, b) in bonds.iter().enumerate() {
+            t += &format!("M  V30 {} {b}\n", i + 1);
+        }
+        t + "M  V30 END BOND\nM  V30 END CTAB\n"
+    };
+    let first = mol(&[("N", 0.0), ("B", 1.5)], &["9 2 1"]);
+    let second = mol(&[("O", 0.0), ("C", 1.5), ("N", 3.0)], &["1 1 2", "10 3 1"]);
+    let product = mol(&[("C", 0.0), ("C", 1.5)], &["1 1 2"]);
+    let text = format!(
+        "$RXN V3000\n\n  synthetic\n\nM  V30 COUNTS 2 1\nM  V30 BEGIN REACTANT\n{first}{second}M  V30 END REACTANT\nM  V30 BEGIN PRODUCT\n{product}M  V30 END PRODUCT\nM  END\n"
+    );
+    let (d, _) = import(&text).unwrap();
+    let at = |id: u32| d.atom(id).unwrap().el.clone();
+    let got: Vec<(String, String, String)> = d
+        .bonds
+        .iter()
+        .map(|b| (at(b.a), at(b.b), b.kind()))
+        .collect();
+    assert!(
+        got.contains(&("B".into(), "N".into(), "dative".into())),
+        "{got:?}"
+    );
+    assert!(
+        got.contains(&("N".into(), "O".into(), "hbond".into())),
+        "{got:?}"
+    );
+    assert_eq!(got.iter().filter(|g| !g.2.is_empty()).count(), 2, "{got:?}");
+    assert!(d.bonds.iter().all(|b| b.o == 1));
+}

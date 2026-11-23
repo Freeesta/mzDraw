@@ -401,8 +401,9 @@ pub(crate) fn from_tree(
         }
         for (b, (side, kind)) in d.bonds.iter_mut().zip(&r.bond_disp) {
             crate::bonddisp::pos_put(&mut b.more, side);
-            // (a dative or hydrogen bond read by the door of the reader has its kind already)
-            if !kind.is_empty() {
+            // (a dative or hydrogen bond read by the door of the reader has its kind already, and keeps it: a line that is also
+            // `Display="Bold"` stays what the order says)
+            if !kind.is_empty() && !b.is_link() {
                 crate::bonddisp::k_put(&mut b.more, kind);
             }
         }

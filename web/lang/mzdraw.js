@@ -647,6 +647,7 @@ I18N.add("en", {
   "error.draw2.feedbackAlone": "A report stands alone: leave out out, report, dry_run, expect and values.",
   "error.draw2.valuesAlone": "Calculated values stand alone: leave out out, report, dry_run and expect.",
   "error.draw2.valuesSize": "The drawing is too large for the calculated values (at most 5000 atoms in at most 200 structures); the formulas are still shown.",
+  "error.draw2.valuesLink": "No mass for a structure with a dative or hydrogen bond: the engine reads it as a single bond and would count other hydrogens than the ones drawn.",
   "error.draw2.valuesOpen": "No mass for a structure with an R group or another label that is not an element.",
   "error.draw2.valuesEngine": "The mass engine gave an answer that could not be read.",
   "error.draw2.valuesAdduct": "This adduct is not known to the mass engine.",
