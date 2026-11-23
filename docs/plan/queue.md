@@ -10,7 +10,7 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, RUNNING 3, QUEUED 51, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, RUNNING 4, QUEUED 50, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
@@ -28,7 +28,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 34, 
 | `arch-cd-12-templates` | Template library: groups of ready fragments placed like rings | SUPERSEDED | by arch-web-19 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-13-user-templates` | User templates: save the selection, rename, remove, share as a file | SUPERSEDED | by arch-web-19 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-14-analysis-panel` | Analysis panel: formula, MW, exact mass, m/z, elemental analysis of the selection | SUPERSEDED | by arch-web-17 (top of the prompt: "superseded: do not run") | - | - |
-| `arch-cd-15-align-distribute` | Align, distribute, rotate by a typed angle and scale the selection | QUEUED | no merged commit or built note names it | arch-std-15 (op `atoms.xy`, PR #45) for scaling | - |
+| `arch-cd-15-align-distribute` | Align, distribute, rotate by a typed angle and scale the selection | RUNNING | PR #112; built/arch-cd-15-align-distribute.md | arch-std-15 (op `atoms.xy`) for scaling | `scale:<f>` left out until `atoms.xy` is in `main` (follow-up) |
 | `arch-cd-16-smart-paste` | Smart paste: pasted parts land in a free place, never on the drawing, without a rezoom | QUEUED | no merged commit or built note names it | nothing | - |
 | `arch-cd-17-shortcuts` | Rebindable shortcuts in the settings file, conflicts reported, a printable table | SUPERSEDED | by arch-std-06 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-18-palette-tear-off` | Palettes, refinement 1 on top of R1 (PR #35): tear-off flyouts, home on double-click, t... | QUEUED | no merged commit or built note names it | PR #35 (R1, `crates/mzdraw/src/palettes.rs`, `docs/mzdraw-ui.md` §4-§5) merged on `main` | built/palettes-page.md has floating and dockable palettes but no tear-off flyouts or named layouts |
@@ -190,3 +190,5 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | Flaky timing tests: `grouping_and_diffing_scale_with_the_operations_and_the_ids` (83 ms vs 720 ms) and `the_cost_per_arrow_does_not_grow_with_the_atoms` (steplabel) failed once on CI and passed on rerun | `grouping_and_diffing_scale_with_the_operations_and_the_ids` (in the repository: `crates/mzdraw/tests/proposal.rs`): CI run 44904399210, job 136846775258 of PR #98 (reported as `crates/zzz/tests/proposal.rs:340`), 83.4 ms for 20000 vs 720.6 ms for 80000, passed on one rerun. `the_cost_per_arrow_does_not_grow_with_the_atoms` (`crates/mzdraw/tests/steplabel.rs`): reported by the PR authors as failing once under load on PR #96 and PR #99, passed on rerun | QUEUED | count work units or best of N WITHOUT loosening the ratio; prove with a planted slow mutation (rule 5) |
 | `mzlab-cli` calls `replay_with(..., Some(measure))` through one shared function (COO 16 agreement); the mzLab pin move comes last | COO 16 agreement; CLAUDE.md rule 9 | GATED | needs mzLab; `mzlab mol descriptors --json` (`descriptors/1`) is COO 16's small CLI task, not ours |
 | e2e flaky: "atom map by touch" timed out once (waiting for the document state after a tap), passed on rerun | CI run 44912250675, job 136870404702 (the `rename` job of PR #101); `tests/e2e.mjs` | QUEUED | find the timing cause; never loosen the test (rule 5); same family as the step-field touch row |
+| collinear carbon: a carbon between two collinear bonds is labelled also under `carbon_labels=none` (GR-2.1.2); it moves 4 default goldens (`pathway-label`, `step-field`, `tp-lens`, `tp-steps`), blessed in its own PR, the owner of the look decides | `docs/built/label-display-modes.md` Not built; `scene::labelled` | QUEUED | no prompt file |
+| `scene.rs` `bonds_of` is O(bonds) per call and `labelled` calls it per atom and per bond: index it (found in review of arch-std-10) | `crates/mzdraw/src/scene.rs` (`bonds_of`, `labelled`, `shown_hydrogens`) | QUEUED | no prompt file |

@@ -567,7 +567,7 @@ function clipboardEvents() {
 function field(kind) {
   const box = document.createElement("label"), input = document.createElement("input"), out = [box];
   box.className = "field"; box.append(t(`draw2.tool.${kind}`) + " ", input);
-  input.id = { atom: "d2-element", label: "d2-label", text: "d2-text-tool" }[kind] || ""; input.type = "text"; input.size = kind === "text" ? 12 : 7; input.autocomplete = "off"; input.spellcheck = false; input.maxLength = kind === "atom" ? 3 : 200;
+  input.id = { atom: "d2-element", label: "d2-label", text: "d2-text-tool", rotate: "d2-rotate" }[kind] || ""; input.type = "text"; input.size = kind === "text" ? 12 : 7; input.autocomplete = "off"; input.spellcheck = false; input.maxLength = kind === "atom" ? 3 : 200;
   input.title = t(`draw2.tool.${kind}.title`); input.placeholder = t(`draw2.tool.${kind}.hint`);
   if (kind === "label") {
     const list = document.createElement("datalist");
@@ -575,15 +575,16 @@ function field(kind) {
     for (const name of ed.labels()) { const o = document.createElement("option"); o.value = name; list.append(o); }
     out.push(list);
   }
+  const arrange = kind === "rotate";       // a command on the selection: the module says what it did, or why not
   const pick = () => {
     const v = kind === "text" ? input.value : input.value.trim();
     if (!v.trim()) return;
-    if (after(ed.command(kind + ":" + v))) { input.removeAttribute("aria-invalid"); $("d2-live").textContent = t(`draw2.say.${kind}Tool`, { what: v }); open(input.closest(".fly")?.getAttribute("data-fly") || "", false); cv.focus({ preventScroll: true }); }
+    if (after(ed.command(kind + ":" + v)) && !(arrange && JSON.parse(ed.state()).error)) { input.removeAttribute("aria-invalid"); if (!arrange) $("d2-live").textContent = t(`draw2.say.${kind}Tool`, { what: v }); open(input.closest(".fly")?.getAttribute("data-fly") || "", false); cv.focus({ preventScroll: true }); }
     // a refused entry stays to be corrected, marked as not valid and selected: it is never shown as if it were the tool
-    else { input.setAttribute("aria-invalid", "true"); input.select(); $("d2-live").textContent = t(`error.draw2.${kind}`); }
+    else { input.setAttribute("aria-invalid", "true"); input.select(); $("d2-live").textContent = t(arrange ? JSON.parse(ed.state()).error || `error.draw2.${kind}` : `error.draw2.${kind}`); }
   };
   input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
-  input.addEventListener("change", pick);
+  if (!arrange) input.addEventListener("change", pick);      // (a typed angle is applied by Enter only: a turn is not idempotent)
   input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); pick(); } else if (e.key === "Escape") cv.focus({ preventScroll: true }); });
   return out;
 }
