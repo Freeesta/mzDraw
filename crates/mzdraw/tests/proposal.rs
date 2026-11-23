@@ -344,12 +344,6 @@ fn editor(doc: Document) -> Editor {
     e
 }
 
-/// The least CPU time of the thread over seven runs of `f` after one that is not timed, in milliseconds (`support/timing.rs`: the
-/// time the thread waited for a core on a busy machine is not counted, and noise only ever adds time).
-fn best(mut f: impl FnMut()) -> f64 {
-    timing::best_of(1, 7, &mut f).as_secs_f64() * 1000.0
-}
-
 /// The least CPU time, in milliseconds, of `runs` runs of `run` after `warm` that are not timed. Each run gets a fresh input from
 /// `setup`, built outside the clock (a run may consume or change its input). Noise only ever adds time, so the least is the cost.
 fn best_with<S, R>(warm: usize, runs: usize, setup: impl Fn() -> S, run: impl Fn(S) -> R) -> f64 {
@@ -398,13 +392,18 @@ fn best_pair_with<S, R>(
 }
 
 /// The time of `run` on the input of `n` and of `4n` (built by `setup`, outside the clock) must not differ by more than a factor 8:
-/// linear work gives 4 and quadratic work 16, and the bound has no floor, so it is the same at every speed; `n` is large enough that
-/// quadratic work is seconds in a release build too.
+/// linear work gives 4 and quadratic work 16, and `n` is large enough that quadratic work is seconds in a release build too. The two
+/// sizes are timed in turns (two runs of each that are not timed, then the least of nine runs of each, on the thread CPU clock), so a
+/// slow phase of the machine falls on both and not on one of them. The small size has a floor of one millisecond: below it the clock
+/// does not tell the run from noise and the ratio of two such times says nothing (a debug build takes tens of milliseconds, so the
+/// floor binds only on a very fast release build, where it can only make the verdict more lenient for a run that is already below
+/// the clock's resolution: quadratic work at the large size is still far above 8 times the floor).
 fn scales<T>(what: &str, n: u32, setup: impl Fn(u32) -> T, run: impl Fn(&T)) {
     let (small, big) = (setup(n), setup(4 * n));
-    let (a, b) = (best(|| run(&small)), best(|| run(&big)));
+    let (a, b) = timing::best_of_pair(2, 9, || run(&small), || run(&big));
+    let (a, b) = (a.as_secs_f64() * 1000.0, b.as_secs_f64() * 1000.0);
     assert!(
-        b <= a * 8.0,
+        b <= a.max(1.0) * 8.0,
         "{what}: {a:.1} ms for {n}, {b:.1} ms for {}",
         4 * n
     );
