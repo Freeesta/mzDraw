@@ -26,6 +26,7 @@ fn drawing() -> Editor {
         runs: Vec::new(),
         from: 0,
         to: 0,
+        cv: Default::default(),
     };
     e.session.run(&[add(ObjKind::Text, 6.0, "note")]).unwrap();
     e.session.run(&[add(ObjKind::Plus, 8.0, "")]).unwrap();
@@ -533,6 +534,7 @@ fn the_charge_items_are_disabled_at_the_limit_of_the_charge() {
             rad: None,
             h: None,
             lab: None,
+            lp: None,
         };
         e.session.run(&[set]).unwrap();
         let m = parse(&e.context_menu(at.0, at.1));

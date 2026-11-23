@@ -848,6 +848,8 @@ fn a_note_belongs_to_the_drawing_it_was_made_for() {
             y2: None,
             from: None,
             to: None,
+            cv: Default::default(),
+            pt: [None, None],
         }])
         .unwrap();
     assert!(!e.lost_on_save("mzdraw").contains(&note));

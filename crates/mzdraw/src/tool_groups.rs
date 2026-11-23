@@ -97,6 +97,10 @@ pub const OBJECTS: Group = Group {
         "scheme-row",
         "pathway-tree",
         "pathway-label",
+        "lonepair",
+        "curve:full",
+        "curve:half",
+        "lonepairs-place",
     ],
     keep: &["plus"],
     fields: &[],
@@ -259,7 +263,12 @@ mod tests {
 
     #[test]
     fn every_member_is_a_tool_or_a_command_of_the_page_and_only_a_tool_can_be_a_face() {
-        let commands = ["scheme-row", "pathway-tree", "pathway-label"];
+        let commands = [
+            "scheme-row",
+            "pathway-tree",
+            "pathway-label",
+            "lonepairs-place",
+        ];
         for g in GROUPS {
             for m in g.members {
                 let tool = crate::editor::Tool::parse(m).is_some();

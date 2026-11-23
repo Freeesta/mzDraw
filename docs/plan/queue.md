@@ -10,7 +10,7 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 41, RUNNING 1, QUEUED 46, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 40, RUNNING 2, QUEUED 46, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
@@ -38,8 +38,8 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 41, 
 | `arch-cd-22-desktop-shell` | Desktop app, first slice: one window for macOS and Windows around the same module | QUEUED | no merged commit or built note names it | a decision of the owner on the shell (see work 1) | - |
 | `arch-cd-23-dative-hbond` | Dative (coordinate) and hydrogen bonds | SUPERSEDED | by arch-web-20 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-24-enhanced-stereo` | Enhanced stereo groups (ABS, AND, OR): assign, show, V3000 in and out | SUPERSEDED | by arch-std-12 (top of the prompt: "superseded: do not run") | - | - |
-| `arch-cd-25-curved-arrows` | Electron-pushing curved arrows anchored to atoms, bonds and lone pairs | QUEUED | no merged commit or built note names it | arch-web-13 (arrow kinds) if merged | - |
-| `arch-cd-26-history-panel` | History panel: every step of the session, jump back to any | MERGED | PR #113, `13101ed`; built/history-panel.md | nothing | - |
+| `arch-cd-25-curved-arrows` | Electron-pushing curved arrows anchored to atoms, bonds and lone pairs | RUNNING | PR #116 (docs/built/curved-arrows.md) | arch-web-13 (arrow kinds) if merged | - |
+| `arch-cd-26-history-panel` | History panel: every step of the session, jump back to any | QUEUED | no merged commit or built note names it | nothing | - |
 | `arch-std-01-std-report-stereo` | conformance report `std/1`, stereo checks | MERGED | PR #46, `89011cc`; built/std-stereo.md; `conform.rs` | - | - |
 | `arch-std-02-std-report-geometry` | conformance report, geometry and label checks | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-03-palette-contrast` | element palettes with tested contrast, dark background | QUEUED | no merged commit or built note names it | - | UI-2 PR 3 (#64, built/tokens.md) is the prerequisite and is not this prompt |
@@ -171,6 +171,7 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | BRAND: Rust identifiers and paths, manifests, tests, `tools/`, `docs/` and file names (`web/mzdraw.js`, `web/mzdraw.css`, `web/lang/mzdraw.js`) are not covered by `brand_no_literals`; the rename tool moves them | built/brand.md, "Not built"; built/rename-tool.md | QUEUED | see also the Rename row above |
 | to_smiles keeps its cap of 500 atoms per structure (a larger structure has no SMILES cell in the TP table) | built/tp-09-tp-table.md, "Limits" | RUNNING | PR #105 |
 | `proposal.rs` `one_remove_naming_every_atom...`: absolute wall-clock bound failed once on a loaded CI runner (21290 ms, run 44930069336); move it to the thread-CPU clock / work counter like #102, never loosen (rule 5) | `crates/mzdraw/tests/proposal.rs` | RUNNING | PR #111; built/flaky-tests-2.md |
+| `proposal.rs` `two_thousand_separate_accepts...` failed about 1 run in 3 on unmodified `main` (ratio near 5.4 against 8 with a noisy subtracted baseline); timed on `accept_hunks` alone, no baseline | `crates/mzdraw/tests/proposal.rs` | RUNNING | PR #118; built/flaky-tests-3.md |
 | `Editor::scene()` of a plain 20,000-atom chain is not linear in a debug build (about 0.8 s for 5,000, 10.7 s for 20,000 atoms, no proposal needed); `replay` import of a 20,000-atom document is superlinear too | built/flaky-tests-2.md, "A finding" | QUEUED | to be profiled: the scene build or the captions; not fixed in PR #111 |
 | mass-label-ui: `Editor::import` and paste add structures with new ids and drop the document-level fields, so a `labels` choice in an imported or pasted document is lost (opening a file keeps it; a log carries it with `doc.labels`) | `docs/built/mass-label-ui.md` Limits | QUEUED | no prompt file |
 | plan-22 loss manifest: the independent check against the InChI of plan-03 | built/loss-manifest.md, "Not built" | QUEUED | a numbered follow-up in the PR of plan-22 (#78); not read here |

@@ -40,6 +40,7 @@ fn kind(k: ObjKind) -> &'static str {
         ObjKind::Arrow => "arrow",
         ObjKind::Plus => "plus",
         ObjKind::Text => "text",
+        ObjKind::Curve => "curve",
     }
 }
 

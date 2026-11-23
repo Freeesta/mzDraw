@@ -173,6 +173,8 @@ impl Document {
                     location(o.x, o.y)
                 )),
                 ObjKind::Text => nodes.push(text_node(&o.text, &o.runs, o.x, o.y)),
+                // KET has no curved arrow between atoms and lone pairs: listed in the loss manifest, not written
+                ObjKind::Curve => {}
             }
         }
         format!(r#"{{"root":{{"nodes":[{}]}}{molecule}}}"#, nodes.join(","))

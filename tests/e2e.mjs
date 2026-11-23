@@ -217,7 +217,7 @@ async function tidy(pg, w, h) {
   eq(docked.filter(([, r]) => cut(r, { x: c.x, y: c.y, w: c.width, h: c.height })).map(([id]) => id), []);
 }
 // the keys the module binds today (Editor::key): a tooltip names no other key
-const BUILT = new Set(["V", "E", "1", "2", "3", "W", "Shift+W", "Y", "C", "N", "O", "S", "P", "F", "H", "B", "I", "Shift+C", "Shift+B", "Shift+S", "+", "-", "L", "Shift+A", "T", "M",
+const BUILT = new Set(["V", "E", "1", "2", "3", "W", "Shift+W", "Y", "C", "N", "O", "S", "P", "F", "H", "B", "I", "Shift+C", "Shift+B", "Shift+S", "+", "-", "L", "Shift+A", "T", "M", "U", "Shift+U", "K", "Shift+K",
   "Ctrl+Z", "Ctrl+Y", "Ctrl+Shift+Z", "Ctrl+X", "Ctrl+C", "Ctrl+V", "Ctrl+D", "Ctrl+A", "\\"]);
 // WCAG 2 contrast of the theme tokens: a colour with alpha is laid over its background first
 const rgba = c => { if (c[0] === "#") return [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)).concat(1); const m = c.match(/rgba?\(([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)(?:[ ,/]+([\d.]+))?\)/); return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]]; };
@@ -271,6 +271,64 @@ const pixelAt = async (pg, x, y) => {
   }, png.toString("base64"));
 };
 const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.join(shots, name + ".png") }); };
+
+/** the lone-pair and curved-arrow round of one pointer (`how`: `down`, `move`, `up` in page pixels; the kind is the pointer's): an N is drawn,
+ * a lone pair put on it by the lone-pair tool, a pair curve drawn from the pair to the carbon, the carbon moved (the curve follows with no
+ * operation: the object is the same bytes, the SVG is not), the curve bent by its middle handle and, with a mouse, by the keys; one undo step each */
+async function curveRound(pg, cx, cy, how, tag) {
+  const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+  const svg = () => pg.evaluate("window.MZDRAW.save('svg')");
+  const tap = async (x, y) => { await how.down(x, y); await how.up(x, y); };
+  const drag = async (a, b) => { await how.down(...a); await how.move((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); await how.move(...b); await how.up(...b); };
+  await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  await tool(pg, "bond:1"); await tap(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+  const d0 = await doc(), [a1, a2] = d0.atoms, px = id => { const P = d0.atoms.find(x => x.id === id); return [cx + 40 * (P.x - a1.x), cy - 40 * (P.y - a1.y)]; };
+  await tool(pg, "atom:N"); await tap(...px(a2.id)); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).atoms[1].el === "N"`);
+  // the lone-pair tool: a tap adds a pair, a second one a second pair, four and the next tap takes them away
+  await tool(pg, "lonepair"); await want(pg, { tool: "lonepair" });
+  for (const n of [1, 2, 3, 4, 0, 1]) { await tap(...px(a2.id)); await until(pg, `(JSON.parse(window.MZDRAW.save('mzdraw')).atoms[1].lp || 0) === ${n}`); }
+  // the display list as the page paints it (canvas pixels): [op, ...values] per primitive
+  const bb = await pg.locator("#d2-canvas").boundingBox();
+  const LEN = { 1: 7, 2: 7, 3: 6, 4: 5, 5: 5, 6: 8, 7: 13 };
+  const list = async () => { const d = await pg.evaluate("Array.from(window.MZDRAW.scene())"), out = []; for (let i = 0; i < d.length; i += LEN[d[i]]) out.push(d.slice(i, i + LEN[d[i]])); return out; };
+  const page = ([x, y]) => [x + bb.x, y + bb.y];
+  // the pair is drawn as two dots: the middle of the two small discs next to the nitrogen is where the curve starts
+  const dots = (await list()).filter(p => p[0] === 4 && p[3] < 4).map(p => page([p[1], p[2]])).filter(p => Math.hypot(p[0] - px(a2.id)[0], p[1] - px(a2.id)[1]) < 20);
+  eq(dots.length, 2);
+  const from = [(dots[0][0] + dots[1][0]) / 2, (dots[0][1] + dots[1][1]) / 2];
+  await tool(pg, "curve:full"); await want(pg, { tool: "curve:full" });
+  await drag(from, px(a1.id));
+  await want(pg, { objects: 1 });
+  let o = (await doc()).objects[0];
+  eq([o.t, o.from, o.to, o.fl, o.head], ["curve", a2.id, a1.id, true, undefined]);
+  assert(Math.abs(o.bend) > 0.1, "bowed to the free side: " + o.bend);
+  await shot(pg, "curved-arrow-" + tag);
+  // the carbon moves with the select tool: the curve object is the same bytes and its picture is not
+  const before = JSON.stringify((await doc()).objects), pic = await svg();
+  await tool(pg, "select");
+  await drag(px(a1.id), [px(a1.id)[0] - 10, px(a1.id)[1] + 70]);
+  await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).atoms[0].y < ${a1.y}`);
+  eq(JSON.stringify((await doc()).objects), before);
+  assert((await svg()) !== pic, "the curve follows the atom in the picture");
+  await shot(pg, "curved-arrow-moved-" + tag);
+  // the curve is picked on its line, the handle in its middle bends it: one undo step
+  const o1 = (await doc()).objects[0];
+  const n0 = o1.bend;
+  // the segments of the curve in the list: the long run of lines of the ink colour with a small width
+  const seg = (await list()).filter(p => p[0] === 1 && p[6] === 0 && Math.hypot(p[3] - p[1], p[4] - p[2]) < 20);
+  assert(seg.length >= 20, "the curve is a line of segments: " + seg.length);
+  const mid = seg[Math.floor(seg.length / 2)];
+  await tap(...page([(mid[1] + mid[3]) / 2, (mid[2] + mid[4]) / 2]));
+  await want(pg, { selected: 1 });
+  const grip = (await list()).filter(p => p[0] === 4 && p[4] === 1).map(p => page([p[1], p[2]]))[0];
+  assert(grip, "the selected curve shows its handle");
+  await drag(grip, [grip[0], grip[1] + (n0 > 0 ? 60 : -60)]);
+  await until(pg, `Math.abs((JSON.parse(window.MZDRAW.save('mzdraw')).objects[0].bend || 0) - ${n0}) > 0.2`);
+  const n1 = (await doc()).objects[0].bend;
+  await shot(pg, "curved-arrow-bent-" + tag);
+  await tool(pg, "undo"); await until(pg, `Math.abs((JSON.parse(window.MZDRAW.save('mzdraw')).objects[0].bend || 0) - ${n0}) < 1e-9`);
+  return { doc, n0, n1, svg };
+}
 
 /** a SMILES file of the OpenSMILES file rules (CR/LF, a blank line, an indented line, a tab before a name, a broken line between good ones)
  * is put in the Add field and added with `press` (the keyboard or a tap): two structures open, the note names line 4, one undo step */
@@ -429,6 +487,39 @@ try {
     eq(await pg.getAttribute('[data-testid="d2-select"]', "aria-pressed"), "true");
   });
 
+  await step("lone pairs and curved arrows by mouse and keyboard: a pair is put on the nitrogen, a curve is drawn from it to the carbon, follows the carbon, is bent by its handle and by the keys, and the keys pick the tools", async () => {
+    const how = { down: async (x, y) => { await pg.mouse.move(x, y); await pg.mouse.down(); }, move: (x, y) => pg.mouse.move(x, y, { steps: 3 }), up: () => pg.mouse.up() };
+    const r = await curveRound(pg, cx, cy, how, "mouse");
+    // the keys bow the selected curve by a tenth of its chord to either side, one undo step each
+    await pg.focus("#d2-canvas");
+    await pg.keyboard.press("."); await until(pg, `Math.abs((JSON.parse(window.MZDRAW.save('mzdraw')).objects[0].bend || 0) - ${r.n0 + 0.1}) < 1e-6`);
+    await pg.keyboard.press(","); await pg.keyboard.press(",");
+    await until(pg, `Math.abs((JSON.parse(window.MZDRAW.save('mzdraw')).objects[0].bend || 0) - ${r.n0 - 0.1}) < 1e-6`);
+    // tools by key, lone pairs placed from the valence by Shift+U
+    await pg.keyboard.press("Escape");
+    await pg.keyboard.press("k"); await want(pg, { tool: "curve:full" });
+    await pg.keyboard.press("Shift+K"); await want(pg, { tool: "curve:half" });
+    await pg.keyboard.press("u"); await want(pg, { tool: "lonepair" });
+    // Shift+U places the pairs of the valence rules (the nitrogen of an amine has one), in one undo step; U on the focused atom adds one
+    await tool(pg, "clear"); await want(pg, { atoms: 0 });
+    await tool(pg, "bond:1"); await pg.mouse.click(cx, cy); await want(pg, { atoms: 2, bonds: 1 });
+    await tool(pg, "atom:N"); await pg.mouse.click(cx + 35, cy - 20);
+    await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).atoms.some(a => a.el === "N")`);
+    const lps = async () => (await r.doc()).atoms.map(a => a.lp || 0);
+    eq(await lps(), [0, 0]);
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Shift+U");
+    await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).atoms.some(a => a.lp === 1)`);
+    eq(await lps(), [0, 1]);
+    await pg.keyboard.press("Shift+U"); await tool(pg, "undo");
+    await until(pg, `!JSON.parse(window.MZDRAW.save('mzdraw')).atoms.some(a => a.lp)`);
+    await pg.keyboard.press("Home"); await pg.keyboard.press("ArrowRight"); await pg.keyboard.press("u");
+    await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).atoms.filter(a => a.lp === 1).length === 1`);
+    // a half curve (one electron) from the carbon into empty space is a point end, and the saved SVG draws it
+    await tool(pg, "curve:half");
+    await pg.mouse.move(cx, cy); await pg.mouse.down(); await pg.mouse.move(cx + 60, cy - 90, { steps: 4 }); await pg.mouse.up();
+    await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).objects.some(o => o.head === "half" && o.to === undefined && o.x2 !== undefined)`);
+    await tool(pg, "select");
+  });
 
   await step("chain tool by mouse: a drag draws a zigzag that follows the pointer with the count shown, a click adds two bonds, a drag from an atom starts on it, one undo step each, the count follows the length of the drag", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
@@ -471,6 +562,41 @@ try {
     await pg.keyboard.press("Control+z"); await want(pg, { atoms: 7, bonds: 6 });
     await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
   });
+  await step("a curved arrow with the keyboard alone: a source and a target by Enter, the pair of the focused atom as the source, Escape cancels, Shift+Enter names the bond walked", async () => {
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")), key = k => pg.keyboard.press(k);
+    await tool(pg, "clear"); await want(pg, { atoms: 0 }); await tool(pg, "select");
+    await pg.focus("#d2-canvas");
+    await key("Enter"); await want(pg, { atoms: 1 }); await key("Enter"); await want(pg, { atoms: 2, bonds: 1 });
+    await key("n"); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).atoms[1].el === "N"`);
+    const [c, n] = (await doc()).atoms.map(a => a.id);
+    await want(pg, { focus: 2 });
+    await key("u"); await until(pg, `JSON.parse(window.MZDRAW.save('mzdraw')).atoms[1].lp === 1`);
+    // the pair of the nitrogen is the source, the carbon the target
+    await key("k"); await want(pg, { tool: "curve:full" });
+    await key("Enter");
+    eq((await doc()).objects ?? [], []);
+    await key("Home"); await want(pg, { focus: 1 });
+    await key("Enter"); await want(pg, { objects: 1 });
+    let o = (await doc()).objects[0];
+    eq([o.t, o.from, o.to, o.fl], ["curve", n, c, true]);
+    // Escape drops a source; the next Enter starts again
+    await key("Enter"); await key("Escape"); await key("k"); await want(pg, { tool: "curve:full" });
+    await key("Enter"); await key("Escape");
+    eq((await doc()).objects.length, 1);
+    // one electron, from the atom (Shift+Enter) to the bond walked to reach the carbon
+    await key("Shift+K"); await want(pg, { tool: "curve:half" });
+    await key("Home"); await want(pg, { focus: 1 });
+    await key("Shift+Enter");
+    for (const k of ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"]) { if ((await state(pg)).focus === 2) break; await key(k); }
+    await want(pg, { focus: 2 });
+    await key("Shift+Enter");
+    await want(pg, { objects: 2 });
+    o = (await doc()).objects[1];
+    eq([o.from, o.head, o.fl], [c, "half", undefined]);
+    assert(o.to !== n && o.to !== c, "the target is the bond between the two atoms: " + o.to);
+    await key("Control+z"); await want(pg, { objects: 1 });
+  });
+
   await step("SMILES and molfile are added, a broken text is refused in words, an import is one undo step", async () => {
     await tool(pg, "clear");
     await pg.fill("#d2-text", "CC(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3, warnings: 0 });
@@ -1807,6 +1933,23 @@ try {
     eq((await doc()).bonds[0].k, undefined);
   });
 
+  await step("tablet with touch and a pen: lone pairs and a curved arrow are drawn from a lone pair to a carbon by a finger and by a pen, the curve follows the carbon and is bent by its handle", async () => {
+    const cdp = await pg.context().newCDPSession(pg);
+    const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ id: 1, x, y }] });
+    const finger = { down: (x, y) => touch("touchStart", x, y), move: (x, y) => touch("touchMove", x, y), up: () => touch("touchEnd", 0, 0) };
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    let at = [0, 0];
+    const stylus = { down: async (x, y) => { at = [x, y]; await pen("mouseMoved", x, y); await pen("mousePressed", x, y); }, move: async (x, y) => { at = [x, y]; await pen("mouseMoved", x, y); }, up: () => pen("mouseReleased", ...at) };
+    // a finger within half a second of a pen is a palm and is ignored: let the page's clock pass the pen of the step before
+    await hold(pg, 800);
+    for (const [how, tag] of [[finger, "touch"], [stylus, "pen"]]) {
+      let last = [0, 0];
+      const wrap = { down: (x, y) => { last = [x, y]; return how.down(x, y); }, move: (x, y) => { last = [x, y]; return how.move(x, y); }, up: () => how.up(...last) };
+      const r = await curveRound(pg, cx, cy, wrap, tag).catch(e => { throw new Error(tag + ": " + String(e && e.message || e)); });
+      assert(Math.abs(r.n1 - r.n0) > 0.2, tag + ": the handle bent the curve " + r.n0 + " -> " + r.n1);
+    }
+    await hold(pg, 800);
+  });
   await step("tablet with touch and a pen: the chain tool adds two bonds by a tap and draws a zigzag by a finger drag and by a pen drag, the count is shown while it is held, each gesture is one undo step", async () => {
     // (a page of its own: a tap that follows synthetic touch or pen events is dropped by the browser, so the tap comes first)
     const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
