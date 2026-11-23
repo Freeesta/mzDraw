@@ -223,8 +223,9 @@ const shot = async (pg, name) => { if (shots) await pg.screenshot({ path: path.j
 /** a SMILES file of the OpenSMILES file rules (CR/LF, a blank line, an indented line, a tab before a name, a broken line between good ones)
  * is put in the Add field and added with `press` (the keyboard or a tap): two structures open, the note names line 4, one undo step */
 async function smilesFile(pg, press) {
+  const before = await pg.evaluate("window.MZDRAW.save('mzdraw')");
   await tool(pg, "clear"); await want(pg, { atoms: 0 });
-  await pg.fill("#d2-text", "CCO\tethanol sample\r\n\r\n  CC(=O)O ignored\r\nC(C\r\nCC=O\r\n");
+  await fillIn(pg, "#d2-text", "CCO\tethanol sample\r\n\r\n  CC(=O)O ignored\r\nC(C\r\nCC=O\r\n");
   await press();
   await want(pg, { atoms: 6, bonds: 4 });
   await until(pg, "document.querySelector('#d2-note').textContent.length > 0");
@@ -232,6 +233,7 @@ async function smilesFile(pg, press) {
   assert(said.includes("4") && (await pg.innerText("#d2-note")).includes(said), "the note names line 4: " + await pg.innerText("#d2-note"));
   assert((await pg.evaluate("window.MZDRAW.save('molfile')")).startsWith("ethanol sample\n"), "the name is the title of the molfile");
   await tool(pg, "undo"); await want(pg, { atoms: 0 });
+  await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), before);       // the drawing the step found
 }
 
 /** the PDF round trip: acetic acid is drawn, the PDF is downloaded the way `get` says (keyboard or touch), it is a vector PDF with the
@@ -475,7 +477,8 @@ try {
     await pg.setInputFiles("#d2-file", { name: "three.smi", mimeType: "text/plain", buffer: Buffer.from("CCO ethanol\nCC[*:5] ring\n[*]CO query\n") });
     await want(pg, { atoms: 9, bonds: 6 });
     eq(await pg.evaluate("window.MZDRAW.save('smiles')"), smiles);
-    eq(await pg.innerText("#d2-note"), await say(["draw2.import.placeholder", 1]));
+    // three lines are three records: the note says it, as it does for an SDF
+    eq(await pg.innerText("#d2-note"), (await say(["draw2.import.placeholder", 1])) + " " + (await say(["draw2.import.records", 3])));
     // the data of a structure: the data fields of an SDF record are read, shown, edited, undone and written
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
     await pg.fill("#d2-text", `${ethanol}\n>  <name>\nethanol (synthetic)\n\n>  <note>\nline one\nline two\n\n$$$$\n${ethanol}\n$$$$\n`); await pg.click("#d2-add");
@@ -1431,9 +1434,10 @@ try {
     await tool(pg, "arrow"); await pg.touchscreen.tap(cx + 100, cy + 100); await tool(pg, "plus"); await pg.touchscreen.tap(cx - 100, cy + 100); await want(pg, { objects: 2 });
   });
   await step("tablet with touch: the SMILES file is added by tapping Add, the broken line is named", async () => {
-    await reveal(pg, "#d2-add");
+    await tapPalette(pg, "structure", true);                 // the field is in the Structure palette, which the tablet preset keeps hidden
     await smilesFile(pg, async () => { await pg.tap("#d2-add"); });
     await shot(pg, "arch-std-09-smiles-file-touch");
+    await tapPalette(pg, "structure", false);               // as the next steps found it
   });
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];

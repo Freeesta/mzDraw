@@ -145,7 +145,7 @@ fn every_operation_of_the_writer_is_a_row_with_exactly_its_fields() {
         .map(|o| o.name.to_string())
         .collect();
     assert_eq!(names, read);
-    assert_eq!(read.len(), 16);
+    assert_eq!(read.len(), 17);
     for op in ops {
         let v: Value = serde_json::from_str(&op.to_json()).unwrap();
         let spec = schema::spec(v["op"].as_str().unwrap()).unwrap();
