@@ -54,6 +54,8 @@ pub enum Tool {
     Bond(u8, u8),
     Erase,
     Ring(u8, bool),
+    /// A zigzag chain: dragged from an atom or from empty space, or two bonds on a click.
+    Chain,
     Charge(i8),
     /// An abbreviation or an R group of `label`.
     Label(String),
@@ -82,7 +84,7 @@ pub(crate) fn kind_of_tool(s: u8) -> &'static str {
 
 impl Tool {
     /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `bond:dash` / `bond:bdash` / `bond:hash` (display kinds), `erase`, `ring:6`, `ring:6a` (alternating
-    /// double bonds), `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
+    /// double bonds), `chain`, `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
     /// `text:<one line>`.
     pub fn parse(s: &str) -> Option<Tool> {
         let (name, arg) = s.split_once(':').unwrap_or((s, ""));
@@ -99,6 +101,7 @@ impl Tool {
                 "hash" => Tool::Bond(1, KIND_HASH),
                 _ => Tool::Bond(arg.parse().ok().filter(|o| (1..=3).contains(o))?, 0),
             },
+            "chain" => Tool::Chain,
             "ring" => {
                 let n = arg
                     .trim_end_matches('a')
@@ -132,6 +135,7 @@ impl Tool {
             Tool::Bond(_, KIND_BDASH) => "bond:bdash".into(),
             Tool::Bond(_, KIND_HASH) => "bond:hash".into(),
             Tool::Bond(o, _) => format!("bond:{o}"),
+            Tool::Chain => "chain".into(),
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),
             Tool::Charge(c) => format!("charge:{}", if *c < 0 { "-" } else { "+" }),
             Tool::Label(l) => format!("label:{l}"),
@@ -198,6 +202,8 @@ pub struct Editor {
     pub(crate) gesture: crate::editor_touch::Gesture,
     /// The atom the keyboard focus came from (the bond walked last).
     pub(crate) focus_from: Option<u32>,
+    /// The digits typed with the chain tool (the count of the chain the Enter key draws), at most two.
+    pub(crate) chain_keys: String,
     /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
     pub style: Style,
     /// Where the palettes of the page are, and what Save writes: the `layout` and `export` objects of the settings file.
@@ -384,6 +390,7 @@ impl Default for Editor {
             error: "",
             gesture: Default::default(),
             focus_from: None,
+            chain_keys: String::new(),
             style: Style::default(),
             layout: Default::default(),
             export: Default::default(),
@@ -507,6 +514,8 @@ impl Editor {
                 self.tool = t;
                 self.press = None;
                 self.over.preview = None;
+                self.over.chain = None;
+                self.chain_keys.clear();
                 self.over.band = None;
                 REPAINT | TOOL
             }

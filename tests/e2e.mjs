@@ -377,6 +377,48 @@ try {
     eq(await pg.getAttribute('[data-testid="d2-select"]', "aria-pressed"), "true");
   });
 
+
+  await step("chain tool by mouse: a drag draws a zigzag that follows the pointer with the count shown, a click adds two bonds, a drag from an atom starts on it, one undo step each, the count follows the length of the drag", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
+    await tool(pg, "chain"); await want(pg, { tool: "chain" });
+    const dx = 0.866 * 40;
+    await pg.mouse.move(cx - 200, cy); await pg.mouse.down(); await pg.mouse.move(cx - 100, cy, { steps: 4 }); await pg.mouse.move(cx - 200 + 5 * dx, cy, { steps: 4 });
+    // while the button is down the count is drawn next to the end of the preview and the drawing has not changed
+    await want(pg, { atoms: 0, bonds: 0 });
+    assert((await pg.evaluate("window.MZDRAW.scene()")).length > 0, "the scene is painted");
+    await shot(pg, "chain-desktop");
+    await pg.mouse.up(); await want(pg, { atoms: 6, bonds: 5 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 0, bonds: 0 });
+    await pg.mouse.click(cx, cy); await want(pg, { atoms: 3, bonds: 2 });
+    // a drag that starts on the last atom adds three bonds to it, no atom is added under the press
+    const d = JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")), last = d.atoms[2];
+    const lx = cx + 40 * (last.x - d.atoms[0].x), ly = cy - 40 * (last.y - d.atoms[0].y);
+    await pg.mouse.move(lx, ly); await pg.mouse.down(); await pg.mouse.move(lx + 60, ly, { steps: 4 }); await pg.mouse.move(lx + 3 * dx, ly, { steps: 4 }); await pg.mouse.up();
+    await want(pg, { atoms: 6, bonds: 5 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
+    // the count is the length of the drag: 900 px hold 26 bonds
+    await pg.mouse.move(cx - 300, cy + 200); await pg.mouse.down(); await pg.mouse.move(cx - 100, cy + 200, { steps: 3 }); await pg.mouse.move(cx + 600, cy + 200, { steps: 3 }); await pg.mouse.up();
+    await want(pg, { atoms: 3 + 27, bonds: 2 + 26 });
+  });
+  await step("chain tool by keyboard: the palette button is selected with Enter and with Space, a typed count shows its preview, Enter draws it from the focused atom, Backspace and Escape take the count back, one undo step", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
+    for (const key of ["Enter", " "]) {
+      await tool(pg, "select"); await want(pg, { tool: "select" });
+      await reveal(pg, '[data-testid="d2-chain"]');
+      await pg.focus('[data-testid="d2-chain"]'); await pg.keyboard.press(key); await want(pg, { tool: "chain" });
+    }
+    await pg.focus("#d2-canvas");
+    // no atom yet: Enter draws two bonds from the middle and the focus is on the end
+    await pg.keyboard.press("Enter"); await want(pg, { atoms: 3, bonds: 2 });
+    await pg.keyboard.type("6"); await pg.keyboard.press("Backspace"); await pg.keyboard.type("4");
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.chainCount', { what: '4' })"));
+    await want(pg, { atoms: 3, bonds: 2 });
+    await shot(pg, "chain-keyboard");
+    await pg.keyboard.press("Enter"); await want(pg, { atoms: 7, bonds: 6 });
+    await pg.keyboard.type("5"); await pg.keyboard.press("Escape"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 9, bonds: 8, tool: "chain" });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 7, bonds: 6 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
+  });
   await step("SMILES and molfile are added, a broken text is refused in words, an import is one undo step", async () => {
     await tool(pg, "clear");
     await pg.fill("#d2-text", "CC(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3, warnings: 0 });
@@ -1533,6 +1575,28 @@ try {
     eq((await doc()).bonds[0].k, undefined);
   });
 
+  await step("tablet with touch and a pen: the chain tool adds two bonds by a tap and draws a zigzag by a finger drag and by a pen drag, the count is shown while it is held, each gesture is one undo step", async () => {
+    // (a page of its own: a tap that follows synthetic touch or pen events is dropped by the browser, so the tap comes first)
+    const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+    const { pg, cx, cy } = t;
+    try {
+      const cdp = await t.ctx.newCDPSession(pg);
+      const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) });
+      const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+      const dx = 0.866 * 40;
+      await tool(pg, "chain"); await want(pg, { tool: "chain" });
+      await pg.touchscreen.tap(cx + 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });
+      // a finger drag: the count is shown while it is held
+      await touch("touchStart", [[1, cx - 200, cy]]); await touch("touchMove", [[1, cx - 150, cy]]); await touch("touchMove", [[1, cx - 200 + 4 * dx, cy]]);
+      await want(pg, { atoms: 3, bonds: 2 });
+      await shot(pg, "chain-tablet");
+      await touch("touchEnd", []); await want(pg, { atoms: 8, bonds: 6 });
+      // a pen drag
+      for (const [type, x] of [["mouseMoved", cx - 200], ["mousePressed", cx - 200], ["mouseMoved", cx - 150], ["mouseMoved", cx - 200 + 3 * dx], ["mouseReleased", cx - 200 + 3 * dx]]) await pen(type, x, cy + 150);
+      await want(pg, { atoms: 12, bonds: 9 });
+      for (const [a, b] of [[8, 6], [3, 2], [0, 0]]) { await pg.keyboard.press("Control+z"); await want(pg, { atoms: a, bonds: b }); }
+    } finally { await t.ctx.close(); }
+  });
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
     const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)

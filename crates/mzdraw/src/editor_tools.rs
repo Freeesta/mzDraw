@@ -14,6 +14,27 @@ use std::f64::consts::PI;
 /// A press becomes a drag after this many pixels.
 const SLOP: f64 = 4.0;
 
+/// A chain the tool is about to draw (see `chain_plan`).
+struct ChainPlan {
+    atom: Option<u32>,
+    x: f64,
+    y: f64,
+    deg: f64,
+    n: u8,
+}
+
+impl ChainPlan {
+    fn op(&self) -> Op {
+        Op::Chain {
+            n: self.n,
+            atom: self.atom,
+            x: self.x,
+            y: self.y,
+            deg: self.deg,
+        }
+    }
+}
+
 impl Editor {
     pub fn pointer_down(&mut self, px: f64, py: f64, kind: u32, mods: u32) -> u32 {
         // a text being edited: a press on it sets the caret, a press elsewhere ends the editing and goes on as any press
@@ -123,6 +144,14 @@ impl Editor {
                 );
                 self.over.preview = Some((from.0, from.1, to.0, to.1));
             }
+            (Tool::Chain, _) => {
+                let c = self.chain_plan(start, hit, true, px, py);
+                let start = match c.atom.and_then(|a| self.session.doc.atom(a)) {
+                    Some(a) => (a.x, a.y),
+                    None => (c.x, c.y),
+                };
+                self.over.chain = Some(build::chain_points(start.0, start.1, c.deg, c.n as usize));
+            }
             (Tool::Bond(..) | Tool::Atom(_), Hit::Atom(a)) => {
                 let (to, _) = self.sprout_target(a, px, py, kind);
                 if let Some(from) = self.session.doc.atom(a) {
@@ -132,6 +161,46 @@ impl Editor {
             _ => {}
         }
         REPAINT
+    }
+
+    /// The chain a press and the pointer now make: from the atom pressed, or from the point pressed; a click gives two bonds (the
+    /// first at the sprout angle of an atom, else at 30 degrees); a drag gives the zigzag whose axis is the direction of the pointer
+    /// snapped to 30 degrees, with as many bonds as the distance holds (one advances 0.866 along the axis), 1 to 50.
+    fn chain_plan(&self, start: (f64, f64), hit: Hit, moved: bool, px: f64, py: f64) -> ChainPlan {
+        let atom = match hit {
+            Hit::Atom(a) => Some(a),
+            _ => None,
+        };
+        let (x, y) = self.view.to_doc(start.0, start.1);
+        let from = atom
+            .and_then(|a| self.session.doc.atom(a))
+            .map_or((x, y), |a| (a.x, a.y));
+        if !moved {
+            let deg = atom.map_or(30.0, |a| {
+                build::sprout_angle(&self.session.doc, a) * 180.0 / PI
+            });
+            return ChainPlan {
+                atom,
+                x,
+                y,
+                deg,
+                n: 2,
+            };
+        }
+        let (tx, ty) = self.view.to_doc(px, py);
+        let (dx, dy) = (tx - from.0, ty - from.1);
+        let step = PI / 6.0;
+        let axis = (m::atan2(dy, dx) / step).round() * step;
+        let n = (m::hypot(dx, dy) / m::cos(PI / 6.0))
+            .round()
+            .clamp(1.0, f64::from(build::CHAIN_MAX));
+        ChainPlan {
+            atom,
+            x,
+            y,
+            deg: axis * 180.0 / PI + 30.0,
+            n: n as u8,
+        }
     }
 
     /// Where an arrow dragged from `start` (pixels) to the pointer ends, in document units: level when it is within 10 degrees
@@ -170,11 +239,17 @@ impl Editor {
         let band = self.over.band.take();
         self.over.drag = (0.0, 0.0);
         self.over.preview = None;
+        self.over.chain = None;
         let flags = match self.tool.clone() {
             Tool::Select => self.select_release(&p, drag, band),
             Tool::Atom(el) => self.atom_release(&p, &el, px, py),
             Tool::Bond(o, s) => self.bond_release(&p, (o, s), px, py),
             Tool::Erase => self.erase(p.hit),
+            Tool::Chain => {
+                let c = self.chain_plan(p.start, p.hit, p.moved, px, py);
+                let n = c.n;
+                self.run(&[c.op()], "draw2.say.chain", &n.to_string())
+            }
             Tool::Ring(n, arom) => {
                 let (x, y) = self.view.to_doc(px, py);
                 let (atom, bond) = match p.hit {
@@ -795,6 +870,12 @@ impl Editor {
         }
         if self.live_proposal().is_some()
             && let Some(f) = self.proposal_key(&lower, ctrl)
+        {
+            return f | HANDLED;
+        }
+        if !ctrl
+            && self.tool == Tool::Chain
+            && let Some(f) = self.chain_key(&lower, shift)
         {
             return f | HANDLED;
         }
