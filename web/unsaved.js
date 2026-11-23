@@ -6,9 +6,10 @@
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 /** @type {Promise<string> | null} */ let open = null;
 
-/** shows the question; resolves with the answer @param {{ t: (k: string, p?: any) => string, fallback: () => void }} ctx @returns {Promise<string>} */
+/** whether the question is open */
 export const unsavedOpen = () => open !== null;
 
+/** shows the question; resolves with the answer @param {{ t: (k: string, p?: any) => string, fallback: () => void }} ctx @returns {Promise<string>} */
 export function unsavedDialog(ctx) {
   if (open) return Promise.resolve("cancel");   // never a second question: the caller of a second one does nothing
   const root = $("d2-unsaved"), save = $("d2-unsaved-save"), discard = $("d2-unsaved-discard"), cancel = $("d2-unsaved-cancel");

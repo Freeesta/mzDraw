@@ -68,6 +68,20 @@
           }
         ]
       }
+    },
+    {
+      "error_key": "error.draw2.request",
+      "name": "save with a format that is no file kind",
+      "request": {
+        "commands": [
+          {
+            "args": {
+              "format": "bogus"
+            },
+            "command": "save"
+          }
+        ]
+      }
     }
   ],
   "results": [

@@ -76,6 +76,37 @@ impl Editor {
         crate::brand::SLUG
     }
 
+    /// Whether `kind` names a file the editor writes (the kinds of `save`, and `png`).
+    pub fn is_save_kind(kind: &str) -> bool {
+        crate::brand::is_doc_kind(kind)
+            || [
+                "molfile",
+                "molfile-v3000",
+                "smiles",
+                "ket",
+                "cdxml",
+                "cml",
+                "rxn",
+                "trasf",
+                "sdf",
+                "svg",
+                "pdf",
+                "png",
+                "log",
+                "history",
+                "settings",
+                "std",
+                "boxes",
+                "lens",
+                "digest",
+                "schema",
+                "steps",
+                "tptable",
+                "tptable-csv",
+            ]
+            .contains(&kind)
+    }
+
     /// A file of this kind (the names of `save`) was written. Only the native document is loss-free, so only it is the saved point;
     /// a molfile, SMILES, SVG, PNG, PDF or any other export leaves the drawing dirty. Returns whether the point was set.
     pub fn exported(&mut self, kind: &str) -> bool {

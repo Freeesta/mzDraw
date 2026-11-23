@@ -140,6 +140,10 @@ fn file_args(name: &str, args: &Value) -> Result<(String, bool), &'static str> {
         None => String::new(),
         Some(v) => v.as_str().ok_or(BAD)?.to_string(),
     };
+    // a format that is no file kind of the editor is a bad request, not a silent no-op
+    if name == "save" && !text.is_empty() && !Editor::is_save_kind(&text) {
+        return Err(BAD);
+    }
     Ok((text, discard))
 }
 

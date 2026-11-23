@@ -236,3 +236,17 @@ fn only_the_native_document_is_a_saved_point() {
         assert_eq!(r["dirty"], !clean, "{format}");
     }
 }
+
+#[test]
+fn save_with_an_unknown_format_is_a_bad_request() {
+    for format in [json!("bogus"), json!(3)] {
+        let q = json!({"commands":[{"command":"save","args":{"format":format}}]});
+        let key = mzdraw::replay::replay(&q.to_string()).unwrap_err().key;
+        assert_eq!(key, "error.draw2.request", "{format}");
+    }
+    assert!(
+        Editor::is_save_kind("svg")
+            && Editor::is_save_kind(Editor::save_kind())
+            && !Editor::is_save_kind("bogus")
+    );
+}
