@@ -266,7 +266,13 @@ pub const OPS: &[OpSpec] = &[
         fields: &[
             f("id", "uint", true, "", ""),
             f("o", "uint", false, "", U8),
-            f("s", "uint", false, "", U8),
+            f(
+                "s",
+                "uint",
+                false,
+                "",
+                "0..=255: the wedge mark of a single bond, 0 none, 1 solid, 2 hashed, 3 wavy; on a double bond 3 is \"either\" (its E/Z is unknown: bond stereo 3 in a V2000 molfile, `CFG=2` in V3000, `Display=\"Wavy\"` in CDXML) and 0 takes it away; a new order other than 2 takes \"either\" away",
+            ),
             nf(
                 "pos",
                 "string",
