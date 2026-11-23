@@ -157,6 +157,8 @@ function altKeys(el, id) {
     e.preventDefault(); e.stopPropagation(); after(f, true);
     ctx.say(ctx.t("draw2.pal.moved", { name: ctx.t(`draw2.pal.${id}`) }));
   }, true);
+  // the end of a keyboard move: the focus left the palette; the module lets it go where it is (beside what it lies over)
+  el.addEventListener("focusout", e => { if (!el.contains(/** @type {Node | null} */ (e.relatedTarget))) after(ed().palette("settle", id, 0, 0, false), true); });
 }
 
 const ed = () => ctx.ed;

@@ -18,6 +18,7 @@ const FILES = /** @type {Record<string, [string, string]>} */ ({ molfile: ["draw
 const COLOURS = ["--d2-ink", "--d2-select", "--d2-hover", "--d2-warn", "--d2-preview", "--d2-n", "--d2-o", "--d2-s", "--d2-x", "--d2-p", "--d2-focus", "--d2-accent", "--d2-muted"];
 
 /** @type {any} */ let ed = null;
+/** copies the canvas before a new theme is put on the page (fade.js) @type {() => void} */ let beforeTheme = () => {};
 /** the context menu of the canvas (context.js) @type {ReturnType<typeof contextMenu>} */ let menu;
 const cv = /** @type {HTMLCanvasElement} */ ($("d2-canvas")), g = /** @type {CanvasRenderingContext2D} */ (cv.getContext("2d"));
 
@@ -684,7 +685,8 @@ function events() {
   });
   addEventListener("resize", () => { menu.close(); layout(); });
   // the theme changes softly (fade.js): the old canvas fades out over the new one while the colours of the page cross-fade in CSS
-  const fade = themeFade(cv), recolour = () => { fade(); paint(); };
+  const fade = themeFade(cv), recolour = () => { fade.change(); paint(); };
+  beforeTheme = fade.before;
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", recolour);
   // a host page may set the theme on the root (data-theme="light|dark"): the canvas is painted again in its colours
   new MutationObserver(recolour).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -798,7 +800,7 @@ async function styles() {
     const style = JSON.parse(ed.style()).style;
     sel.value = style.preset; if (sel.selectedIndex < 0) sel.selectedIndex = 0;
     for (const [key, input] of Object.entries(inputs)) { input.value = key in words ? ed.choice(key) : String(style[key]); input.removeAttribute("aria-invalid"); }
-    box_sync(); prefsSync(); applyTheme(ed);
+    box_sync(); prefsSync(); applyTheme(ed, beforeTheme);
   };
   /** one change asked of the module; a refusal is said in words, the field is marked and nothing changes */
   const ask = (/** @type {() => number} */ change, /** @type {string} */ said, /** @type {Element | null} */ field) => {
@@ -873,10 +875,10 @@ function preferences() {
   const note = () => $("d2-prefs-note");
   prefsSync = buildPrefs($("d2-fly-prefs"), { ed, t, close: () => { open("prefs", false); /** @type {HTMLElement} */ (document.querySelector('[data-testid="d2-prefs"]')).focus(); },
     change: (/** @type {() => number} */ fn, /** @type {string} */ said, /** @type {Element | null} */ field) => {
-      try { after(fn() | CHANGED); prefsSync(); applyTheme(ed); restyle(); keep(); note().textContent = said; $("d2-live").textContent = said; }
+      try { after(fn() | CHANGED); prefsSync(); applyTheme(ed, beforeTheme); restyle(); keep(); note().textContent = said; $("d2-live").textContent = said; }
       catch (e) { note().textContent = I.err(JSON.parse(String(e))).message; field?.setAttribute("aria-invalid", "true"); }
     } });
-  prefsSync(); applyTheme(ed);
+  prefsSync(); applyTheme(ed, beforeTheme);
 }
 
 function panels() {

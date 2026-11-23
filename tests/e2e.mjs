@@ -76,9 +76,9 @@ async function until(pg, expr, ms = 10000) {
 /** a finger within half a second of a pen event is a palm (editor_touch.rs): waits, on the page's own clock, until that window is over
  * since `t0`, a `performance.now()` read just after the pen's last event; never a fixed sleep */
 const palmOver = (pg, t0) => until(pg, `performance.now() - ${t0} > 650`);
-async function context(browser, opts, init = null) {
+async function context(browser, opts, init = null, arg = undefined) {
   const ctx = await browser.newContext({ acceptDownloads: true, ...opts });
-  if (init) await ctx.addInitScript(init);
+  if (init) await ctx.addInitScript(init, arg);
   const pg = await ctx.newPage();
   pg.on("pageerror", e => errs.push(["pageerror", String(e)]));
   pg.on("console", m => { if (m.type() === "error") errs.push(["console.error", m.text()]); });
@@ -3657,6 +3657,18 @@ try {
     eq(await bodyBg(c.pg), PAPER.light, "white canvas on a dark system");
     eq(await c.pg.evaluate("document.documentElement.dataset.theme"), "light");
     eq(await c.pg.evaluate("[document.documentElement.classList.contains('d2-fading'), !!document.querySelector('.d2-ghost'), getComputedStyle(document.body).transitionDuration]"), [false, false, "0s"], "no fade on the first paint");
+    await c.ctx.close();
+    // a stored word the module does not know (a corrupt or foreign value) is the default, before the first paint
+    for (const bad of ["sepia", "Dark", "<b>", "none", ""]) {
+      c = await context(browser, { viewport: { width: 1280, height: 800 }, colorScheme: "dark" }, b => {
+        localStorage.setItem("d2-theme", b);
+        new MutationObserver((_, o) => { if (document.body) { /** @type {any} */ (window).__atBody = document.documentElement.dataset.theme || ""; o.disconnect(); } }).observe(document, { childList: true, subtree: true });
+      }, bad);
+      eq(await c.pg.evaluate("window.__atBody"), "light", `a stored "${bad}" is the default`);
+      eq(await bodyBg(c.pg), PAPER.light);
+      await c.ctx.close();
+    }
+    c = await context(browser, { viewport: { width: 1280, height: 800 }, colorScheme: "dark" });
     // the choice of dark is kept: the next visit opens dark, a stored word wins over the default
     const styleSaves = async () => Number(await c.pg.evaluate("document.documentElement.dataset.d2Style || 0"));
     const choose = async word => {
@@ -3684,7 +3696,7 @@ try {
   const fadeRun = async (pg, how, to) => {
     await pg.evaluate(() => {
       const w = /** @type {any} */ (window), el = document.querySelector(".pal"), s = w.__fade = { t0: 0, rows: [], ghosts: 0, done: false };
-      new MutationObserver(() => { if (!s.t0) { s.t0 = performance.now(); const tick = () => { const t = performance.now() - s.t0, g = document.querySelector(".d2-ghost"); s.rows.push([Math.round(t), getComputedStyle(document.body).backgroundColor, getComputedStyle(/** @type {Element} */ (el)).backgroundColor, g ? Number(getComputedStyle(g).opacity) : null]); if (t < 900) requestAnimationFrame(tick); else s.done = true; }; tick(); } }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      new MutationObserver(() => { if (!s.t0) { s.t0 = performance.now(); const tick = () => { const t = performance.now() - s.t0, g = document.querySelector(".d2-ghost"); if (g && !s.ghost) { const px = /** @type {HTMLCanvasElement} */ (g).getContext("2d").getImageData(0, 0, /** @type {HTMLCanvasElement} */ (g).width, /** @type {HTMLCanvasElement} */ (g).height).data, seen = new Set(); for (let i = 0; i < px.length; i += 4) if (px[i + 3] === 255) seen.add(px[i] + "," + px[i + 1] + "," + px[i + 2]); s.ghost = { bg: getComputedStyle(g).backgroundColor, opaque: [...seen].slice(0, 400) }; } s.rows.push([Math.round(t), getComputedStyle(document.body).backgroundColor, getComputedStyle(/** @type {Element} */ (el)).backgroundColor, g ? Number(getComputedStyle(g).opacity) : null]); if (t < 900) requestAnimationFrame(tick); else s.done = true; }; tick(); } }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
       new MutationObserver(m => { for (const r of m) for (const n of r.addedNodes) if (/** @type {any} */ (n).className === "d2-ghost") s.ghosts++; }).observe(document.getElementById("d2-stage"), { childList: true });
     });
     await how();
@@ -3722,6 +3734,10 @@ try {
         const ch = x => x.match(/\d+/g).map(Number), [a, b] = [ch(old), ch(PAPER[to])];
         assert(rows.filter(r => r[0] > 0 && r[0] < 250).every(r => ch(r[1]).every((v, i) => v >= Math.min(a[i], b[i]) - 1 && v <= Math.max(a[i], b[i]) + 1)), "the paper stays between the two themes");
         eq(f.ghosts, 1, "the old canvas is kept once and fades");
+        // the copy was taken before the new theme went on: it has the old paper and the old ink, none of the new ink
+        const INK = { light: "42,41,37", dark: "226,223,216" };
+        eq(f.ghost.bg, PAPER[from], "the copy lies on the old paper");
+        assert(f.ghost.opaque.includes(INK[from]) && !f.ghost.opaque.includes(INK[to]), "the copy shows the old picture (old ink, not the new): " + JSON.stringify(f.ghost.opaque.slice(0, 6)));
         assert(rows.some(r => r[3] !== null && r[3] > 0.05 && r[3] < 0.95), "the old canvas is half there at some frame");
         eq(await c.pg.evaluate("[document.documentElement.classList.contains('d2-fading'), getComputedStyle(document.body).transitionDuration]"), [false, "0s"], "the fade is over: no transition stays on the page");
         await shot(c.pg, "theme-fade-" + how);
@@ -3774,7 +3790,8 @@ try {
           eq(over, [], `${w}x${h} collapsed=${collapsed}: panels overlap`);
           eq(boxes.filter(b => b[1] < -0.5 || b[2] < -0.5 || b[3] > w + 0.5 || b[4] > h + 0.5).map(b => b[0]), [], `${w}x${h}: a panel leaves the page`);
           // a panel that was cut still scrolls inside itself: its content is reachable
-          eq(await c.pg.evaluate("[...document.querySelectorAll('.pal.side:not([hidden])')].filter(e => e.style.maxHeight && getComputedStyle(e.firstElementChild.nextElementSibling || e).overflowY === 'visible').map(e => e.dataset.pal)"), []);
+          // (the cap is on the palette, the scroll on its disclosure: the disclosure keeps a height of its own and scrolls, the palette itself does not overflow)
+          eq(await c.pg.evaluate("[...document.querySelectorAll('.pal.side:not([hidden])')].filter(e => e.style.maxHeight).filter(e => { const d = e.querySelector(':scope > details'); return !(getComputedStyle(d).overflowY === 'auto' && d.clientHeight >= 20 && e.scrollHeight <= e.clientHeight + 1 && e.getBoundingClientRect().height <= parseFloat(e.style.maxHeight) + 0.5); }).map(e => e.dataset.pal)"), [], `${w}x${h}: a cut panel keeps a usable scroll inside`);
           if (!collapsed) await shot(c.pg, `panels-${w}x${h}`);
         } finally { await c.ctx.close(); }
       }
@@ -3804,6 +3821,14 @@ try {
       eq(await pg.evaluate("document.querySelector('.pal[data-pal=structure]').dataset.dock"), "float");
       // the keyboard: Alt+arrow from the title moves it, Shift takes a larger step; Alt+Escape puts it back
       await pg.focus('[data-testid="d2-title-structure"]');
+      // Alt+Left and Alt+Right are Back and Forward in some browsers: the page takes the key when the module moves the palette, and is not navigated
+      await pg.evaluate(() => { const w = /** @type {any} */ (window); w.__hist = [history.length, location.href]; });
+      await pg.keyboard.press("Alt+ArrowLeft"); await frames(pg);
+      eq(await where("structure"), [moved[0] - 8, moved[1]]);
+      await pg.keyboard.press("Alt+ArrowRight"); await frames(pg);
+      // the key event is cancelled (the browser's own Back / Forward would not run) and the page is where it was; a key the module does not take is left alone
+      eq(await pg.evaluate(() => { const t = document.activeElement, ev = k => { const e = new KeyboardEvent("keydown", { key: k, altKey: true, bubbles: true, cancelable: true }); /** @type {Element} */ (t).dispatchEvent(e); return e.defaultPrevented; }; return [ev("ArrowLeft"), ev("ArrowRight"), ev("x"), history.length === /** @type {any} */ (window).__hist[0] && location.href === /** @type {any} */ (window).__hist[1]]; }), [true, true, false, true], "Alt+Left and Alt+Right are taken by the palette, Alt+x is not, and the page did not navigate");
+      await pg.evaluate("1"); await frames(pg);
       await pg.keyboard.press("Alt+ArrowRight"); await frames(pg);
       eq(await where("structure"), [moved[0] + 8, moved[1]]);
       await pg.keyboard.press("Alt+Shift+ArrowDown"); await frames(pg);
@@ -3834,11 +3859,13 @@ try {
       assert(Math.abs(t3[0] - t2[0] - 30) <= 12 && Math.abs(t3[1] - t2[1] - 60) <= 12, "a pen on the margin moved the palette " + JSON.stringify([t2, t3]));
       // a finger and a pen on the title of a side panel
       const [sx, sy] = await titlePoint(pg, '[data-testid="d2-title-style"]'), s0 = await where("style");
+      // to a place of the canvas where nothing else lies (a palette let go over another is put beside it)
+      const [fx, fy] = [350 - s0[0], 450 - s0[1]];
       await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x: sx, y: sy }] });
-      for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: sx - 50 * i / 6, y: sy + 70 * i / 6 }] });
+      for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: sx + fx * i / 6, y: sy + fy * i / 6 }] });
       await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); await frames(pg);
       const s1 = await where("style");
-      assert(Math.abs(s1[0] - s0[0] + 50) <= 12 && Math.abs(s1[1] - s0[1] - 70) <= 12, "a finger on the title moved the panel " + JSON.stringify([s0, s1]));
+      assert(Math.abs(s1[0] - 350) <= 12 && Math.abs(s1[1] - 450) <= 12, "a finger on the title moved the panel " + JSON.stringify([s0, s1]));
       const [qx, qy] = await titlePoint(pg, '[data-testid="d2-title-style"]');
       await send("mouseMoved", qx, qy, 0); await send("mousePressed", qx, qy, 1);
       for (let i = 1; i <= 6; i++) await send("mouseMoved", qx - 60 * i / 6, qy + 60 * i / 6, 1);

@@ -4,10 +4,12 @@
 
 /** the theme of the settings (`ui.theme`, `light` unless chosen otherwise) on the root of the page: the module says the value for `data-theme` (empty for `auto`, which leaves the
  * choice to the system or to the host that set it); the page applies it and keeps it for the head script `theme.js`, which runs before the first paint
- * @param {any} ed */
+ * @param {any} ed @param {() => void} [before] called just before a different theme goes on the root */
 let ours = false;
-export function applyTheme(ed) {
+export function applyTheme(ed, before = () => {}) {
   const attr = ed.theme_attr(), root = document.documentElement;
+  // the canvas is copied while it still shows the old theme, so that its old picture can fade out over the new one
+  if ((root.dataset.theme || "") !== attr) before();
   // a `data-theme` that a host set stays alone; one the page set (here, or `theme.js` before the first paint, which marks it) is taken off for `auto`
   if (attr) { root.dataset.theme = attr; ours = true; }
   else if (ours || root.dataset.d2Own === "1") { delete root.dataset.theme; ours = false; }

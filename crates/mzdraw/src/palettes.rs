@@ -134,9 +134,9 @@ pub const PALETTES: [(&str, Dock, u32, bool); 16] = [
     ("keys", Dock::Right, 6, true),
 ];
 
-/// The least width the canvas keeps beside the columns of the palettes, and the least height a cut palette is left (its title).
+/// The least width the canvas keeps beside the columns of the palettes, and the least height a cut palette is left (the line of its title, scrolling inside).
 const MIN_CANVAS: f64 = 240.0;
-const MIN_CUT: f64 = 44.0;
+const MIN_CUT: f64 = 24.0;
 
 /// The height every palette taller than it is cut to so that the heights fit in `room` (the others keep theirs), never below
 /// `MIN_CUT`: the water level of the heights.
@@ -639,14 +639,73 @@ impl Layout {
         };
         let left = column(Dock::Left, 0.0, &mut out);
         let right = column(Dock::Right, left, &mut out).min(w - left);
+        // a floating palette stays where it was dropped, inside the viewport; where that lies over another palette it moves to the nearest
+        // place beside it (flush against an edge of what it overlaps) that is free, so that no two palettes ever overlap
+        let held = self.grab.as_ref().map(|g| g.id.clone());
         for p in all.iter().filter(|p| p.dock == Dock::Float && shown(p)) {
             let s = size(&p.id);
-            out.push(rect(
-                p,
-                within(p.x, 0.0, (w - s.0).max(0.0)),
-                within(p.y, 0.0, (h - s.1).max(0.0)),
-                s,
-            ));
+            let (mx, my) = ((w - s.0).max(0.0), (h - s.1).max(0.0));
+            let (x, y) = (within(p.x, 0.0, mx), within(p.y, 0.0, my));
+            let hit = |x: f64, y: f64, out: &[Rect]| {
+                out.iter().any(|r| {
+                    !r.hidden
+                        && x < r.x + r.w - 0.01
+                        && r.x < x + s.0 - 0.01
+                        && y < r.y + r.h - 0.01
+                        && r.y < y + s.1 - 0.01
+                })
+            };
+            let (mut bx, mut by) = (x, y);
+            // the palette in the hand follows the pointer wherever it is, over others too; it is placed when it is let go
+            if hit(x, y, &out) && held.as_deref() != Some(p.id.as_str()) {
+                let mut cands: Vec<(f64, f64)> = vec![(0.0, 0.0), (mx, 0.0), (0.0, my), (mx, my)];
+                for r in out.iter().filter(|r| !r.hidden) {
+                    for (cx, cy) in [
+                        (r.x + r.w, y),
+                        (r.x - s.0, y),
+                        (x, r.y + r.h),
+                        (x, r.y - s.1),
+                    ] {
+                        cands.push((within(cx, 0.0, mx), within(cy, 0.0, my)));
+                    }
+                    for (cx, cy) in [
+                        (r.x + r.w, r.y),
+                        (r.x - s.0, r.y),
+                        (r.x, r.y + r.h),
+                        (r.x, r.y - s.1),
+                    ] {
+                        cands.push((within(cx, 0.0, mx), within(cy, 0.0, my)));
+                    }
+                }
+                let mut best: Option<(f64, f64, f64)> = None;
+                for (cx, cy) in cands {
+                    let d = (cx - x) * (cx - x) + (cy - y) * (cy - y);
+                    if best.is_none_or(|b| d < b.0) && !hit(cx, cy, &out) {
+                        best = Some((d, cx, cy));
+                    }
+                }
+                if best.is_none() {
+                    // no place flush against a neighbour: the nearest free place on a grid of 8 pixels
+                    let (mut gy, mut gx);
+                    gy = 0.0;
+                    while gy <= my + 0.001 {
+                        gx = 0.0;
+                        while gx <= mx + 0.001 {
+                            let (cx, cy) = (gx.min(mx), gy.min(my));
+                            let d = (cx - x) * (cx - x) + (cy - y) * (cy - y);
+                            if best.is_none_or(|b| d < b.0) && !hit(cx, cy, &out) {
+                                best = Some((d, cx, cy));
+                            }
+                            gx += 8.0;
+                        }
+                        gy += 8.0;
+                    }
+                }
+                if let Some((_, cx, cy)) = best {
+                    (bx, by) = (cx, cy);
+                }
+            }
+            out.push(rect(p, bx, by, s));
         }
         // a viewport too small for every edge to wrap in: the palettes overlap rather than leave it
         for r in out.iter_mut() {
@@ -773,10 +832,11 @@ impl Layout {
         if !self.drag(x, y) {
             return self.cancel();
         }
-        let g = self.grab.take();
-        if let Some(g) = g {
-            self.dock_if_near(&g.id);
+        // docked while it is still the one in the hand: the place it is judged at is where the pointer put it, not where it would be moved to
+        if let Some(id) = self.grab.as_ref().map(|g| g.id.clone()) {
+            self.dock_if_near(&id);
         }
+        self.grab = None;
         true
     }
 
@@ -791,6 +851,16 @@ impl Layout {
             }
             None => false,
         }
+    }
+
+    /// The end of a keyboard move (the focus left the palette): the palette is let go where it is and, if that lies over another, placed
+    /// beside it. A palette held by the pointer is the pointer's until it is let go.
+    pub fn settle(&mut self) -> bool {
+        if self.grab.as_ref().is_some_and(|g| !g.pointer) {
+            self.grab = None;
+            return true;
+        }
+        false
     }
 
     /// The edge a floating palette touches (within the snap distance), the nearest one first.
@@ -873,8 +943,9 @@ impl Layout {
             "arrowup" => (0.0, -step),
             "arrowdown" => (0.0, step),
             "enter" => {
-                self.grab = None;
+                // the rectangle is read while the palette is still the one in the hand (a floating one is where it was put, not beside others)
                 let Some(r) = self.rect_of(id) else {
+                    self.grab = None;
                     return false;
                 };
                 let Some(mut p) = self.palette(id) else {
@@ -892,10 +963,22 @@ impl Layout {
                     .min_by(|a, b| a.1.total_cmp(&b.1))
                     .map_or(Dock::Left, |e| e.0);
                     self.dock_at(id, edge);
+                    self.grab = None;
                 } else {
+                    let start = p.clone();
                     p.dock = Dock::Float;
                     (p.x, p.y) = (r.x, r.y);
                     self.put(p);
+                    // floated where it is: it stays there, over the others that moved up, until the focus leaves it (`settle`)
+                    self.grab = Some(Grab {
+                        id: id.to_string(),
+                        dx: 0.0,
+                        dy: 0.0,
+                        start,
+                        pointer: false,
+                        from: (0.0, 0.0),
+                        moved: true,
+                    });
                 }
                 return true;
             }

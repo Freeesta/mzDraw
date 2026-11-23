@@ -150,6 +150,7 @@ fn the_keyboard_moves_docks_and_puts_back_a_palette() {
     );
     // Enter floats a docked palette where it is and docks a floating one on the nearest edge
     l.key("edit", "enter", false);
+    // floated where it is, and kept there while the keyboard has it
     assert_eq!(at(&mut l), (Dock::Float, 264.0, 0.0));
     for _ in 0..40 {
         l.key("edit", "arrowdown", true);
@@ -637,7 +638,7 @@ fn side_groups_never_overlap_at_the_supported_viewports_open_or_collapsed() {
                     ["structure", "style", "data", "annotation", "check", "keys"]
                         .contains(&r.id.as_str())
                 );
-                assert!(r.h >= 44.0);
+                assert!(r.h >= 24.0);
             }
         }
     }
@@ -664,4 +665,168 @@ fn a_cut_panel_grows_back_when_the_room_comes_back() {
     assert!(cut.iter().any(|r| r.capped));
     let back = l.arrange(390.0, 844.0, &tall_sizes(false)).0;
     assert!(back.iter().all(|r| !r.capped), "40 px panels need no cut");
+}
+
+/// Sizes as the page measures them with the side groups of `side_h` pixels (the others as in `sizes`).
+fn sized(side_h: f64) -> Vec<(String, f64, f64)> {
+    let mut s = sizes();
+    for e in s.iter_mut().filter(|e| e.1 == 280.0) {
+        e.2 = side_h;
+    }
+    s
+}
+
+/// Every pair of shown palettes apart, every one inside the viewport; the failing pair is named.
+fn check_apart(r: &[Rect], w: f64, h: f64, what: &str) {
+    let shown: Vec<&Rect> = r.iter().filter(|r| !r.hidden).collect();
+    for (i, a) in shown.iter().enumerate() {
+        assert!(
+            a.x >= -0.001 && a.y >= -0.001 && a.x + a.w <= w + 0.001 && a.y + a.h <= h + 0.001,
+            "{what} {w}x{h}: {} leaves the viewport ({},{} {}x{})",
+            a.id,
+            a.x,
+            a.y,
+            a.w,
+            a.h
+        );
+        for b in &shown[i + 1..] {
+            let apart = a.x + a.w <= b.x + 0.001
+                || b.x + b.w <= a.x + 0.001
+                || a.y + a.h <= b.y + 0.001
+                || b.y + b.h <= a.y + 0.001;
+            assert!(
+                apart,
+                "{what} {w}x{h}: {} ({},{} {}x{}) over {} ({},{} {}x{})",
+                a.id, a.x, a.y, a.w, a.h, b.id, b.x, b.y, b.w, b.h
+            );
+        }
+    }
+}
+
+const SIDES: [&str; 6] = ["structure", "style", "data", "annotation", "check", "keys"];
+
+/// A layout with the palettes of `set` put as that set says, at a viewport.
+fn laid(set: &str, w: f64, h: f64) -> Layout {
+    let mut l = Layout::default();
+    let (r, _) = l.arrange(w, h, &[]);
+    let hidden = |id: &str| r.iter().find(|x| x.id == id).unwrap().hidden;
+    match set {
+        "default" => {}
+        "all" | "collapsed" | "float" | "redocked" => {
+            for id in SIDES {
+                if hidden(id) {
+                    l.toggle(id, "hidden");
+                }
+            }
+            if set == "collapsed" {
+                for id in SIDES {
+                    l.toggle(id, "collapsed");
+                }
+            }
+        }
+        _ => unreachable!(),
+    }
+    l
+}
+
+#[test]
+fn property_no_two_palettes_overlap_and_all_stay_inside_for_any_viewport_and_set() {
+    let ws = [
+        320.0, 390.0, 568.0, 700.0, 768.0, 844.0, 1024.0, 1280.0, 1600.0, 2000.0, 2400.0,
+    ];
+    let hs = [
+        320.0, 390.0, 480.0, 600.0, 700.0, 800.0, 844.0, 1024.0, 1130.0, 1400.0,
+    ];
+    let mut checked = 0;
+    for &w in &ws {
+        for &h in &hs {
+            for set in ["default", "all", "collapsed", "float", "redocked"] {
+                for side_h in [40.0f64, 120.0, 400.0] {
+                    let mut l = laid(set, w, h);
+                    // the page's own cap on an open side group (mzdraw.css): max(120 px, a third of what is left of the height)
+                    let sz = sized(side_h.min(120.0f64.max((h - 280.0) / 3.0)));
+                    let (r, _) = l.arrange(w, h, &sz);
+                    // a viewport smaller than the palettes' own area cannot hold them apart
+                    let area: f64 = r.iter().filter(|x| !x.hidden).map(|x| x.w * x.h).sum();
+                    if area > w * h * 0.85 {
+                        continue;
+                    }
+                    // a floating palette needs a free place of its own beside a 280 px side group and the 44 px column: from 390 px wide up
+                    if (set == "float" || set == "redocked") && w >= 390.0 {
+                        // drag some palettes: onto the free middle, onto another palette, to an edge
+                        let ids: Vec<(String, f64, f64)> = r
+                            .iter()
+                            .filter(|x| !x.hidden)
+                            .map(|x| (x.id.clone(), x.x + 3.0, x.y + 3.0))
+                            .collect();
+                        for (n, (id, px, py)) in ids.iter().enumerate().filter(|(n, _)| n % 3 == 0)
+                        {
+                            let _ = n;
+                            if l.press(id, *px, *py) {
+                                let (tx, ty) = if set == "float" {
+                                    (w * 0.5, h * 0.5)
+                                } else {
+                                    (w - 1.0, h * 0.4)
+                                };
+                                l.drag(tx, ty);
+                                l.release(tx, ty);
+                            }
+                        }
+                    }
+                    let (r, _) = l.arrange(w, h, &sz);
+                    // a column whose palettes cannot fit even with the side groups cut to the line of their title (24 px) has no layout that keeps
+                    // them apart: nothing to assert there
+                    let (top, bottom) = (
+                        r.iter()
+                            .filter(|x| !x.hidden && x.dock == Dock::Top)
+                            .map(|x| x.y + x.h)
+                            .fold(0.0, f64::max),
+                        r.iter()
+                            .filter(|x| !x.hidden && x.dock == Dock::Bottom)
+                            .map(|x| h - x.y)
+                            .fold(0.0, f64::max),
+                    );
+                    let need = |d: Dock| -> f64 {
+                        r.iter()
+                            .filter(|x| !x.hidden && x.dock == d)
+                            .map(|x| {
+                                if SIDES.contains(&x.id.as_str()) {
+                                    24.0f64.min(x.h)
+                                } else {
+                                    x.h
+                                }
+                            })
+                            .sum()
+                    };
+                    if need(Dock::Right) > h - top - bottom || need(Dock::Left) > h - top - bottom {
+                        continue;
+                    }
+                    check_apart(&r, w, h, &format!("{set} side_h={side_h}"));
+                    checked += 1;
+                }
+            }
+        }
+    }
+    assert!(
+        checked > 600,
+        "the grid checks many layouts, not a few: {checked}"
+    );
+}
+
+#[test]
+fn a_keyboard_move_is_let_go_when_the_focus_leaves_and_then_lies_beside_what_it_overlapped() {
+    let mut l = Layout::default();
+    l.arrange(1280.0, 720.0, &sizes());
+    l.key("edit", "enter", false);
+    let (r, _) = l.arrange(1280.0, 720.0, &[]);
+    assert_eq!(
+        (rect(&r, "edit").x, rect(&r, "edit").y),
+        (264.0, 0.0),
+        "kept where it is while held"
+    );
+    assert!(l.settle());
+    assert!(!l.settle(), "nothing left to let go");
+    let (r, _) = l.arrange(1280.0, 720.0, &[]);
+    check_apart(&r, 1280.0, 720.0, "after the settle");
+    assert_eq!(rect(&r, "edit").dock, Dock::Float);
 }

@@ -5,4 +5,6 @@
 // the light theme is the default too.
 let v = "";
 try { v = localStorage.getItem("d2-theme") || ""; } catch { /* no storage */ }
+// only the words the module knows count (light, dark, auto): anything else stored is the default
+if (v !== "light" && v !== "dark" && v !== "auto") v = "";
 if (v !== "auto") { document.documentElement.dataset.theme = v || "light"; document.documentElement.dataset.d2Own = "1"; }
