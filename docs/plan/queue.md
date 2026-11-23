@@ -10,7 +10,7 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 35, RUNNING 4, QUEUED 49, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 41, RUNNING 1, QUEUED 46, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
@@ -28,8 +28,8 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 35, 
 | `arch-cd-12-templates` | Template library: groups of ready fragments placed like rings | SUPERSEDED | by arch-web-19 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-13-user-templates` | User templates: save the selection, rename, remove, share as a file | SUPERSEDED | by arch-web-19 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-14-analysis-panel` | Analysis panel: formula, MW, exact mass, m/z, elemental analysis of the selection | SUPERSEDED | by arch-web-17 (top of the prompt: "superseded: do not run") | - | - |
-| `arch-cd-15-align-distribute` | Align, distribute, rotate by a typed angle and scale the selection | RUNNING | PR #112; built/arch-cd-15-align-distribute.md | arch-std-15 (op `atoms.xy`) for scaling | `scale:<f>` left out until `atoms.xy` is in `main` (follow-up) |
-| `arch-cd-16-smart-paste` | Smart paste: pasted parts land in a free place, never on the drawing, without a rezoom | RUNNING | PR #110 | nothing | - |
+| `arch-cd-15-align-distribute` | Align, distribute, rotate by a typed angle and scale the selection | MERGED | PR #112, `cdc5a79`; built/arch-cd-15-align-distribute.md | arch-std-15 (op `atoms.xy`) for scaling | `scale:<f>` left out until `atoms.xy` is in `main` (follow-up) |
+| `arch-cd-16-smart-paste` | Smart paste: pasted parts land in a free place, never on the drawing, without a rezoom | MERGED | PR #110, `d23ce6f`; built/arch-cd-16-smart-paste.md | nothing | - |
 | `arch-cd-17-shortcuts` | Rebindable shortcuts in the settings file, conflicts reported, a printable table | SUPERSEDED | by arch-std-06 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-18-palette-tear-off` | Palettes, refinement 1 on top of R1 (PR #35): tear-off flyouts, home on double-click, t... | QUEUED | no merged commit or built note names it | PR #35 (R1, `crates/mzdraw/src/palettes.rs`, `docs/mzdraw-ui.md` §4-§5) merged on `main` | built/palettes-page.md has floating and dockable palettes but no tear-off flyouts or named layouts |
 | `arch-cd-19-named-layouts` | Palettes, refinement 2 on top of R1 (PR #35): named layouts and icon size | QUEUED | no merged commit or built note names it | PR #35 merged; arch-cd-18 if it touches the same code | built/palettes-page.md has floating and dockable palettes but no tear-off flyouts or named layouts |
@@ -39,7 +39,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 35, 
 | `arch-cd-23-dative-hbond` | Dative (coordinate) and hydrogen bonds | SUPERSEDED | by arch-web-20 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-24-enhanced-stereo` | Enhanced stereo groups (ABS, AND, OR): assign, show, V3000 in and out | SUPERSEDED | by arch-std-12 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-25-curved-arrows` | Electron-pushing curved arrows anchored to atoms, bonds and lone pairs | QUEUED | no merged commit or built note names it | arch-web-13 (arrow kinds) if merged | - |
-| `arch-cd-26-history-panel` | History panel: every step of the session, jump back to any | QUEUED | no merged commit or built note names it | nothing | - |
+| `arch-cd-26-history-panel` | History panel: every step of the session, jump back to any | MERGED | PR #113, `13101ed`; built/history-panel.md | nothing | - |
 | `arch-std-01-std-report-stereo` | conformance report `std/1`, stereo checks | MERGED | PR #46, `89011cc`; built/std-stereo.md; `conform.rs` | - | - |
 | `arch-std-02-std-report-geometry` | conformance report, geometry and label checks | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-03-palette-contrast` | element palettes with tested contrast, dark background | QUEUED | no merged commit or built note names it | - | UI-2 PR 3 (#64, built/tokens.md) is the prerequisite and is not this prompt |
@@ -48,8 +48,8 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 35, 
 | `arch-std-06-shortcut-settings` | one-key shortcuts that can be turned off and remapped | QUEUED | no merged commit or built note names it | - | built/proposal-layer.md and built/tp-06-pathway-page.md say its command table is not on main |
 | `arch-std-07-page-a11y-audit` | page audit against WCAG 2.2 AA, fixed where it fails | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-08-label-reversal` | group labels reversed on the left side | MERGED | PR #43, `5a3e3b9`; built/group-labels-reversed.md | - | - |
-| `arch-std-09-opensmiles-files` | SMILES files read as the OpenSMILES file rules say | RUNNING | no merge evidence yet | PR #107 | - |
-| `arch-std-10-label-display-modes` | carbon labels, hydrogen modes and the hash style | QUEUED | no merged commit or built note names it | - | - |
+| `arch-std-09-opensmiles-files` | SMILES files read as the OpenSMILES file rules say | MERGED | PR #107, `b111b73`; built/opensmiles-files.md | - | - |
+| `arch-std-10-label-display-modes` | carbon labels, hydrogen modes and the hash style | MERGED | PR #114, `0a8c19d`; built/label-display-modes.md | - |
 | `arch-std-11-unknown-double-bond` | double bonds of unknown geometry | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-12-enhanced-stereo` | enhanced stereo groups: document, operation, drawing | QUEUED | no merged commit or built note names it | - | - |
 | `arch-std-13-crossing-gap` | a gap in the rear bond where two bonds cross | QUEUED | no merged commit or built note names it | - | - |
@@ -68,7 +68,7 @@ Checked against `main` at `4d39021` (2026-11-21). Prompt files: 107. MERGED 35, 
 | `arch-web-04-theme-i18n` | Host text and colours: the `t` hook, host theme tokens into the palette, reduced motion | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-05-viewer-form` | Read-only viewer and form association | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-07-selection` | Lasso, fragment selection, a band without dragging, focus on bonds and objects | QUEUED | no merged commit or built note names it | - | - |
-| `arch-web-08-chain` | Chain tool and the op `chain` | QUEUED | no merged commit or built note names it | - | - |
+| `arch-web-08-chain` | Chain tool and the op `chain` | MERGED | PR #109, `1c8503c`; built/chain.md | - | - |
 | `arch-web-09-merge` | Merge atoms on drop and join pieces: the op `merge` | QUEUED | no merged commit or built note names it | - | - |
 | `arch-web-10-clean-up` | Clean up the drawing or the selection: the op `place` | WITHDRAWN | = arch-std-15 (one op `atoms.xy`) (backlog section 3) | - | - |
 | `arch-web-11-atom-popover` | Atom properties popover (any element, isotope, radical, hydrogens, charge, label); doub... | QUEUED | no merged commit or built note names it | - | - |
@@ -190,3 +190,5 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | Flaky timing tests: `grouping_and_diffing_scale_with_the_operations_and_the_ids` (83 ms vs 720 ms) and `the_cost_per_arrow_does_not_grow_with_the_atoms` (steplabel) failed once on CI and passed on rerun | `grouping_and_diffing_scale_with_the_operations_and_the_ids` (in the repository: `crates/mzdraw/tests/proposal.rs`): CI run 44904399210, job 136846775258 of PR #98 (reported as `crates/zzz/tests/proposal.rs:340`), 83.4 ms for 20000 vs 720.6 ms for 80000, passed on one rerun. `the_cost_per_arrow_does_not_grow_with_the_atoms` (`crates/mzdraw/tests/steplabel.rs`): reported by the PR authors as failing once under load on PR #96 and PR #99, passed on rerun | QUEUED | count work units or best of N WITHOUT loosening the ratio; prove with a planted slow mutation (rule 5) |
 | `mzlab-cli` calls `replay_with(..., Some(measure))` through one shared function (COO 16 agreement); the mzLab pin move comes last | COO 16 agreement; CLAUDE.md rule 9 | GATED | needs mzLab; `mzlab mol descriptors --json` (`descriptors/1`) is COO 16's small CLI task, not ours |
 | e2e flaky: "atom map by touch" timed out once (waiting for the document state after a tap), passed on rerun | CI run 44912250675, job 136870404702 (the `rename` job of PR #101); `tests/e2e.mjs` | QUEUED | find the timing cause; never loosen the test (rule 5); same family as the step-field touch row |
+| collinear carbon: a carbon between two collinear bonds is labelled also under `carbon_labels=none` (GR-2.1.2); it moves 4 default goldens (`pathway-label`, `step-field`, `tp-lens`, `tp-steps`), blessed in its own PR, the owner of the look decides | `docs/built/label-display-modes.md` Not built; `scene::labelled` | QUEUED | no prompt file |
+| `scene.rs` `bonds_of` is O(bonds) per call and `labelled` calls it per atom and per bond: index it (found in review of arch-std-10) | `crates/mzdraw/src/scene.rs` (`bonds_of`, `labelled`, `shown_hydrogens`) | QUEUED | no prompt file |

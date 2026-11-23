@@ -54,6 +54,8 @@ pub enum Tool {
     Bond(u8, u8),
     Erase,
     Ring(u8, bool),
+    /// A zigzag chain: dragged from an atom or from empty space, or two bonds on a click.
+    Chain,
     Charge(i8),
     /// An abbreviation or an R group of `label`.
     Label(String),
@@ -88,7 +90,7 @@ pub(crate) fn kind_of_tool(s: u8) -> &'static str {
 
 impl Tool {
     /// `select`, `atom:N`, `bond:2`, `bond:up` / `bond:down` / `bond:wavy` (wedge marks), `bond:dash` / `bond:bdash` / `bond:hash` / `bond:bold` / `bond:dative` / `bond:hbond` (display kinds), `erase`, `ring:6`, `ring:6a` (alternating
-    /// double bonds), `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
+    /// double bonds), `chain`, `charge:+`, `charge:-`, `label:Ph` / `label:R1` (an abbreviation or an R group of `label`), `arrow`, `plus`,
     /// `text:<one line>`.
     pub fn parse(s: &str) -> Option<Tool> {
         let (name, arg) = s.split_once(':').unwrap_or((s, ""));
@@ -108,6 +110,7 @@ impl Tool {
                 "hbond" => Tool::Bond(1, KIND_HBOND),
                 _ => Tool::Bond(arg.parse().ok().filter(|o| (1..=3).contains(o))?, 0),
             },
+            "chain" => Tool::Chain,
             "ring" => {
                 let n = arg
                     .trim_end_matches('a')
@@ -144,6 +147,7 @@ impl Tool {
             Tool::Bond(_, KIND_DATIVE) => "bond:dative".into(),
             Tool::Bond(_, KIND_HBOND) => "bond:hbond".into(),
             Tool::Bond(o, _) => format!("bond:{o}"),
+            Tool::Chain => "chain".into(),
             Tool::Ring(n, a) => format!("ring:{n}{}", if *a { "a" } else { "" }),
             Tool::Charge(c) => format!("charge:{}", if *c < 0 { "-" } else { "+" }),
             Tool::Label(l) => format!("label:{l}"),
@@ -210,6 +214,8 @@ pub struct Editor {
     pub(crate) gesture: crate::editor_touch::Gesture,
     /// The atom the keyboard focus came from (the bond walked last).
     pub(crate) focus_from: Option<u32>,
+    /// The digits typed with the chain tool (the count of the chain the Enter key draws), at most two.
+    pub(crate) chain_keys: String,
     /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
     pub style: Style,
     /// Where the palettes of the page are, and what Save writes: the `layout` and `export` objects of the settings file.
@@ -396,6 +402,7 @@ impl Default for Editor {
             error: "",
             gesture: Default::default(),
             focus_from: None,
+            chain_keys: String::new(),
             style: Style::default(),
             layout: Default::default(),
             export: Default::default(),
@@ -519,6 +526,8 @@ impl Editor {
                 self.tool = t;
                 self.press = None;
                 self.over.preview = None;
+                self.over.chain = None;
+                self.chain_keys.clear();
                 self.over.band = None;
                 REPAINT | TOOL
             }
@@ -526,7 +535,134 @@ impl Editor {
         }
     }
 
+    /// Names the steps made since the last call with what the live line said (`said`), so that the history list reads like the line
+    /// did; steps that nothing named, or more than one at once, get the plain `draw2.history.step`. Called by the page after each
+    /// action and by the replay after each operation and command; `history` calls it too.
+    pub fn name_steps(&mut self) {
+        let said = match self.said.0 {
+            "" | "draw2.say.undo" | "draw2.say.redo" | "draw2.say.jump" => {
+                ("draw2.history.step", String::new())
+            }
+            k => (k, self.said.1.clone()),
+        };
+        self.session.name_new_steps(said, "draw2.history.step");
+    }
+
+    /// Like `name_steps` for a replay operation: the step is named after the operation (`draw2.history.op`, `atom.add`).
+    pub(crate) fn name_op_step(&mut self, op: &Op) {
+        let name = serde_json::from_str::<serde_json::Value>(&op.to_json())
+            .ok()
+            .and_then(|v| v["op"].as_str().map(str::to_string))
+            .unwrap_or_default();
+        self.session
+            .name_new_steps(("draw2.history.op", name), "draw2.history.step");
+    }
+
+    /// The history of the session: `history/1`, `{"format":"history/1","at":N,"start","steps":[{"say","what","index","state"}]}`, newest
+    /// first. `index` is the number of the step (1 is the first, `jump:<index>` leaves the drawing as that step made it, `jump:0` is
+    /// the start); `state` is `done`, `current` (the newest done step: where the drawing is) or `undone` (a step `redo` brings back).
+    /// `at` is the number of the current step, 0 at the start.
+    pub fn history_json(&self) -> String {
+        let list = self.session.history();
+        let at = self.session.steps();
+        let rows: Vec<String> = list
+            .iter()
+            .enumerate()
+            .rev()
+            .map(|(i, ((say, what), done))| {
+                let state = if i + 1 == at {
+                    "current"
+                } else if *done {
+                    "done"
+                } else {
+                    "undone"
+                };
+                let say = if say.is_empty() {
+                    "draw2.history.step"
+                } else {
+                    say
+                };
+                format!(
+                    r#"{{"say":{},"what":{},"index":{},"state":"{state}"}}"#,
+                    serde_json::Value::from(say),
+                    serde_json::Value::from(what.as_str()),
+                    i + 1
+                )
+            })
+            .collect();
+        format!(
+            r#"{{"format":"history/1","at":{at},"start":"{}","steps":[{}]}}"#,
+            if at == 0 { "current" } else { "done" },
+            rows.join(",")
+        )
+    }
+
+    /// Whether `name` is one of the history commands `undo:<n>`, `redo:<n>`, `jump:<n>`.
+    pub fn is_history_command(name: &str) -> bool {
+        crate::commands::steps_of(name).is_some()
+    }
+
+    /// The page command `undo:<n>`, `redo:<n>` or `jump:<n>` (the same commands the request runs): the flags, `None` when `name` is none
+    /// of them, and 0 (and the refusal in `error`) when it cannot run.
+    pub fn history_command(&mut self, name: &str) -> Option<u32> {
+        crate::commands::steps_of(name)?;
+        let before = self.session.generation();
+        Some(
+            match crate::commands::run(self, name, &serde_json::json!({})) {
+                Ok(()) => {
+                    self.error = "";
+                    // a jump that changed nothing is not a change of the drawing
+                    if self.session.generation() == before {
+                        0
+                    } else {
+                        REPAINT | CHANGED
+                    }
+                }
+                Err(e) => {
+                    self.error = e.key;
+                    REPAINT
+                }
+            },
+        )
+    }
+
+    /// Undoes `n` steps (`undo:<n>`), at most as many as there are; zero steps is a refusal (`error.draw2.request`).
+    pub fn undo_steps(&mut self, n: usize) -> Result<u32, &'static str> {
+        let at = self.session.steps();
+        if n == 0 {
+            return Err("error.draw2.request");
+        }
+        self.jump_to(at.saturating_sub(n))
+    }
+
+    /// Redoes `n` steps (`redo:<n>`), at most as many as there are.
+    pub fn redo_steps(&mut self, n: usize) -> Result<u32, &'static str> {
+        let at = self.session.steps();
+        if n == 0 {
+            return Err("error.draw2.request");
+        }
+        self.jump_to((at + n).min(at + self.session.redo_steps()))
+    }
+
+    /// Leaves the drawing as the step number `n` made it (`jump:<n>`; 0 is the start): a run of undo or redo, no new operation, the
+    /// steps stay in the list. A number past the newest step is `error.draw2.request` and changes nothing. Returns the flags.
+    pub fn jump_to(&mut self, n: usize) -> Result<u32, &'static str> {
+        self.name_steps();
+        let at = self.session.steps();
+        if !self.session.jump(n) {
+            return Err("error.draw2.request");
+        }
+        if self.session.steps() == at {
+            return Ok(0);
+        }
+        self.said = ("draw2.say.jump", n.to_string());
+        self.notice = ("", String::new());
+        self.prune();
+        Ok(REPAINT | CHANGED)
+    }
+
     pub fn undo(&mut self) -> u32 {
+        self.name_steps();
         if !self.session.undo() {
             return 0;
         }
@@ -537,6 +673,7 @@ impl Editor {
     }
 
     pub fn redo(&mut self) -> u32 {
+        self.name_steps();
         if !self.session.redo() {
             return 0;
         }
@@ -699,6 +836,7 @@ impl Editor {
             "svg" => self.svg(),
             "pdf" => crate::pdf::base64(&self.pdf()),
             "log" => self.session.log_json(),
+            "history" => self.history_json(),
             // the settings file: the style, the layout of the palettes and the export defaults
             "settings" => self.settings_json(),
             "std" => crate::pathway::report_with(self.doc(), &self.style).to_json(),

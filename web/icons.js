@@ -31,6 +31,7 @@ export const ICONS = {
   "charge:+": '<circle cx="12" cy="12" r="8"/><path d="M12 8.5v7M8.5 12h7"/>',
   "charge:-": '<circle cx="12" cy="12" r="8"/><path d="M8.5 12h7"/>',
   label: '<path d="M5.5 19V5h5a4 4 0 0 1 0 8h-5M10 13l4.5 6"/><path d="M17.5 14.5l1.5-1v6"/>',
+  chain: '<path d="M3.5 16l4.2-7 4.3 7 4.2-7 4.3 7"/>',
   arrow: '<path d="M3.5 12h16.5M15 7l5 5-5 5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   "scheme-row": '<path d="M2.5 12h4M4.5 10v4M9 12h6M12.5 9.5L15 12l-2.5 2.5M19 12h2.5"/>',

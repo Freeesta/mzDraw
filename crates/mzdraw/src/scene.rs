@@ -113,6 +113,8 @@ pub struct Overlay {
     pub drag: (f64, f64),
     /// A bond being drawn, in document units.
     pub preview: Option<(f64, f64, f64, f64)>,
+    /// A chain being drawn: its points in document units, first to last (the bonds are `points - 1`, the number shown at the end).
+    pub chain: Option<Vec<(f64, f64)>>,
     /// A rubber band, in pixels (x, y, w, h).
     pub band: Option<(f64, f64, f64, f64)>,
     /// The marks of an open proposal, laid over the drawing (filled by `Editor::scene`).
@@ -154,7 +156,51 @@ fn element_colour(el: &str) -> f32 {
     }
 }
 
-/// Whether the atom is drawn as text (a carbon inside a chain is a bare vertex).
+/// How many lines a hashed wedge of length `len` has under `style.hash_style=lines`, for the style's spacing `pitch` and a line
+/// width `w` (all in pixels): the number nearest to `len / pitch` whose gap between two lines (`len / n - w`) is 2 to 4 line
+/// widths when such a number exists, and never fewer than three (IUPAC 2008 GR-1.3).
+pub(crate) fn hash_lines(len: f64, pitch: f64, w: f64) -> usize {
+    let n = (len / pitch).round().max(1.0);
+    // the gap `len / n - w` is within [2w, 4w] for n in [len / 5w, len / 3w]
+    let (lo, hi) = ((len / (5.0 * w)).ceil(), (len / (3.0 * w)).floor());
+    let n = if lo <= hi { n.clamp(lo, hi) } else { n };
+    n.max(3.0) as usize
+}
+
+/// What the bonds of a carbon say about its label, in one pass over the bonds: the sum of the orders, the number of bonds and
+/// the neighbours of the first two.
+fn bonds_of(doc: &Document, id: u32) -> (u32, usize, [u32; 2]) {
+    let (mut sum, mut n, mut nb) = (0, 0, [0; 2]);
+    for b in &doc.bonds {
+        let other = if b.a == id {
+            b.b
+        } else if b.b == id {
+            b.a
+        } else {
+            continue;
+        };
+        sum += b.o as u32;
+        if n < 2 {
+            nb[n] = other;
+        }
+        n += 1;
+    }
+    (sum, n, nb)
+}
+
+/// Two bonds that leave an atom in opposite directions (within 5 degrees of a straight line).
+fn collinear(doc: &Document, a: &Atom, nb: [u32; 2]) -> bool {
+    let (Some(p), Some(q)) = (doc.atom(nb[0]), doc.atom(nb[1])) else {
+        return false;
+    };
+    let (ux, uy, vx, vy) = (p.x - a.x, p.y - a.y, q.x - a.x, q.y - a.y);
+    let (lu, lv) = (m::hypot(ux, uy), m::hypot(vx, vy));
+    lu > 1e-9 && lv > 1e-9 && (ux * vx + uy * vy) / (lu * lv) < -0.9962
+}
+
+/// Whether the atom is drawn as text whatever the style says: an atom that is not carbon, a carbon that carries something to
+/// read (a label, a charge, a mass number, radicals, a fixed hydrogen count) and an isolated carbon. A carbon inside a chain is a
+/// bare vertex.
 pub fn has_label(doc: &Document, a: &Atom) -> bool {
     a.el != "C"
         || !a.lab.is_empty()
@@ -163,6 +209,33 @@ pub fn has_label(doc: &Document, a: &Atom) -> bool {
         || a.rad != 0
         || a.h.is_some()
         || doc.order_sum(a.id) == 0
+}
+
+/// Whether the atom is drawn as text under the carbon mode of the style (`style.carbon_labels`): `has_label`, and under
+/// `terminal` a carbon with one bond, under `all` every carbon. With `terminal` or `all` a carbon between two collinear bonds is
+/// labelled too (IUPAC 2008 GR-2.1.2); under `none`, the look the editor had, it is not (see docs/built/label-display-modes.md).
+pub fn labelled(doc: &Document, a: &Atom, mode: crate::settings::CarbonLabels) -> bool {
+    use crate::settings::CarbonLabels;
+    if has_label(doc, a) {
+        return true;
+    }
+    let (_, n, nb) = bonds_of(doc, a.id);
+    match mode {
+        CarbonLabels::None => false,
+        CarbonLabels::All => true,
+        CarbonLabels::Terminal => n == 1 || (n == 2 && collinear(doc, a, nb)),
+    }
+}
+
+/// The hydrogens written on an atom: `Document::hydrogens`, except on a carbon that only the style labels and that has two bonds
+/// or more, which keeps the bare symbol unless `style.hydrogens` is `all` (a carbon with one bond always shows its `CH3`, because
+/// a label without hydrogens says there are none, GR-2.1.1).
+fn shown_hydrogens(doc: &Document, a: &Atom, m: &Metrics) -> u32 {
+    if m.h_all || has_label(doc, a) || bonds_of(doc, a.id).1 < 2 {
+        doc.hydrogens(a)
+    } else {
+        0
+    }
 }
 
 /// The parts of an atom drawn as text (`Painter::parts`): widths in pixels.
@@ -218,6 +291,11 @@ struct LensPaint {
 }
 
 impl Painter<'_> {
+    /// Whether the atom is drawn as text under the carbon mode of the style.
+    fn labelled(&self, a: &Atom) -> bool {
+        labelled(self.doc, a, self.m.carbons)
+    }
+
     fn pos(&self, a: &Atom) -> (f64, f64) {
         let moving = self.over.drag != (0.0, 0.0) && self.over.sel_atoms.contains(&a.id);
         let (dx, dy) = if moving { self.over.drag } else { (0.0, 0.0) };
@@ -292,7 +370,7 @@ impl Painter<'_> {
         let (ux, uy) = (dx / len, dy / len);
         // a bond stops short of a label
         let gap = self.m.gap.min(len * 0.4);
-        let (lp, lq) = (has_label(self.doc, p), has_label(self.doc, q));
+        let (lp, lq) = (self.labelled(p), self.labelled(q));
         if lp {
             let g = (gap + self.clear(p, ux, uy)).min(len * 0.45);
             s = (s.0 + ux * g, s.1 + uy * g);
@@ -441,6 +519,15 @@ impl Painter<'_> {
             WEDGE_UP => {
                 let (p, q) = (at(1.0, 1.0), at(1.0, -1.0));
                 self.push(&[TRI as f64, s.0, s.1, p.0, p.1, q.0, q.1, self.ink as f64]);
+            }
+            WEDGE_DOWN if self.m.hash_lines => {
+                // parallel lines of one length across the bond (`style.hash_style=lines`); GR-1.3: 2 to 4 line widths between the
+                // lines and at least three of them
+                let n = hash_lines(len, self.m.hash, w);
+                for i in 0..n {
+                    let t = (i as f64 + 0.5) / n as f64;
+                    self.line(at(t, 0.8), at(t, -0.8), w, self.ink);
+                }
             }
             WEDGE_DOWN => {
                 let n = ((len / self.m.hash).round() as usize).clamp(3, 12);
@@ -603,7 +690,7 @@ impl Painter<'_> {
     /// What stands around the element symbol of an atom drawn as text, and how wide each part is.
     fn parts(&self, a: &Atom) -> Parts {
         let (f, small) = (self.font, self.m.small);
-        let h = self.doc.hydrogens(a);
+        let h = shown_hydrogens(self.doc, a, &self.m);
         // hydrogens go left when the bonds leave to the right; with bonds on both sides they go under the symbol, or over it
         // when the bonds leave downwards
         let (mut lean, mut rise, mut sides) = (0.0, 0.0, [false; 2]);
@@ -651,7 +738,7 @@ impl Painter<'_> {
     /// How far a bond leaving the atom along (`ux`, `uy`) (pixels, y down) stops short of it beyond the usual gap, so that it
     /// does not run into the hydrogens, the mass number or the charge that stand on its side of the symbol.
     fn clear(&self, a: &Atom, ux: f64, uy: f64) -> f64 {
-        if ux.abs() < 1e-6 || !has_label(self.doc, a) {
+        if ux.abs() < 1e-6 || !self.labelled(a) {
             return 0.0;
         }
         if !a.lab.is_empty() {
@@ -950,7 +1037,7 @@ impl Painter<'_> {
             }
         }
         for a in &self.doc.atoms {
-            if has_label(self.doc, a) {
+            if self.labelled(a) {
                 self.label(a);
             }
             if a.map != 0 && self.m.maps {
@@ -963,7 +1050,7 @@ impl Painter<'_> {
     fn map_number(&mut self, a: &Atom) {
         let (x, y) = self.pos(a);
         let (f, small) = (self.font, self.m.small);
-        let side = if has_label(self.doc, a) {
+        let side = if self.labelled(a) {
             width(&a.el, f) / 2.0
         } else {
             0.0
@@ -1032,6 +1119,28 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
             colour::PREVIEW,
         );
     }
+    if let Some(pts) = &over.chain {
+        for w in pts.windows(2) {
+            p.line(
+                view.to_px(w[0].0, w[0].1),
+                view.to_px(w[1].0, w[1].1),
+                m.line,
+                colour::PREVIEW,
+            );
+        }
+        if let Some(&(x, y)) = pts.last() {
+            let (x, y) = view.to_px(x, y);
+            let f = p.font;
+            p.text(
+                x + f * 0.9,
+                y - f * 0.9,
+                f,
+                colour::PREVIEW,
+                &(pts.len() - 1).to_string(),
+                0.0,
+            );
+        }
+    }
     if let Some((x, y, w, h)) = over.band {
         p.push(&[RECT as f64, x, y, w, h, colour::SELECT as f64]);
     }
@@ -1043,7 +1152,7 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
 /// group label on the point, the rest on the side away from the bonds; hydrogens, mass number and charge where the painter puts
 /// them). All zero for an atom drawn as a bare vertex. The vertical reach is a line of text, not the glyph outlines.
 pub fn label_extent(doc: &Document, a: &Atom, style: &crate::settings::Style) -> [f64; 4] {
-    if !has_label(doc, a) {
+    if !labelled(doc, a, style.carbon_labels) {
         return [0.0; 4];
     }
     let view = View {

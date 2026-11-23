@@ -145,6 +145,7 @@ impl Editor {
         }
         self.over.drag = (0.0, 0.0);
         self.over.preview = None;
+        self.over.chain = None;
         self.over.band = None;
         if had {
             REPAINT

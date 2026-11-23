@@ -123,6 +123,58 @@ const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; awa
 const fillIn = async (pg, sel, text) => { await reveal(pg, sel); await pg.fill(sel, text); };
 const saveAs = async (pg, sel) => { await reveal(pg, sel); await pg.click(sel); };
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
+/** The three display keys of the style (carbon labels, hydrogens, hash style), from the fields of the page: each choice changes the
+ * canvas and the saved SVG, and the file the module writes; `pick(id, word)` chooses a word in the way of the step (keys, a finger, a pen).
+ * The labels are what the SVG writes as text (`CH3OH`); the rungs of a hash are its lines. Returns when the style is back to the default. */
+async function displayModes(pg, pick, tapAt) {
+  const style = async () => JSON.parse(await pg.evaluate("window.MZDRAW.style()")).style;
+  const texts = svg => [...svg.matchAll(/>([^<>]+)<\/text>/g)].map(m => m[1]).join("");
+  const rungs = svg => [...svg.matchAll(/<line x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"/g)].map(m => Math.hypot(m[3] - m[1], m[4] - m[2]));
+  const ink = () => pg.evaluate("(() => { const c = document.querySelector('#d2-canvas'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })()");
+  await tool(pg, "clear"); await want(pg, { atoms: 0, style: "mzlab" });
+  await pg.evaluate(() => { /** @type {HTMLTextAreaElement} */ (document.getElementById("d2-text")).value = "CCCO"; document.getElementById("d2-add")?.click(); }); await want(pg, { atoms: 4 });       // the Add button itself, where the palette of the page is folded away (a tablet)
+  await pg.locator("#d2-style-more summary").click();
+  const schema = JSON.parse(await pg.evaluate("window.MZDRAW.settings_schema()"));
+  for (const k of ["style.carbon_labels", "style.hydrogens", "style.hash_style"]) {
+    const c = schema.choices.find(x => x.key === k);
+    eq(await pg.locator(`[id="d2-style-${k}"] option`).allInnerTexts(), await pg.evaluate(`${JSON.stringify(c.values)}.map(v => I18N.t(${JSON.stringify("draw2.style.choice." + k + ".")} + v))`));
+    eq(await pg.inputValue(`[id="d2-style-${k}"]`), c.default);
+  }
+  eq(texts(await pg.evaluate("window.MZDRAW.save('svg')")), "OH");
+  const bare = await ink(), file = await pg.evaluate("window.MZDRAW.style()");
+  assert(!file.includes("carbon_labels") && !file.includes("hash_style") && !file.includes("hydrogens"), "the default is not written");
+  await pick("style.carbon_labels", "terminal");
+  await until(pg, "JSON.parse(window.MZDRAW.style()).style.carbon_labels === 'terminal'");
+  eq(texts(await pg.evaluate("window.MZDRAW.save('svg')")), "CH3OH");
+  assert((await ink()) !== bare, "the canvas paints the label of the chain end");
+  await pick("style.carbon_labels", "all");
+  await until(pg, "JSON.parse(window.MZDRAW.style()).style.carbon_labels === 'all'");
+  eq(texts(await pg.evaluate("window.MZDRAW.save('svg')")), "CH3CCOH");                  // a carbon with two bonds: the bare symbol
+  await pick("style.hydrogens", "all");
+  await until(pg, "JSON.parse(window.MZDRAW.style()).style.hydrogens === 'all'");
+  eq(texts(await pg.evaluate("window.MZDRAW.save('svg')")), "CH3CH2CH2OH");
+  await shot(pg, "label-display-modes-" + pick.how);
+  // the file the module writes names the three words, and the page reads it back
+  const written = JSON.parse(await pg.evaluate("window.MZDRAW.style()")).style;
+  eq([written.carbon_labels, written.hydrogens], ["all", "all"]);
+  // the hash: a hashed wedge widens; as parallel lines its rungs are equal
+  await tool(pg, "clear"); await want(pg, { atoms: 0 });
+  await tool(pg, "bond:down"); await tapAt(); await want(pg, { atoms: 2, bonds: 1 });
+  const widening = rungs(await pg.evaluate("window.MZDRAW.save('svg')"));
+  assert(widening.length >= 3 && widening[widening.length - 1] > widening[0] + 1, `a hashed wedge widens: ${widening}`);
+  await pick("style.hash_style", "lines");
+  await until(pg, "JSON.parse(window.MZDRAW.style()).style.hash_style === 'lines'");
+  const equal = rungs(await pg.evaluate("window.MZDRAW.save('svg')"));
+  assert(equal.length >= 3 && equal.every(x => Math.abs(x - equal[0]) < 0.011), `parallel lines of one length: ${equal}`);
+  await shot(pg, "label-display-modes-hash-" + pick.how);
+  // an unknown word is refused with its key by the module and changes nothing
+  assert(await pg.evaluate("(() => { try { window.MZDRAW.set('style.hash_style=dots'); return false; } catch (e) { return JSON.parse(String(e)).error_key === 'error.draw2.styleValue'; } })()"), "a word outside the schema is refused with its key");
+  eq((await style()).hash_style, "lines");
+  // back to the default: nothing of the three is written
+  for (const [k, w] of [["style.carbon_labels", "none"], ["style.hydrogens", "hetero"], ["style.hash_style", "wedge"]]) await pick(k, w);
+  await until(pg, "!/carbon_labels|hash_style|hydrogens/.test(window.MZDRAW.style())");
+  await pg.locator("#d2-style-more summary").click();
+}
 /** a screenshot of one element at deviceScaleFactor 2 (the drawing checks panel, light, dark and tablet: docs/shots/) */
 const shotEl = async (pg, sel, name) => { if (shots) await pg.locator(sel).screenshot({ path: path.join(shots, name + ".png") }); };
 // the palettes: where each one is drawn, as the page shows it
@@ -377,6 +429,48 @@ try {
     eq(await pg.getAttribute('[data-testid="d2-select"]', "aria-pressed"), "true");
   });
 
+
+  await step("chain tool by mouse: a drag draws a zigzag that follows the pointer with the count shown, a click adds two bonds, a drag from an atom starts on it, one undo step each, the count follows the length of the drag", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
+    await tool(pg, "chain"); await want(pg, { tool: "chain" });
+    const dx = 0.866 * 40;
+    await pg.mouse.move(cx - 200, cy); await pg.mouse.down(); await pg.mouse.move(cx - 100, cy, { steps: 4 }); await pg.mouse.move(cx - 200 + 5 * dx, cy, { steps: 4 });
+    // while the button is down the count is drawn next to the end of the preview and the drawing has not changed
+    await want(pg, { atoms: 0, bonds: 0 });
+    assert((await pg.evaluate("window.MZDRAW.scene()")).length > 0, "the scene is painted");
+    await shot(pg, "chain-desktop");
+    await pg.mouse.up(); await want(pg, { atoms: 6, bonds: 5 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 0, bonds: 0 });
+    await pg.mouse.click(cx, cy); await want(pg, { atoms: 3, bonds: 2 });
+    // a drag that starts on the last atom adds three bonds to it, no atom is added under the press
+    const d = JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")), last = d.atoms[2];
+    const lx = cx + 40 * (last.x - d.atoms[0].x), ly = cy - 40 * (last.y - d.atoms[0].y);
+    await pg.mouse.move(lx, ly); await pg.mouse.down(); await pg.mouse.move(lx + 60, ly, { steps: 4 }); await pg.mouse.move(lx + 3 * dx, ly, { steps: 4 }); await pg.mouse.up();
+    await want(pg, { atoms: 6, bonds: 5 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
+    // the count is the length of the drag: 900 px hold 26 bonds
+    await pg.mouse.move(cx - 300, cy + 200); await pg.mouse.down(); await pg.mouse.move(cx - 100, cy + 200, { steps: 3 }); await pg.mouse.move(cx + 600, cy + 200, { steps: 3 }); await pg.mouse.up();
+    await want(pg, { atoms: 3 + 27, bonds: 2 + 26 });
+  });
+  await step("chain tool by keyboard: the palette button is selected with Enter and with Space, a typed count shows its preview, Enter draws it from the focused atom, Backspace and Escape take the count back, one undo step", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
+    for (const key of ["Enter", " "]) {
+      await tool(pg, "select"); await want(pg, { tool: "select" });
+      await reveal(pg, '[data-testid="d2-chain"]');
+      await pg.focus('[data-testid="d2-chain"]'); await pg.keyboard.press(key); await want(pg, { tool: "chain" });
+    }
+    await pg.focus("#d2-canvas");
+    // no atom yet: Enter draws two bonds from the middle and the focus is on the end
+    await pg.keyboard.press("Enter"); await want(pg, { atoms: 3, bonds: 2 });
+    await pg.keyboard.type("6"); await pg.keyboard.press("Backspace"); await pg.keyboard.type("4");
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.chainCount', { what: '4' })"));
+    await want(pg, { atoms: 3, bonds: 2 });
+    await shot(pg, "chain-keyboard");
+    await pg.keyboard.press("Enter"); await want(pg, { atoms: 7, bonds: 6 });
+    await pg.keyboard.type("5"); await pg.keyboard.press("Escape"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 9, bonds: 8, tool: "chain" });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 7, bonds: 6 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
+  });
   await step("SMILES and molfile are added, a broken text is refused in words, an import is one undo step", async () => {
     await tool(pg, "clear");
     await pg.fill("#d2-text", "CC(=O)O"); await pg.click("#d2-add"); await want(pg, { atoms: 4, bonds: 3, warnings: 0 });
@@ -1192,6 +1286,16 @@ try {
     await pg.click("#d2-style-more summary");
   });
 
+  await step("display modes by keyboard: carbon labels, hydrogens and the hash style are set from the fields with the arrow keys; the canvas, the SVG and the file follow", async () => {
+    const pick = async (id, word) => {
+      const sel = `[id="d2-style-${id}"]`, words = await pg.$$eval(`${sel} option`, o => o.map(x => x.value));
+      await pg.focus(sel);
+      for (let at = words.indexOf(await pg.inputValue(sel)), to = words.indexOf(word); at !== to; at += Math.sign(to - at)) await pg.keyboard.press(to > at ? "ArrowDown" : "ArrowUp");
+    };
+    pick.how = "keyboard";
+    await displayModes(pg, pick, () => pg.mouse.click(cx, cy));
+  });
+
   await step("keyboard alone: a molecule is drawn, walked and edited without the pointer; the outline and the focus are said in words", async () => {
     const live = () => pg.innerText("#d2-live"), key = k => pg.keyboard.press(k);
     await tool(pg, "clear"); await want(pg, { atoms: 0, focus: 0 });
@@ -1286,6 +1390,20 @@ try {
     await key("m"); eq(await pg.getAttribute(toggle, "aria-pressed"), "false");
     await pg.mouse.click(cx + 300, cy + 200); await want(pg, { selected: 0 });
   });
+  await step("display modes by touch: a finger opens the fields and chooses the words; the canvas, the SVG and the file follow", async () => {
+    const pick = async (id, word) => { await pg.locator(`[id="d2-style-${id}"]`).selectOption(word); };
+    pick.how = "touch";
+    await pg.locator("#d2-style-more summary").tap(); await pg.locator("#d2-style-more summary").tap();       // a tap on the summary: open, shut
+    await displayModes(pg, pick, () => pg.touchscreen.tap(cx, cy));
+  });
+  await step("display modes by pen: the hashed bond is drawn with the pen and shown as parallel lines of one length", async () => {
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const pick = async (id, word) => { await pg.locator(`[id="d2-style-${id}"]`).selectOption(word); };
+    pick.how = "pen";
+    await displayModes(pg, pick, async () => { await pen("mouseMoved", cx, cy); await pen("mousePressed", cx, cy); await pen("mouseReleased", cx, cy); });
+  });
+
   await ctx.close();
   // the desktop palettes in a context with a mouse and keyboard only (a touch screen gets the 44 px handles, tested on the tablet)
   ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }));
@@ -1616,6 +1734,28 @@ try {
     eq((await doc()).bonds[0].k, undefined);
   });
 
+  await step("tablet with touch and a pen: the chain tool adds two bonds by a tap and draws a zigzag by a finger drag and by a pen drag, the count is shown while it is held, each gesture is one undo step", async () => {
+    // (a page of its own: a tap that follows synthetic touch or pen events is dropped by the browser, so the tap comes first)
+    const t = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+    const { pg, cx, cy } = t;
+    try {
+      const cdp = await t.ctx.newCDPSession(pg);
+      const touch = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) });
+      const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+      const dx = 0.866 * 40;
+      await tool(pg, "chain"); await want(pg, { tool: "chain" });
+      await pg.touchscreen.tap(cx + 100, cy - 100); await want(pg, { atoms: 3, bonds: 2 });
+      // a finger drag: the count is shown while it is held
+      await touch("touchStart", [[1, cx - 200, cy]]); await touch("touchMove", [[1, cx - 150, cy]]); await touch("touchMove", [[1, cx - 200 + 4 * dx, cy]]);
+      await want(pg, { atoms: 3, bonds: 2 });
+      await shot(pg, "chain-tablet");
+      await touch("touchEnd", []); await want(pg, { atoms: 8, bonds: 6 });
+      // a pen drag
+      for (const [type, x] of [["mouseMoved", cx - 200], ["mousePressed", cx - 200], ["mouseMoved", cx - 150], ["mouseMoved", cx - 200 + 3 * dx], ["mouseReleased", cx - 200 + 3 * dx]]) await pen(type, x, cy + 150);
+      await want(pg, { atoms: 12, bonds: 9 });
+      for (const [a, b] of [[8, 6], [3, 2], [0, 0]]) { await pg.keyboard.press("Control+z"); await want(pg, { atoms: a, bonds: b }); }
+    } finally { await t.ctx.close(); }
+  });
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
     const openMessy = async () => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), gold.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); await want(pg, { atoms: 8, objects: 4 }); };       // (the page repaints on the next command)
@@ -3903,6 +4043,90 @@ try {
       eq(ghReq, [], "the page asked nothing of GitHub");
     });
     await fb.close();
+  }
+
+  // arch-cd-26: the history panel lists every step newest first with the words of the live line; a click, Enter, a tap or a pen tap on a row
+  // leaves the drawing as it was at that step (`jump:<index>` of the module); a new step forgets the steps above
+  ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, hasTouch: true }));
+  {
+    const hist = () => pg.evaluate("JSON.parse(window.MZDRAW.history())");
+    const row = n => `#d2-history-list li[data-index="${n}"]`;
+    const current = () => pg.evaluate("document.querySelector('#d2-history-list li[data-state=current]')?.dataset.index ?? 'none'");
+    const five = async (pg, at) => {                                                  // five atoms, one step each, with the tool buttons
+      await tool(pg, "clear"); await want(pg, { atoms: 0 });
+      for (const [i, el] of ["C", "N", "O", "S", "P"].entries()) { await tool(pg, "atom:" + el); await at(cx - 200 + 90 * i, cy - 100 + 40 * i); await want(pg, { atoms: i + 1 }); }
+    };
+    await step("history panel by mouse and keyboard: five steps listed newest first with their words, click the second step (two atoms), click the newest (five); arrows and Enter jump; a new step drops the steps above", async () => {
+      await five(pg, async (x, y) => { await pg.mouse.click(x, y); });
+      await setOpen(pg, "#d2-history", true);
+      await until(pg, "document.querySelectorAll('#d2-history-list li').length === 6");   // five steps and the start
+      const h = await hist();
+      eq(h.steps.map(s => s.index), [5, 4, 3, 2, 1]); eq(h.at, 5);
+      eq(h.steps.map(s => [s.say, s.what]), ["P", "S", "O", "N", "C"].map(e => ["draw2.say.atom", e]));
+      const texts = await pg.evaluate("[...document.querySelectorAll('#d2-history-list li')].map(l => l.textContent)");
+      eq(texts, await pg.evaluate("['P','S','O','N','C'].map(e => I18N.t('draw2.say.atom', { what: e })).concat([I18N.t('draw2.history.start')])"));
+      eq(await current(), "5"); eq(await pg.getAttribute(row(5), "aria-selected"), "true");
+      await shot(pg, "history-panel");
+      await pg.click(row(2)); await want(pg, { atoms: 2 }); eq(await current(), "2");
+      eq((await hist()).steps.length, 5, "the steps above stay listed");
+      eq(await pg.getAttribute(row(4), "data-state"), "undone");
+      await pg.click(row(5)); await want(pg, { atoms: 5 }); eq(await current(), "5");
+      // by keyboard: the focus is on the current row; ArrowDown twice walks to step 3 and Enter jumps there; Home goes to the newest, End to the start
+      await pg.focus(row(5)); await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("ArrowDown");
+      eq(await pg.evaluate("document.activeElement.dataset.index"), "3");
+      await pg.keyboard.press("Enter"); await want(pg, { atoms: 3 }); eq(await current(), "3");
+      eq(await pg.evaluate("document.activeElement.dataset.index"), "3", "the focus stays on the row");
+      await pg.keyboard.press("End"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 0 }); eq(await current(), "0");
+      await pg.keyboard.press("Home"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 5 });
+      // two steps back and one new step: the steps above are gone
+      await pg.click(row(3)); await want(pg, { atoms: 3 });
+      await tool(pg, "atom:F"); await pg.mouse.click(cx + 250, cy + 150); await want(pg, { atoms: 4 });
+      const h2 = await hist();
+      eq(h2.steps.map(s => s.index), [4, 3, 2, 1]); eq(h2.steps[0].what, "F"); assert(h2.steps.every(s => s.state !== "undone"), "no step waits for a redo");
+      await until(pg, "document.querySelectorAll('#d2-history-list li').length === 5");
+    });
+    await step("history panel: a refresh between the press and the release of a click does not lose it (the rows are kept while the history is the same)", async () => {
+      await pg.click(row(4)); await want(pg, { atoms: 4 });
+      await pg.locator(row(2)).scrollIntoViewIfNeeded(); const [x, y] = await center(pg, row(2));
+      await pg.mouse.move(x, y); await pg.mouse.down();
+      await pg.evaluate("document.getElementById('d2-history').dispatchEvent(new Event('toggle'))");   // the list is asked to refresh in between
+      await frames(pg);
+      await pg.mouse.up(); await want(pg, { atoms: 2 }); eq(await current(), "2");
+      await pg.click(row(4)); await want(pg, { atoms: 4 });
+    });
+    await step("history panel: the twin command jump:<n> gives the same document as the click, and a number past the newest step changes nothing", async () => {
+      const doc = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+      await pg.click(row(2)); const byClick = await doc(); await pg.click(row(4));
+      await pg.evaluate("window.MZDRAW.command('jump:2')"); eq(await doc(), byClick);
+      await pg.evaluate("window.MZDRAW.command('jump:9')"); eq(await doc(), byClick); eq(await pg.evaluate("JSON.parse(window.MZDRAW.state()).error"), "error.draw2.request");
+      const atoms = () => pg.evaluate("JSON.parse(window.MZDRAW.state()).atoms");
+      await pg.evaluate("window.MZDRAW.command('undo:1')"); eq(await atoms(), 1);
+      await pg.evaluate("window.MZDRAW.command('redo:3')"); eq(await atoms(), 4);
+      await setOpen(pg, "#d2-history", false);
+    });
+    await ctx.close(); ({ ctx, pg, cx, cy } = await context(browser, { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }));
+    await step("history panel by touch: tap the summary, tap the second step, tap the newest; the rows are targets for a finger", async () => {
+      await five(pg, async (x, y) => { await pg.touchscreen.tap(x, y); });
+      await tapPalette(pg, "check", true);
+      const tap = async sel => { await pg.locator(sel).scrollIntoViewIfNeeded(); const [x, y] = await center(pg, sel); await pg.touchscreen.tap(x, y); };
+      await tap("#d2-history summary"); await until(pg, "document.querySelector('#d2-history').open === true");
+      await until(pg, "document.querySelectorAll('#d2-history-list li').length === 6");
+      assert((await pg.locator(row(2)).boundingBox()).height >= 43, "a row is a target for a finger");
+      await tap(row(2)); await want(pg, { atoms: 2 }); eq(await current(), "2");
+      await shot(pg, "history-panel-touch");
+      await tap(row(5)); await want(pg, { atoms: 5 }); eq(await current(), "5");
+      await tapPalette(pg, "check", false);
+    });
+    await step("history panel by pen: a pen tap on a row jumps to that step, another on the newest step comes back", async () => {
+      await tapPalette(pg, "check", true);
+      const cdp = await ctx.newCDPSession(pg);
+      const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+      const tap = async sel => { await pg.locator(sel).scrollIntoViewIfNeeded(); const [x, y] = await center(pg, sel); await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+      await until(pg, "document.querySelector('#d2-history').open === true");        // left open by the touch step
+      await tap(row(3)); await want(pg, { atoms: 3 }); eq(await current(), "3");
+      await tap(row(5)); await want(pg, { atoms: 5 }); eq(await current(), "5");
+      await tapPalette(pg, "check", false);
+    });
   }
 
   await ctx.close();
