@@ -122,7 +122,9 @@ async function reveal(pg, sel) {
   await pg.focus(o.opener); await pg.keyboard.press(o.key);
   await until(pg, `!!document.querySelector(${JSON.stringify(sel)}).offsetParent`);
 }
-const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; await reveal(pg, sel); await pg.click(sel); };
+/** the unsaved-changes question: when it opens, "Don't save" is chosen (the steps that press New to start from an empty canvas keep what they assert) */
+const dontSave = async pg => { if (await pg.isVisible("#d2-unsaved")) await pg.click("#d2-unsaved-discard"); };
+const tool = async (pg, name) => { const sel = `[data-testid="d2-${name}"]`; await reveal(pg, sel); await pg.click(sel); if (name === "clear") await dontSave(pg); };
 const fillIn = async (pg, sel, text) => { await reveal(pg, sel); await pg.fill(sel, text); };
 const saveAs = async (pg, sel) => { await reveal(pg, sel); await pg.click(sel); };
 const want = (pg, kv) => until(pg, `(() => { const s = ${STATE}, w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
@@ -1533,6 +1535,87 @@ try {
     pick.how = "pen";
     await displayModes(pg, pick, async () => { await pen("mouseMoved", cx, cy); await pen("mousePressed", cx, cy); await pen("mouseReleased", cx, cy); });
   });
+  await step("the unsaved-changes guard: New asks \"Save changes?\" when the drawing holds unsaved work, by mouse, keyboard, finger and pen; an empty or saved drawing does not ask", async () => {
+    const NEW = '[data-testid="d2-clear"]', dlg = () => pg.isVisible("#d2-unsaved"), focused = () => pg.evaluate("document.activeElement.id");
+    // the guard's state is the module's own (`state().dirty`, `state().unsaved`); the mirror of the page is left as it is
+    const want = (pg, kv) => until(pg, `(() => { const s = JSON.parse(window.MZDRAW.state()), w = ${JSON.stringify(kv)}; return Object.keys(w).every(k => s[k] === w[k]); })()`);
+    const drawn = async () => { await pg.fill("#d2-text", "CCO"); await pg.click("#d2-add"); await want(pg, { atoms: 3, dirty: true, unsaved: true }); };
+    const cdp = await pg.context().newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    // the ways to press a button: mouse, keyboard (focus and Enter), a finger, the pen
+    const press = {
+      mouse: async sel => { await reveal(pg, sel); await pg.click(sel); },
+      keyboard: async sel => { await reveal(pg, sel); await pg.focus(sel); await pg.keyboard.press("Enter"); },
+      finger: async sel => { await reveal(pg, sel); const b = await pg.locator(sel).boundingBox(); await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); },
+      pen: async sel => { await reveal(pg, sel); const b = await pg.locator(sel).boundingBox(), x = b.x + b.width / 2, y = b.y + b.height / 2; await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); },
+    };
+    await tool(pg, "clear"); await want(pg, { atoms: 0, dirty: false, unsaved: false });
+    await press.mouse(NEW); eq(await dlg(), false);                                    // nothing is drawn: no question
+    await drawn();
+    // the question: an alert dialog, labelled, with the focus on Save, the drawing untouched while it waits
+    await press.mouse(NEW);
+    eq(await dlg(), true); eq(await pg.getAttribute("#d2-unsaved-box", "role"), "alertdialog"); eq(await pg.getAttribute("#d2-unsaved-box", "aria-modal"), "true");
+    eq(await pg.innerText("#d2-unsaved-title"), await pg.evaluate("I18N.t('draw2.unsaved.title')"));
+    eq(await focused(), "d2-unsaved-save"); await want(pg, { atoms: 3, dirty: true });
+    for (const id of ["save", "discard", "cancel"]) { const b = await pg.locator(`#d2-unsaved-${id}`).boundingBox(); assert(b.height >= 44 && b.width >= 44, `${id} is a 44 px target: ${b.width} x ${b.height}`); }
+    await shot(pg, "unsaved-guard-light");
+    await pg.emulateMedia({ colorScheme: "dark" }); await shot(pg, "unsaved-guard-dark"); await pg.emulateMedia({ colorScheme: "light" });
+    // the focus cannot leave the dialog: Tab and Shift+Tab go round its three buttons, a click elsewhere gives it back
+    const order = []; for (let i = 0; i < 4; i++) { await pg.keyboard.press("Tab"); order.push(await focused()); }
+    eq(order, ["d2-unsaved-discard", "d2-unsaved-cancel", "d2-unsaved-save", "d2-unsaved-discard"]);
+    await pg.keyboard.press("Shift+Tab"); eq(await focused(), "d2-unsaved-save"); await pg.keyboard.press("Shift+Tab"); eq(await focused(), "d2-unsaved-cancel");
+    await pg.evaluate("document.getElementById('d2-canvas').focus()"); eq(await focused(), "d2-unsaved-cancel");     // the canvas is inert: the focus stays in the dialog
+    // one question at a time, and the rest of the page is inert while it is open: a second New asked for now is refused (one file, not two)
+    let files = 0; const count = () => files++; pg.on("download", count);
+    eq(await pg.evaluate("[...document.body.children].filter(el => el.id !== 'd2-unsaved' && el.tagName !== 'SCRIPT').every(el => el.inert)"), true);
+    await pg.evaluate(s => document.querySelector(s).click(), NEW); eq(await dlg(), true);
+    await pg.click("#d2-unsaved-save"); await want(pg, { atoms: 0 }); await pg.waitForTimeout(500);
+    eq(files, 1); pg.off("download", count); eq(await dlg(), false);
+    eq(await pg.evaluate("[...document.body.children].some(el => el.inert)"), false);                // the page is live again
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, dirty: true });
+    await press.mouse(NEW); eq(await dlg(), true);
+    // Cancel (click) and Escape do nothing, and the focus leaves the dialog
+    await pg.click("#d2-unsaved-cancel"); eq(await dlg(), false); await want(pg, { atoms: 3, dirty: true });
+    eq(await pg.evaluate("!!document.activeElement.closest('#d2-unsaved')"), false);
+    await press.mouse(NEW); await pg.keyboard.press("Escape"); eq(await dlg(), false); await want(pg, { atoms: 3, dirty: true });
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.unsaved.cancelled')"));
+    // Don't save (mouse): the new drawing is empty and clean; Undo brings the old one back, which is then unsaved again
+    await press.mouse(NEW); await pg.click("#d2-unsaved-discard"); eq(await dlg(), false); await want(pg, { atoms: 0, dirty: false, unsaved: false });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, dirty: true, unsaved: true });
+    // Save (mouse): the file is downloaded, then the new drawing is empty and clean
+    await press.mouse(NEW);
+    const [d1] = await Promise.all([pg.waitForEvent("download"), pg.click("#d2-unsaved-save")]);
+    eq(JSON.parse(readFileSync(await d1.path(), "utf8")).atoms.length, 3);          // Save writes the native document, whatever the default export is
+    await want(pg, { atoms: 0, dirty: false }); eq(await dlg(), false);
+    // a saved drawing is clean: a download is the saved point, an edit after it is not, and undo back to it is clean again
+    // only the native document is a saved point: a lossy export (SVG, molfile, SMILES, PNG, PDF) leaves the drawing unsaved
+    await drawn();
+    for (const id of ["svg", "molfile", "smiles"]) { await saveAs(pg, `#d2-ex-${id}`); await want(pg, { atoms: 3, dirty: true, unsaved: true }); }
+    for (const id of ["png", "pdf"]) { await Promise.all([pg.waitForEvent("download"), saveAs(pg, `#d2-ex-${id}`)]); await want(pg, { atoms: 3, dirty: true }); }
+    await press.mouse(NEW); eq(await dlg(), true); await pg.click("#d2-unsaved-cancel");                // still asks after the exports
+    await saveAs(pg, "#d2-ex-doc"); await want(pg, { atoms: 3, dirty: false, unsaved: false });
+    await press.mouse(NEW); eq(await dlg(), false); await want(pg, { atoms: 0, dirty: false });       // saved: no question
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, dirty: true });                 // the saved drawing is back: it differs from the new one
+    // keyboard: Enter on New, Save has the focus, Enter on it saves and goes on
+    await tool(pg, "clear"); await drawn();
+    await press.keyboard(NEW); eq(await dlg(), true); eq(await focused(), "d2-unsaved-save");
+    const [d2] = await Promise.all([pg.waitForEvent("download"), pg.keyboard.press("Enter")]);
+    assert(d2.suggestedFilename().length > 0, "a file was downloaded"); await want(pg, { atoms: 0, dirty: false });
+    // keyboard: Tab to Cancel and Enter, then Tab to Don't save and Enter
+    await drawn(); await press.keyboard(NEW); await pg.keyboard.press("Tab"); await pg.keyboard.press("Tab"); eq(await focused(), "d2-unsaved-cancel"); await pg.keyboard.press("Enter");
+    eq(await dlg(), false); await want(pg, { atoms: 3 });
+    await press.keyboard(NEW); await pg.keyboard.press("Tab"); eq(await focused(), "d2-unsaved-discard"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 0, dirty: false });
+    // a finger and the pen: the same three answers
+    for (const how of ["finger", "pen"]) {
+      await drawn();
+      await press[how](NEW); eq(await dlg(), true);
+      await press[how]("#d2-unsaved-cancel"); eq(await dlg(), false); await want(pg, { atoms: 3, dirty: true });
+      await press[how](NEW); await press[how]("#d2-unsaved-discard"); eq(await dlg(), false); await want(pg, { atoms: 0, dirty: false });
+      await drawn(); await press[how](NEW);
+      const [d3] = await Promise.all([pg.waitForEvent("download"), press[how]("#d2-unsaved-save")]);
+      assert(d3.suggestedFilename().length > 0, how + ": a file was downloaded"); await want(pg, { atoms: 0, dirty: false });
+    }
+  });
 
   await ctx.close();
   // the desktop palettes in a context with a mouse and keyboard only (a touch screen gets the 44 px handles, tested on the tablet)
@@ -1713,7 +1796,9 @@ try {
     await pg.waitForTimeout(1500);
     eq(await saves(), 0);
     await shot(pg, "restore");
-    await pg.click("#d2-restore-yes"); await want(pg, { atoms: 6, bonds: 5, objects: 1 });
+    // the saved drawing replaces the stray one, which was not saved: the question comes first, and "Don't save" lets the restore go on
+    await pg.click("#d2-restore-yes"); eq(await pg.isVisible("#d2-unsaved"), true); await want(pg, { atoms: 2, bonds: 1 }); await dontSave(pg);
+    await want(pg, { atoms: 6, bonds: 5, objects: 1 });
     assert(await pg.isHidden("#d2-restore"), "the offer is gone");
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), doc);       // the same bytes, ids included
     assert(await pg.isDisabled('[data-testid="d2-undo"]'), "an opened drawing has no history");

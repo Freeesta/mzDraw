@@ -42,6 +42,9 @@ pub(crate) fn known(name: &str) -> bool {
                 | "tp:derive"
                 | "tp:import"
                 | "tp:number"
+                | "new"
+                | "open"
+                | "save"
                 | "lonepairs"
         )
 }
@@ -66,6 +69,9 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     }
     if name == "pathway:anchor" || name == "pathway:route" {
         return pathway_args(name, args).map(|_| ());
+    }
+    if matches!(name, "new" | "open" | "save") {
+        return file_args(name, args).map(|_| ());
     }
     if name == "tp:derive" {
         return derive_args(args).map(|_| ());
@@ -110,6 +116,35 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
         }
     }
     Op::parse(&v).map(|_| ())
+}
+
+/// The arguments of the file commands: `new` and `open` take `discard` (bool, default false: unsaved work is refused), `open` also
+/// `text` (an `mzdraw/1` document, required), `save` takes none. Returns `(text, discard)`.
+fn file_args(name: &str, args: &Value) -> Result<(String, bool), &'static str> {
+    const BAD: &str = "error.draw2.request";
+    let obj = args.as_object().ok_or(BAD)?;
+    let allowed: &[&str] = match name {
+        "new" => &["discard"],
+        "open" => &["text", "discard"],
+        _ => &["format"],
+    };
+    if obj.keys().any(|k| !allowed.contains(&k.as_str())) {
+        return Err(BAD);
+    }
+    let discard = match obj.get("discard") {
+        None => false,
+        Some(v) => v.as_bool().ok_or(BAD)?,
+    };
+    let text = match obj.get("text").or_else(|| obj.get("format")) {
+        None if name == "open" => return Err(BAD),
+        None => String::new(),
+        Some(v) => v.as_str().ok_or(BAD)?.to_string(),
+    };
+    // a format that is no file kind of the editor is a bad request, not a silent no-op
+    if name == "save" && !text.is_empty() && !Editor::is_save_kind(&text) {
+        return Err(BAD);
+    }
+    Ok((text, discard))
 }
 
 /// The arguments of an arrange command: `{"atoms": [ids], "objects": [ids]}`, both optional (nothing named: the selection, or the
@@ -315,6 +350,23 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     }
     if name == "scheme:orient" {
         return orient(e);
+    }
+    if matches!(name, "new" | "open" | "save") {
+        let (text, discard) = file_args(name, args).map_err(bad)?;
+        if name == "save" {
+            // the native document unless a format is named; only the native document is the saved point
+            e.exported(if text.is_empty() {
+                Editor::save_kind()
+            } else {
+                &text
+            });
+            return Ok(());
+        }
+        return match name {
+            "new" => e.new_drawing(discard).map(|_| ()),
+            _ => e.open_drawing(&text, discard),
+        }
+        .map_err(bad);
     }
     if name == "tp:import" {
         let input = import_args(args).map_err(bad)?;

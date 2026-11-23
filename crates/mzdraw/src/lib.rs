@@ -20,6 +20,7 @@ pub mod doc;
 pub mod editor;
 mod editor_curve;
 mod editor_edit;
+pub mod editor_file;
 mod editor_keys;
 mod editor_nudge;
 mod editor_pathway;
