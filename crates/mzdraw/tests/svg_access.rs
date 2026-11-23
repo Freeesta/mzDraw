@@ -210,8 +210,8 @@ fn escaping_of_the_outline_text_is_deterministic() {
 
 /// The elements and attributes of SVG 1.1 that the writer may use (and `xml:lang`, `role`, `aria-labelledby`, which older readers
 /// ignore).
-const ELEMENTS: [&str; 7] = [
-    "svg", "title", "desc", "metadata", "line", "text", "polygon",
+const ELEMENTS: [&str; 8] = [
+    "svg", "title", "desc", "metadata", "line", "text", "polygon", "circle",
 ];
 const ATTRIBUTES: &[&str] = &[
     "xmlns",
@@ -237,6 +237,10 @@ const ATTRIBUTES: &[&str] = &[
     "text-anchor",
     "dominant-baseline",
     "points",
+    // a filled dot, the lone pairs (SVG 1.1 basic shape `circle`)
+    "cx",
+    "cy",
+    "r",
     // the presentation attributes of a styled run of a formatted text (all SVG 1.1)
     "font-weight",
     "font-style",
