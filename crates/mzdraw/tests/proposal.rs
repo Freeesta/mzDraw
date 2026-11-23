@@ -456,8 +456,10 @@ fn one_move_of_all_atoms_is_one_hunk_and_the_ids_are_capped() {
         .iter()
         .zip(small.iter().zip(big.iter()))
     {
+        // a floor of one millisecond for the small size: a phase that takes less (a fast machine, a release build) is below what the
+        // clock tells from noise, and the ratio of two such times says nothing; the debug figures here are 3 ms and more
         assert!(
-            b <= &(a * 8.0),
+            b <= &(a.max(1.0) * 8.0),
             "{step}: {a:.1} ms for {} atoms moved, {b:.1} ms for {n}",
             n / 4
         );
@@ -661,27 +663,25 @@ fn two_thousand_separate_accepts_through_the_request_are_fast_and_all_or_none() 
         .map(|i| json!({"op":"atom.set","id":1 + 10 * i,"chg":1}))
         .collect();
     mzdraw::replay::replay(&accept_request(n)).unwrap();
-    // and the hunks cost in proportion: over the same drawing, four times the hunks may cost at most eight times as much (linear 4,
-    // quadratic 16). What the drawing alone costs (the same request with one hunk) is taken off, so that the figures are those of the
-    // hunks and not of the import of the drawing (which is not linear in a debug build); the three are taken in turns, so that a slow
-    // phase of the machine falls on all of them, and each is the least of its runs.
-    let texts = [accept_request(1), accept_request(n / 4), accept_request(n)];
-    let mut least = [f64::MAX; 3];
-    for round in 0..5 {
-        for (t, text) in texts.iter().enumerate() {
-            let w = timing::Watch::start();
-            mzdraw::replay::replay(text).unwrap();
-            if round > 0 {
-                // the first round is a warm-up
-                least[t] = least[t].min(w.elapsed().as_secs_f64() * 1000.0);
-            }
+    // and the hunks cost in proportion: over the same 20,000-atom drawing, four times the hunks may cost at most eight times as much
+    // (linear 4, quadratic 16). Only the accepting is on the clock (the proposal is held and the drawing is made before it, per run),
+    // so there is no baseline to subtract; each size is the least CPU time of the thread over nine runs.
+    let held = |hunks: u32| {
+        move || {
+            let mut e = editor(grid(20_000, false));
+            let ops = ops(json!((0..hunks)
+                .map(|i| json!({"op":"atom.set","id":1 + 10 * i,"chg":1}))
+                .collect::<Vec<Value>>()));
+            e.propose(ops).unwrap();
+            (e, (1..=hunks as usize).collect::<Vec<usize>>())
         }
-    }
-    let base = least[0];
-    let (small, big) = ((least[1] - base).max(1.0), least[2] - base);
+    };
+    let run = |(mut e, list): (Editor, Vec<usize>)| e.accept_hunks(&list).unwrap();
+    let small = best_with(1, 9, held(n / 4), run);
+    let big = best_with(1, 9, held(n), run);
     assert!(
         big <= small * 8.0,
-        "accepting one by one: {small:.1} ms for {} hunks, {big:.1} ms for {n} (drawing alone {base:.1} ms)",
+        "accepting one by one: {small:.1} ms for {} hunks, {big:.1} ms for {n}",
         n / 4
     );
     // one number out of range at the end: nothing at all is accepted
