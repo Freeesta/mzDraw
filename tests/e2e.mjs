@@ -133,7 +133,7 @@ async function displayModes(pg, pick, tapAt) {
   const ink = () => pg.evaluate("(() => { const c = document.querySelector('#d2-canvas'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })()");
   await tool(pg, "clear"); await want(pg, { atoms: 0, style: "mzlab" });
   await fillIn(pg, "#d2-text", "CCCO"); await reveal(pg, "#d2-add"); await pg.click("#d2-add"); await want(pg, { atoms: 4 });
-  await reveal(pg, "#d2-style-more summary"); await pg.locator("#d2-style-more summary").click();
+  await pg.locator("#d2-style-more summary").click();
   const schema = JSON.parse(await pg.evaluate("window.MZDRAW.settings_schema()"));
   for (const k of ["style.carbon_labels", "style.hydrogens", "style.hash_style"]) {
     const c = schema.choices.find(x => x.key === k);
