@@ -578,12 +578,46 @@ impl Layout {
     /// new row or column when the edge is full; the top and bottom rows span the width, the columns fill what is between.
     /// A floating palette is kept inside the viewport. Returns every palette, hidden ones too, and the free area left for
     /// the canvas (x, y, width, height).
+    ///
+    /// No two shown palettes overlap while the columns can hold them (even with the side groups cut to the line of their title). A floating
+    /// palette that finds no free place on the page (neither beside its neighbours nor on the 8 px grid, nor by putting all the floating
+    /// palettes again from the top left) is laid out in the right column, as a docked one, for as long as the viewport leaves it no place; its
+    /// stored place is untouched, so it floats again where it was when there is room.
     pub fn arrange(
         &mut self,
         w: f64,
         h: f64,
         sizes: &[(String, f64, f64)],
     ) -> (Vec<Rect>, [f64; 4]) {
+        let mut forced: Vec<String> = Vec::new();
+        loop {
+            let (out, area, failed) = self.arrange_with(w, h, sizes, &forced);
+            let more: Vec<String> = failed
+                .into_iter()
+                .filter(|id| !forced.contains(id))
+                .collect();
+            if more.is_empty() {
+                return (out, area);
+            }
+            forced.extend(more);
+        }
+    }
+
+    /// `arrange` with the palettes of `forced` laid out in the right column; also the floating palettes that found no place.
+    fn arrange_with(
+        &mut self,
+        w: f64,
+        h: f64,
+        sizes: &[(String, f64, f64)],
+        forced: &[String],
+    ) -> (Vec<Rect>, [f64; 4], Vec<String>) {
+        let dock_of = |p: &Palette| {
+            if forced.contains(&p.id) {
+                Dock::Right
+            } else {
+                p.dock
+            }
+        };
         // a viewport that is not a finite number keeps the last one; any other is kept between 1 and MAX_VIEW pixels
         let (w, h) = match point(w, h) {
             Some((w, h)) => (within(w, 1.0, MAX_VIEW), within(h, 1.0, MAX_VIEW)),
@@ -609,7 +643,7 @@ impl Layout {
             y,
             w: pw,
             h: ph,
-            dock: p.dock,
+            dock: dock_of(p),
             horizontal: p.horizontal,
             collapsed: p.collapsed,
             hidden: !shown(p),
@@ -618,7 +652,7 @@ impl Layout {
         // rows: the top from the top down, the bottom from the bottom up
         let row = |edge: Dock, out: &mut Vec<Rect>| -> f64 {
             let (mut x, mut used, mut line) = (0.0, 0.0, 0.0f64);
-            for p in all.iter().filter(|p| p.dock == edge && shown(p)) {
+            for p in all.iter().filter(|p| dock_of(p) == edge && shown(p)) {
                 let s = size(&p.id);
                 if x > 0.0 && x + s.0 > w {
                     (x, used, line) = (0.0, used + line, 0.0);
@@ -640,7 +674,10 @@ impl Layout {
         // leave the canvas less than MIN_CANVAS (or push the columns of the two sides onto each other), the column stays one and the
         // side palettes that do not fit are cut to the room left, each scrolling inside itself: no two palettes ever overlap
         let column = |edge: Dock, other: f64, out: &mut Vec<Rect>| -> f64 {
-            let list: Vec<&Palette> = all.iter().filter(|p| p.dock == edge && shown(p)).collect();
+            let list: Vec<&Palette> = all
+                .iter()
+                .filter(|p| dock_of(p) == edge && shown(p))
+                .collect();
             let room = (h - top - bottom).max(0.0);
             let pack = |hs: &[f64]| -> (Vec<(f64, f64)>, f64) {
                 let (mut y, mut used, mut line) = (top, 0.0, 0.0f64);
@@ -700,7 +737,7 @@ impl Layout {
         let held = self.grab.as_ref().map(|g| g.id.clone());
         let mut floats: Vec<&Palette> = all
             .iter()
-            .filter(|p| p.dock == Dock::Float && shown(p))
+            .filter(|p| dock_of(p) == Dock::Float && shown(p))
             .collect();
         floats.sort_by(|a, b| {
             let (sa, sb) = (size(&a.id), size(&b.id));
@@ -716,8 +753,8 @@ impl Layout {
             })
         };
         // `scan`: the first free place from the top left instead of the nearest one; returns whether every palette found a free place
-        let place = |scan: bool, out: &mut Vec<Rect>| -> bool {
-            let mut ok = true;
+        let place = |scan: bool, out: &mut Vec<Rect>| -> Vec<String> {
+            let mut failed: Vec<String> = Vec::new();
             for p in &floats {
                 let s = size(&p.id);
                 let (mx, my) = ((w - s.0).max(0.0), (h - s.1).max(0.0));
@@ -774,17 +811,18 @@ impl Layout {
                     }
                     match best {
                         Some((_, cx, cy)) => (bx, by) = (cx, cy),
-                        None => ok = false,
+                        None => failed.push(p.id.clone()),
                     }
                 }
                 out.push(rect(p, bx, by, s));
             }
-            ok
+            failed
         };
         let docked = out.len();
-        if !place(false, &mut out) {
+        let mut failed = place(false, &mut out);
+        if !failed.is_empty() {
             out.truncate(docked);
-            place(true, &mut out);
+            failed = place(true, &mut out);
         }
         // a viewport too small for every edge to wrap in: the palettes overlap rather than leave it
         for r in out.iter_mut() {
@@ -801,7 +839,7 @@ impl Layout {
             (w - left - right).max(0.0),
             (h - top - bottom).max(0.0),
         ];
-        (out, area)
+        (out, area, failed)
     }
 
     /// The rectangle of a palette in the last layout.
