@@ -10,13 +10,14 @@ Status:
 - **WITHDRAWN**: dropped by the backlog (`docs/plan/backlog.md` section 3).
 - **GATED**: waits for a decision or a run outside the repository.
 
-Checked against `main` at `4d39021` (2026-11-21). Prompt files: 108. MERGED 40, RUNNING 3, QUEUED 46, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
+Checked against `main` at `4d39021` (2026-11-21). Prompt files: 109. MERGED 40, RUNNING 4, QUEUED 46, SUPERSEDED 15, WITHDRAWN 3, GATED 1. The order and the reasons of the plan are in `docs/plan/backlog.md`; "depends/gate" is the "Depends on" line of the prompt, cut.
 
 | prompt id | title | status | evidence | depends/gate | note |
 |---|---|---|---|---|---|
 | `arch-cd-01-clean-up` | Clean Up Structure: the 2D layout of mzlab-mol on a drawing, stereo kept | SUPERSEDED | by arch-std-15 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-02-cip-labels` | CIP labels on the canvas (R/S, r/s, E/Z) from cip/1, live | SUPERSEDED | by arch-web-16 (top of the prompt: "superseded: do not run") | - | - |
-| `arch-cd-03-hover-hotkeys` | Hotkeys over the hovered bond and group hotkeys over an atom | QUEUED | no merged commit or built note names it | arch-std-06 (the command table of shortcuts) if it is on `main`: put the hover keys into that table | - |
+| `arch-cd-03-hover-hotkeys` | Hotkeys over the hovered bond and group hotkeys over an atom | RUNNING | PR #124 (docs/built/hover-keys.md) | arch-std-06 (the command table of shortcuts) if it is on `main`: put the hover keys into that table | - |
+| `arch-cd-03b-hover-keys-layouts` | Hover keys 1 2 3 and Shift+3..8 on layouts whose digit row types symbols | QUEUED | no merged commit or built note names it | arch-cd-03 on `main` | - |
 | `arch-cd-04-bond-display` | Double-bond position (centre, left, right) and dashed bond displays | MERGED | PR #108, `b1916a5`; built/bond-display.md | the bond field `k` (one field for bold, dashed, dative, hbond; V3000 types 9 and 10: COO decision 16), from... | - |
 | `arch-cd-05-chain-tool` | Chain tool: drag out a zigzag, the carbon count shown while dragging | SUPERSEDED | by arch-web-08 (top of the prompt: "superseded: do not run") | - | - |
 | `arch-cd-06-arrow-kinds` | Arrow kinds, heads and conditions under the arrow | SUPERSEDED | by arch-web-13 (top of the prompt: "superseded: do not run") | - | - |
@@ -207,3 +208,22 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | pathway-draw: a node with a formula alone (no SMILES) drawn as a text node, and `descriptors/1` per node once it is in the pinned mzLab revision | built/pathway-draw.md "Not built" | QUEUED | no prompt file; the pin is moved in a PR of its own |
 | pathway-draw: `mzlab-cli mol draw` flags `--check`, `--json`, `--dry-run` mapped to the request fields, and the exit code 3 of a failed check (`Reply::check_failed`) | built/pathway-draw.md "The CLI route" | QUEUED | mzLab side; no prompt file |
 | pathway-draw: room for the horizontal text of arrows in `pathway:tree` and `tp:import` themselves (`pathway:build` clears fans of 3 to 10 arrows with texts up to 60 characters at the cost of a tall drawing; a drawing laid out by another route, fans of more than 10, layer-skipping arrows and crossing second-parent arrows are still flagged by `label_box_overlaps`, `arrow_box_crossings`, `edge_crossings` of `pathway-check/1`) | built/pathway-draw.md "Not built" | QUEUED | no prompt file; moves goldens of tp-05/tp-07/tp-08 |
+| rdkit-compare: lone pairs in the SVG and the PDF (the writers skip the `DISC` primitive; `built/curved-arrows.md` says the SVG has them) | `docs/study/rdkit-compare.md` F1, rank 1; `crates/mzdraw/src/svg.rs` `drawn_with`, `pdf.rs` | QUEUED | a bug in a built feature; golden in `curve.json` |
+| rdkit-compare: enhanced stereo (CXSMILES `&n`/`on`, V3000 `STEABS`/`STERAC`/`STEREL`) reported as lost on the CLI route (`report` `lost`, `out loss:FORMAT`; the page's import note `draw2.import.stereoGroups` already says it), then kept and drawn as group labels | study F2, rank 2, matrix #5 #38 | QUEUED | the loss item first (small); keeping it needs a field in the document |
+| rdkit-compare: an unspecified stereogenic double bond written as "either" (bond stereo 3) in molfile V2000/V3000 and CDXML | study F3, rank 3, matrix #25 | QUEUED | polyene of `tools/rdkit_compare/set.tsv` is the test case |
+| rdkit-compare: atom and bond ids drawn in the picture (`display.ids` off/atoms/bonds/both) | study rank 4, matrix #36 | QUEUED | display only, like `display.maps` |
+| rdkit-compare: CIP labels drawn (`display.cip`), from the engine `cip` of the glue | study rank 5, matrix #37 | QUEUED | the core replay has no engine: the glue replay draws them, the core says so |
+| rdkit-compare: reaction SMILES (`A>>B`, agents between) and dative SMILES (`->`, `<-`) read | study F4 F5, rank 6, matrix #6 #7 | QUEUED | the SMILES reader is `mzlab-mol` (rule 9: a pin move, or a pre-pass here) |
+| rdkit-compare: the title of a structure (`atom.title`) drawn as its legend, under the structure | study rank 7, matrix #45 | QUEUED | display setting, default off so the goldens keep their bytes |
+| rdkit-compare: a `grid` command (columns, gap, order) that lays structures out in rows with their legends | study rank 8, matrix #48 | QUEUED | one undo step of `move` operations, as `scheme:row` |
+| rdkit-compare: PNG pixels from the CLI without a browser | study rank 9, matrix #64 | QUEUED | a rasteriser and a font in Rust is large; a decision of the owner (size, dependency, rule 3) |
+| rdkit-compare: align structures to a template or a given core; clean up of a drawn structure (`layout::clean_up`) | study rank 10, matrix #14 #16 | QUEUED | needs the layout of `mzlab-mol` with fixed atoms |
+| rdkit-compare: halo highlight with a radius and several colours per atom (display, not the ink colour) | study rank 11, matrix #42 | QUEUED | |
+| rdkit-compare: aromatic bonds drawn dashed or with a circle, as a style | study rank 12, matrix #31 | QUEUED | `built/label-display-modes.md` names circles out of scope: the owner decides |
+| rdkit-compare: an atom data value drawn at its atom (atom notes) | study rank 13, matrix #39 | QUEUED | |
+| rdkit-compare: zero-order bond (`bond.set o 0`, drawn dashed, written as order 0 / V3000 type 10) | study rank 14, matrix #29 | QUEUED | |
+| rdkit-compare: cage and crowded polycycle layouts without atom clashes (ring templates) | study rank 15, matrix #10 #15 | GATED | `mzlab-mol` layout (D1), mzLab side |
+| rdkit-compare: CXSMILES coordinates `\|(...)\|` kept on import | study F6, rank 16, matrix #4 | QUEUED | |
+| rdkit-compare: automatic condensation of abbreviations | study rank 17, matrix #33 | QUEUED | |
+| rdkit-compare: small style options (canonical orientation, background colour, element palettes, D/T labels, chiral flag, a wedge on a centre that is not stereogenic) | study rank 18, F7, matrix #12 #13 #56 #58 | QUEUED | one row; split when one is taken |
+| rdkit-compare: guard test for the spacing of separate pieces (salt, phosphate of the comparison set) so a layout change cannot lose it | study §5, matrix #11 | QUEUED | test-only |

@@ -788,6 +788,12 @@ pub fn pressed_groups() -> String {
     })
 }
 
+/// The hover keys of the page help: the table of `mzdraw::hotkeys` as a JSON list.
+#[wasm_bindgen]
+pub fn hotkeys() -> String {
+    mzdraw::hotkeys::help_json()
+}
+
 /// The labels the label tool takes: the abbreviations of the table, then `R` and `R1` ... `R9` (up to `R32` can be typed).
 #[wasm_bindgen]
 pub fn labels() -> Vec<String> {

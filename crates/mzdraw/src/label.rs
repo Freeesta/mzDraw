@@ -26,6 +26,7 @@ pub const ABBREVIATIONS: &[(&str, &str)] = &[
     ("NMe2", "N(C)C"),
     ("NO2", "[N+](=O)[O-]"),
     ("CN", "C#N"),
+    ("OH", "O"),
     ("CF3", "C(F)(F)F"),
     ("COOH", "C(=O)O"),
     ("CO2H", "C(=O)O"),
