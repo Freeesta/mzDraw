@@ -280,6 +280,7 @@ fn copy_cut_paste_and_duplicate() {
     e.paste(Some("CCO"));
     assert_eq!(e.doc().atoms.len(), 9);
     clear(&e, &src);
+    assert_eq!(e.over.sel_atoms.len(), 3);
     // a text that is no structure changes nothing and says why
     let n = e.doc().to_json();
     e.paste(Some("not a structure at all ((("));

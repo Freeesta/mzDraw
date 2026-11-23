@@ -24,8 +24,9 @@ request (its i18n key). Golden cases: `tests/data/log/smart-paste.json`.
 
 ## Tests
 
-`crates/mzdraw/tests/smart_paste.rs` (centre of an empty view, no overlap on repeated pastes, view unchanged, one undo step, determinism);
-the golden file above (wasm == native, `tests/parity.mjs`); e2e: keyboard, context menu (mouse), touch and pen.
+- `crates/mzdraw/tests/smart_paste.rs`: an empty view lands at its centre; repeated pastes do not overlap, the view is unchanged and the result is deterministic; clear of a drawing under the centre; one undo step; the first places are exact; a part with a bond, an arrow and a text; a part wider than 80 bonds; the quadrant-full fallback; the no-free-cell fallback (right of the drawing).
+- `objects.rs` and `stereo_clipboard.rs`: the exact shift of a paste, translation of every pasted atom and object, wedges and selection kept, and the independent contract check of `tests/common` (nothing pasted within half a bond of what was drawn).
+- The golden file above (wasm == native, `tests/parity.mjs`); e2e: keyboard (synthetic paste event and a real Ctrl+V), context menu with the mouse, touch and pen, the view centre on an empty drawing; the recorded velocity path `parent-five-tps` / `copy-paste` follows the free place.
 
 ## Limits (tested)
 
