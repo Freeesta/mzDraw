@@ -178,6 +178,8 @@ pub struct Editor {
     pub(crate) gesture: crate::editor_touch::Gesture,
     /// The atom the keyboard focus came from (the bond walked last).
     pub(crate) focus_from: Option<u32>,
+    /// The digits typed with the chain tool (the count of the chain the Enter key draws), at most two.
+    pub(crate) chain_keys: String,
     /// The drawing style: what the screen and the saved SVG look like. Not part of the document.
     pub style: Style,
     /// Where the palettes of the page are, and what Save writes: the `layout` and `export` objects of the settings file.
@@ -346,6 +348,7 @@ impl Default for Editor {
             error: "",
             gesture: Default::default(),
             focus_from: None,
+            chain_keys: String::new(),
             style: Style::default(),
             layout: Default::default(),
             export: Default::default(),
@@ -470,6 +473,7 @@ impl Editor {
                 self.press = None;
                 self.over.preview = None;
                 self.over.chain = None;
+                self.chain_keys.clear();
                 self.over.band = None;
                 REPAINT | TOOL
             }

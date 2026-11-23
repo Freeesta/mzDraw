@@ -814,6 +814,12 @@ impl Editor {
         {
             return f | HANDLED;
         }
+        if !ctrl
+            && self.tool == Tool::Chain
+            && let Some(f) = self.chain_key(&lower, shift)
+        {
+            return f | HANDLED;
+        }
         if !ctrl && let Some(f) = self.focus_key(&lower, shift) {
             return f | HANDLED;
         }

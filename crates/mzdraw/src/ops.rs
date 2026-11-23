@@ -616,7 +616,8 @@ impl Op {
                 y: g.f("y")?.unwrap_or(0.0),
             },
             "chain" => Op::Chain {
-                n: g.u("n")?.ok_or(())?,
+                // a count above 255 is a count the operation refuses (`error.draw2.chain`), not an unreadable log
+                n: g.u::<u32>("n")?.ok_or(())?.min(255) as u8,
                 atom: g.u("atom")?,
                 x: g.f("x")?.unwrap_or(0.0),
                 y: g.f("y")?.unwrap_or(0.0),

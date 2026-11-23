@@ -213,10 +213,16 @@ pub(crate) fn chain(doc: &Document, op: &Op) -> Result<Vec<Op>, OpError> {
     let Op::Chain { n, atom, x, y, deg } = op else {
         return Ok(Vec::new());
     };
-    if !(1..=CHAIN_MAX).contains(n) || !deg.is_finite() || !x.is_finite() || !y.is_finite() {
+    if !(1..=CHAIN_MAX).contains(n) {
         return Err(OpError {
             key: "error.draw2.chain",
             id: u32::from(*n),
+        });
+    }
+    if !deg.is_finite() || !x.is_finite() || !y.is_finite() {
+        return Err(OpError {
+            key: "error.draw2.chainAngle",
+            id: 0,
         });
     }
     let start = match atom {

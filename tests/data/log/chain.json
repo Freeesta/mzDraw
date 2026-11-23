@@ -130,6 +130,20 @@
       }
     },
     {
+      "error_key": "error.draw2.chain",
+      "request": {
+        "log": [
+          {
+            "deg": 0,
+            "n": 300,
+            "op": "chain",
+            "x": 0,
+            "y": 0
+          }
+        ]
+      }
+    },
+    {
       "error_key": "error.draw2.noAtom",
       "request": {
         "log": [

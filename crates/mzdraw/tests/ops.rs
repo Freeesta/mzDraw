@@ -257,6 +257,51 @@ fn rings_on_the_canvas_on_an_atom_and_fused_on_a_bond() {
 }
 
 #[test]
+fn a_chain_that_cannot_be_drawn_is_refused_whole_with_its_own_text() {
+    let mut s = Session::default();
+    s.run(&[add("C", 0.0, 0.0)]).unwrap();
+    let before = s.doc.to_json();
+    let chain = |n, x, y, deg| Op::Chain {
+        n,
+        atom: None,
+        x,
+        y,
+        deg,
+    };
+    for (op, key) in [
+        (chain(3, 0.0, 0.0, f64::NAN), "error.draw2.chainAngle"),
+        (chain(3, 0.0, 0.0, f64::INFINITY), "error.draw2.chainAngle"),
+        (chain(3, f64::NAN, 0.0, 0.0), "error.draw2.chainAngle"),
+        (
+            chain(3, 0.0, f64::NEG_INFINITY, 0.0),
+            "error.draw2.chainAngle",
+        ),
+        (chain(0, 0.0, 0.0, 0.0), "error.draw2.chain"),
+    ] {
+        assert_eq!(s.run(&[op]).unwrap_err().key, key);
+        assert_eq!(s.doc.to_json(), before);
+    }
+    // a chain that leaves the range of coordinates is refused as any far atom is, and leaves nothing behind
+    assert!(s.run(&[chain(5, 1e9, 0.0, 0.0)]).is_err());
+    assert_eq!(s.doc.to_json(), before);
+    // in a log: a count above 255 is a count the operation refuses, a number too big for a double an unreadable log
+    let mut r = Session::default();
+    assert_eq!(
+        r.replay(r#"[{"op":"chain","n":300,"x":0,"y":0}]"#)
+            .unwrap_err()
+            .key,
+        "error.draw2.chain"
+    );
+    assert_eq!(
+        r.replay(r#"[{"op":"chain","n":3,"x":1e999,"y":0}]"#)
+            .unwrap_err()
+            .key,
+        "error.draw2.log"
+    );
+    assert!(r.doc.atoms.is_empty());
+}
+
+#[test]
 fn chains_zigzag_from_a_point_and_from_an_atom() {
     let mut s = Session::default();
     let chain = |n, atom, deg| Op::Chain {

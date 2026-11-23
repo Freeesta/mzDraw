@@ -384,3 +384,78 @@ fn the_chain_tool_takes_a_finger_and_a_pen() {
         assert_eq!(e.doc().bonds.len(), 4);
     }
 }
+
+#[test]
+fn the_chain_tool_by_keyboard_types_a_count_and_draws_from_the_focus() {
+    use mzdraw::editor::FOCUS;
+    let mut e = Editor::default();
+    e.set_tool("chain");
+    // no atom yet: Enter draws two bonds, the focus is on the end
+    assert_eq!(e.key("Enter", 0) & CHANGED, CHANGED);
+    assert_eq!((e.doc().atoms.len(), e.doc().bonds.len()), (3, 2));
+    assert!(e.over.focus.is_some());
+    // digits type the count, shown as a preview with its number; Backspace takes a digit; the drawing has not changed
+    e.key("4", 0);
+    assert_eq!(e.over.chain.as_ref().map(Vec::len), Some(5));
+    assert_eq!(e.said, ("draw2.say.chainCount", "4".to_string()));
+    assert!(e.scene().strings.contains(&"4".to_string()));
+    e.key("1", 0);
+    assert_eq!(e.said.1, "41", "two digits");
+    // more than 50 is held at 50
+    e.key("Backspace", 0);
+    e.key("9", 0);
+    assert_eq!(e.said.1, "49");
+    e.key("Backspace", 0);
+    e.key("Backspace", 0);
+    assert!(e.over.chain.is_none());
+    e.key("5", 0);
+    e.key("8", 0);
+    assert_eq!(e.said.1, "50");
+    e.key("Escape", 0);
+    assert!(
+        e.over.chain.is_none() && e.tool.name() == "chain",
+        "Escape forgets the count and keeps the tool"
+    );
+    // 4 bonds from the focused atom, one undo step, the focus on the new end
+    let start = e.over.focus.unwrap();
+    e.key("4", 0);
+    assert_eq!(e.key("Enter", 0) & (CHANGED | FOCUS), CHANGED | FOCUS);
+    assert_eq!((e.doc().atoms.len(), e.doc().bonds.len()), (7, 6));
+    assert_ne!(e.over.focus, Some(start));
+    assert!(e.over.chain.is_none());
+    e.undo();
+    assert_eq!((e.doc().atoms.len(), e.doc().bonds.len()), (3, 2));
+    // a second Escape leaves the tool, as for every tool
+    e.key("Escape", 0);
+    assert_eq!(e.tool.name(), "select");
+}
+
+#[test]
+fn a_chain_from_a_stereo_centre_keeps_what_was_drawn_and_says_nothing() {
+    use mzdraw::replay::replay;
+    use serde_json::json;
+    let log = json!([
+        {"op":"atom.add","el":"C","x":0.0,"y":0.0},
+        {"op":"atom.add","el":"F","x":0.0,"y":1.0},
+        {"op":"atom.add","el":"Cl","x":-0.9,"y":-0.5},
+        {"op":"atom.add","el":"Br","x":0.9,"y":-0.5},
+        {"op":"bond.add","a":1,"b":2,"o":1,"s":1},
+        {"op":"bond.add","a":1,"b":3,"o":1,"s":0},
+        {"op":"bond.add","a":1,"b":4,"o":1,"s":0}
+    ]);
+    let mut e = Editor::default();
+    e.import(&replay(&json!({"log": log, "out": "mzdraw"}).to_string()).unwrap())
+        .unwrap();
+    let before: Vec<(f64, f64)> = e.doc().atoms.iter().map(|a| (a.x, a.y)).collect();
+    e.set_tool("chain");
+    let (x, y) = e.view.to_px(0.0, 0.0);
+    e.pointer_down(x, y, MOUSE, 0);
+    e.pointer_up(x, y);
+    assert_eq!(e.doc().atoms.len(), 6);
+    // nothing that was drawn moved, the line of the guard is empty, the wedge is still there
+    let after: Vec<(f64, f64)> = e.doc().atoms.iter().take(4).map(|a| (a.x, a.y)).collect();
+    assert_eq!(before, after);
+    assert_eq!(e.notice.0, "");
+    assert!(e.doc().bonds.iter().any(|b| b.s == 1));
+    assert!(e.doc().to_smiles().is_ok());
+}

@@ -350,9 +350,9 @@ try {
     await pg.focus("#d2-canvas");
     await pg.keyboard.press("Control+a"); await want(pg, { selected: 3 });
     await pg.keyboard.press("Delete"); await want(pg, { atoms: 0, bonds: 0 });
-    await tool(pg, "undo"); await want(pg, { atoms: 2, bonds: 1 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 2, bonds: 1 });
     await pg.keyboard.press("Control+y"); await want(pg, { atoms: 0 });
-    await tool(pg, "undo"); await want(pg, { atoms: 2 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 2 });
     await pg.keyboard.press("Control+Shift+Z"); await want(pg, { atoms: 0 });
     await pg.keyboard.press("e"); await want(pg, { tool: "erase" });
     await pg.keyboard.press("2"); await want(pg, { tool: "bond:2" });
@@ -372,17 +372,36 @@ try {
     assert((await pg.evaluate("window.MZDRAW.scene()")).length > 0, "the scene is painted");
     await shot(pg, "chain-desktop");
     await pg.mouse.up(); await want(pg, { atoms: 6, bonds: 5 });
-    await tool(pg, "undo"); await want(pg, { atoms: 0, bonds: 0 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 0, bonds: 0 });
     await pg.mouse.click(cx, cy); await want(pg, { atoms: 3, bonds: 2 });
     // a drag that starts on the last atom adds three bonds to it, no atom is added under the press
     const d = JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')")), last = d.atoms[2];
     const lx = cx + 40 * (last.x - d.atoms[0].x), ly = cy - 40 * (last.y - d.atoms[0].y);
     await pg.mouse.move(lx, ly); await pg.mouse.down(); await pg.mouse.move(lx + 60, ly, { steps: 4 }); await pg.mouse.move(lx + 3 * dx, ly, { steps: 4 }); await pg.mouse.up();
     await want(pg, { atoms: 6, bonds: 5 });
-    await tool(pg, "undo"); await want(pg, { atoms: 3, bonds: 2 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
     // the count is the length of the drag: 900 px hold 26 bonds
     await pg.mouse.move(cx - 300, cy + 200); await pg.mouse.down(); await pg.mouse.move(cx - 100, cy + 200, { steps: 3 }); await pg.mouse.move(cx + 600, cy + 200, { steps: 3 }); await pg.mouse.up();
     await want(pg, { atoms: 3 + 27, bonds: 2 + 26 });
+  });
+  await step("chain tool by keyboard: the palette button is selected with Enter and with Space, a typed count shows its preview, Enter draws it from the focused atom, Backspace and Escape take the count back, one undo step", async () => {
+    await tool(pg, "clear"); await want(pg, { atoms: 0, bonds: 0 });
+    for (const key of ["Enter", " "]) {
+      await tool(pg, "select"); await want(pg, { tool: "select" });
+      await reveal(pg, '[data-testid="d2-chain"]');
+      await pg.focus('[data-testid="d2-chain"]'); await pg.keyboard.press(key); await want(pg, { tool: "chain" });
+    }
+    await pg.focus("#d2-canvas");
+    // no atom yet: Enter draws two bonds from the middle and the focus is on the end
+    await pg.keyboard.press("Enter"); await want(pg, { atoms: 3, bonds: 2 });
+    await pg.keyboard.type("6"); await pg.keyboard.press("Backspace"); await pg.keyboard.type("4");
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.chainCount', { what: '4' })"));
+    await want(pg, { atoms: 3, bonds: 2 });
+    await shot(pg, "chain-keyboard");
+    await pg.keyboard.press("Enter"); await want(pg, { atoms: 7, bonds: 6 });
+    await pg.keyboard.type("5"); await pg.keyboard.press("Escape"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 10, bonds: 8, tool: "chain" });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 7, bonds: 6 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3, bonds: 2 });
   });
   await step("SMILES and molfile are added, a broken text is refused in words, an import is one undo step", async () => {
     await tool(pg, "clear");
@@ -645,8 +664,8 @@ try {
     await pg.keyboard.press("Control+v"); await want(pg, { atoms: 6, bonds: 4, tool: "select", selected: 5 });
     eq((await doc()).bonds.map(b => b.s || 0), [1, 2, 1, 2]);
     await pg.keyboard.press("Control+x"); await want(pg, { atoms: 3, bonds: 2, selected: 0 });
-    await tool(pg, "undo"); await want(pg, { atoms: 6 });
-    await tool(pg, "undo"); await want(pg, { atoms: 3 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 6 });
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 3 });
     // buttons: duplicate, rotate, flip; each is one undo step
     await pg.keyboard.press("Control+a");
     await tool(pg, "duplicate"); await want(pg, { atoms: 6, bonds: 4, selected: 5 });
@@ -1408,7 +1427,7 @@ try {
     await want(pg, { selected: 2 });                                      // the atom and the bond the finding is about
     eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), before);       // a selection is no change and no history step
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Escape"); await want(pg, { selected: 0 });
-    await tool(pg, "undo"); await want(pg, { atoms: 2, bonds: 1, std: 0 });      // the line goes with the wedge
+    await pg.keyboard.press("Control+z"); await want(pg, { atoms: 2, bonds: 1, std: 0 });      // the line goes with the wedge
   });
   await step("binary CDX: a file opened by the keyboard (focus on Open, Enter) is read, a cut one is refused in words", async () => {
     await tool(pg, "clear"); await want(pg, { atoms: 0 });
@@ -1452,7 +1471,7 @@ try {
     // a pen
     await pen("mouseMoved", cx - 200, cy + 150); await pen("mousePressed", cx - 200, cy + 150); await pen("mouseMoved", cx - 150, cy + 150); await pen("mouseMoved", cx - 200 + 3 * dx, cy + 150); await pen("mouseReleased", cx - 200 + 3 * dx, cy + 150);
     await want(pg, { atoms: 12, bonds: 9 });
-    for (const [a, b] of [[8, 6], [3, 2], [0, 0]]) { await tool(pg, "undo"); await want(pg, { atoms: a, bonds: b }); }
+    for (const [a, b] of [[8, 6], [3, 2], [0, 0]]) { await pg.keyboard.press("Control+z"); await want(pg, { atoms: a, bonds: b }); }
   });
   await step("tablet with touch and a pen: a messy scheme is selected and laid out by the button, with a finger and with a pen, and each press is undone", async () => {
     const gold = JSON.parse(readFileSync(path.join(root, "tests/data/log/scheme-row.json"), "utf8")).cases[0];
@@ -2016,7 +2035,7 @@ try {
     await pg.keyboard.press("Escape"); await pg.keyboard.press("Control+z"); eq(await doc(), before);
     // an object: edit asks for the text field; delete is one undo step
     await open(cx + 250, cy + 100, "object"); eq((await menuNow(pg)).ids, ["obj.edit", "pathway.anchor", "pathway.free", "edit.colour", "colour.auto", "colour.black", "colour.red", "colour.orange", "colour.yellow", "colour.green", "colour.teal", "colour.blue", "colour.purple", "colour.magenta", "colour.brown", "colour.grey", "colour.custom", "edit.delete"]);
-    await pg.click(item("edit.delete")); await want(pg, { objects: 0 }); await tool(pg, "undo"); await want(pg, { objects: 1 });
+    await pg.click(item("edit.delete")); await want(pg, { objects: 0 }); await pg.keyboard.press("Control+z"); await want(pg, { objects: 1 });
     // a selection: a click inside it keeps it; rotate is one undo step; copy as SMILES reaches the clipboard of the system
     await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await want(pg, { selected: 13 });
     await open(...atom, "selection"); eq((await state(pg)).selected, 13);
