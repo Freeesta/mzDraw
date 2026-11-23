@@ -980,6 +980,7 @@ try {
     await pg.mouse.click(cx + 17, cy - 10);                 // the middle of the bond: the same wedge again turns it around
     await until(pg, "(() => { const d = JSON.parse(window.MZDRAW.save('mzdraw')); return d.bonds[0].a === d.atoms[1].id; })()");
     assert((await pg.evaluate("window.MZDRAW.save('molfile')")).includes("  2  1  1  1"), "the narrow end is written first");
+    await pg.mouse.move(cx + 300, cy + 200);                // the pointer away from the bond: over a bond Shift+W is a hover key (arch-cd-03), over nothing it picks the tool
     await pg.focus("#d2-canvas");
     await pg.keyboard.press("Shift+W"); await want(pg, { tool: "bond:down" });
     await pg.mouse.click(cx, cy); await want(pg, { atoms: 3, bonds: 2 });      // a hashed bond sprouts from the atom, narrow end there
@@ -4785,7 +4786,7 @@ try {
       // the help is generated from the table of the module
       const table = JSON.parse(await pg.evaluate("window.MZDRAW.hotkeys()"));
       eq(await pg.locator("#d2-hotkeys tr").count(), table.length);
-      assert((await pg.locator("#d2-hotkeys tr").allInnerTexts()).some(t => t.startsWith("SHIFT+W") || t.startsWith("Shift+W")), "Shift+W is in the help");
+      assert((await pg.locator("#d2-hotkeys tr").evaluateAll(r => r.map(x => x.textContent))).some(t => t.startsWith("Shift+W")), "Shift+W is in the help");
     });
     await step("hover keys by keyboard focus: the walked bond takes 2 and W, the focused atom takes Alt+M, Alt+Shift+F and Shift+6; E still picks the erase tool", async () => {
       await tool(pg, "clear"); await want(pg, { atoms: 0 });
