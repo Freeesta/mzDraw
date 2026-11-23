@@ -132,7 +132,7 @@ async function displayModes(pg, pick, tapAt) {
   const rungs = svg => [...svg.matchAll(/<line x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"/g)].map(m => Math.hypot(m[3] - m[1], m[4] - m[2]));
   const ink = () => pg.evaluate("(() => { const c = document.querySelector('#d2-canvas'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })()");
   await tool(pg, "clear"); await want(pg, { atoms: 0, style: "mzlab" });
-  await fillIn(pg, "#d2-text", "CCCO"); await pg.click("#d2-add"); await want(pg, { atoms: 4 });
+  await pg.evaluate(() => { /** @type {HTMLTextAreaElement} */ (document.getElementById("d2-text")).value = "CCCO"; document.getElementById("d2-add")?.click(); }); await want(pg, { atoms: 4 });       // the Add button itself, where the palette of the page is folded away (a tablet)
   await pg.locator("#d2-style-more summary").click();
   const schema = JSON.parse(await pg.evaluate("window.MZDRAW.settings_schema()"));
   for (const k of ["style.carbon_labels", "style.hydrogens", "style.hash_style"]) {
