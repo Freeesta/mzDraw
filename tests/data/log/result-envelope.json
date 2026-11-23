@@ -184,6 +184,32 @@
           }
         ]
       }
+    },
+    {
+      "name": "an enhanced-stereo group of a CXSMILES the drawing does not keep is in imported",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"C[C@H](F)Cl\",\"created\":{},\"removed\":{},\"imported\":[{\"key\":\"draw2.import.stereoGroups\",\"n\":1}],\"dirty\":false}",
+      "request": {
+        "import": "C[C@H](F)Cl |&1:1|",
+        "out": "smiles",
+        "report": true
+      }
+    },
+    {
+      "name": "an enhanced-stereo collection of a V3000 molfile is in imported",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"mzDraw\\n  mzLab             2D\\n\\n  0  0  0     0  0            999 V3000\\nM  V30 BEGIN CTAB\\nM  V30 COUNTS 4 3 0 0 0\\nM  V30 BEGIN ATOM\\nM  V30 1 C -0.866000 -0.500000 0.000000 0\\nM  V30 2 C 0.000000 0.000000 0.000000 0\\nM  V30 3 F 0.866000 -0.500000 0.000000 0\\nM  V30 4 Cl 0.000000 1.000000 0.000000 0\\nM  V30 END ATOM\\nM  V30 BEGIN BOND\\nM  V30 1 1 2 1 CFG=1\\nM  V30 2 1 2 3\\nM  V30 3 1 2 4\\nM  V30 END BOND\\nM  V30 END CTAB\\nM  END\\n\",\"created\":{},\"removed\":{},\"imported\":[{\"key\":\"draw2.import.stereoGroups\",\"n\":1}],\"dirty\":false}",
+      "request": {
+        "import": "\n     RDKit          2D\n\n  0  0  0  0  0  0  0  0  0  0999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 4 3 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C -1.299038 -0.750000 0.000000 0\nM  V30 2 C 0.000000 0.000000 0.000000 0\nM  V30 3 F 1.299038 -0.750000 0.000000 0\nM  V30 4 Cl 0.000000 1.500000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 2 1 CFG=1\nM  V30 2 1 2 3\nM  V30 3 1 2 4\nM  V30 END BOND\nM  V30 BEGIN COLLECTION\nM  V30 MDLV30/STERAC1 ATOMS=(1 2)\nM  V30 END COLLECTION\nM  V30 END CTAB\nM  END\n",
+        "out": "molfile-v3000",
+        "report": true
+      }
+    },
+    {
+      "name": "a dry run says the import notes too, and a plain SMILES has none",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{},\"removed\":{},\"imported\":[{\"key\":\"draw2.import.stereoGroups\",\"n\":1}],\"dirty\":false}",
+      "request": {
+        "dry_run": true,
+        "import": "C[C@H](F)Cl.CCO |o1:1|"
+      }
     }
   ]
 }

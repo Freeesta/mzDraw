@@ -11,9 +11,9 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 /// The keys of the envelope, in the order they are written. A key that does not apply is left out.
-pub const KEYS: [&str; 14] = [
-    "format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed",
-    "changed", "dirty", "orient", "expect",
+pub const KEYS: [&str; 15] = [
+    "format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "imported", "lost",
+    "failed", "changed", "dirty", "orient", "expect",
 ];
 
 /// The keys of an item of `orient`, in the order they are written (`at` only for status `overlap`).
@@ -369,6 +369,10 @@ pub struct Outcome {
     pub out: Option<String>,
     pub created: IdSets,
     pub removed: IdSets,
+    /// What the import of the start text or file did not keep or changed, as (i18n key, count): the notes the page shows under its
+    /// import (`io::Imported::notes`) but the computed layout (`draw2.import.placeholder`, no loss); `draw2.import.stereoGroups` for
+    /// the enhanced-stereo groups the drawing does not keep, query atoms, S-groups, skipped records. Empty: nothing to say.
+    pub imported: Vec<(&'static str, usize)>,
     /// What the output format `out` cannot hold, as (i18n key, count): `draw2.export.mapsLost` for atom maps. Empty: nothing lost.
     pub lost: Vec<(&'static str, usize)>,
     pub failed: Option<Failed>,
@@ -408,6 +412,12 @@ impl Outcome {
             self.created.json(),
             self.removed.json()
         ));
+        if !self.imported.is_empty() {
+            let items: Vec<String> = (self.imported.iter())
+                .map(|(key, n)| format!("{{\"key\":{},\"n\":{n}}}", Value::from(*key)))
+                .collect();
+            s.push_str(&format!(",\"imported\":[{}]", items.join(",")));
+        }
         if !self.lost.is_empty() {
             let items: Vec<String> = (self.lost.iter())
                 .map(|(key, n)| format!("{{\"key\":{},\"n\":{n}}}", Value::from(*key)))

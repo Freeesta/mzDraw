@@ -573,12 +573,16 @@ pub fn replay_with(
         });
     }
     let mut e = Editor::default();
+    // the notes of the import, as the page shows them: the start text, then the file
+    let mut imported: Vec<(&'static str, usize)> = Vec::new();
     if let Some(text) = &r.import {
-        e.import(text).map_err(fail)?;
+        imported.extend(e.import(text).map_err(fail)?.notes());
     }
     if let Some(bytes) = &r.import_base64 {
-        e.import_bytes(bytes).map_err(fail)?;
+        imported.extend(e.import_bytes(bytes).map_err(fail)?.notes());
     }
+    // the computed layout is said by the page but is no loss: it is not an item
+    imported.retain(|(key, n)| *n > 0 && *key != "draw2.import.placeholder");
     // a start text or file is an opened drawing: clean, until something is done to it
     e.mark_saved();
     if let Some(style) = &r.style {
@@ -795,6 +799,7 @@ pub fn replay_with(
         out: None,
         created: after.minus(&before),
         removed: before.minus(&after),
+        imported,
         lost: Vec::new(),
         failed,
         changed: before_commands.map(|b| b != e.doc().to_json()),

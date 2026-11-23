@@ -482,3 +482,55 @@ fn the_smiles_arm_compares_byte_for_byte_and_says_what_it_found() {
     assert_eq!(r["expect"][0]["ok"], false);
     assert_eq!(r["expect"][0]["detail"], "the SMILES of the drawing is CCO");
 }
+
+#[test]
+fn what_the_import_does_not_keep_is_in_imported_as_the_page_says_it() {
+    let notes = |v: &Value| -> Vec<(String, u64)> {
+        (v["imported"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+            .iter())
+        .map(|i| {
+            (
+                i["key"].as_str().unwrap().to_string(),
+                i["n"].as_u64().unwrap(),
+            )
+        })
+        .collect()
+    };
+    let group = ("draw2.import.stereoGroups".to_string(), 1);
+    // an "and" group of a CXSMILES: the drawing keeps the centre as drawn, the group is said
+    let v = run(json!({"import": "C[C@H](F)Cl |&1:1|", "report": true, "out": "smiles"}));
+    assert_eq!(notes(&v), [group.clone()], "{v}");
+    // two "or" groups, with a dry run (nothing written, the notes all the same)
+    let v = run(json!({"import": "C[C@H](O)[C@@H](N)C |o1:1,o2:3|", "dry_run": true}));
+    assert_eq!(
+        notes(&v),
+        [("draw2.import.stereoGroups".to_string(), 2)],
+        "{v}"
+    );
+    // the page's notes of the same import are the same items (`io::Imported::notes`, less the computed layout)
+    let mut e = mzdraw::Editor::default();
+    let page: Vec<(String, u64)> = (e.import("C[C@H](F)Cl |&1:1|").unwrap().notes().into_iter())
+        .filter(|(k, n)| *n > 0 && *k != "draw2.import.placeholder")
+        .map(|(k, n)| (k.to_string(), n as u64))
+        .collect();
+    assert_eq!(page, [group]);
+    // a plain SMILES says nothing: no key at all (a computed layout is no loss)
+    let v = run(json!({"import": "C[C@H](F)Cl", "report": true, "out": "smiles"}));
+    assert!(v.get("imported").is_none(), "{v}");
+    // the key sits between removed and lost
+    let text = replay_at(
+        &json!({"import": "C[C@H](F)Cl |&1:1|", "report": true, "out": "smiles"}).to_string(),
+        0,
+    )
+    .unwrap()
+    .text;
+    assert!(
+        text.contains(
+            r#""removed":{},"imported":[{"key":"draw2.import.stereoGroups","n":1}],"dirty""#
+        ),
+        "{text}"
+    );
+}
