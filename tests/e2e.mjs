@@ -3721,8 +3721,8 @@ try {
     await pg.focus('#d2-fly-prefs [data-setting="ui.theme"]'); await pg.keyboard.press(to === "dark" ? "ArrowDown" : "ArrowUp");
   };
   const viaTouch = async (pg, to) => { await pg.touchscreen.tap(...await center(pg, '[data-testid="d2-prefs"]')); await until(pg, "!document.getElementById('d2-fly-prefs').hidden"); await pg.selectOption('#d2-fly-prefs [data-setting="ui.theme"]', to); };
-  for (const [how, label, opts, way, from, to] of [["mouse", "by mouse", {}, viaMenu, "light", "dark"], ["keyboard", "by keyboard", {}, viaKeys, "light", "dark"], ["touch", "by touch", { hasTouch: true }, viaTouch, "dark", "light"]]) {
-    await step(`theme fade ${label}: the colours of the page and the canvas pass through values between the old and the new theme, then settle on the new one`, async () => {
+  // one function, three steps written out (the end of this file counts the steps it declares)
+  const fadeStep = async (how, opts, way, from, to) => {
       const { f, old, c } = await fadeOf(how, opts, way, from, to);
       try {
         const rows = f.rows, last = rows[rows.length - 1];
@@ -3742,8 +3742,11 @@ try {
         eq(await c.pg.evaluate("[document.documentElement.classList.contains('d2-fading'), getComputedStyle(document.body).transitionDuration]"), [false, "0s"], "the fade is over: no transition stays on the page");
         await shot(c.pg, "theme-fade-" + how);
       } finally { await c.ctx.close(); }
-    });
-  }
+  };
+  const FADE = "the colours of the page and the canvas pass through values between the old and the new theme, then settle on the new one";
+  await step(`theme fade by mouse: ${FADE}`, () => fadeStep("mouse", {}, viaMenu, "light", "dark"));
+  await step(`theme fade by keyboard: ${FADE}`, () => fadeStep("keyboard", {}, viaKeys, "light", "dark"));
+  await step(`theme fade by touch: ${FADE}`, () => fadeStep("touch", { hasTouch: true }, viaTouch, "dark", "light"));
   await step("theme fade with reduced motion: the switch is instant, with no copy of the canvas and no transition", async () => {
     const { f, old, c } = await fadeOf("reduced", { reducedMotion: "reduce" }, viaMenu, "light", "dark");
     try {
