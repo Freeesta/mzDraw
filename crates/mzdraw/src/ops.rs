@@ -1380,6 +1380,8 @@ pub struct Session {
     redo: Vec<(Vec<Op>, Option<Label>)>,
     /// Counts every change of the history (a step, an undo, a redo): lets a caller know that nothing happened in between.
     generation: u64,
+    /// Steps below this count were offered a name already (`name_new_steps`): the naming only looks at the steps above it.
+    settled: usize,
 }
 
 impl Session {
@@ -1389,6 +1391,7 @@ impl Session {
             undo: Vec::new(),
             redo: Vec::new(),
             generation: 0,
+            settled: 0,
         }
     }
 
@@ -1454,6 +1457,7 @@ impl Session {
         };
         self.doc.revert(s.inv);
         self.redo.push((s.ops, s.label));
+        self.settled = self.settled.min(self.undo.len());
         self.generation += 1;
         true
     }
@@ -1469,6 +1473,7 @@ impl Session {
                 inv,
                 label,
             });
+            self.settled = self.undo.len();
         }
         self.generation += 1;
         true
@@ -1481,20 +1486,18 @@ impl Session {
 
     /// Names the steps no one has named yet (the tail of the undo stack): with one such step, `one`; with more, `many`.
     pub fn name_new_steps(&mut self, one: Label, many: &'static str) {
-        let tail = self
-            .undo
-            .iter()
-            .rev()
-            .take_while(|s| s.label.is_none())
-            .count();
-        let from = self.undo.len() - tail;
+        let from = self.settled.min(self.undo.len());
+        let tail = self.undo.len() - from;
         for s in &mut self.undo[from..] {
-            s.label = Some(if tail == 1 {
-                one.clone()
-            } else {
-                (many, String::new())
-            });
+            if s.label.is_none() {
+                s.label = Some(if tail == 1 {
+                    one.clone()
+                } else {
+                    (many, String::new())
+                });
+            }
         }
+        self.settled = self.undo.len();
     }
 
     /// The steps of the history in order of time, oldest first: the label of each and whether it is done (not undone).
