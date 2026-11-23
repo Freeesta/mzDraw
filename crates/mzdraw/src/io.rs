@@ -57,6 +57,8 @@ pub struct Imported {
     pub no_pathway: usize,
     /// Lines of a SMILES file (counted from 1) that are no SMILES: said with their number, the other lines are read.
     pub smiles_lines: Vec<usize>,
+    /// Names of a SMILES file longer than the 80 characters of a title line: cut, counted.
+    pub names_cut: usize,
 }
 
 impl Imported {
@@ -87,7 +89,10 @@ impl Imported {
         ]
         .into_iter()
         .chain(lines.map(|&n| ("draw2.import.smilesLine", n)))
-        .chain([("draw2.import.smilesMore", more)])
+        .chain([
+            ("draw2.import.smilesMore", more),
+            ("draw2.import.nameCut", self.names_cut),
+        ])
         .filter(|n| n.1 > 0)
         .collect()
     }
@@ -581,11 +586,12 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
         if line.is_empty() || line.starts_with([' ', '\t']) || line.trim().is_empty() {
             continue;
         }
-        if info.records == MAX_RECORDS {
+        // at most MAX_RECORDS lines are parsed, good or broken: the work is bounded by that many lines of the input, whatever its size
+        if info.records + broken.len() == MAX_RECORDS {
             info.skipped += 1;
             continue;
         }
-        let (smiles, name) = smiles_record(line);
+        let (smiles, name, cut) = smiles_record(line);
         let (clean, labels) = formats::r_atoms(smiles);
         let Ok(m) = Mol::from_smiles(&clean) else {
             broken.push(n + 1);
@@ -598,6 +604,7 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
             a.set_title(&name);
         }
         info.records += 1;
+        info.names_cut += usize::from(cut);
         all.append(d);
     }
     if info.records == 0 {
@@ -611,9 +618,10 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     checked(all, info, "error.draw2.smiles")
 }
 
-/// A line of a SMILES file: the SMILES (with its CXSMILES tail, `|...|`, when the first word after it opens one) and the name of the
-/// record (the rest of the line, cleaned: one line, no control character, at most `MAX_TITLE` characters).
-fn smiles_record(line: &str) -> (&str, String) {
+/// A line of a SMILES file: the SMILES (with its CXSMILES tail, `|...|`, when the first word after it opens one), the name of the
+/// record (the rest of the line: a control character, a tab included, is a space; at most `MAX_TITLE` characters) and whether the
+/// name was cut to that length.
+fn smiles_record(line: &str) -> (&str, String, bool) {
     let at = line.find([' ', '\t']).unwrap_or(line.len());
     let (mut smiles, mut rest) = line.split_at(at);
     let tail = rest.trim_start_matches([' ', '\t']);
@@ -623,13 +631,12 @@ fn smiles_record(line: &str) -> (&str, String) {
         let end = line.len() - rest.len() + (rest.len() - tail.len()) + close + 2;
         (smiles, rest) = (&line[..end], &line[end..]);
     }
-    let name: String = rest
-        .trim_matches([' ', '\t'])
-        .chars()
-        .filter(|c| !c.is_control())
-        .take(crate::doc::MAX_TITLE)
+    let spaced: String = (rest.trim_matches([' ', '\t']).chars())
+        .map(|c| if c.is_control() { ' ' } else { c })
         .collect();
-    (smiles, name.trim_end().to_string())
+    let cut = spaced.chars().count() > crate::doc::MAX_TITLE;
+    let name: String = spaced.chars().take(crate::doc::MAX_TITLE).collect();
+    (smiles, name.trim_end().to_string(), cut)
 }
 
 /// The drawing of one molfile record (V2000 or V3000), and whether its positions are placeholders; what the drawing does not

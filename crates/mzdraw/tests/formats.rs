@@ -147,13 +147,13 @@ fn a_smiles_file_follows_the_rules_of_the_format() {
         .filter(|r| !r.is_empty())
         .map(|r| r.lines().next().unwrap())
         .collect();
-    assert_eq!(heads, ["ethanol sample", "benzene ring", "mzDraw"]);
+    assert_eq!(heads, ["ethanol sample", "benzene ring", mzdraw::NAME]);
     // a drawing with no name is written as before
     assert!(import("CCO")
         .unwrap()
         .0
         .to_molfile()
-        .starts_with("mzDraw\n"));
+        .starts_with(&format!("{}\n", mzdraw::NAME)));
     // the title is part of the document and survives its text
     let back = Document::from_json(&d.to_json()).unwrap();
     assert_eq!(back.title(), "ethanol sample");
@@ -481,5 +481,36 @@ fn a_title_is_an_operation_with_an_exact_inverse_and_the_import_makes_it() {
     assert_eq!(
         op.to_json(),
         r#"{"op":"atom.title","id":1,"title":"a \"b\""}"#
+    );
+}
+
+#[test]
+fn names_are_cleaned_and_cut_in_the_open_and_the_work_is_bounded() {
+    // a control character inside a name is a space (nothing glued, nothing dropped); a name over 80 characters is cut and counted
+    let long = "n".repeat(100);
+    let (d, info) = import(&format!("CCO a\u{1}b\tc\nCC {long}\n")).unwrap();
+    let titles: Vec<String> = (d.atoms.iter().map(|a| a.title()))
+        .filter(|t| !t.is_empty())
+        .collect();
+    assert_eq!(titles, ["a b c".to_string(), "n".repeat(80)]);
+    assert!(info.notes().contains(&("draw2.import.nameCut", 1)));
+    // at most MAX_RECORDS lines are parsed, good or broken; the rest is counted as not read, whatever the size of the input
+    let text = format!("C\n{}", "C(\n".repeat(200));
+    let (_, info) = import(&text).unwrap();
+    assert_eq!(info.records + info.smiles_lines.len(), MAX_RECORDS);
+    assert_eq!(info.skipped, 201 - MAX_RECORDS);
+    let notes = info.notes();
+    assert_eq!(
+        notes
+            .iter()
+            .filter(|n| n.0 == "draw2.import.smilesLine")
+            .count(),
+        10
+    );
+    assert!(notes.contains(&("draw2.import.smilesMore", MAX_RECORDS - 1 - 10)));
+    // only broken lines: refused, and the work is the same bound
+    assert_eq!(
+        import(&"C(\n".repeat(500)).unwrap_err(),
+        "error.draw2.smiles"
     );
 }
