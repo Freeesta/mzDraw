@@ -3799,7 +3799,7 @@ try {
     });
     await step("history panel: a refresh between the press and the release of a click does not lose it (the rows are kept while the history is the same)", async () => {
       await pg.click(row(4)); await want(pg, { atoms: 4 });
-      const [x, y] = await center(pg, row(2));
+      await pg.locator(row(2)).scrollIntoViewIfNeeded(); const [x, y] = await center(pg, row(2));
       await pg.mouse.move(x, y); await pg.mouse.down();
       await pg.evaluate("document.getElementById('d2-history').dispatchEvent(new Event('toggle'))");   // the list is asked to refresh in between
       await frames(pg);
