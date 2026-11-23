@@ -171,8 +171,7 @@ function palette(id) {
   items.addEventListener("keydown", e => {
     const all = /** @type {HTMLElement[]} */ ([...items.children]).filter(b => !(/** @type {HTMLButtonElement} */ (b).disabled)), i = all.indexOf(/** @type {HTMLElement} */ (e.target));
     if (i < 0) return;
-    const row = el.dataset.orient === "h", [next, prev] = row ? ["ArrowRight", "ArrowLeft"] : ["ArrowDown", "ArrowUp"];
-    const across = row ? (el.dataset.dock === "bottom" ? "ArrowUp" : "ArrowDown") : (el.dataset.dock === "right" ? "ArrowLeft" : "ArrowRight");
+    const { next, prev, across } = el.dataset;          // the keys of this palette, as the module says
     const to = e.key === next ? all[(i + 1) % all.length] : e.key === prev ? all[(i - 1 + all.length) % all.length] : e.key === "Home" ? all[0] : e.key === "End" ? all[all.length - 1] : null;
     const name = /** @type {HTMLElement} */ (e.target).dataset.opens || (e.target === head ? id : "");
     if (to) { e.preventDefault(); to.focus(); }
@@ -195,21 +194,21 @@ function general(id) {
   el.className = "pal"; el.id = P + "pal-" + id; el.dataset.pal = id;
   el.setAttribute("role", "toolbar"); el.setAttribute("aria-label", ctx.t(`draw2.pal.${id}`));
   items.className = "items general"; items.style.setProperty("--rows", a.rows);
-  const p = { id, el, items, spec: null, general: true, groups: /** @type {Record<string, any>} */ ({}), direct: /** @type {string[]} */ ([]), collapsed: false };
+  const p = { id, el, items, spec: null, general: true, groups: /** @type {Record<string, any>} */ ({}), collapsed: false };
   pals[id] = p;
   for (const s of a.slots) {
-    if (s.cmd) { items.append(button(s.cmd, id)); p.direct.push(s.cmd); continue; }
+    if (s.cmd) { items.append(button(s.cmd, id)); continue; }
     const head = document.createElement("button"), fly = flyout(s.group, head, id), name = s.group, g = { ...s, head, fly };
     head.type = "button"; head.className = "head"; head.dataset.testid = P + "head-" + name; head.dataset.head = name;
     head.setAttribute("aria-expanded", "false"); head.setAttribute("aria-controls", P + "fly-" + name);
-    head.title = ctx.t(`draw2.pal.${name}.head`); head.setAttribute("aria-label", head.title);
+    head.setAttribute("aria-haspopup", "true");          // the list; the group in use is `aria-current`, not a pressed state beside an expanded one
     // the list holds every member (a kind in view on its own is listed again, without its test id) and the typed entries
     fly.append(...s.members.map((/** @type {string} */ c) => button(c, id, s.keep.includes(c))), ...s.fields.flatMap((/** @type {string} */ k) => ctx.field(k)));
-    if (["bonds", "rings", "atoms"].includes(name)) fly.classList.add("grid");
-    // a click selects the member shown (a group with a face of its own icon has none) and opens the list; a click on a list that is
-    // open closes it. This is the page's reading of its own face, not a decision about the drawing: the tool is the module's.
+    if (s.grid) fly.classList.add("grid");
+    // a click on a closed list asks the module to select the member shown (it decides whether that is the tool already, and whether the
+    // group has a member to show) and opens the list; a click on a list that is open shuts it
     head.addEventListener("click", e => {
-      if (g.face && fly.hidden && JSON.parse(ed().state()).tool !== g.face) ctx.run(g.face);
+      if (fly.hidden) ctx.run("group:" + name);
       open(name, fly.hidden, !e.detail);
     });
     // Escape on the button of a list that a pointer opened shuts it (the keys of a list that is entered by keyboard are the list's own)
@@ -220,8 +219,7 @@ function general(id) {
   items.addEventListener("keydown", e => {
     const all = /** @type {HTMLElement[]} */ ([...items.children]).filter(b => !(/** @type {HTMLButtonElement} */ (b).disabled)), i = all.indexOf(/** @type {HTMLElement} */ (e.target));
     if (i < 0) return;
-    const row = el.dataset.orient === "h", [next, prev] = row ? ["ArrowRight", "ArrowLeft"] : ["ArrowDown", "ArrowUp"];
-    const across = row ? (el.dataset.dock === "bottom" ? "ArrowUp" : "ArrowDown") : (el.dataset.dock === "right" ? "ArrowLeft" : "ArrowRight");
+    const { next, prev, across } = el.dataset;          // the keys of this palette, as the module says
     const to = e.key === next ? all[(i + 1) % all.length] : e.key === prev ? all[(i - 1 + all.length) % all.length] : e.key === "Home" ? all[0] : e.key === "End" ? all[all.length - 1] : null;
     const name = /** @type {HTMLElement} */ (e.target).dataset.head || "";
     if (to) { e.preventDefault(); to.focus(); }
@@ -241,6 +239,9 @@ function faces(slots) {
     if (!g || g.face === s.face && g.head.firstChild) continue;
     g.face = s.face;
     g.head.replaceChildren(s.face ? face(s.face) : icon(s.icon));
+    // the button names the group and its face: "Bonds: Single bond", then what it does
+    const t = ctx.t, label = t(`draw2.fly.${s.group}`), what = s.face ? `${label}: ${t(`draw2.tool.${keyOf(s.face)}`)}` : label;
+    g.head.setAttribute("aria-label", what); g.head.title = `${what} ${t(`draw2.pal.${s.group}.head`)}`;
   }
 }
 
@@ -270,7 +271,7 @@ function fold(p, collapsed) {
 export function show(st) {
   for (const p of Object.values(pals)) {
     // a group button is pressed when the tool is a member that is not in view on its own, or one the group owns (a typed element, a label, a text)
-    for (const g of Object.values(p.groups || {})) g.head.setAttribute("aria-pressed", String((g.members.includes(st.tool) && !g.keep.includes(st.tool)) || (!!g.owns && st.tool.startsWith(g.owns) && !p.direct.includes(st.tool))));
+    if (p.groups) { const on = JSON.parse(ed().pressed_groups()); for (const [n, g] of Object.entries(p.groups)) { if (on.includes(n)) g.head.setAttribute("aria-current", "true"); else g.head.removeAttribute("aria-current"); } }
     if (!p.spec) continue;
     // the head shows, and runs, the kind last used, whether that kind is kept in view or in the flyout
     if (p.spec.tool && [...(p.spec.keep || []), ...p.spec.items].includes(st.tool) && p.last !== st.tool) { p.last = st.tool; if (p.collapsed) p.head.replaceChildren(face(p.last)); }
@@ -308,6 +309,7 @@ export function layout() {
 function shape(r) {
   const p = pals[r.id];
   if (!p) return;
+  p.el.dataset.next = r.next; p.el.dataset.prev = r.prev; p.el.dataset.across = r.across;
   p.el.hidden = r.hidden; p.el.dataset.dock = r.dock; p.el.dataset.orient = r.horizontal ? "h" : "v";
   p.el.setAttribute("aria-orientation", r.horizontal ? "horizontal" : "vertical");
   if (p.general) return;

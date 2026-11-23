@@ -854,7 +854,7 @@ async function styles() {
   for (const name of [NAME, ...NAMES.settingsOld]) {       // the file of the name in use, else one an earlier name wrote
     let text = "";
     try { text = await (await (await navigator.storage.getDirectory()).getFileHandle(name)).getFile().then(f => f.text()); } catch { continue; }       // nothing kept, or no storage
-    try { const r = JSON.parse(ed.set_style_stored(text)); if (r.note) stored = t(r.note); break; } catch { /* a file the module refuses */ }
+    try { const r = JSON.parse(ed.set_style_stored(text)); if ((r.notes || []).length) stored = r.notes.map((/** @type {string} */ n) => t(n)).join(" "); break; } catch { /* a file the module refuses */ }
   }
   restyle = show;
   show();

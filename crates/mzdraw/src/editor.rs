@@ -1117,11 +1117,30 @@ impl Editor {
         Ok(flags)
     }
 
+    /// What a click on the button of a group of the tools palette does: it selects the face when that is not the tool in use already
+    /// (a group with a face of its own icon selects nothing); the page then opens the list. The flags like `set_tool`.
+    pub fn group_click(&mut self, group: &str) -> u32 {
+        match self.layout.face(group).filter(|f| !f.is_empty()) {
+            Some(face) if face != self.tool.name() => self.set_tool(&face),
+            _ => 0,
+        }
+    }
+
     /// `set_style` for a settings file kept in the browser: a `ui` object that is not one this version can read (a theme that is none, a
     /// value that is not text) is dropped with the note `error.draw2.ui` and the rest of the file is taken; a file that is refused for
     /// any other reason is refused whole. An explicit `set` of a bad value stays an error. Returns the flags and the note ("" for none).
     pub fn set_style_stored(&mut self, text: &str) -> Result<(u32, &'static str), &'static str> {
-        let mut note = "";
+        let (flags, notes) = self.set_style_stored_notes(text)?;
+        Ok((flags, notes.first().copied().unwrap_or("")))
+    }
+
+    /// `set_style_stored` with every note it has, in a fixed order (an unreadable `ui`, `text`, a face of a group of the tools palette
+    /// that this version cannot show, then the layout of the earlier palettes): one note never hides another.
+    pub fn set_style_stored_notes(
+        &mut self,
+        text: &str,
+    ) -> Result<(u32, Vec<&'static str>), &'static str> {
+        let mut notes: Vec<&'static str> = Vec::new();
         let mut text = text.to_string();
         if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&text) {
             let bad = v
@@ -1130,7 +1149,7 @@ impl Editor {
             if let (true, Some(o)) = (bad, v.as_object_mut()) {
                 o.remove("ui");
                 text = v.to_string();
-                note = "error.draw2.ui";
+                notes.push("error.draw2.ui");
             }
             // a `text` object of a newer file (a font or a size this version does not know) is dropped the same way: the rest is taken
             let bad = v
@@ -1139,15 +1158,33 @@ impl Editor {
             if let (true, Some(o)) = (bad, v.as_object_mut()) {
                 o.remove("text");
                 text = v.to_string();
-                note = "error.draw2.textPref";
+                notes.push("error.draw2.textPref");
+            }
+            // a face of a group that a stored file names but this version cannot show (a member that was removed or is in view on its
+            // own now, a group with no memory) is dropped; the other faces and the rest of the file are taken. `--set` stays strict.
+            if let Some(heads) = v.pointer_mut("/layout/heads") {
+                let before = heads.to_string();
+                match heads.as_object_mut() {
+                    Some(o) => o.retain(|g, m| {
+                        crate::tool_groups::Group::named(g).is_none()
+                            || m.as_str().is_some_and(|m| {
+                                crate::tool_groups::Heads::default().set(g, m).is_ok()
+                            })
+                    }),
+                    None => *heads = serde_json::json!({}),
+                }
+                if heads.to_string() != before {
+                    text = v.to_string();
+                    notes.push("draw2.layout.heads");
+                }
             }
         }
         let flags = self.set_style(&text)?;
         // a layout of the palettes before the general tools palette: its tools take the new default place, and the page says so
-        if self.layout.migrated && note.is_empty() {
-            note = "draw2.layout.migrated";
+        if self.layout.migrated {
+            notes.push("draw2.layout.migrated");
         }
-        Ok((flags, note))
+        Ok((flags, notes))
     }
 
     /// The settings file of the editor: the style, the layout of the palettes and the export defaults (the last two only

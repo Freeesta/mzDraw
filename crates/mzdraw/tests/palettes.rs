@@ -776,3 +776,129 @@ const LEGACY_IDS: [&str; 5] = [
     "\"charges\"",
     "\"objects\"",
 ];
+
+#[test]
+fn a_stale_face_in_a_stored_file_is_dropped_with_a_note_and_never_refuses_the_file() {
+    // a member that is in view on its own now, a group with a fixed face, a value that is no text: dropped; a good face and an unknown group stay
+    let stored = r#"{"format":"mzdraw-settings/1","style":{"preset":"mzlab"},
+      "layout":{"snap":20,"heads":{"bonds":"bond:2","atoms":"atom:S","charges":5,"rings":"ring:7","future":"x"}}}"#;
+    let mut e = Editor::default();
+    let (flags, notes) = e.set_style_stored_notes(stored).unwrap();
+    assert_eq!(flags & PALETTES, PALETTES);
+    assert_eq!(notes, vec!["draw2.layout.heads"]);
+    assert_eq!(face(&e.layout, "rings"), "ring:7");
+    assert_eq!(face(&e.layout, "bonds"), "bond:1");
+    assert!(
+        e.settings_json().contains(r#""future":"x""#) && e.settings_json().contains(r#""snap":20"#)
+    );
+    // heads that are not an object at all: dropped too
+    let mut f = Editor::default();
+    assert_eq!(
+        f.set_style_stored_notes(r#"{"format":"mzdraw-settings/1","layout":{"heads":"bonds"}}"#)
+            .unwrap()
+            .1,
+        vec!["draw2.layout.heads"]
+    );
+    // the same file by `set_style` (an explicit file) or `--set` is still refused
+    assert!(Editor::default().set_style(stored).is_err());
+    assert_eq!(
+        Editor::default().set("layout.heads.bonds=bond:2"),
+        Err("error.draw2.layout")
+    );
+    // a good file says nothing
+    let mut g = Editor::default();
+    assert!(g
+        .set_style_stored_notes(
+            r#"{"format":"mzdraw-settings/1","layout":{"heads":{"bonds":"bond:hash"}}}"#
+        )
+        .unwrap()
+        .1
+        .is_empty());
+    assert_eq!(face(&g.layout, "bonds"), "bond:hash");
+}
+
+#[test]
+fn notes_add_up_one_never_hides_another() {
+    let both = r#"{"format":"mzdraw-settings/1","ui":{"theme":"purple"},
+      "layout":{"heads":{"bonds":"bond:2"},"palettes":[{"id":"bonds","dock":"bottom"}]}}"#;
+    let mut e = Editor::default();
+    let (_, notes) = e.set_style_stored_notes(both).unwrap();
+    assert_eq!(
+        notes,
+        vec![
+            "error.draw2.ui",
+            "draw2.layout.heads",
+            "draw2.layout.migrated"
+        ]
+    );
+    // the first of them is what `set_style_stored` answers
+    let mut f = Editor::default();
+    assert_eq!(f.set_style_stored(both).unwrap().1, "error.draw2.ui");
+}
+
+#[test]
+fn what_the_page_paints_is_decided_here_pressed_grid_the_click_and_the_keys() {
+    let mut e = Editor::default();
+    // a click on a group selects the face unless it is the tool already; a face of an icon selects nothing
+    e.set_tool("select");
+    assert_eq!(
+        e.group_click("bonds") & mzdraw::editor::TOOL,
+        mzdraw::editor::TOOL
+    );
+    assert_eq!(e.tool.name(), "bond:1");
+    assert_eq!(e.group_click("bonds"), 0);
+    assert_eq!(e.group_click("atoms"), 0);
+    assert_eq!(e.tool.name(), "bond:1");
+    e.set_tool("bond:wavy");
+    e.set_tool("select");
+    e.group_click("bonds");
+    assert_eq!(e.tool.name(), "bond:wavy");
+    // pressed: a member not in view on its own, or a tool the group owns
+    assert_eq!(e.layout.pressed("bond:wavy"), ["bonds"]);
+    assert!(e.layout.pressed("bond:2").is_empty() && e.layout.pressed("atom:N").is_empty());
+    assert_eq!(e.layout.pressed("atom:Se"), ["atoms"]);
+    // the grid lists and the keys of each palette
+    let mut l = Layout::default();
+    let a: serde_json::Value = serde_json::from_str(&l.arranged_json(1280.0, 720.0, &[])).unwrap();
+    let grid: Vec<(String, bool)> = a["slots"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|s| s["group"].is_string())
+        .map(|s| {
+            (
+                s["group"].as_str().unwrap().to_string(),
+                s["grid"].as_bool().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        grid,
+        [
+            ("bonds".into(), true),
+            ("rings".into(), true),
+            ("atoms".into(), true),
+            ("charges".into(), false),
+            ("objects".into(), false),
+            ("text".into(), false)
+        ]
+    );
+    let keys = |id: &str| {
+        let p = a["palettes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["id"] == id)
+            .unwrap();
+        [p["next"].clone(), p["prev"].clone(), p["across"].clone()]
+    };
+    assert_eq!(keys("tools"), ["ArrowDown", "ArrowUp", "ArrowRight"]);
+    assert_eq!(keys("file"), ["ArrowRight", "ArrowLeft", "ArrowDown"]);
+    assert_eq!(keys("structure"), ["ArrowDown", "ArrowUp", "ArrowLeft"]);
+    // the list of slots from the cache is the one a fresh build writes, and a face that changes is not served from it
+    let fresh: serde_json::Value = serde_json::from_str(&l.slots_json()).unwrap();
+    assert_eq!(fresh, a["slots"]);
+    l.note_tool("bond:hash");
+    let b: serde_json::Value = serde_json::from_str(&l.arranged_json(1280.0, 720.0, &[])).unwrap();
+    assert_eq!(b["slots"][3]["face"], "bond:hash");
+}

@@ -255,6 +255,8 @@ pub struct Layout {
     /// does not know, as JSON text.
     heads: Heads,
     unknown_heads: Vec<(String, String)>,
+    /// `slots_json` for the faces it was written with: a layout runs on every frame of a drag, the faces change rarely.
+    slots_cache: Option<(Heads, String)>,
     /// The layout read had palettes of the layouts before the general tools palette: they were dropped and the tools take their
     /// default place (the page says so once, with `draw2.layout.migrated`).
     pub migrated: bool,
@@ -275,6 +277,7 @@ impl Default for Layout {
             unknown_keys: Vec::new(),
             heads: Heads::default(),
             unknown_heads: Vec::new(),
+            slots_cache: None,
             migrated: false,
             view: (1280.0, 800.0),
             sizes: Vec::new(),
@@ -958,6 +961,16 @@ impl Layout {
                 // only a floating palette turns between a row and a column
                 e.raw("can_turn", bool(r.dock == Dock::Float));
                 e.raw("can_collapse", bool(r.id != "tools"));
+                // the keys of the palette: along it, and across it to open the list of a group (along the edge it is docked on)
+                let (next, prev, across) = match (r.horizontal, r.dock) {
+                    (true, Dock::Bottom) => ("ArrowRight", "ArrowLeft", "ArrowUp"),
+                    (true, _) => ("ArrowRight", "ArrowLeft", "ArrowDown"),
+                    (false, Dock::Right) => ("ArrowDown", "ArrowUp", "ArrowLeft"),
+                    (false, _) => ("ArrowDown", "ArrowUp", "ArrowRight"),
+                };
+                e.text("next", next);
+                e.text("prev", prev);
+                e.text("across", across);
                 e.0 + "}"
             })
             .collect();
@@ -969,7 +982,11 @@ impl Layout {
         o.text("held", held.as_deref().unwrap_or(""));
         o.text("hint_edge", hint.map_or("", |d| d.name()));
         o.raw("palettes", &format!("[{}]", list.join(",")));
-        o.raw("slots", &self.slots_json());
+        if self.slots_cache.as_ref().is_none_or(|c| c.0 != self.heads) {
+            self.slots_cache = Some((self.heads.clone(), self.slots_json()));
+        }
+        let slots = self.slots_cache.as_ref().map_or("[]", |c| c.1.as_str());
+        o.raw("slots", slots);
         o.int("rows", ROWS as i64);
         o.0 + "}"
     }
@@ -992,6 +1009,7 @@ impl Layout {
                         e.raw("keep", &strs(g.keep));
                         e.raw("fields", &strs(g.fields));
                         e.text("owns", g.owns);
+                        e.raw("grid", if g.grid { "true" } else { "false" });
                     }
                 }
                 e.0 + "}"
@@ -1004,6 +1022,15 @@ impl Layout {
     /// face changed (the page lays the palettes out again and keeps the settings).
     pub fn note_tool(&mut self, tool: &str) -> bool {
         self.heads.note(tool)
+    }
+
+    /// The groups whose button stands for the tool in use (the page marks them with `aria-current`).
+    pub fn pressed(&self, tool: &str) -> Vec<&'static str> {
+        crate::tool_groups::GROUPS
+            .into_iter()
+            .filter(|g| g.pressed(tool))
+            .map(|g| g.id)
+            .collect()
     }
 
     /// The face of a group now (its first when none was used), `None` for a name that is no group.

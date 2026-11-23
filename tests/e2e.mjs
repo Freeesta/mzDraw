@@ -1663,6 +1663,14 @@ try {
     eq(await listed("bonds"), ["bond:1", "bond:2", "bond:3", "bond:up", "bond:down", "bond:wavy", "bond:dash", "bond:bdash", "bond:hash", "bond:bold", "bond:dative", "bond:hbond", "chain"]);
     eq(await pg.evaluate("document.querySelectorAll('[data-testid=\"d2-bond:2\"]').length"), 1);          // one test id: the one in view
     eq(await pg.getAttribute('[data-testid="d2-head-bonds"]', "aria-expanded"), "true");
+    // the button names its group and its face, says it opens a list, and marks the group of the tool in use (not a pressed state beside an expanded one)
+    eq(await pg.evaluate("(b => [b.getAttribute('aria-label'), b.title.startsWith(b.getAttribute('aria-label') + ' '), b.getAttribute('aria-haspopup'), b.hasAttribute('aria-pressed'), b.getAttribute('aria-current')])(document.querySelector('[data-testid=\"d2-head-bonds\"]'))"),
+      [await pg.evaluate("I18N.t('draw2.fly.bonds') + ': ' + I18N.t('draw2.tool.bond.1')"), true, "true", false, "true"]);
+    // every row of a list is a target of 44 px or more, the lists of names too
+    eq(await pg.evaluate("[...document.querySelectorAll('#d2-fly-bonds button[data-cmd]')].filter(b => Math.min(b.offsetWidth, b.offsetHeight) < 44).length"), 0);
+    // a press outside the list shuts it (on the canvas); a press inside does not
+    await pg.mouse.click(cx, cy + 200); eq(await listed("bonds"), []); await want(pg, { tool: "bond:1" });
+    await pg.click('[data-testid="d2-head-bonds"]'); eq((await listed("bonds")).length, 13);
     // a click on the button of a list that is open shuts it, and the tool stays
     await pg.click('[data-testid="d2-head-bonds"]'); eq(await listed("bonds"), []); await want(pg, { tool: "bond:1" });
     await tool(pg, "select"); await pg.click('[data-testid="d2-head-rings"]'); await want(pg, { tool: "ring:6a" });          // benzene, not the ring of three
@@ -1687,6 +1695,13 @@ try {
     await pg.click('[data-testid="d2-head-atoms"]'); eq((await state(pg)).tool, before);
     assert(await pg.isVisible("#d2-element"), "the element field is listed");
     await pg.keyboard.press("Escape");
+    // the lists of names (charges, labels; arrows, reaction objects) have rows of 44 px too, and the new tool is named in the button
+    for (const g of ["charges", "objects"]) {
+      await pg.click(`[data-testid="d2-head-${g}"]`);
+      eq(await pg.evaluate(id => [...document.querySelectorAll(`#d2-fly-${id} button[data-cmd]`)].filter(b => b.offsetParent && Math.min(b.offsetWidth, b.offsetHeight) < 44).length, g), 0);
+      assert((await listed(g)).length >= 2, g + " lists its members");
+      await pg.keyboard.press("Escape");
+    }
     // the Palettes menu does not list the old tool palettes, and the settings file never names them
     eq(await pg.evaluate("[...document.querySelectorAll('.menu input[data-act=\"hidden\"]')].map(c => c.dataset.pal).filter(id => ['bonds', 'rings', 'atoms', 'charges', 'objects'].includes(id))"), []);
     await pg.click('[data-testid="d2-palettes"]'); await pg.click('[data-testid="d2-menu-reset"]'); await frames(pg);

@@ -24,6 +24,8 @@ pub struct Group {
     pub fields: &'static [&'static str],
     /// Tools that start so are the group's, and press its button (an element typed in the field, a label, a text line).
     pub owns: &'static str,
+    /// The list is a grid of icons (many members that read by their shape), else rows with their names.
+    pub grid: bool,
 }
 
 /// One place of the palette: a tool on its own, or a group.
@@ -55,6 +57,7 @@ pub const BONDS: Group = Group {
     keep: &["bond:2"],
     fields: &[],
     owns: "",
+    grid: true,
 };
 pub const RINGS: Group = Group {
     id: "rings",
@@ -66,6 +69,7 @@ pub const RINGS: Group = Group {
     keep: &["ring:6", "ring:5"],
     fields: &[],
     owns: "",
+    grid: true,
 };
 pub const ATOMS: Group = Group {
     id: "atoms",
@@ -77,6 +81,7 @@ pub const ATOMS: Group = Group {
     keep: &[],
     fields: &["atom"],
     owns: "atom:",
+    grid: true,
 };
 pub const CHARGES: Group = Group {
     id: "charges",
@@ -86,6 +91,7 @@ pub const CHARGES: Group = Group {
     keep: &[],
     fields: &["label"],
     owns: "label:",
+    grid: false,
 };
 pub const OBJECTS: Group = Group {
     id: "objects",
@@ -105,6 +111,7 @@ pub const OBJECTS: Group = Group {
     keep: &["plus"],
     fields: &[],
     owns: "",
+    grid: false,
 };
 pub const TEXT: Group = Group {
     id: "text",
@@ -114,6 +121,7 @@ pub const TEXT: Group = Group {
     keep: &[],
     fields: &["text"],
     owns: "text:",
+    grid: false,
 };
 
 /// The places of the palette, column after column (a column holds `ROWS`): the structure tools, then the atoms and the objects.
@@ -155,6 +163,17 @@ impl Group {
     /// Whether the face of the group is the tool last used from it (else the face is its icon, always).
     pub fn remembers(&self) -> bool {
         !self.first.is_empty()
+    }
+
+    /// Whether the button of the group stands for the tool in use: a member that is not in view on its own, or a tool the group
+    /// owns by its name (a typed element, a label, a text) that is not one of the places of the palette.
+    pub fn pressed(&self, tool: &str) -> bool {
+        (self.members.contains(&tool) && !self.keep.contains(&tool))
+            || (!self.owns.is_empty()
+                && tool.starts_with(self.owns)
+                && !SLOTS
+                    .iter()
+                    .any(|s| matches!(s, Slot::Tool(t) if *t == tool)))
     }
 
     /// Whether the member may be the face: it belongs to the group and is not in view on its own.
@@ -278,6 +297,15 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_group_is_pressed_by_a_member_not_in_view_or_a_tool_it_owns() {
+        assert!(BONDS.pressed("bond:wavy") && !BONDS.pressed("bond:2") && !BONDS.pressed("ring:3"));
+        assert!(ATOMS.pressed("atom:S") && ATOMS.pressed("atom:Se") && !ATOMS.pressed("atom:N"));
+        assert!(
+            CHARGES.pressed("label:Ph") && TEXT.pressed("text:H2O") && !OBJECTS.pressed("plus")
+        );
     }
 
     #[test]
