@@ -554,6 +554,14 @@ pub fn replay_at(request: &str, n: u64) -> Result<Reply, OpError> {
     replay_with(request, n, None)
 }
 
+/// The engines a replay can be given by the bridge crate: the masses (`values::Measurer`) and the CIP labels (`cip::Labeller`).
+/// The core has neither; a request is answered the same without them, with no number and no label made up.
+#[derive(Clone, Copy, Default)]
+pub struct Engines {
+    pub measure: Option<crate::values::Measurer>,
+    pub cip: Option<crate::cip::Labeller>,
+}
+
 /// Like `replay_at`, with the engine that gives masses (`values::Measurer`; the bridge crate passes the one of mzLab). Without it the
 /// request field `values` has the formulas and `"engine": false`, and the numbers of `display.values` mass and mz are not drawn.
 pub fn replay_with(
@@ -561,6 +569,19 @@ pub fn replay_with(
     n: u64,
     engine: Option<crate::values::Measurer>,
 ) -> Result<Reply, OpError> {
+    replay_engines(
+        request,
+        n,
+        Engines {
+            measure: engine,
+            cip: None,
+        },
+    )
+}
+
+/// Like `replay_with`, with every engine the bridge has (`Engines`): `display.cip` draws the labels of `engines.cip`.
+pub fn replay_engines(request: &str, n: u64, engines: Engines) -> Result<Reply, OpError> {
+    let engine = engines.measure;
     let fail = |key| OpError { key, id: 0 };
     let r = Request::read(request).map_err(fail)?;
     // the diff of two documents stands alone and answers its own document (not `draw-result/1`)
@@ -572,7 +593,10 @@ pub fn replay_with(
             check_failed: false,
         });
     }
-    let mut e = Editor::default();
+    let mut e = Editor {
+        labeller: engines.cip,
+        ..Default::default()
+    };
     // the notes of the import, as the page shows them: the start text, then the file
     let mut notes: Vec<(&'static str, usize)> = Vec::new();
     if let Some(text) = &r.import {

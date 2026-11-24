@@ -94,6 +94,45 @@ pub fn run(engine: &str, doc: &Document, args: &str) -> Result<String, GlueError
     })
 }
 
+/// The engine behind `display.cip` (`mzdraw::cip::Labeller`): `cip/1` of mzLab on the drawing's molfile, its atom and bond
+/// numbers (0-based, molfile order) turned into document ids (`ids`). An atom number past the drawing's own atoms is an atom of an
+/// expanded abbreviation, which is not drawn: its label is left out; so is a bond label whose two atoms are not one bond of the drawing.
+pub fn cip_labels(doc: &Document) -> Result<Vec<mzdraw::cip::CipLabel>, &'static str> {
+    let answer = run("cip", doc, "").map_err(|_| "error.draw2.cipEngine")?;
+    let v: serde_json::Value =
+        serde_json::from_str(&answer).map_err(|_| "error.draw2.cipEngine")?;
+    let ids = ids(doc);
+    let id = |k: &serde_json::Value| k.as_u64().and_then(|k| ids.get(k as usize)).copied();
+    let text = |x: &serde_json::Value| x["label"].as_str().map(str::to_string);
+    let mut out = Vec::new();
+    for a in v["atoms"].as_array().into_iter().flatten() {
+        if let (Some(atom), Some(text)) = (id(&a["atom"]), text(a)) {
+            out.push(mzdraw::cip::CipLabel {
+                atom,
+                bond: 0,
+                text,
+            });
+        }
+    }
+    for b in v["bonds"].as_array().into_iter().flatten() {
+        let (Some(x), Some(y), Some(text)) = (id(&b["a"]), id(&b["b"]), text(b)) else {
+            continue;
+        };
+        if let Some(bond) = doc
+            .bonds
+            .iter()
+            .find(|d| (d.a, d.b) == (x, y) || (d.a, d.b) == (y, x))
+        {
+            out.push(mzdraw::cip::CipLabel {
+                atom: 0,
+                bond: bond.id,
+                text,
+            });
+        }
+    }
+    Ok(out)
+}
+
 /// The engine behind `display.values` and the request field `values` (`mzdraw::values::Measurer`): `sel` on the molfile of one
 /// structure gives the monoisotopic mass (`label.mass`), the average weight and, for a charged structure, its own m/z; each adduct's m/z is
 /// that mass plus the adduct shift of `mzlab_feat::chem::sdf::adduct_shift` (a charged structure has no adduct: `None`). No number is
@@ -165,7 +204,11 @@ pub fn replay(request: &str) -> Result<String, GlueError> {
     // the masses under the structures give numbers (the bare output, as `mzdraw::replay::replay`)
     #[cfg(feature = "sel")]
     if !obj.contains_key("engines") {
-        return mzdraw::replay::replay_with(request, 0, Some(measure))
+        let engines = mzdraw::replay::Engines {
+            measure: Some(measure),
+            cip: Some(cip_labels),
+        };
+        return mzdraw::replay::replay_engines(request, 0, engines)
             .map(|r| r.text)
             .map_err(|e| GlueError {
                 key: e.key.to_string(),

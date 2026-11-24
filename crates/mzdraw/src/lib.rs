@@ -9,6 +9,7 @@ pub mod brand;
 pub mod build;
 pub mod cdx;
 pub mod cdxml;
+pub mod cip;
 pub mod cml;
 mod commands;
 pub mod conform;

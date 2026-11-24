@@ -42,7 +42,17 @@ pub fn plan(doc: &Document, style: &Style) -> Plan {
 
 /// `plan` with the calculated values the editor holds.
 pub fn plan_with(doc: &Document, style: &Style, measured: &[crate::values::Entry]) -> Plan {
-    let (svg, w, h) = crate::svg::drawn_with(doc, style, measured);
+    plan_full(doc, style, measured, &[])
+}
+
+/// `plan_with` with the CIP labels the editor holds (`svg::to_svg_full`).
+pub fn plan_full(
+    doc: &Document,
+    style: &Style,
+    measured: &[crate::values::Entry],
+    cip: &[crate::cip::CipLabel],
+) -> Plan {
+    let (svg, w, h) = crate::svg::drawn_with(doc, style, measured, cip);
     // points to pixels
     let k = (DPI / 72.0).min(MAX_SIDE / w.max(h).max(1.0));
     Plan {
