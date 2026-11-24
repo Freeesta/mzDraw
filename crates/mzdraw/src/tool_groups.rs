@@ -101,6 +101,7 @@ pub const OBJECTS: Group = Group {
         "arrow",
         "plus",
         "scheme-row",
+        "structure-grid",
         "pathway-tree",
         "pathway-label",
         "lonepair",
@@ -284,6 +285,7 @@ mod tests {
     fn every_member_is_a_tool_or_a_command_of_the_page_and_only_a_tool_can_be_a_face() {
         let commands = [
             "scheme-row",
+            "structure-grid",
             "pathway-tree",
             "pathway-label",
             "lonepairs-place",

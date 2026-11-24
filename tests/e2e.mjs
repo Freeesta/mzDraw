@@ -3842,6 +3842,39 @@ try {
     eq(await pg.evaluate("window.MZDRAW.get('display.titles')"), "off");
     await pg.keyboard.press("Escape"); await pfShown(false);
   });
+
+  await step("structure grid (rdkit-compare 8): five named structures are put in a grid with their legends by the button, with the keyboard, by touch and by pen; one undo step, the drawing equals the golden of grid.json, a second press says it is done", async () => {
+    const gGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/grid.json"), "utf8")).cases.find(c => c.name.startsWith("the page's button"));
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const penTap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const save = () => pg.evaluate("window.MZDRAW.save('mzdraw')");
+    const BT = '[data-testid="d2-structure-grid"]';
+    await pg.evaluate("window.MZDRAW.set_style('mzlab')"); await pg.evaluate("window.MZDRAW.set('display.titles=on')");
+    // the drawing the CLI imports, opened as a document (with the same ids)
+    await pg.evaluate(text => { const m = /** @type {any} */ (window).MZDRAW; m.open(m.replay(JSON.stringify({ import: text, out: "mzdraw" }))); }, gGold.request.import);
+    await tool(pg, "fit"); await tool(pg, "select"); await frames(pg);
+    const start = await save();
+    // the keyboard: select all, the button reached by its focus, Enter
+    await pg.focus("#d2-canvas"); await pg.keyboard.press("Control+a"); await frames(pg);
+    await reveal(pg, BT); await pg.focus(BT); await pg.keyboard.press("Enter"); await frames(pg);
+    eq(await save(), gGold.out.mzdraw);
+    eq(await pg.evaluate("window.MZDRAW.save('svg')"), gGold.out.svg);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.grid')"));
+    await tool(pg, "fit"); await frames(pg); await shot(pg, "rdkit-compare-8-grid-canvas");
+    await tool(pg, "undo"); eq(await save(), start, "one undo step");
+    // a finger: nothing selected, the button tapped
+    await tool(pg, "select"); await pg.keyboard.press("Escape"); await frames(pg);
+    await reveal(pg, BT); await pg.touchscreen.tap(...await pfAt(BT)); await frames(pg);
+    eq(await save(), gGold.out.mzdraw);
+    await shot(pg, "rdkit-compare-8-grid-touch");
+    // a pen: a second press changes nothing and says so (no new undo step)
+    await reveal(pg, BT); await penTap(...await pfAt(BT)); await frames(pg);
+    eq(await save(), gGold.out.mzdraw);
+    eq(await pg.innerText("#d2-live"), await pg.evaluate("I18N.t('draw2.say.gridDone')"));
+    await tool(pg, "undo"); eq(await save(), start);
+    await pg.evaluate("window.MZDRAW.set('display.titles=off')");
+  });
   await ctx.close();
 
   await step("preferences: a stored dark theme is on the page before the first paint and before the module loads; a corrupt stored theme drops only itself with a note; without storage the page still starts", async () => {

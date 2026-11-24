@@ -197,6 +197,8 @@ pub struct Editor {
     pub session: Session,
     /// The steps of the last `scheme:orient` command (for the result document), empty before the first.
     pub(crate) orient_steps: Vec<crate::orient::Step>,
+    /// The free objects the last `grid` left where they were (`grid::Plan::left`), for the result document.
+    pub(crate) grid_left: Vec<u32>,
     /// The rows `tp:import` refused in its last run, `(line, key)` in line order (`failed.rows` of the result document); empty otherwise.
     pub(crate) failed_rows: Vec<(u32, String)>,
     pub view: View,
@@ -456,6 +458,7 @@ impl Default for Editor {
             nudge: None,
             move_here: false,
             orient_steps: Vec::new(),
+            grid_left: Vec::new(),
             failed_rows: Vec::new(),
             ctx: Default::default(),
             proposal: None,

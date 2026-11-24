@@ -4,7 +4,7 @@
   "title": "draw-result/1: the verdict of a replay request (mzdraw::outcome)",
   "description": "Checked by crates/mzdraw/tests/outcome.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text, also inside failed, created, removed and each expect item), the required keys, the types and the stage values are asserted by hand; the other constraints here are documentation. The request `diff` (plan-15) is not answered by this document: it stands alone and any of `report`, `dry_run`, `expect`, `id` with it is the keyed error `error.draw2.diffAlone`.",
   "type": "object",
-  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "imported", "lost", "failed", "changed", "dirty", "orient", "expect"],
+  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "imported", "lost", "failed", "changed", "dirty", "orient", "grid", "expect"],
   "required": ["format", "id", "ok", "created", "removed", "dirty"],
   "additionalProperties": false,
   "$defs": {
@@ -77,6 +77,15 @@
           "after": { "type": "number", "description": "the same after" },
           "at": { "type": "integer", "minimum": 1, "description": "only for overlap: the atom or object it would run into" }
         }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "description": "only when a command was grid: what its last run left where it was",
+      "required": ["left"],
+      "additionalProperties": false,
+      "properties": {
+        "left": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "the ids of the free objects (a text, an arrow, a plus sign or a curve anchored at no atom) that stood within 3 bond lengths of a structure of the grid: the grid does not move them" }
       }
     },
     "failed": {

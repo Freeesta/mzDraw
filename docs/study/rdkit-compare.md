@@ -135,7 +135,7 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | 45 | legend (free text) under a molecule | `legend=` | `display.titles`: the title (`atom.title`) drawn under its structure, first caption line (`built/display-titles.md`) | built | `display-titles.json`, `crates/mzdraw/tests/display_titles.rs` | M |
 | 46 | calculated values under a structure (formula, masses, m/z, logP, TPSA, HBD/HBA ...) | none (compute, then pass a legend string) | `display.values`, `atom.cap` | better | `values.json`, `struct-props.json` | M |
 | 47 | identification level under a structure | none | `atom.ann` (`L2b`) | better | `annotations.json` | M |
-| 48 | grid of molecules with legends | `MolsToGridImage(molsPerRow, legends, subImgSize, highlightAtomLists)` | none (`error.draw2.command`); `scheme:row` with `wrap` makes rows of structures without legends | missing | | M |
+| 48 | grid of molecules with legends | `MolsToGridImage(molsPerRow, legends, subImgSize, highlightAtomLists)` | `grid` (`cols`, `gap`, `order` drawing/reading/title with numbers as numbers, `atoms`): `move` operations, one undo step, cells as wide as the widest structure or caption, the legends (`display.titles`) of a row on one line; a picture of the drawing is the grid image (`built/structure-grid.md`). No fixed cell size: a cell fits its content | built | `grid.json`, `crates/mzdraw/tests/grid.rs` | M |
 | 49 | molecules drawn at one scale | `drawMolsSameScale` | always: the bond length of the style is the scale | built | `style.json` | D |
 
 ### 4.4 Reactions and schemes
@@ -190,14 +190,14 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 
 | status | rows |
 |---|---|
-| built | 24 |
+| built | 25 |
 | better | 22 |
 | partial | 5 |
-| missing | 21 |
+| missing | 20 |
 | n.a. | 5 |
 | total | 77 |
 
-Built or better: 46 of 77 (#36 missing to built, rdkit-compare 4; #45 partial to built, rdkit-compare 5; after F1, PR #127, and F3, the "either" PR: #40 partial to better (PR #127, merged), #25 missing to built; the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 21 missing rows and in part of the 5 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
+Built or better: 47 of 77 (#36 missing to built, rdkit-compare 4; #45 partial to built, rdkit-compare 5; #48 missing to built, rdkit-compare 8; after F1, PR #127, and F3, the "either" PR: #40 partial to better (PR #127, merged), #25 missing to built; the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 20 missing rows and in part of the 5 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
 
 ## 5. Where mzDraw is already better, with evidence
 
