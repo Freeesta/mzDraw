@@ -887,6 +887,7 @@ impl Editor {
                 self.style.values,
                 &self.style.adducts,
                 &self.measured,
+                self.style.titles,
             )),
             "cml" => self.doc().to_cml(),
             "rxn" => self.doc().to_rxn()?,
@@ -1489,6 +1490,7 @@ impl Editor {
                 self.style.values,
                 &self.style.adducts,
                 &self.measured,
+                self.style.titles,
             ),
             ..self.over.clone()
         };

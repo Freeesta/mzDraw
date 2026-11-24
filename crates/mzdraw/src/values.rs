@@ -1075,20 +1075,36 @@ pub fn chosen_lines(keys: &[String], adducts: &[String], x: &Subject) -> Vec<Str
 }
 
 /// The captions of a drawing: a molecule with a choice of lines (`props`) writes them; the others follow the mode (none for `Off`);
-/// `measured` are the results kept by the editor.
+/// `measured` are the results kept by the editor. With `titles` (`display.titles`) the title of a structure (`atom.title`) is its
+/// first line, its legend.
 pub fn captions(
     doc: &Document,
     mode: Mode,
     adducts: &[String],
     measured: &[Entry],
+    titles: bool,
 ) -> Vec<Caption> {
-    if doc.atoms.is_empty() || (mode == Mode::Off && doc.atoms.iter().all(|a| a.cap().is_empty())) {
+    let titled = titles && doc.atoms.iter().any(|a| !a.title().is_empty());
+    if doc.atoms.is_empty()
+        || (mode == Mode::Off && !titled && doc.atoms.iter().all(|a| a.cap().is_empty()))
+    {
         return Vec::new();
     }
+    // the title of a structure: the first of its atoms (in pool order) that has one
+    let title_of = |s: &Structure| -> String {
+        if !titled {
+            return String::new();
+        }
+        (s.ids.iter())
+            .filter_map(|id| doc.atom(*id))
+            .map(|a| a.title())
+            .find(|t| !t.is_empty())
+            .unwrap_or_default()
+    };
     let sc = scan(doc);
     (sc.structures.iter().enumerate())
         .filter(|(_, s)| !s.ids.is_empty())
-        .filter(|(_, s)| mode != Mode::Off || !s.cap.is_empty())
+        .filter(|(_, s)| mode != Mode::Off || !s.cap.is_empty() || !title_of(s).is_empty())
         .map(|(k, s)| {
             let held = (measured.iter()).find(|e| e.matches(s));
             let now = held.and_then(|e| e.result.as_ref().ok());
@@ -1112,6 +1128,12 @@ pub fn captions(
                         props,
                     },
                 )
+            };
+            let title = title_of(s);
+            let lines = if title.is_empty() {
+                lines
+            } else {
+                std::iter::once(title).chain(lines).collect()
             };
             Caption {
                 x: (s.bbox[0] + s.bbox[2]) / 2.0,

@@ -1,0 +1,13 @@
+# The title of a structure as its legend, built (rdkit-compare 5)
+
+Found by the RDKit comparison (`docs/study/rdkit-compare.md` matrix #45; RDKit `DrawMolecule(legend=...)`): a structure has a title (`atom.title`, the first line of its molfile and of its SDF record, the name of a SMILES line) that the drawing kept but did not draw. The setting `display.titles` (`off` by default, `on`) draws it under its structure as its legend.
+
+**Setting.** `--set display.titles=on` (the replay request `"set"`), key `titles` of the settings file (`mzdraw-settings/1`, written only when on), `Editor::get("display.titles")`, the word list in `settings::schema_json`, a schema row in the section `set` (`edit-schema.json` and the table of `docs/mzdraw.md` re-blessed). A word that is none is `error.draw2.styleValue` and changes nothing. Code: `Style::titles`.
+
+**Drawing.** The title is the first line of the caption of its structure (`values::captions`, new argument `titles`): centred under the structure, in the caption size, before the lines of `display.values` or of the structure's own choice (`atom.cap`); a structure with no title gets no line. The title of a structure is the first title of its atoms in pool order. Because it is a caption line, everything that draws captions draws it: the canvas, the SVG, the PDF and the PNG (the page grows to hold it, `svg::laid_out_with`), and the captions of the CDXML (`to_cdxml_with`). Off, the pictures keep their bytes (the golden case "titles off").
+
+**Page.** A row of the Preferences (group Display, `prefs::WORDS`), texts `draw2.prefs.display.titles.*` in `web/lang/mzdraw.js`; Reset of the group puts it back to `off`. Screenshots at deviceScaleFactor 2: `docs/shots/rdkit-compare-5-display-titles-prefs.png`, `-canvas.png`, `-svg.png`.
+
+Tests: `crates/mzdraw/tests/display_titles.rs` (off by default; each title under its own structure, below its lowest atom, the page taller; the title before the formula; a structure without a title has no line; the PDF, the CDXML and the settings file); `crates/mzdraw/tests/prefs.rs` (the reset list of the group Display has the new row); golden cases `tests/data/log/display-titles.json` (two titled structures, a title before the formula, titles off, a refused word), wasm == native in `tests/parity.mjs`; e2e step "display titles (rdkit-compare 5)" (keyboard, touch, pen; the page equals the golden, Reset hides them).
+
+Not built: a grid of structures with their legends (rdkit-compare 8, next); a title typed on the page (the CLI route is `atom.title`; the page's data panel writes the SDF fields); a style of its own for the legend (size, italics).
