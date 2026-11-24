@@ -3932,6 +3932,11 @@ try {
     await penTap(...await pfAt("#d2-add")); await want(pg, { atoms: 4 });
     const d = await doc();
     eq([kinds(d).filter(k => k === "arrow").length, d.bonds.filter(b => b.k === "dative").length], [1, 1]);
+    // a reaction line with a CXSMILES tail: drawn, and the note says the tail was not read
+    await fresh();
+    await pg.fill("#d2-text", "C[C@H](O)F>>CC |&1:1|"); await pg.click("#d2-add"); await want(pg, { atoms: 6 });
+    const tail = await pg.evaluate(() => globalThis.I18N.t("draw2.import.reactionTail", { n: 1 }));
+    assert((await pg.innerText("#d2-note")).includes(tail), "the note of the tail");
     // a line that is neither is refused with its key and draws nothing
     await fresh();
     await pg.fill("#d2-text", "CC>CO"); await pg.click("#d2-add"); await frames(pg);

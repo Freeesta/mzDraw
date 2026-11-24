@@ -97,6 +97,25 @@
       "request": {
         "import": "[Cu+2].N>>N->[Cu+2]"
       }
+    },
+    {
+      "name": "an arrow in a CXSMILES label is not a dative bond",
+      "out": {
+        "cdxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<!DOCTYPE CDXML SYSTEM \"http://www.camsoft.com/xml/cdxml.dtd\">\n<CDXML CreationProgram=\"mzDraw\" BondLength=\"30\">\n<fonttable><font id=\"3\" charset=\"iso-8859-1\" name=\"Arial\"/></fonttable>\n<page>\n<fragment id=\"1\">\n<n id=\"2\" p=\"30.00 30.00\"/>\n<n id=\"3\" p=\"60.00 30.00\"/>\n<b id=\"4\" B=\"2\" E=\"3\"/>\n</fragment>\n</page>\n</CDXML>\n",
+        "cml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cml xmlns=\"http://www.xml-cml.org/schema\" xmlns:convention=\"http://www.xml-cml.org/convention/\" xmlns:mzdraw=\"https://freeesta.github.io/mzDraw/\" convention=\"convention:molecular\">\n<molecule id=\"m1\">\n<atomArray>\n<atom id=\"a1\" elementType=\"C\" x2=\"0.0000\" y2=\"0.0000\"/>\n<atom id=\"a2\" elementType=\"C\" x2=\"1.0000\" y2=\"0.0000\"/>\n</atomArray>\n<bondArray>\n<bond id=\"b1\" atomRefs2=\"a1 a2\" order=\"S\"/>\n</bondArray>\n</molecule>\n</cml>\n",
+        "ket": "{\"root\":{\"nodes\":[{\"$ref\":\"mol0\"}]},\"mol0\":{\"type\":\"molecule\",\"atoms\":[{\"label\":\"C\",\"location\":[0.0,0.0,0]},{\"label\":\"C\",\"location\":[1.0,0.0,0]}],\"bonds\":[{\"type\":1,\"atoms\":[0,1]}]}}",
+        "log": "[{\"op\":\"atom.add\",\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"op\":\"atom.add\",\"id\":2,\"el\":\"C\",\"x\":1.0,\"y\":0.0},{\"op\":\"bond.add\",\"id\":3,\"a\":1,\"b\":2,\"o\":1}]",
+        "molfile": "mzDraw\n  mzLab             2D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\nM  END\n",
+        "molfile-v3000": "mzDraw\n  mzLab             2D\n\n  0  0  0     0  0            999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 2 1 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C 0.000000 0.000000 0.000000 0\nM  V30 2 C 1.000000 0.000000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 1 2\nM  V30 END BOND\nM  V30 END CTAB\nM  END\n",
+        "mzdraw": "{\"format\":\"mzdraw/1\",\"next\":4,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":1.0,\"y\":0.0}],\"bonds\":[{\"id\":3,\"a\":1,\"b\":2,\"o\":1}]}",
+        "sdf": "mzDraw\n  mzLab             2D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\nM  END\n$$$$\n",
+        "smiles": "CC",
+        "std": "{\"format\":\"std/1\",\"checks\":[]}",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"98.4pt\" height=\"68.4pt\" viewBox=\"0 0 98.4 68.4\" font-family=\"Arial, Helvetica, sans-serif\" stroke-linecap=\"round\" role=\"img\" aria-labelledby=\"t-780437da d-780437da\" xml:lang=\"en\">\n<metadata id=\"mzdraw\">{\"format\":\"mzdraw/1\",\"next\":4,\"atoms\":[{\"id\":1,\"el\":\"C\",\"x\":0.0,\"y\":0.0},{\"id\":2,\"el\":\"C\",\"x\":1.0,\"y\":0.0}],\"bonds\":[{\"id\":3,\"a\":1,\"b\":2,\"o\":1}]}</metadata>\n<title id=\"t-780437da\">C2H6</title>\n<desc id=\"d-780437da\">C2H6.</desc>\n<line x1=\"34.2\" y1=\"34.2\" x2=\"64.2\" y2=\"34.2\" stroke=\"#000000\" stroke-width=\"1.35\"/>\n</svg>\n"
+      },
+      "request": {
+        "import": "CC |$a->b;;$|"
+      }
     }
   ],
   "refused": [

@@ -801,7 +801,11 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
 /// One molecule of a SMILES (with its CXSMILES tail): its dative bonds (`->`, `<-`, `rsmiles::datives`) made bonds of the kind
 /// `dative` from the donor to the acceptor, its R groups and its atom maps read. `None` when the reader refuses it.
 fn smiles_molecule(smiles: &str, info: &mut Imported) -> Option<Document> {
-    let (plain, pairs) = crate::rsmiles::datives(smiles).ok()?;
+    // the dative arrows of the SMILES itself: the CXSMILES tail after the first blank (labels may hold `->`) is kept as it is
+    let at = smiles.find([' ', '\t']).unwrap_or(smiles.len());
+    let (core, tail) = smiles.split_at(at);
+    let (plain, pairs) = crate::rsmiles::datives(core).ok()?;
+    let plain = plain + tail;
     let (clean, labels) = formats::r_atoms(&plain);
     let m = Mol::from_smiles(&clean).ok()?;
     let (mut d, placeholder) = labelled(&m, labels, info);

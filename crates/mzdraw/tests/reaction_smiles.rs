@@ -176,3 +176,19 @@ fn the_cxsmiles_tail_of_a_reaction_line_is_said_not_read() {
         1
     );
 }
+
+#[test]
+fn an_arrow_in_a_cxsmiles_label_is_not_a_dative_bond() {
+    // the tail is not the SMILES: a label holding `->` is read as before, on a molecule line and on a reaction line
+    let d = import("CC |$a->b;;$|").unwrap();
+    assert_eq!(d.atoms.len(), 2);
+    assert!(d.bonds.iter().all(|b| b.kind() != "dative"));
+    let d = import("CC>>CO |$a->b;;;;$|").unwrap();
+    assert_eq!(
+        d.objects.iter().filter(|o| o.t == ObjKind::Arrow).count(),
+        1
+    );
+    // a dative bond with a tail after it still reads its dative bond
+    let d = import("N->[Cu+2] |$a->b;$|").unwrap();
+    assert_eq!(d.bonds.iter().filter(|b| b.kind() == "dative").count(), 1);
+}

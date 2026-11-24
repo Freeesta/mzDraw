@@ -33,10 +33,10 @@ Both layouts are read into RDKit (mzDraw's through its own molfile, so the coord
 
 | measure | RDKit | mzDraw |
 |---|---|---|
-| inputs read (of 32) | 32 | 30 (refused: `[NH3]->[Pd]...` dative SMILES and the reaction SMILES, both `error.draw2.smiles`; the reaction drawn from its RXN file instead) |
-| SVG deterministic | 32 of 32 | 31 of 31 drawn |
-| stereo kept through the molfile | 31 of 31 molecules | 29 of 30 (the polyene, see F3) |
-| mzDraw stereo kept through its own SMILES / its CDXML read by RDKit | n.a. | 29 of 30 / 29 of 30 (the same polyene) |
+| inputs read (of 32) | 32 | 32 since rdkit-compare 7 (before: 30, the dative SMILES `[NH3]->[Pd]...` and the reaction SMILES refused, F4 and F5); `tools/rdkit_compare/reference.json` regenerated |
+| SVG deterministic | 32 of 32 | 32 of 32 |
+| stereo kept through the molfile | 31 of 31 molecules | 31 of 31 molecules (before the "either" bond of F3: 29 of 30, the polyene) |
+| mzDraw stereo kept through its own SMILES / its CDXML read by RDKit | n.a. | 31 of 31 / 31 of 31 (before F3: 29 of 30 / 29 of 30, the same polyene) |
 | atom clashes (pairs < 0.5) | 0 | 3 (cage 2, adamantane-like 1) |
 | bond crossings | 3 (cage 2, adamantane-like 1) | 3 (the same two) |
 | labelled atoms crossed by a bond | 0 | 0 |
