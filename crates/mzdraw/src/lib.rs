@@ -32,6 +32,7 @@ mod editor_tools;
 pub mod editor_touch;
 pub mod feedback;
 pub mod formats;
+pub mod grid;
 pub mod hotkeys;
 pub mod ink;
 pub mod io;

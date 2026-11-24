@@ -1232,6 +1232,49 @@ impl Painter<'_> {
         // the ids placed so far, by cell; a query looks at the cells round a point
         let cell = s.max(1.0);
         let key = |p: (f64, f64)| ((p.0 / cell).floor() as i64, (p.1 / cell).floor() as i64);
+        // the boxes of the caption lines (`display.values`, `display.titles`), by every cell they cover: an id is put where it does
+        // not cover one when it has such a place
+        let cf = crate::values::caption_font(f);
+        let mut caption_cells: HashMap<(i64, i64), Vec<[f64; 4]>> = HashMap::new();
+        for c in &self.over.captions {
+            let (x, y) = self.view.to_px(c.x, c.y);
+            let first = y + crate::values::caption_first(s, cf, c.below);
+            for (k, line) in c.lines.iter().enumerate() {
+                let at = first + k as f64 * crate::values::caption_step(cf);
+                let half = width(line, cf) / 2.0;
+                let b = [x - half, at - cf * 0.6, x + half, at + cf * 0.6];
+                let (lo, hi) = (key((b[0], b[1])), key((b[2], b[3])));
+                for i in lo.0..=hi.0 {
+                    for j in lo.1..=hi.1 {
+                        caption_cells.entry((i, j)).or_default().push(b);
+                    }
+                }
+            }
+        }
+        // the places of an id that cover no caption line (all of them when every place covers one)
+        let clear_of_captions = |spots: &[(f64, f64)], text: &str| -> Vec<(f64, f64)> {
+            if caption_cells.is_empty() {
+                return spots.to_vec();
+            }
+            let (hw, hh) = (width(text, small) / 2.0, small * 0.6);
+            let free: Vec<(f64, f64)> = (spots.iter().copied())
+                .filter(|&(x, y)| {
+                    let (lo, hi) = (key((x - hw, y - hh)), key((x + hw, y + hh)));
+                    !(lo.0..=hi.0).any(|i| {
+                        (lo.1..=hi.1).any(|j| {
+                            (caption_cells.get(&(i, j)).into_iter().flatten()).any(|b| {
+                                x - hw < b[2] && b[0] < x + hw && y - hh < b[3] && b[1] < y + hh
+                            })
+                        })
+                    })
+                })
+                .collect();
+            if free.is_empty() {
+                spots.to_vec()
+            } else {
+                free
+            }
+        };
         let mut placed: HashMap<(i64, i64), Vec<(f64, f64)>> = HashMap::new();
         // the points an id near the atoms `core` keeps away from (the bond `skip` left out: an id of a bond is beside it)
         let near =
@@ -1328,7 +1371,7 @@ impl Painter<'_> {
                     .collect();
                 for (text, ink) in list {
                     let pts = near(&[a.id], None, &placed);
-                    let spot = id_spot(&spots, &pts);
+                    let spot = id_spot(&clear_of_captions(&spots, &text), &pts);
                     placed.entry(key(spot)).or_default().push(spot);
                     self.text(spot.0, spot.1, small, ink, &text, 0.0);
                 }
@@ -1358,7 +1401,7 @@ impl Painter<'_> {
                 ];
                 for (text, ink) in list {
                     let pts = near(&[b.a, b.b], Some(k), &placed);
-                    let spot = id_spot(&spots, &pts);
+                    let spot = id_spot(&clear_of_captions(&spots, &text), &pts);
                     placed.entry(key(spot)).or_default().push(spot);
                     self.text(spot.0, spot.1, small, ink, &text, 0.0);
                 }

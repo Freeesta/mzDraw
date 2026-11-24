@@ -11,9 +11,9 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 /// The keys of the envelope, in the order they are written. A key that does not apply is left out.
-pub const KEYS: [&str; 15] = [
+pub const KEYS: [&str; 16] = [
     "format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "imported", "lost",
-    "failed", "changed", "dirty", "orient", "expect",
+    "failed", "changed", "dirty", "orient", "grid", "expect",
 ];
 
 /// The keys of an item of `orient`, in the order they are written (`at` only for status `overlap`).
@@ -406,6 +406,9 @@ pub struct Outcome {
     pub dirty: bool,
     /// Only when a command was `scheme:orient`: the result of each product structure of its last run (`orient::Step`).
     pub orient: Option<Vec<crate::orient::Step>>,
+    /// Only when a command was `grid`: the free objects its last run left where they were (`grid::Plan::left`), written
+    /// `{"left":[ids]}`.
+    pub grid: Option<Vec<u32>>,
     /// `(request object, ok, detail)` per expectation, in request order; `None` when the request had no `expect`.
     pub expect: Option<Vec<(Value, bool, String)>>,
 }
@@ -456,6 +459,10 @@ impl Outcome {
         if let Some(steps) = &self.orient {
             let items: Vec<String> = steps.iter().map(orient_json).collect();
             s.push_str(&format!(",\"orient\":[{}]", items.join(",")));
+        }
+        if let Some(left) = &self.grid {
+            let ids: Vec<String> = left.iter().map(u32::to_string).collect();
+            s.push_str(&format!(",\"grid\":{{\"left\":[{}]}}", ids.join(",")));
         }
         if let Some(list) = &self.expect {
             let items: Vec<String> = (list.iter())

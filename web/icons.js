@@ -39,6 +39,7 @@ export const ICONS = {
   arrow: '<path d="M4 12h16M14.5 6.5L20 12l-5.5 5.5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   "scheme-row": '<path d="M2.5 12h4M4.5 10v4M9 12h6M12.5 9.5L15 12l-2.5 2.5M19 12h2.5"/>',
+  "structure-grid": '<rect x="3" y="3" width="7" height="6" rx="1"/><rect x="14" y="3" width="7" height="6" rx="1"/><rect x="3" y="13" width="7" height="6" rx="1"/><rect x="14" y="13" width="7" height="6" rx="1"/><path d="M4.5 11h4M15.5 11h4M4.5 21h4M15.5 21h4"/>',
   "pathway-label": '<path d="M3 15h18M17 11.5l4 3.5-4 3.5"/><path d="M6 9.5h7M9.5 6.5v6"/>',
   "pathway-tree": '<rect x="2.5" y="9.5" width="4" height="5" rx="1"/><rect x="17.5" y="3.5" width="4" height="4" rx="1"/><rect x="17.5" y="16.5" width="4" height="4" rx="1"/><path d="M6.5 12h4v-6h7M10.5 12v6h7"/>',
   lonepair: '<circle cx="12" cy="12" r="5.5"/><circle cx="9.5" cy="3.5" r="1.1"/><circle cx="14.5" cy="3.5" r="1.1"/>',

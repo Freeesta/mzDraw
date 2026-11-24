@@ -164,7 +164,7 @@ pub fn key(key: &str, mods: u32, t: f64) -> u32 {
 }
 
 /// `what`: `undo`, `redo`, `clear`, `all` (select all), `delete` (the selection), `copy`, `cut`, `paste` (the editor's own
-/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `pathway-tree` (arranges the pathway of anchored arrows as a tree), `align:left|centre|right|top|middle|bottom`, `distribute:h|v`, `rotate:<deg>`, `nudge:<dx>,<dy>` (arrange the selection, or everything), `scheme-orient` (each structure after an arrow turned onto the one before it), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
+/// clipboard), `duplicate`, `rotate-l` / `rotate-r` (15 degrees), `flip-h`, `flip-v`, `scheme-row` (the one-line scheme layout), `structure-grid` (the structures in a grid with room for their legends), `pathway-tree` (arranges the pathway of anchored arrows as a tree), `align:left|centre|right|top|middle|bottom`, `distribute:h|v`, `rotate:<deg>`, `nudge:<dx>,<dy>` (arrange the selection, or everything), `scheme-orient` (each structure after an arrow turned onto the one before it), `move-here` (toggles the mode in which a click brings the selection there), or a tool name (`select`, `atom:N`, `bond:2`,
 /// `bond:up`, `label:Ph`, `arrow`, `plus`, `text:<one line>`, ...).
 #[wasm_bindgen]
 pub fn command(what: &str) -> u32 {
@@ -183,6 +183,7 @@ pub fn command(what: &str) -> u32 {
         "flip-h" => e.flip(Axis::H),
         "flip-v" => e.flip(Axis::V),
         "scheme-row" => e.scheme_row(),
+        "structure-grid" => e.grid(),
         "pathway-tree" => e.pathway_tree(),
         "scheme-orient" => e.scheme_orient(),
         "lonepairs-place" => e.place_lone_pairs(),

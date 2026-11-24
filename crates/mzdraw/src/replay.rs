@@ -828,6 +828,11 @@ pub fn replay_engines(request: &str, n: u64, engines: Engines) -> Result<Reply, 
         changed: before_commands.map(|b| b != e.doc().to_json()),
         dirty: e.dirty(),
         orient: orients.then(|| e.orient_steps.clone()),
+        grid: r
+            .commands
+            .iter()
+            .any(|c| c.0 == "grid")
+            .then(|| e.grid_left.clone()),
         expect,
     };
     if outcome.ok() {

@@ -400,8 +400,10 @@ pub(crate) fn labels_canon(mode: &str, adduct: &str) -> Option<(String, String)>
 
 impl Document {
     /// The title the file of this drawing is written with: the title of the first atom (pool order) that has one, empty for none.
+    /// It is one line (`values::legend`): a document held in memory may carry a title the file route would refuse, and a line
+    /// break in it would split the title line of a molfile.
     pub fn title(&self) -> String {
-        (self.atoms.iter().map(Atom::title))
+        (self.atoms.iter().map(|a| crate::values::legend(&a.title())))
             .find(|t| !t.is_empty())
             .unwrap_or_default()
     }
