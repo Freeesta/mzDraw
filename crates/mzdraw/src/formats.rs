@@ -72,7 +72,7 @@ impl Document {
         out.push_str(rest);
         // the enhanced-stereo groups, as the CXSMILES tail (the positions are those of the written atoms)
         let order: Vec<usize> = order.iter().map(|&i| i as usize).collect();
-        out.push_str(&self.sg_tail(&order));
+        out.push_str(&self.stg_tail(&order));
         Ok(out)
     }
 
@@ -158,9 +158,9 @@ impl Document {
                 }
                 _ => {}
             }
-            // the enhanced-stereo groups of the atoms (`atom.sg`), as the collections of V3000, before the end of the table
+            // the enhanced-stereo groups of the atoms (`stereo.group`), as the collections of V3000, before the end of the table
             if body == "END CTAB" {
-                out.push_str(&self.sg_collection());
+                out.push_str(&self.stg_collection());
             }
             if block != 'c' {
                 out.push_str(marked.as_deref().unwrap_or(line));
@@ -170,13 +170,13 @@ impl Document {
         out
     }
 
-    /// The enhanced-stereo groups of the drawing (`atom.sg`), in the order of the files: `abs`, then the `and` groups, then the `or`
+    /// The enhanced-stereo groups of the drawing (`stereo.group`), in the order of the files: `abs`, then the `and` groups, then the `or`
     /// groups, each by its number, with the indices (0-based, pool order) of its atoms. Files number the groups of a kind 1, 2, ...
     /// in this order (a reader numbers them by their order), so the number of a file is the rank of the drawing's number.
-    pub(crate) fn sg_groups(&self) -> Vec<(&'static str, u32, Vec<usize>)> {
+    pub(crate) fn stg_groups(&self) -> Vec<(&'static str, u32, Vec<usize>)> {
         let mut groups: std::collections::BTreeMap<(u8, u32), Vec<usize>> = Default::default();
         for (i, a) in self.atoms.iter().enumerate() {
-            let g = a.sg();
+            let g = a.stg();
             let key = if g == "abs" {
                 (0, 0)
             } else if let Some(n) = g.strip_prefix("and").and_then(|n| n.parse().ok()) {
@@ -203,8 +203,8 @@ impl Document {
     }
 
     /// The `BEGIN COLLECTION` block of V3000 with the enhanced-stereo groups (`STEABS`, `STERACn`, `STERELn`), empty for none.
-    fn sg_collection(&self) -> String {
-        let groups = self.sg_groups();
+    fn stg_collection(&self) -> String {
+        let groups = self.stg_groups();
         if groups.is_empty() {
             return String::new();
         }
@@ -227,8 +227,8 @@ impl Document {
 
     /// The CXSMILES tail of the enhanced-stereo groups (`|a:..,&1:..,o1:..|`) for a SMILES whose atoms are written in `order`
     /// (the index in the pool of each written atom); empty for none.
-    pub(crate) fn sg_tail(&self, order: &[usize]) -> String {
-        let groups = self.sg_groups();
+    pub(crate) fn stg_tail(&self, order: &[usize]) -> String {
+        let groups = self.stg_groups();
         if groups.is_empty() {
             return String::new();
         }

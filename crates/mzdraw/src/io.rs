@@ -483,6 +483,21 @@ impl Document {
 
     /// The document as a record with its stereo: the molfile as drawn, read back by `mzlab-mol` (its rules decide what the wedges
     /// mean). A drawing its reader refuses gives the record without stereo.
+    /// The ids of the atoms the record calls stereocentres: the defined tetrahedral centres of `to_mol_stereo` (the wedges as
+    /// drawn). An enhanced-stereo group (`stereo.group`) goes on these only.
+    pub fn stereocentres(&self) -> std::collections::HashSet<u32> {
+        (self.to_mol_stereo().stereo.iter())
+            .filter_map(|s| match s {
+                mzlab_mol::Stereo::Tetra {
+                    c,
+                    status: mzlab_mol::Status::Defined,
+                    ..
+                } => self.atoms.get(*c as usize).map(|a| a.id),
+                _ => None,
+            })
+            .collect()
+    }
+
     pub fn to_mol_stereo(&self) -> Mol {
         let m = self.to_mol();
         // without the R-group marks: the reader of the record refuses `R#`, the stand-in element carries the stereo through
@@ -846,7 +861,7 @@ pub(crate) fn labelled(
     info: &mut Imported,
 ) -> (Document, bool) {
     let (mut d, placeholder) = Document::from_mol(m);
-    // the enhanced-stereo groups are kept on their atoms (`atom.sg`): `abs`, and the `and` and `or` groups numbered in the order of
+    // the enhanced-stereo groups are kept on their atoms (`stereo.group`): `abs`, and the `and` and `or` groups numbered in the order of
     // the record; a group with an atom the drawing does not have is said as not kept
     let (mut and, mut or) = (0, 0);
     for g in &m.groups {
@@ -862,14 +877,26 @@ pub(crate) fn labelled(
             }
         };
         let fits =
-            crate::doc::sg_valid(&sg) && g.atoms.iter().all(|&i| (i as usize) < d.atoms.len());
+            crate::doc::stg_valid(&sg) && g.atoms.iter().all(|&i| (i as usize) < d.atoms.len());
         if !fits {
             info.stereo_groups += usize::from(g.kind != mzlab_mol::GroupKind::Abs);
             continue;
         }
         for &i in &g.atoms {
-            d.atoms[i as usize].set_sg(&sg);
+            d.atoms[i as usize].set_stg(&sg);
         }
+    }
+    // a group only stands on a stereocentre of the drawing (the wedges it has): one on another atom is said as not kept
+    if d.atoms.iter().any(|a| !a.stg().is_empty()) {
+        let centres = d.stereocentres();
+        let mut dropped = std::collections::BTreeSet::new();
+        for a in &mut d.atoms {
+            if !a.stg().is_empty() && !centres.contains(&a.id) {
+                dropped.insert(a.stg());
+                a.set_stg("");
+            }
+        }
+        info.stereo_groups += dropped.len();
     }
     // the bonds the file drew from one atom to the other: dative and hydrogen bonds (the donor is the first atom of the line)
     for (from, to, kind) in std::mem::take(&mut info.links) {

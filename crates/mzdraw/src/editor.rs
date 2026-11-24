@@ -335,12 +335,6 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
                 title: a.title(),
             });
         }
-        if !a.sg().is_empty() {
-            ops.push(Op::AtomSg {
-                id: base + a.id,
-                sg: a.sg(),
-            });
-        }
         if !a.cap().is_empty() {
             ops.push(Op::AtomCap {
                 id: base + a.id,
@@ -422,6 +416,15 @@ pub(crate) fn place_ops(base: u32, new: &Document, dx: f64, dy: f64) -> Vec<Op> 
                 col: o.col(),
             });
         }
+    }
+    // the enhanced-stereo groups, after the bonds whose wedges make their atoms stereocentres: one operation per group
+    for (kind, _, atoms) in new.stg_groups() {
+        let g = new.atoms[atoms[0]].stg();
+        debug_assert!(g == "abs" || g.starts_with(kind));
+        ops.push(Op::StereoGroup {
+            atoms: atoms.iter().map(|&i| base + new.atoms[i].id).collect(),
+            g,
+        });
     }
     ops
 }

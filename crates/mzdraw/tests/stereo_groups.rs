@@ -1,0 +1,224 @@
+//! Enhanced-stereo groups kept on their stereocentres (rdkit-compare 3 part 2, the staged first step of arch-std-12/19/20): the atom
+//! field `stg`, the operation `stereo.group` with its exact inverse, read from and written to CXSMILES and V3000, drawn next to their
+//! atoms, said lost where a format cannot hold them; no group is ever assumed on read (E20). Synthetic structures only.
+
+use mzdraw::{Document, Editor, Op, Session};
+use serde_json::{json, Value};
+
+fn import(text: &str) -> Document {
+    let mut e = Editor::default();
+    e.import(text).unwrap();
+    e.doc().clone()
+}
+
+fn groups(d: &Document) -> Vec<(u32, String)> {
+    (d.atoms.iter())
+        .filter(|a| !a.stg().is_empty())
+        .map(|a| (a.id, a.stg()))
+        .collect()
+}
+
+fn op(v: Value) -> Op {
+    Op::parse(&v).unwrap()
+}
+
+/// Two stereocentres (atoms 2 and 4) drawn with wedges, no group.
+const TWO: &str = "C[C@H](O)[C@@H](F)Cl";
+
+#[test]
+fn a_group_goes_on_stereocentres_and_one_undo_gives_the_identical_document() {
+    let d = import(TWO);
+    assert_eq!(
+        d.stereocentres()
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>(),
+        [2, 4].into()
+    );
+    let mut s = Session::new(d.clone());
+    let before = s.doc.to_json();
+    s.run(&[op(
+        json!({"op": "stereo.group", "atoms": [2, 4], "g": "and1"}),
+    )])
+    .unwrap();
+    assert_eq!(groups(&s.doc), [(2, "and1".into()), (4, "and1".into())]);
+    // changed for one atom, then taken away with `none`
+    s.run(&[op(json!({"op": "stereo.group", "atoms": [4], "g": "or2"}))])
+        .unwrap();
+    assert_eq!(groups(&s.doc), [(2, "and1".into()), (4, "or2".into())]);
+    s.run(&[op(
+        json!({"op": "stereo.group", "atoms": [2, 4], "g": "none"}),
+    )])
+    .unwrap();
+    assert!(groups(&s.doc).is_empty());
+    // each undo gives the document before it, byte for byte
+    s.undo();
+    assert_eq!(groups(&s.doc), [(2, "and1".into()), (4, "or2".into())]);
+    s.undo();
+    s.undo();
+    assert_eq!(s.doc.to_json(), before);
+    // the log writes the operation back as it was read
+    let text = mzdraw::ops::log_text(&[op(
+        json!({"op": "stereo.group", "atoms": [2, 4], "g": "abs"}),
+    )]);
+    assert_eq!(text, r#"[{"op":"stereo.group","atoms":[2,4],"g":"abs"}]"#);
+}
+
+#[test]
+fn a_group_that_is_none_or_an_atom_that_is_no_stereocentre_is_refused_and_changes_nothing() {
+    let d = import(TWO);
+    let mut s = Session::new(d.clone());
+    for (v, key, id) in [
+        (
+            json!({"op": "stereo.group", "atoms": [1], "g": "and1"}),
+            "error.draw2.stereoGroup",
+            1,
+        ),
+        (
+            json!({"op": "stereo.group", "atoms": [2, 3], "g": "and1"}),
+            "error.draw2.stereoGroup",
+            3,
+        ),
+        (
+            json!({"op": "stereo.group", "atoms": [2], "g": "and0"}),
+            "error.draw2.stereoGroup",
+            2,
+        ),
+        (
+            json!({"op": "stereo.group", "atoms": [2], "g": "and100"}),
+            "error.draw2.stereoGroup",
+            2,
+        ),
+        (
+            json!({"op": "stereo.group", "atoms": [2], "g": "&1"}),
+            "error.draw2.stereoGroup",
+            2,
+        ),
+        (
+            json!({"op": "stereo.group", "atoms": [2], "g": ""}),
+            "error.draw2.stereoGroup",
+            2,
+        ),
+        (
+            json!({"op": "stereo.group", "atoms": [], "g": "abs"}),
+            "error.draw2.stereoGroup",
+            0,
+        ),
+        (
+            json!({"op": "stereo.group", "atoms": [99], "g": "abs"}),
+            "error.draw2.noAtom",
+            99,
+        ),
+    ] {
+        let e = s.run(&[op(v.clone())]).unwrap_err();
+        assert_eq!((e.key, e.id), (key, id), "{v}");
+        assert_eq!(s.doc, d, "{v}: nothing changed");
+    }
+}
+
+#[test]
+fn cxsmiles_and_v3000_groups_are_read_and_written_back() {
+    // CXSMILES: an `and` and an `or` group, read on their atoms and written back in the tail
+    let d = import("C[C@H](O)[C@@H](F)Cl |&1:1,o1:3|");
+    assert_eq!(groups(&d), [(2, "and1".into()), (4, "or1".into())]);
+    assert_eq!(d.to_smiles().unwrap(), "C[C@H](O)[C@@H](F)Cl |&1:1,o1:3|");
+    // V3000: the collections, and read back to the same groups
+    let v3 = d.to_molfile_v3000();
+    assert!(
+        v3.contains("MDLV30/STERAC1 ATOMS=(1 2)") && v3.contains("MDLV30/STEREL1 ATOMS=(1 4)"),
+        "{v3}"
+    );
+    assert_eq!(groups(&import(&v3)), groups(&d));
+    // `abs` with another group, in the file order: abs, and, or
+    let mut s = Session::new(import(TWO));
+    s.run(&[
+        op(json!({"op": "stereo.group", "atoms": [4], "g": "abs"})),
+        op(json!({"op": "stereo.group", "atoms": [2], "g": "and3"})),
+    ])
+    .unwrap();
+    let v3 = s.doc.to_molfile_v3000();
+    let abs = v3.find("STEABS").unwrap();
+    assert!(abs < v3.find("STERAC1").unwrap(), "{v3}");
+    // the number of a file is the rank of the drawing's number: and3 alone is written &1 and read back and1
+    assert_eq!(
+        s.doc.to_smiles().unwrap(),
+        "C[C@H](O)[C@@H](F)Cl |a:3,&1:1|"
+    );
+    assert_eq!(
+        groups(&import(&s.doc.to_smiles().unwrap())),
+        [(2, "and1".into()), (4, "abs".into())]
+    );
+}
+
+#[test]
+fn no_group_is_assumed_on_read() {
+    // E20: a wedged centre outside every collection, and a V2000 file (a chiral flag, no collection), have no group
+    let d = import("C[C@H](O)[C@@H](F)Cl |&1:1|");
+    assert_eq!(
+        groups(&d),
+        [(2, "and1".into())],
+        "atom 4 is wedged and in no group"
+    );
+    let v2 = import(TWO).to_molfile();
+    let chiral = v2.replacen("  0  0999 V2000", "  1  0999 V2000", 1);
+    for text in [v2, chiral] {
+        assert!(groups(&import(&text)).is_empty(), "{text}");
+    }
+}
+
+#[test]
+fn the_labels_are_drawn_next_to_their_atoms_and_abs_only_beside_another_kind() {
+    let svg = |d: &Document| mzdraw::svg::to_svg(d);
+    let d = import("C[C@H](O)[C@@H](F)Cl |&1:1,o1:3|");
+    let s = svg(&d);
+    assert_eq!(
+        (s.matches(">and1<").count(), s.matches(">or1<").count()),
+        (1, 1)
+    );
+    // all absolute: the wedges say it, no label; with an `and` group beside it, `abs` is drawn
+    let d = import("C[C@H](O)[C@@H](F)Cl |a:1,3|");
+    assert_eq!(groups(&d).len(), 2);
+    assert_eq!(svg(&d).matches(">abs<").count(), 0);
+    let d = import("C[C@H](O)[C@@H](F)Cl |a:1,&1:3|");
+    let s = svg(&d);
+    assert_eq!(
+        (s.matches(">abs<").count(), s.matches(">and1<").count()),
+        (1, 1)
+    );
+    // none: no label
+    assert!(!svg(&import(TWO)).contains(">abs<"));
+}
+
+#[test]
+fn a_format_that_has_no_place_for_them_says_so_and_the_cli_gives_the_page_bytes() {
+    let text = "C[C@H](O)[C@@H](F)Cl |&1:1,o1:3|";
+    // V2000, SDF, KET, CDXML, CML: the groups are lost and the result says it (the loss manifest)
+    for out in ["molfile", "sdf", "ket", "cdxml", "cml"] {
+        let r = json!({"import": text, "out": format!("loss:{out}")});
+        let v: Value =
+            serde_json::from_str(&mzdraw::replay::replay(&r.to_string()).unwrap()).unwrap();
+        let lost = v.to_string();
+        assert!(lost.contains("atom.stereoGroup"), "{out}: {lost}");
+    }
+    for out in ["molfile-v3000", "smiles", "mzdraw"] {
+        let r = json!({"import": text, "out": format!("loss:{out}")});
+        let v: Value =
+            serde_json::from_str(&mzdraw::replay::replay(&r.to_string()).unwrap()).unwrap();
+        assert!(!v.to_string().contains("atom.stereoGroup"), "{out}: {v}");
+    }
+    // the page: an import then the operation; the log replays natively to the same bytes
+    let mut e = Editor::default();
+    e.import(TWO).unwrap();
+    e.session
+        .run(&[op(
+            json!({"op": "stereo.group", "atoms": [2, 4], "g": "or1"}),
+        )])
+        .unwrap();
+    let page = e.save("mzdraw").unwrap();
+    let log: Value = serde_json::from_str(&e.session.log_json()).unwrap();
+    assert_eq!(
+        mzdraw::replay::replay(&json!({"log": log}).to_string()).unwrap(),
+        page
+    );
+    let cli = json!({"import": TWO, "log": [{"op": "stereo.group", "atoms": [2, 4], "g": "or1"}], "out": "mzdraw"});
+    assert_eq!(mzdraw::replay::replay(&cli.to_string()).unwrap(), page);
+}

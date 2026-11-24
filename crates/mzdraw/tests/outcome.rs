@@ -534,20 +534,29 @@ fn what_the_import_does_not_keep_is_in_imported_as_the_page_says_it() {
         })
         .collect()
     };
-    let group = ("draw2.import.stereoGroups".to_string(), 1);
-    // an "and" group of a CXSMILES: the drawing keeps the centre as drawn, the group is said
+    // (an enhanced-stereo group is kept since rdkit-compare 3 part 2: a name cut to 80 characters is the note of these cases)
+    let long = "C[C@H](F)Cl ".to_string() + &"n".repeat(90);
+    let group = ("draw2.import.nameCut".to_string(), 1);
+    // a kept group says nothing
     let v = run(json!({"import": "C[C@H](F)Cl |&1:1|", "report": true, "out": "smiles"}));
+    assert!(v.get("imported").is_none(), "{v}");
+    assert_eq!(v["out"], "C[C@H](F)Cl |&1:1|", "{v}");
+    // an "and" group of a CXSMILES: the drawing keeps the centre as drawn, the group is said
+    let v = run(json!({"import": long, "report": true, "out": "smiles"}));
     assert_eq!(notes(&v), std::slice::from_ref(&group), "{v}");
     // two "or" groups, with a dry run (nothing written, the notes all the same)
-    let v = run(json!({"import": "C[C@H](O)[C@@H](N)C |o1:1,o2:3|", "dry_run": true}));
+    let v = run(json!({"import": format!("{long}\n{long}"), "dry_run": true}));
     assert_eq!(
         notes(&v),
-        [("draw2.import.stereoGroups".to_string(), 2)],
+        [
+            ("draw2.import.records".to_string(), 2),
+            ("draw2.import.nameCut".to_string(), 2)
+        ],
         "{v}"
     );
     // the page's notes of the same import are the same items (`io::Imported::notes`, less the computed layout)
     let mut e = mzdraw::Editor::default();
-    let page: Vec<(String, u64)> = (e.import("C[C@H](F)Cl |&1:1|").unwrap().notes().into_iter())
+    let page: Vec<(String, u64)> = (e.import(&long).unwrap().notes().into_iter())
         .filter(|(k, n)| *n > 0 && *k != "draw2.import.placeholder")
         .map(|(k, n)| (k.to_string(), n as u64))
         .collect();
@@ -557,15 +566,13 @@ fn what_the_import_does_not_keep_is_in_imported_as_the_page_says_it() {
     assert!(v.get("imported").is_none(), "{v}");
     // the key sits between removed and lost
     let text = replay_at(
-        &json!({"import": "C[C@H](F)Cl |&1:1|", "report": true, "out": "smiles"}).to_string(),
+        &json!({"import": long, "report": true, "out": "smiles"}).to_string(),
         0,
     )
     .unwrap()
     .text;
     assert!(
-        text.contains(
-            r#""removed":{},"imported":[{"key":"draw2.import.stereoGroups","n":1}],"dirty""#
-        ),
+        text.contains(r#""removed":{},"imported":[{"key":"draw2.import.nameCut","n":1}],"dirty""#),
         "{text}"
     );
 }
@@ -605,9 +612,9 @@ fn every_kind_of_import_note_comes_through_and_one_key_is_one_item() {
     // the start text and the file together: the notes of both, the text first
     let pdf = mzdraw::replay::replay(&json!({"import": "CCO", "out": "pdf"}).to_string()).unwrap();
     let v = run(
-        json!({"import": "C[C@H](F)Cl |&1:1|", "import_base64": pdf, "report": true, "out": "smiles"}),
+        json!({"import": "C[C@H](F)Cl ".to_string() + &"n".repeat(90), "import_base64": pdf, "report": true, "out": "smiles"}),
     );
-    assert_eq!(items(&v), [k("stereoGroups", 1)], "{v}");
+    assert_eq!(items(&v), [k("nameCut", 1)], "{v}");
     // one key from the text and from the file is one item with the sum; smilesLine keeps one item per line; 0 and the layout go
     use mzdraw::outcome::import_notes;
     assert_eq!(

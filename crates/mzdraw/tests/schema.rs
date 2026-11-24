@@ -159,6 +159,10 @@ fn full_ops() -> Vec<Op> {
             y: 1.0,
             deg: 30.0,
         },
+        Op::StereoGroup {
+            atoms: vec![2, 4],
+            g: "and1".into(),
+        },
     ]
 }
 
@@ -177,12 +181,12 @@ fn every_operation_of_the_writer_is_a_row_with_exactly_its_fields() {
         v["op"].as_str().unwrap().to_string()
     };
     let names: BTreeSet<String> = ops.iter().map(name).collect();
-    // the 18 rows read here; `merge` is not read yet
+    // the 19 rows read here; `merge` is not read yet
     let read: BTreeSet<String> = (OPS.iter().filter(|o| o.mzdraw))
         .map(|o| o.name.to_string())
         .collect();
     assert_eq!(names, read);
-    assert_eq!(read.len(), 18);
+    assert_eq!(read.len(), 19);
     // the fields written by the samples of one row, together, are the fields of the row (a row may need two samples: an arrow and a
     // curve say different fields of `obj.add`)
     let mut said: std::collections::BTreeMap<String, BTreeSet<String>> = Default::default();

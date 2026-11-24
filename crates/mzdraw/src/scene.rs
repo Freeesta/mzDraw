@@ -1192,7 +1192,7 @@ impl Painter<'_> {
             .doc
             .atoms
             .iter()
-            .any(|a| a.more.iter().any(|m| m.0 == "sg"));
+            .any(|a| a.more.iter().any(|m| m.0 == "stg"));
         if self.m.ids == crate::settings::Ids::Off && self.over.cip.is_empty() && !grouped {
             return;
         }
@@ -1347,15 +1347,15 @@ impl Painter<'_> {
             .filter(|c| c.bond != 0)
             .map(|c| (c.bond, format!("({})", c.text)))
             .collect();
-        // the enhanced-stereo group of each atom (`atom.sg`): `and1`, `or2`, and `abs` when the drawing also has a group of another
+        // the enhanced-stereo group of each atom (`stereo.group`): `and1`, `or2`, and `abs` when the drawing also has a group of another
         // kind (a drawing whose centres are all absolute says nothing more than its wedges)
         let mixed = doc.atoms.iter().any(|a| {
-            let g = a.sg();
+            let g = a.stg();
             g.starts_with("and") || g.starts_with("or")
         });
         let group: HashMap<u32, String> = (doc.atoms.iter())
             .filter(|_| grouped)
-            .map(|a| (a.id, a.sg()))
+            .map(|a| (a.id, a.stg()))
             .filter(|(_, g)| !g.is_empty() && (g != "abs" || mixed))
             .collect();
         let notes = |id: u32, ids: bool, cip: &HashMap<u32, String>| -> Vec<(String, f32)> {

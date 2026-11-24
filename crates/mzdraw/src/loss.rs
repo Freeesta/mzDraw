@@ -204,12 +204,12 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if !a.ann().is_empty() {
             push("annotation", a.ann(), a.id, 0, 0);
         }
-        if !a.sg().is_empty() {
-            push("atom.stereoGroup", a.sg(), a.id, 0, 0);
+        if !a.stg().is_empty() {
+            push("atom.stereoGroup", a.stg(), a.id, 0, 0);
         }
         // `col` is not unknown when it is a colour (it has its own row); a value that is not one (a newer file) is
         for (key, _) in (a.more.iter()).filter(|m| {
-            !["data", "ann", "lp", "sg"].contains(&m.0.as_str())
+            !["data", "ann", "lp", "stg"].contains(&m.0.as_str())
                 && (m.0 != "col" || a.col().is_empty())
                 && (m.0 != "cap" || a.cap().is_empty())
         }) {

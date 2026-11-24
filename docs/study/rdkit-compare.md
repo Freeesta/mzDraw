@@ -82,7 +82,7 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | 2 | depict a molfile V2000/V3000 with its coordinates | `MolFromMolBlock` | `import` a molfile | built | `core.json` | M |
 | 3 | depict every record of an SDF | `SDMolSupplier` (+ grid) | `import` an SDF: records side by side | built | `sdf-data.json` | M |
 | 4 | coordinates given in a CXSMILES | read `\|(...)\|` | ignored, layout computed (F6) | missing | | M |
-| 5 | enhanced stereo groups (`&1`, `o1`, V3000 `STERAC`) | kept and drawn | dropped; the page's import note says so, the CLI route gives no loss item (F2) | missing | `crates/mzdraw/tests/formats.rs` (the page note) | M |
+| 5 | enhanced stereo groups (`&1`, `o1`, V3000 `STERAC`) | kept and drawn | kept on their stereocentres (field `stg`, op `stereo.group`), read from and written to CXSMILES and V3000, drawn; KET and the V2000 chiral flag not yet (arch-std-19) (`built/enhanced-stereo-groups.md`) | built | `stereo-groups.json`, `crates/mzdraw/tests/stereo_groups.rs` | M |
 | 6 | dative bonds in SMILES (`->`) | read | refused (F5) | missing | | M |
 | 7 | reaction SMILES (`A>>B`) | `ReactionFromSmarts(useSmiles=True)` | refused (F4); RXN file works (#41) | missing | | M |
 | 8 | CDXML / CDX read | `MolsFromCDXML` (CDXML) | CDXML and binary CDX | better | `cdx.json` | M |
@@ -120,7 +120,7 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | 35 | atom map numbers | drawn by default | drawn, `display.maps` on/off | built | `atom-maps.json` | M |
 | 36 | atom and bond indices | `addAtomIndices`, `addBondIndices` | `display.ids` off/atoms/bonds/both: the document ids the operations name, placed clear of lines and labels (`built/display-ids.md`) | built | `display-ids.json`, `crates/mzdraw/tests/display_ids.rs` | M |
 | 37 | CIP labels R/S, E/Z | `addStereoAnnotation`, `showAllCIPCodes` | `display.cip`: the labels of the engine `cip` (glue) drawn in brackets, placed as the ids; the plain core replay says it has no engine (`built/display-cip.md`) | built | `cip.json`, `crates/mzdraw-wasm/tests/cip.rs` | M |
-| 38 | enhanced-stereo labels, chiral flag | `addStereoGroupAnnotation`, `includeChiralFlagLabel` | none (F2) | missing | | M (first), D (second) |
+| 38 | enhanced-stereo labels, chiral flag | `addStereoGroupAnnotation`, `includeChiralFlagLabel` | the group labels `and1`, `or1` next to each centre (`abs` beside another kind); no chiral-flag label (arch-std-19) (`built/enhanced-stereo-groups.md`) | partial | `stereo-groups.json` | M (first), D (second) |
 | 39 | atom notes, bond notes | `atomNote`, `bondNote` properties | `atom.data` kept in the document and SDF, not drawn | missing | | M |
 | 40 | lone pairs | none | `atom.set lp` on the canvas, and in SVG and PDF since PR #127 (dfa7ddf) (F1; `built/lone-pairs-export.md`) | better | `curve.json`, `crates/mzdraw/tests/curve.rs` | M |
 
@@ -190,14 +190,14 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 
 | status | rows |
 |---|---|
-| built | 26 |
+| built | 27 |
 | better | 22 |
-| partial | 4 |
-| missing | 20 |
+| partial | 5 |
+| missing | 18 |
 | n.a. | 5 |
 | total | 77 |
 
-Built or better: 48 of 77 (#36 missing to built, rdkit-compare 4; #45 partial to built, rdkit-compare 5; #37 partial to built, rdkit-compare 6; #48 missing to built, rdkit-compare 8; after F1, PR #127, and F3, the "either" PR: #40 partial to better (PR #127, merged), #25 missing to built; the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 20 missing rows and in part of the 4 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
+Built or better: 49 of 77 (#5 missing to built and #38 missing to partial, rdkit-compare 3 part 2; #36 missing to built, rdkit-compare 4; #45 partial to built, rdkit-compare 5; #37 partial to built, rdkit-compare 6; #48 missing to built, rdkit-compare 8; after F1, PR #127, and F3, the "either" PR: #40 partial to better (PR #127, merged), #25 missing to built; the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 18 missing rows and in part of the 5 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
 
 ## 5. Where mzDraw is already better, with evidence
 

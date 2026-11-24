@@ -71,8 +71,8 @@ pub fn say(h: &Hunk) -> Vec<(&'static str, String)> {
             | Op::AtomData { id, .. }
             | Op::AtomAnn { id, .. }
             | Op::AtomTitle { id, .. }
-            | Op::AtomSg { id, .. }
             | Op::AtomCap { id, .. } => c[2][0].push(*id),
+            Op::StereoGroup { atoms, .. } => c[2][0].extend(atoms),
             Op::BondSet { id, .. } => c[2][1].push(*id),
             Op::Colour {
                 atoms,
@@ -523,10 +523,16 @@ impl Editor {
                     | Op::AtomData { id, .. }
                     | Op::AtomAnn { id, .. }
                     | Op::AtomTitle { id, .. }
-                    | Op::AtomSg { id, .. }
                     | Op::AtomCap { id, .. } => {
                         if let Some(&q) = at.get(id) {
                             ring(&mut marks, &mut pts, q, colour::ACCENT);
+                        }
+                    }
+                    Op::StereoGroup { atoms, .. } => {
+                        for id in atoms {
+                            if let Some(&q) = at.get(id) {
+                                ring(&mut marks, &mut pts, q, colour::ACCENT);
+                            }
                         }
                     }
                     Op::BondSet { id, .. } => {

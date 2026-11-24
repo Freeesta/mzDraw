@@ -462,11 +462,15 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
             }]
         }
         15 if r.next(4) == 0 => {
-            // an enhanced-stereo group on an atom: set, replaced, taken away, refused (a group that is none)
-            let groups = ["", "abs", "and1", "or2", "and99", "or0", "and100", "&1"];
-            vec![Op::AtomSg {
-                id: atom(r),
-                sg: groups[r.next(8)].into(),
+            // an enhanced-stereo group on one or two atoms: set, replaced, taken away; refused (a word that is none, an atom that is
+            // no stereocentre: most atoms of the random drawings)
+            let groups = [
+                "none", "abs", "and1", "or2", "and99", "or0", "and100", "&1", "",
+            ];
+            let atoms = (0..1 + r.next(2)).map(|_| atom(r)).collect();
+            vec![Op::StereoGroup {
+                atoms,
+                g: groups[r.next(9)].into(),
             }]
         }
         15 if r.next(3) == 0 => {
@@ -1323,7 +1327,7 @@ fn the_patch_is_in_the_fixed_order() {
         | Op::AtomData { .. }
         | Op::AtomAnn { .. }
         | Op::AtomTitle { .. }
-        | Op::AtomSg { .. } => 6,
+        | Op::StereoGroup { .. } => 6,
         // the colour of an atom is said with the atom, the colour of a bond with the bond
         Op::AtomCap { .. } => 6,
         Op::Colour { atoms, .. } if !atoms.is_empty() => 6,

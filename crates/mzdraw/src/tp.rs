@@ -326,9 +326,12 @@ pub fn derive_expecting(
                 id: atom_ref(*id)?,
                 title: title.clone(),
             },
-            Op::AtomSg { id, sg } => Op::AtomSg {
-                id: atom_ref(*id)?,
-                sg: sg.clone(),
+            Op::StereoGroup { atoms, g } => Op::StereoGroup {
+                atoms: atoms
+                    .iter()
+                    .map(|id| atom_ref(*id))
+                    .collect::<Result<Vec<u32>, _>>()?,
+                g: g.clone(),
             },
             Op::AtomCap { id, lines } => Op::AtomCap {
                 id: atom_ref(*id)?,

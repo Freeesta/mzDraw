@@ -3937,6 +3937,34 @@ try {
     await open(c); await reveal(pg, BT); await pg.focus(BT); await pg.keyboard.press("Enter"); await frames(pg);
     await check(c, "draw2.say.gridLeft", 2);
   });
+
+  await step("enhanced-stereo groups (rdkit-compare 3 part 2): a CXSMILES with groups typed in Add a structure is drawn with its group labels, by keyboard, by touch and by pen; all absolute draws none; the SMILES with its groups equals the golden of stereo-groups.json", async () => {
+    const cases = JSON.parse(readFileSync(path.join(root, "tests/data/log/stereo-groups.json"), "utf8")).cases;
+    const g = name => cases.find(c => c.name.startsWith(name));
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const penTap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const svg = () => pg.evaluate("window.MZDRAW.save('svg')");
+    const fresh = async () => { await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0 }); };
+    // the keyboard: the text typed, the Add button reached by its focus, Enter
+    let c = g("an and and an or group");
+    await fresh(); await reveal(pg, "#d2-text"); await pg.focus("#d2-text"); await pg.keyboard.type(c.request.import);
+    await pg.focus("#d2-add"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 6 });
+    eq(await pg.evaluate("window.MZDRAW.save('smiles')"), c.out.smiles);   // the groups, in the CXSMILES tail (the page numbers its ids from its own counter)
+    let s = await svg(); eq([s.includes(">and1<"), s.includes(">or1<")], [true, true]);
+    await tool(pg, "fit"); await frames(pg); await shot(pg, "rdkit-compare-3-stereo-groups");
+    // a finger: abs beside an and group, both drawn
+    c = g("abs beside an and group");
+    await fresh(); await pg.fill("#d2-text", c.request.import); await pg.touchscreen.tap(...await pfAt("#d2-add")); await want(pg, { atoms: 6 });
+    eq(await pg.evaluate("window.MZDRAW.save('smiles')"), c.out.smiles);   // the groups, in the CXSMILES tail (the page numbers its ids from its own counter)
+    s = await svg(); eq([s.includes(">abs<"), s.includes(">and1<")], [true, true]);
+    // a pen: all absolute, no label
+    c = g("all absolute");
+    await fresh(); await pg.fill("#d2-text", c.request.import); await penTap(...await pfAt("#d2-add")); await want(pg, { atoms: 6 });
+    eq(await pg.evaluate("window.MZDRAW.save('smiles')"), c.out.smiles);   // the groups, in the CXSMILES tail (the page numbers its ids from its own counter)
+    s = await svg(); eq([s.includes(">abs<"), s.includes(">and1<")], [false, false]);
+    await fresh();
+  });
   await ctx.close();
 
   await step("preferences: a stored dark theme is on the page before the first paint and before the module loads; a corrupt stored theme drops only itself with a note; without storage the page still starts", async () => {

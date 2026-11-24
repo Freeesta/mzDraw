@@ -203,15 +203,15 @@ pub const OPS: &[OpSpec] = &[
         mzlab: false,
     },
     OpSpec {
-        name: "atom.sg",
+        name: "stereo.group",
         fields: &[
-            f("id", "uint", true, "", ""),
+            nf("atoms", "uint[]", true, "", "the atoms, each a stereocentre of the record (a defined tetrahedral centre: the wedges as drawn); not empty"),
             nf(
-                "sg",
+                "g",
                 "string",
                 true,
                 "",
-                "the enhanced-stereo group of the atom: `abs` (absolute), `andN` (`&N` of CXSMILES, `STERAC` of V3000: one of the two enantiomers, unknown ratio) or `orN` (`oN`, `STEREL`: one of the two, unknown which), N from 1 to 99; the empty text takes it away; drawn next to the atom; written to V3000 and to the CXSMILES tail of a SMILES; another word is `error.draw2.stereoGroup`",
+                "the enhanced-stereo group: `abs` (absolute), `andN` (`&N` of CXSMILES, `STERACn` of V3000: the drawn isomer and its enantiomer, unknown ratio) or `orN` (`oN`, `STERELn`: one of the two, unknown which), N from 1 to 99; `none` takes the atoms out of any group; kept in the atom field `stg`; drawn next to its atom (`abs` only when the drawing also has an `and` or `or` group); written to V3000 and to the CXSMILES tail of a SMILES; another word, or an atom that is no stereocentre, is `error.draw2.stereoGroup`",
             ),
         ],
         inverse: "SetAtom",

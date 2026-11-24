@@ -350,12 +350,12 @@ fn what_is_out_of_scope_opens_and_is_listed() {
         (info.query_atoms, info.query_bonds, info.sgroups),
         (2, 1, 1)
     );
-    // enhanced stereo: the centres keep their wedges and the groups are kept on their atoms (`atom.sg`, rdkit-compare 3 part 2):
+    // enhanced stereo: the centres keep their wedges and the groups are kept on their atoms (`stereo.group`, rdkit-compare 3 part 2):
     // nothing is said lost, and the SMILES written back carries them in its CXSMILES tail
     let sgs = |d: &mzdraw::Document| -> Vec<String> {
         d.atoms
             .iter()
-            .map(|a| a.sg())
+            .map(|a| a.stg())
             .filter(|g| !g.is_empty())
             .collect()
     };
