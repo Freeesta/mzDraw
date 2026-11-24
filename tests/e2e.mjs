@@ -3986,7 +3986,7 @@ try {
     const fresh = async () => { await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0 }); };
     // the keyboard: the text typed, the Add button reached by its focus, Enter
     let c = g("an and and an or group");
-    await fresh(); await reveal(pg, "#d2-text"); await pg.focus("#d2-text"); await pg.keyboard.type(c.request.import);
+    await fresh(); await reveal(pg, "#d2-text"); await pg.fill("#d2-text", ""); await pg.focus("#d2-text"); await pg.keyboard.type(c.request.import);
     await pg.focus("#d2-add"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 6 });
     eq(await pg.evaluate("window.MZDRAW.save('smiles')"), c.out.smiles);   // the groups, in the CXSMILES tail (the page numbers its ids from its own counter)
     let s = await svg(); eq([s.includes(">and1<"), s.includes(">or1<")], [true, true]);
