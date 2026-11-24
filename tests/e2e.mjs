@@ -3905,6 +3905,38 @@ try {
     await tool(pg, "undo"); eq(await save(), start);
     await pg.evaluate("window.MZDRAW.set('display.titles=off')");
   });
+
+  await step("structure grid, the free objects (rdkit-compare 8 follow-ups): the page says the free texts the grid leaves, one in the singular and two in the plural, when the structures move and when nothing moves, by keyboard, by touch and by pen; the drawing equals the golden of grid.json", async () => {
+    const cases = JSON.parse(readFileSync(path.join(root, "tests/data/log/grid.json"), "utf8")).cases;
+    const g = name => cases.find(c => c.name === name);
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const penTap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const BT = '[data-testid="d2-structure-grid"]';
+    const open = async c => { await pg.evaluate(text => /** @type {any} */ (window).MZDRAW.open(text), c.request.import); await tool(pg, "fit"); await tool(pg, "select"); await frames(pg); };
+    const said = (key, n) => pg.evaluate(([k, n]) => /** @type {any} */ (window).I18N.t(k, { n }), [key, n]);
+    const check = async (c, key, n) => {
+      eq(await pg.evaluate("window.MZDRAW.save('mzdraw')"), c.out.mzdraw);
+      eq(await pg.innerText("#d2-live"), await said(key, n));
+    };
+    // the keyboard: the grid laid out, one free text by it: nothing moves, one is said
+    let c = g("the page line: one free text by the laid-out grid, nothing moves");
+    await open(c); await reveal(pg, BT); await pg.focus(BT); await pg.keyboard.press("Enter"); await frames(pg);
+    await check(c, "draw2.say.gridDoneLeft", 1);
+    // a finger: two free texts, nothing moves, the plural
+    c = g("the page line: two free texts by the laid-out grid, nothing moves");
+    await open(c); await reveal(pg, BT); await pg.touchscreen.tap(...await pfAt(BT)); await frames(pg);
+    await check(c, "draw2.say.gridDoneLeft", 2);
+    // a pen: the structures move, one free text stays and is said
+    c = g("the page line: one free text by a structure that moves");
+    await open(c); await reveal(pg, BT); await penTap(...await pfAt(BT)); await frames(pg);
+    await check(c, "draw2.say.gridLeft", 1);
+    await shot(pg, "rdkit-compare-8-grid-left");
+    // the keyboard again: two free texts stay, the plural
+    c = g("the page line: two free texts by a structure that moves");
+    await open(c); await reveal(pg, BT); await pg.focus(BT); await pg.keyboard.press("Enter"); await frames(pg);
+    await check(c, "draw2.say.gridLeft", 2);
+  });
   await ctx.close();
 
   await step("preferences: a stored dark theme is on the page before the first paint and before the module loads; a corrupt stored theme drops only itself with a note; without storage the page still starts", async () => {

@@ -175,8 +175,8 @@ struct Cell {
 pub struct Plan {
     /// The `move` operations (empty: every structure stands in its cell).
     pub ops: Vec<Op>,
-    /// The ids of the free objects (a text, an arrow, a plus sign or a curve anchored at no atom) that stood within `NEAR` of a
-    /// structure of the grid: the grid does not move them (it cannot tell which structure a free object belongs to), and says so
+    /// The ids of the free objects (a text, an arrow, a plus sign or a curve anchored at no atom) within `NEAR` of a structure of
+    /// the grid, where the structure stood or where the grid puts it (in the order of the drawing): the grid does not move them (it cannot tell which structure a free object belongs to), and says so
     /// (`draw-result/1` key `grid`, the page's live line `draw2.say.gridLeft`).
     pub left: Vec<u32>,
 }
@@ -293,6 +293,8 @@ pub fn grid(
         id != 0 && (moved.contains(&id) || doc.bond(id).is_some_and(|b| moved.contains(&b.a)))
     };
     let mut left_ids: Vec<u32> = Vec::new();
+    // the free objects not by a structure where it stood, with their boxes: one by a structure where the grid puts it is reported too
+    let mut free_far: Vec<(u32, [f64; 4])> = Vec::new();
     for ob in &doc.objects {
         if at_moved(ob.from) || at_moved(ob.to) {
             continue;
@@ -315,6 +317,8 @@ pub fn grid(
             });
             if by {
                 left_ids.push(ob.id);
+            } else {
+                free_far.push((ob.id, b));
             }
         }
         keep_off.push(b);
@@ -394,9 +398,11 @@ pub fn grid(
     };
     let first = snap(cells.iter().map(|c| c.low).fold(f64::MIN, f64::max));
     let mut lines = rows_at(first);
-    // the box of each row where it would stand: when one reaches what the grid does not move, the grid goes under all of it
-    let covers = |lines: &[f64]| -> bool {
-        (cells.chunks(cols).zip(lines)).any(|(row, &y)| {
+    // the box of each row where it would stand; what the grid does not move and a row reaches: the grid goes under the lowest of
+    // those, and again while a row reaches something (each step goes down, under a box it reached, so it ends: at most once per box)
+    let reached = |lines: &[f64]| -> Option<f64> {
+        let mut floor: Option<f64> = None;
+        for (row, &y) in cells.chunks(cols).zip(lines) {
             let above = row.iter().map(|c| c.up).fold(0.0, f64::max);
             let below = row.iter().map(|c| c.down).fold(0.0, f64::max);
             let r = [
@@ -405,21 +411,48 @@ pub fn grid(
                 x0 + pitch * (row.len() - 1) as f64 + half,
                 y + above,
             ];
-            keep_off.iter().any(|b| overlap(b, &r))
-        })
+            for b in keep_off.iter().filter(|b| overlap(b, &r)) {
+                floor = Some(floor.map_or(b[1], |f: f64| f.min(b[1])));
+            }
+        }
+        floor
     };
-    if covers(&lines) {
-        let floor = keep_off.iter().map(|b| b[1]).fold(f64::MAX, f64::min);
-        let above = cells[..cols].iter().map(|c| c.up).fold(0.0, f64::max);
-        lines = rows_at(snap(floor - o.gap - above));
+    let top = cells[..cols].iter().map(|c| c.up).fold(0.0, f64::max);
+    for _ in 0..=keep_off.len() {
+        let Some(floor) = reached(&lines) else {
+            break;
+        };
+        lines = rows_at(snap(floor - o.gap - top));
     }
     let mut ops = Vec::new();
+    let mut by_new = vec![false; free_far.len()];
     for (row, &y) in cells.chunks(cols).zip(&lines) {
         for (k, c) in row.iter().enumerate() {
             let x = x0 + pitch * k as f64;
             shift(&mut ops, c.atoms.clone(), x - c.cx, y - c.low);
+            let r = [
+                x - c.left - NEAR,
+                y - c.down - NEAR,
+                x + c.right + NEAR,
+                y + c.up + NEAR,
+            ];
+            for (f, (_, b)) in by_new.iter_mut().zip(&free_far) {
+                *f |= overlap(b, &r);
+            }
         }
     }
+    // reported in the order of the drawing: by a structure where it stood or where it stands now
+    left_ids.extend(
+        free_far
+            .iter()
+            .zip(&by_new)
+            .filter(|(_, f)| **f)
+            .map(|(o, _)| o.0),
+    );
+    let rank: std::collections::HashMap<u32, usize> = (doc.objects.iter().enumerate())
+        .map(|(k, o)| (o.id, k))
+        .collect();
+    left_ids.sort_by_key(|id| rank[id]);
     Ok(Plan {
         ops,
         left: left_ids,
