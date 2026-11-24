@@ -573,12 +573,15 @@ pub fn replay_with(
         });
     }
     let mut e = Editor::default();
+    // the notes of the import, as the page shows them: the start text, then the file
+    let mut notes: Vec<(&'static str, usize)> = Vec::new();
     if let Some(text) = &r.import {
-        e.import(text).map_err(fail)?;
+        notes.extend(e.import(text).map_err(fail)?.notes());
     }
     if let Some(bytes) = &r.import_base64 {
-        e.import_bytes(bytes).map_err(fail)?;
+        notes.extend(e.import_bytes(bytes).map_err(fail)?.notes());
     }
+    let imported = crate::outcome::import_notes(notes);
     // a start text or file is an opened drawing: clean, until something is done to it
     e.mark_saved();
     if let Some(style) = &r.style {
@@ -795,6 +798,7 @@ pub fn replay_with(
         out: None,
         created: after.minus(&before),
         removed: before.minus(&after),
+        imported,
         lost: Vec::new(),
         failed,
         changed: before_commands.map(|b| b != e.doc().to_json()),

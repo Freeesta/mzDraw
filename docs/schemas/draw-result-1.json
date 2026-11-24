@@ -4,7 +4,7 @@
   "title": "draw-result/1: the verdict of a replay request (mzdraw::outcome)",
   "description": "Checked by crates/mzdraw/tests/outcome.rs without a JSON Schema validator (none is a dependency): the key order (x-key-order, on the raw text, also inside failed, created, removed and each expect item), the required keys, the types and the stage values are asserted by hand; the other constraints here are documentation. The request `diff` (plan-15) is not answered by this document: it stands alone and any of `report`, `dry_run`, `expect`, `id` with it is the keyed error `error.draw2.diffAlone`.",
   "type": "object",
-  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "lost", "failed", "changed", "dirty", "orient", "expect"],
+  "x-key-order": ["format", "id", "ok", "dry_run", "patch", "out", "created", "removed", "imported", "lost", "failed", "changed", "dirty", "orient", "expect"],
   "required": ["format", "id", "ok", "created", "removed", "dirty"],
   "additionalProperties": false,
   "$defs": {
@@ -28,6 +28,21 @@
     "out": { "type": "string", "description": "what Editor::save(out) wrote; only when ok and not a dry run" },
     "created": { "$ref": "#/$defs/ids", "description": "ids after minus before, ascending, empty lists left out" },
     "removed": { "$ref": "#/$defs/ids", "description": "ids before minus after, ascending, empty lists left out" },
+    "imported": {
+      "type": "array",
+      "minItems": 1,
+      "description": "what the import of the start text (import) and the file (import_base64) did not keep or changed: the notes the page shows under its import (io::Imported::notes), in that order, less the computed layout (draw2.import.placeholder, no loss) and less a note whose number is 0 (outcome::import_notes); the key is left out when there is nothing to say. One item per key, n the sum over the text and the file (draw2.import.stereoGroups for the enhanced-stereo groups the drawing does not keep, queryAtoms, queryBonds, sgroups, skipped records, ...), except draw2.import.smilesLine: one item per SMILES line that could not be read, n its 1-based line number, at most 10, the others counted by draw2.import.smilesMore. The key was added to draw-result/1 without a new format id: a consumer must accept keys it does not know (additive keys)",
+      "items": {
+        "type": "object",
+        "x-key-order": ["key", "n"],
+        "required": ["key", "n"],
+        "additionalProperties": false,
+        "properties": {
+          "key": {"type": "string", "description": "the i18n key of the note, draw2.import.*"},
+          "n": {"type": "integer", "minimum": 1, "description": "how many (the sum over the text and the file); for draw2.import.smilesLine the 1-based number of the line"}
+        }
+      }
+    },
     "lost": {
       "type": "array",
       "minItems": 1,

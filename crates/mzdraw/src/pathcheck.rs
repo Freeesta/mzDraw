@@ -154,18 +154,6 @@ fn four(x: f64) -> Value {
         .map_or(Value::Null, Value::from)
 }
 
-fn hill(c: &[(String, u32)]) -> String {
-    c.iter()
-        .map(|(el, n)| {
-            if *n > 1 {
-                format!("{el}{n}")
-            } else {
-                el.clone()
-            }
-        })
-        .collect()
-}
-
 fn data(ids: &[u32], index: &HashMap<u32, &crate::doc::Atom>, name: &str) -> String {
     for id in ids {
         if let Some(a) = index.get(id) {
@@ -381,7 +369,10 @@ pub fn report(
                     "error",
                     "pathway.formulaMismatch",
                     &node_id,
-                    format!("states {given}, the structure is {}", hill(&s.composition)),
+                    format!(
+                        "states {given}, the structure is {}",
+                        crate::outline::hill_text(&s.composition)
+                    ),
                 );
             }
         }

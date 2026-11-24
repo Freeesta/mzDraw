@@ -34,13 +34,9 @@ pub struct Focus {
     pub charge: i8,
 }
 
-pub(crate) fn hill(counts: &mut [(String, u32)], charge: i32) -> String {
-    let rank = |el: &str| match el {
-        "C" => 0,
-        "H" => 1,
-        _ => 2,
-    };
-    crate::m::sort_by(counts, |a, b| (rank(&a.0), &a.0) < (rank(&b.0), &b.0));
+/// The formula text of counts already in Hill order: each element, then its count when above one; a zero count is left out. The one
+/// writer of the formula text (the sorted, charged form of `hill`, the pathway check and the TP table all use it).
+pub(crate) fn hill_text(counts: &[(String, u32)]) -> String {
     let mut out = String::new();
     for (el, n) in counts.iter().filter(|c| c.1 > 0) {
         out.push_str(el);
@@ -48,6 +44,17 @@ pub(crate) fn hill(counts: &mut [(String, u32)], charge: i32) -> String {
             out.push_str(&n.to_string());
         }
     }
+    out
+}
+
+pub(crate) fn hill(counts: &mut [(String, u32)], charge: i32) -> String {
+    let rank = |el: &str| match el {
+        "C" => 0,
+        "H" => 1,
+        _ => 2,
+    };
+    crate::m::sort_by(counts, |a, b| (rank(&a.0), &a.0) < (rank(&b.0), &b.0));
+    let mut out = hill_text(counts);
     if charge != 0 {
         if charge.abs() > 1 {
             out.push_str(&charge.abs().to_string());
