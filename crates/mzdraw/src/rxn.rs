@@ -87,10 +87,19 @@ fn object(d: &mut Document, t: ObjKind, p: [f64; 4]) {
 
 /// The structures of one side, left to right on one line, with plus signs between them.
 fn side(mols: &[String], info: &mut Imported) -> Result<Document, &'static str> {
-    let mut all = Document::default();
-    for (i, mol) in mols.iter().enumerate() {
+    let mut docs = Vec::new();
+    for mol in mols {
         let (d, placeholder) = record_of(mol, info).map_err(|_| KEY)?;
         info.placeholder |= placeholder;
+        docs.push(d);
+    }
+    Ok(side_of(docs))
+}
+
+/// Drawings of one side, left to right on one line, with plus signs between them.
+fn side_of(docs: Vec<Document>) -> Document {
+    let mut all = Document::default();
+    for (i, d) in docs.into_iter().enumerate() {
         let (left, _, mid) = frame(&d);
         let (_, right, line) = frame(&all);
         if i > 0 {
@@ -100,7 +109,7 @@ fn side(mols: &[String], info: &mut Imported) -> Result<Document, &'static str> 
             all.join(d, 0.0, 0.0);
         }
     }
-    Ok(all)
+    all
 }
 
 /// The drawing of one reaction.
@@ -111,8 +120,26 @@ fn reaction(text: &str, info: &mut Imported) -> Result<Document, &'static str> {
         v2000(text)
     };
     let [reactants, products, agents] = roles.ok_or(KEY)?;
-    let mut all = side(&reactants, info)?;
-    let (products, mut agents) = (side(&products, info)?, side(&agents, info)?);
+    let (reactants, products, agents) = (
+        side(&reactants, info)?,
+        side(&products, info)?,
+        side(&agents, info)?,
+    );
+    Ok(laid_out(reactants, products, agents))
+}
+
+/// The drawing of a reaction from the drawings of its molecules (a reaction SMILES, `rsmiles`): laid out as a reaction file is.
+pub(crate) fn reaction_of(
+    reactants: Vec<Document>,
+    products: Vec<Document>,
+    agents: Vec<Document>,
+) -> Document {
+    laid_out(side_of(reactants), side_of(products), side_of(agents))
+}
+
+/// The reactants with plus signs, the arrow (as long as the agents need), the agents above it, the products.
+fn laid_out(reactants: Document, products: Document, mut agents: Document) -> Document {
+    let mut all = reactants;
     // the plus signs of the agents' line say nothing: they stand above the arrow, side by side
     agents.objects.clear();
     let (a0, a1, _) = frame(&agents);
@@ -128,7 +155,7 @@ fn reaction(text: &str, info: &mut Imported) -> Result<Document, &'static str> {
     );
     let (left, _, mid) = frame(&products);
     all.join(products, head + 1.0 - left, line - mid);
-    Ok(all)
+    all
 }
 
 /// Reads a reaction file or an RD file (its reactions and molecules one under the other). The error is an i18n key.

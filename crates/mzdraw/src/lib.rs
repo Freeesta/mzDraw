@@ -57,6 +57,7 @@ pub mod proposal;
 pub mod props;
 pub mod replay;
 pub mod route;
+pub(crate) mod rsmiles;
 pub mod runs;
 pub mod rxn;
 pub mod scene;

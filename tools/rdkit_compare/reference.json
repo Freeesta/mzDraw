@@ -818,8 +818,26 @@
   {
    "name": "dative",
    "ours": {
-    "error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
-    "parsed_smiles": false
+    "arrows": 0,
+    "cdxml_same": true,
+    "layout": {
+     "atom_clashes": 0,
+     "atoms": 5,
+     "bond_crossings": 0,
+     "bond_dev_max": 0.0,
+     "bonds": 4,
+     "chain_angle_dev_max": 0.0,
+     "chain_angle_dev_mean": 0.0,
+     "label_crossings": 0,
+     "min_nonbonded": 1.414
+    },
+    "parsed_smiles": true,
+    "pieces": 1,
+    "png": false,
+    "smiles_same": true,
+    "stereo_from_molfile": true,
+    "svg_deterministic": true,
+    "wedges": 0
    },
    "rdkit": {
     "layout": {
@@ -1414,9 +1432,8 @@
    "name": "reaction",
    "ours": {
     "arrows": 1,
-    "error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
     "parsed_rxn_file": true,
-    "parsed_smiles": false,
+    "parsed_smiles": true,
     "pieces": 3,
     "png": false,
     "svg_deterministic": true,
@@ -1463,7 +1480,7 @@
   {
    "note": "",
    "ours": false,
-   "ours_error": "{\"error_key\":\"error.draw2.styleKey\",\"params\":{\"id\":0}}",
+   "ours_error": "{\"error_key\":\"error.draw2.styleValue\",\"params\":{\"id\":0}}",
    "ours_request": {
     "import": "C[C@@H](O)c1ccccc1",
     "out": "svg",
@@ -1523,8 +1540,8 @@
   },
   {
    "note": "",
-   "ours": false,
-   "ours_error": "{\"error_key\":\"error.draw2.command\",\"params\":{\"id\":0}}",
+   "ours": true,
+   "ours_error": null,
    "ours_request": {
     "args": {
      "cols": 2
@@ -1718,8 +1735,8 @@
   },
   {
    "note": "",
-   "ours": false,
-   "ours_error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
+   "ours": true,
+   "ours_error": null,
    "ours_request": {
     "import": "[NH3]->[Pd](Cl)(Cl)<-[NH3]",
     "out": "svg"
@@ -1818,8 +1835,8 @@
   },
   {
    "note": "",
-   "ours": false,
-   "ours_error": "{\"error_key\":\"error.draw2.smiles\",\"params\":{\"id\":0}}",
+   "ours": true,
+   "ours_error": null,
    "ours_request": {
     "import": "CC(=O)O.OCC>>CC(=O)OCC",
     "out": "svg"
@@ -1920,8 +1937,8 @@
   },
   {
    "note": "",
-   "ours": false,
-   "ours_error": "ran, but the output does not show it",
+   "ours": true,
+   "ours_error": null,
    "ours_request": {
     "import": "CO",
     "log": [
@@ -1995,10 +2012,10 @@
    "chain_angle_dev_mean": 0.3,
    "label_crossings": 0,
    "min_nonbonded": 0.227,
-   "parsed": 30,
+   "parsed": 32,
    "ring_angle_dev_max": 90.0,
-   "stereo_from_molfile": 30,
-   "svg_deterministic": 31
+   "stereo_from_molfile": 31,
+   "svg_deterministic": 32
   },
   "rdkit": {
    "atom_clashes": 0,

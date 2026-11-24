@@ -3937,6 +3937,44 @@ try {
     await open(c); await reveal(pg, BT); await pg.focus(BT); await pg.keyboard.press("Enter"); await frames(pg);
     await check(c, "draw2.say.gridLeft", 2);
   });
+
+  await step("reaction and dative SMILES (rdkit-compare 7): a reaction SMILES typed in Add a structure is drawn with its arrow, plus signs and agent, by keyboard, by touch and by pen; a dative SMILES gives dative bonds", async () => {
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const penTap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    const doc = async () => JSON.parse(await pg.evaluate("window.MZDRAW.save('mzdraw')"));
+    const kinds = d => (d.objects || []).map(o => o.t).sort();
+    const reaction = "CC(=O)O.OCC>[H+]>CC(=O)OCC.O";
+    const fresh = async () => { await tool(pg, "clear"); await want(pg, { atoms: 0, objects: 0 }); };
+    // the keyboard: the text typed, the Add button reached by its focus, Enter
+    await fresh();
+    await reveal(pg, "#d2-text"); await pg.focus("#d2-text"); await pg.keyboard.type(reaction);
+    await pg.focus("#d2-add"); await pg.keyboard.press("Enter"); await want(pg, { atoms: 15 });
+    eq(kinds(await doc()), ["arrow", "plus", "plus"]);
+    await tool(pg, "fit"); await frames(pg); await shot(pg, "rdkit-compare-7-reaction-smiles");
+    // a finger: a dative SMILES, the Add button tapped
+    await fresh();
+    await pg.fill("#d2-text", "[NH3]->[Pd](Cl)(Cl)<-[NH3]");
+    await pg.touchscreen.tap(...await pfAt("#d2-add")); await want(pg, { atoms: 5 });
+    eq((await doc()).bonds.filter(b => b.k === "dative").length, 2);
+    await tool(pg, "fit"); await frames(pg); await shot(pg, "rdkit-compare-7-dative-smiles");
+    // a pen: a dative bond inside a reaction
+    await fresh();
+    await pg.fill("#d2-text", "[Cu+2].N>>N->[Cu+2]");
+    await penTap(...await pfAt("#d2-add")); await want(pg, { atoms: 4 });
+    const d = await doc();
+    eq([kinds(d).filter(k => k === "arrow").length, d.bonds.filter(b => b.k === "dative").length], [1, 1]);
+    // a reaction line with a CXSMILES tail: drawn, and the note says the tail was not read
+    await fresh();
+    await pg.fill("#d2-text", "C[C@H](O)F>>CC |&1:1|"); await pg.click("#d2-add"); await want(pg, { atoms: 6 });
+    const tail = await pg.evaluate(() => globalThis.I18N.t("draw2.import.reactionTail", { n: 1 }));
+    assert((await pg.innerText("#d2-note")).includes(tail), "the note of the tail");
+    // a line that is neither is refused with its key and draws nothing
+    await fresh();
+    await pg.fill("#d2-text", "CC>CO"); await pg.click("#d2-add"); await frames(pg);
+    eq((await doc()).atoms || [], []);
+    await fresh();
+  });
   await ctx.close();
 
   await step("preferences: a stored dark theme is on the page before the first paint and before the module loads; a corrupt stored theme drops only itself with a note; without storage the page still starts", async () => {
