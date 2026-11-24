@@ -205,13 +205,13 @@ pub const OPS: &[OpSpec] = &[
     OpSpec {
         name: "stereo.group",
         fields: &[
-            nf("atoms", "uint[]", true, "", "the atoms, each a stereocentre of the record (a defined tetrahedral centre: the wedges as drawn); not empty"),
+            nf("atoms", "uint[]", true, "", "the atoms, each a stereocentre of the final record of the patch (a defined tetrahedral centre: the wedges as drawn); not empty"),
             nf(
                 "g",
                 "string",
                 true,
                 "",
-                "the enhanced-stereo group: `abs` (absolute), `andN` (`&N` of CXSMILES, `STERACn` of V3000: the drawn isomer and its enantiomer, unknown ratio) or `orN` (`oN`, `STERELn`: one of the two, unknown which), N from 1 to 99; `none` takes the atoms out of any group; kept in the atom field `stg`; drawn next to its atom (`abs` only when the drawing also has an `and` or `or` group); written to V3000 and to the CXSMILES tail of a SMILES; another word, or an atom that is no stereocentre, is `error.draw2.stereoGroup`",
+                "the enhanced-stereo group: `abs` (absolute), `andN` (`&N` of CXSMILES, `STERACn` of V3000: the drawn isomer and its enantiomer, unknown ratio) or `orN` (`oN`, `STERELn`: one of the two, unknown which), N from 1 to 2000 without a leading zero, literal while the patch runs; at the end of the patch the groups of each kind are numbered 1, 2, ... in their order (`and1` + `and3` becomes `and1` + `and2`), a group put by this patch on an atom that is no defined tetrahedral centre of the final record fails the patch, and an atom that is no centre any more leaves its group; `none` takes the atoms out of any group and never fails on an existing atom; kept in the atom field `stg`; drawn next to its atom (`abs` only when the drawing also has an `and` or `or` group); written to V3000 and to the CXSMILES tail of a SMILES; another word, or an atom that is no stereocentre, is `error.draw2.stereoGroup`",
             ),
         ],
         inverse: "SetAtom",

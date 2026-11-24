@@ -1071,8 +1071,8 @@ impl Document {
                 done.push(op.clone());
             }
             Op::StereoGroup { atoms, g } => {
-                // `none` takes the atoms out of any group; a group goes on a centre the record calls a stereocentre (a defined
-                // tetrahedral centre: the wedges as drawn), never on another atom
+                // `none` takes the atoms out of any group; a group is checked on the final record at the end of the patch
+                // (`settle_groups`): its number is literal until then
                 let clear = g == "none";
                 if atoms.is_empty() || !(clear || (!g.is_empty() && crate::doc::stg_valid(g))) {
                     return err(
@@ -1086,12 +1086,6 @@ impl Document {
                         return err("error.draw2.noAtom", *id);
                     };
                     index.push(i);
-                }
-                if !clear {
-                    let centres = self.stereocentres();
-                    if let Some(id) = atoms.iter().find(|id| !centres.contains(id)) {
-                        return err("error.draw2.stereoGroup", *id);
-                    }
                 }
                 for i in index {
                     inv.push(Inv::SetAtom(self.atoms[i].clone()));
@@ -1600,7 +1594,76 @@ impl Document {
             self.revert(inv);
             return err("error.draw2.coordinate", 0);
         }
+        if let Err(e) = self.settle_groups(ops, &mut inv) {
+            self.revert(inv);
+            return Err(e);
+        }
         Ok((done, inv))
+    }
+
+    /// The enhanced-stereo groups at the end of a patch, on the final record (the rules of `stereo.group` in `draw_edit/1`, shared
+    /// with mzLab): a group a `stereo.group` of this patch put on an atom that is no defined tetrahedral centre fails the patch
+    /// (`error.draw2.stereoGroup` with the atom); an atom that had its group before and is no centre any more (a bond changed) leaves
+    /// it; then the groups of each kind are numbered 1, 2, ... in the order of their numbers (`and1` + `and3` becomes `and1` +
+    /// `and2`). Every change is in the inverse. Nothing to do when no atom has a group.
+    fn settle_groups(&mut self, ops: &[Op], inv: &mut Vec<Inv>) -> Result<(), OpError> {
+        if !self
+            .atoms
+            .iter()
+            .any(|a| a.more.iter().any(|m| m.0 == "stg"))
+        {
+            return Ok(());
+        }
+        let set: std::collections::HashSet<u32> = (ops.iter())
+            .filter_map(|o| match o {
+                Op::StereoGroup { atoms, g } if g != "none" => Some(atoms.iter().copied()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        let centres = self.stereocentres();
+        for i in 0..self.atoms.len() {
+            let a = &self.atoms[i];
+            if a.stg().is_empty() || centres.contains(&a.id) {
+                continue;
+            }
+            if set.contains(&a.id) {
+                return err("error.draw2.stereoGroup", a.id);
+            }
+            inv.push(Inv::SetAtom(a.clone()));
+            self.atoms[i].set_stg("");
+        }
+        // the numbers of each kind, compacted in their order
+        let mut used: [std::collections::BTreeSet<u32>; 2] = Default::default();
+        for a in &self.atoms {
+            let g = a.stg();
+            if let Some(n) = g.strip_prefix("and").and_then(|n| n.parse().ok()) {
+                used[0].insert(n);
+            } else if let Some(n) = g.strip_prefix("or").and_then(|n| n.parse().ok()) {
+                used[1].insert(n);
+            }
+        }
+        let rank = |k: usize, n: u32| {
+            used[k]
+                .iter()
+                .position(|&m| m == n)
+                .map_or(n, |r| r as u32 + 1)
+        };
+        for i in 0..self.atoms.len() {
+            let g = self.atoms[i].stg();
+            let new = if let Some(n) = g.strip_prefix("and").and_then(|n| n.parse().ok()) {
+                format!("and{}", rank(0, n))
+            } else if let Some(n) = g.strip_prefix("or").and_then(|n| n.parse().ok()) {
+                format!("or{}", rank(1, n))
+            } else {
+                continue;
+            };
+            if new != g {
+                inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                self.atoms[i].set_stg(&new);
+            }
+        }
+        Ok(())
     }
 }
 

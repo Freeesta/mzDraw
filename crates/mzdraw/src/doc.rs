@@ -105,11 +105,11 @@ pub fn title_valid(title: &str) -> bool {
 }
 
 /// The most groups of one kind (`and`, `or`) an enhanced-stereo group number goes to.
-pub const MAX_SG: u32 = 99;
+pub const MAX_SG: u32 = 2000;
 
 /// Whether a text is an enhanced-stereo group of an atom: `abs` (the absolute configuration), `andN` (one of two enantiomers in an
 /// unknown ratio, all the centres of group N together, `&N` of CXSMILES, `STERAC` of V3000) or `orN` (one of the two, unknown which,
-/// `oN`, `STEREL`), N from 1 to `MAX_SG` without a leading zero; the empty text is no group.
+/// `oN`, `STEREL`), N from 1 to `MAX_SG` (2000) without a leading zero; the empty text is no group.
 pub fn stg_valid(sg: &str) -> bool {
     let n = |rest: &str| {
         !rest.starts_with('0') && rest.parse::<u32>().is_ok_and(|n| (1..=MAX_SG).contains(&n))

@@ -42,9 +42,10 @@ fn a_group_goes_on_stereocentres_and_one_undo_gives_the_identical_document() {
     .unwrap();
     assert_eq!(groups(&s.doc), [(2, "and1".into()), (4, "and1".into())]);
     // changed for one atom, then taken away with `none`
+    // (or2 is the only `or` group: it is numbered or1 at the end of the patch)
     s.run(&[op(json!({"op": "stereo.group", "atoms": [4], "g": "or2"}))])
         .unwrap();
-    assert_eq!(groups(&s.doc), [(2, "and1".into()), (4, "or2".into())]);
+    assert_eq!(groups(&s.doc), [(2, "and1".into()), (4, "or1".into())]);
     s.run(&[op(
         json!({"op": "stereo.group", "atoms": [2, 4], "g": "none"}),
     )])
@@ -52,7 +53,7 @@ fn a_group_goes_on_stereocentres_and_one_undo_gives_the_identical_document() {
     assert!(groups(&s.doc).is_empty());
     // each undo gives the document before it, byte for byte
     s.undo();
-    assert_eq!(groups(&s.doc), [(2, "and1".into()), (4, "or2".into())]);
+    assert_eq!(groups(&s.doc), [(2, "and1".into()), (4, "or1".into())]);
     s.undo();
     s.undo();
     assert_eq!(s.doc.to_json(), before);
@@ -84,7 +85,7 @@ fn a_group_that_is_none_or_an_atom_that_is_no_stereocentre_is_refused_and_change
             2,
         ),
         (
-            json!({"op": "stereo.group", "atoms": [2], "g": "and100"}),
+            json!({"op": "stereo.group", "atoms": [2], "g": "and2001"}),
             "error.draw2.stereoGroup",
             2,
         ),
@@ -221,4 +222,63 @@ fn a_format_that_has_no_place_for_them_says_so_and_the_cli_gives_the_page_bytes(
     );
     let cli = json!({"import": TWO, "log": [{"op": "stereo.group", "atoms": [2, 4], "g": "or1"}], "out": "mzdraw"});
     assert_eq!(mzdraw::replay::replay(&cli.to_string()).unwrap(), page);
+}
+
+#[test]
+fn a_patch_is_judged_at_its_end_numbers_are_compacted_and_a_lost_centre_leaves_its_group() {
+    let d = import(TWO);
+    // the numbers are literal while the patch runs, then each kind is numbered 1, 2, ... in its order: and3 + and2000 -> and1 + and2
+    let mut s = Session::new(d.clone());
+    s.run(&[
+        op(json!({"op": "stereo.group", "atoms": [2], "g": "and3"})),
+        op(json!({"op": "stereo.group", "atoms": [4], "g": "and2000"})),
+    ])
+    .unwrap();
+    assert_eq!(groups(&s.doc), [(2, "and1".into()), (4, "and2".into())]);
+    s.undo();
+    assert_eq!(s.doc, d, "the compaction is in the inverse");
+    // a word that is none: and2001, a leading zero
+    for g in ["and2001", "or02"] {
+        let e = s
+            .run(&[op(json!({"op": "stereo.group", "atoms": [2], "g": g}))])
+            .unwrap_err();
+        assert_eq!(e.key, "error.draw2.stereoGroup", "{g}");
+    }
+    // validation on the final record: a group on an atom that becomes a centre later in the same patch is accepted; without the
+    // wedge the patch fails and changes nothing
+    let mut s = Session::new(d.clone());
+    let wedge = |id: u32, w: u8| op(json!({"op": "bond.set", "id": id, "s": w}));
+    let centre_bond = s
+        .doc
+        .bonds
+        .iter()
+        .find(|b| b.a == 2 && b.s != 0)
+        .unwrap()
+        .id;
+    s.run(&[wedge(centre_bond, 0)]).unwrap();
+    let flat = s.doc.clone();
+    assert!(!flat.stereocentres().contains(&2));
+    let e = s
+        .run(&[op(json!({"op": "stereo.group", "atoms": [2], "g": "or1"}))])
+        .unwrap_err();
+    assert_eq!((e.key, e.id), ("error.draw2.stereoGroup", 2));
+    assert_eq!(s.doc, flat);
+    s.run(&[
+        op(json!({"op": "stereo.group", "atoms": [2], "g": "or1"})),
+        wedge(centre_bond, 1),
+    ])
+    .unwrap();
+    assert_eq!(groups(&s.doc), [(2, "or1".into())]);
+    // a bond change that makes it no centre: the atom leaves its group, and one undo gives it back
+    let kept = s.doc.clone();
+    s.run(&[wedge(centre_bond, 0)]).unwrap();
+    assert!(groups(&s.doc).is_empty(), "no centre, no group");
+    s.undo();
+    assert_eq!(s.doc, kept);
+    // `none` never fails on an existing atom, a centre or not
+    s.run(&[op(
+        json!({"op": "stereo.group", "atoms": [1, 2], "g": "none"}),
+    )])
+    .unwrap();
+    assert!(groups(&s.doc).is_empty());
 }
