@@ -112,7 +112,11 @@ pub const MAX_SG: u32 = 2000;
 /// `oN`, `STEREL`), N from 1 to `MAX_SG` (2000) without a leading zero; the empty text is no group.
 pub fn stg_valid(sg: &str) -> bool {
     let n = |rest: &str| {
-        !rest.starts_with('0') && rest.parse::<u32>().is_ok_and(|n| (1..=MAX_SG).contains(&n))
+        // ASCII digits only: `parse` would take a sign (`+1`), and no other digit is a number of the file formats
+        !rest.is_empty()
+            && rest.bytes().all(|b| b.is_ascii_digit())
+            && !rest.starts_with('0')
+            && rest.parse::<u32>().is_ok_and(|n| (1..=MAX_SG).contains(&n))
     };
     sg.is_empty()
         || sg == "abs"
@@ -234,6 +238,11 @@ impl Atom {
     }
 
     /// The enhanced-stereo group of this atom (the field `stg`: `abs`, `and1`, `or2`, ...), empty for none.
+    /// Whether the atom has an enhanced-stereo group, without reading it (`stg` reads the JSON value).
+    pub(crate) fn has_stg(&self) -> bool {
+        self.more.iter().any(|m| m.0 == "stg")
+    }
+
     pub fn stg(&self) -> String {
         self.more
             .iter()

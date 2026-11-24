@@ -942,6 +942,8 @@ pub(crate) fn labelled(
             }
         }
         info.stereo_groups += dropped.len();
+        // a group dropped leaves no gap: `and1` dropped and `and2` kept is read `and1`, as the end of a patch numbers them
+        d.compact_groups();
     }
     // the bonds the file drew from one atom to the other: dative and hydrogen bonds (the donor is the first atom of the line)
     for (from, to, kind) in std::mem::take(&mut info.links) {
@@ -967,4 +969,40 @@ pub(crate) fn labelled(
         }
     }
     (d, placeholder)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_group_dropped_on_read_for_not_being_a_centre_leaves_no_gap() {
+        // a record whose first `and` group stands on atom 0, no stereocentre of the drawing (the file readers of `mzlab-mol` drop
+        // such an atom themselves; a record built otherwise may hold it): the group is dropped and counted, the second is read and1
+        let mut m = Mol::from_smiles("C[C@H](O)[C@@H](F)Cl").unwrap();
+        m.groups = vec![
+            mzlab_mol::StereoGroup {
+                kind: mzlab_mol::GroupKind::And,
+                atoms: vec![0],
+            },
+            mzlab_mol::StereoGroup {
+                kind: mzlab_mol::GroupKind::And,
+                atoms: vec![3],
+            },
+            mzlab_mol::StereoGroup {
+                kind: mzlab_mol::GroupKind::Or,
+                atoms: vec![1],
+            },
+        ];
+        let mut info = Imported::default();
+        let (d, _) = labelled(&m, Vec::new(), &mut info);
+        let groups: Vec<(u32, String)> = (d.atoms.iter())
+            .filter(|a| a.has_stg())
+            .map(|a| (a.id, a.stg()))
+            .collect();
+        assert_eq!(groups, [(2, "or1".into()), (4, "and1".into())]);
+        assert_eq!(info.stereo_groups, 1);
+        // the ranks written are the ones read
+        assert_eq!(d.to_smiles().unwrap(), "C[C@H](O)[C@@H](F)Cl |&1:3,o1:1|");
+    }
 }

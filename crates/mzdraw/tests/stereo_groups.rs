@@ -282,3 +282,168 @@ fn a_patch_is_judged_at_its_end_numbers_are_compacted_and_a_lost_centre_leaves_i
     .unwrap();
     assert!(groups(&s.doc).is_empty());
 }
+
+#[path = "support/timing.rs"]
+mod timing;
+
+#[test]
+fn the_check_at_the_end_of_a_patch_costs_a_bounded_multiple_of_a_plain_edit() {
+    // 25 copies of a structure with two wedged centres (some 200 atoms): the same move, on the drawing without groups (no check runs)
+    // and on the drawing whose 50 centres all have a group (the check reads the centres of the whole drawing). The least CPU time of
+    // runs taken in turns, no wall-clock bound
+    let one = "C[C@H](O)[C@@H](F)CCC";
+    let plain = import(&vec![one; 25].join("."));
+    assert!(plain.atoms.len() >= 200);
+    let mut s = Session::new(plain.clone());
+    let centres: Vec<u32> = plain.stereocentres().into_iter().collect();
+    assert_eq!(centres.len(), 50);
+    s.run(&[op(
+        json!({"op": "stereo.group", "atoms": centres, "g": "and1"}),
+    )])
+    .unwrap();
+    let grouped = s.doc.clone();
+    let step = [op(
+        json!({"op": "move", "atoms": [1], "objects": [], "dx": 0.5, "dy": 0.0}),
+    )];
+    let edit = |d: &Document| {
+        let mut s = Session::new(d.clone());
+        s.run(&step).unwrap();
+    };
+    let (without, with) = timing::best_of_pair(3, 15, || edit(&plain), || edit(&grouped));
+    let (a, b) = (without.as_nanos().max(1), with.as_nanos());
+    assert!(b <= 10 * a, "a plain edit {a} ns, with groups {b} ns");
+}
+
+#[test]
+fn a_word_with_a_sign_a_space_or_another_digit_is_no_group() {
+    let mut s = Session::new(import(TWO));
+    let d = s.doc.clone();
+    // `parse` would read `+1`; only ASCII digits are a number of the formats
+    for g in [
+        "and+1",
+        "or+1",
+        "and 1",
+        "or 1",
+        "and1 ",
+        "and-1",
+        "and\u{661}",
+        "or\u{ff11}",
+        "and",
+        "or",
+    ] {
+        assert!(!mzdraw::doc::stg_valid(g), "{g}");
+        let e = s
+            .run(&[op(json!({"op": "stereo.group", "atoms": [2], "g": g}))])
+            .unwrap_err();
+        assert_eq!((e.key, e.id), ("error.draw2.stereoGroup", 2), "{g}");
+        assert_eq!(s.doc, d, "{g}: nothing changed");
+    }
+    for g in ["abs", "and1", "or2000", ""] {
+        assert!(mzdraw::doc::stg_valid(g), "{g}");
+    }
+}
+
+#[test]
+fn a_group_dropped_on_read_leaves_no_gap_in_the_numbers() {
+    // a V3000 file whose first `and` collection holds atom 1, no stereocentre: that group goes (the reader of `mzlab-mol` takes the
+    // atom out of the collection; the drop of a group on an atom that is no centre of the drawing is `io::labelled`'s, tested there),
+    // and the second is read and1 (no `and2` alone), written STERAC1
+    let mut s = Session::new(import(TWO));
+    s.run(&[
+        op(json!({"op": "stereo.group", "atoms": [2], "g": "and1"})),
+        op(json!({"op": "stereo.group", "atoms": [4], "g": "and2"})),
+    ])
+    .unwrap();
+    let v3 = s.doc.to_molfile_v3000();
+    assert!(
+        v3.contains("STERAC1 ATOMS=(1 2)") && v3.contains("STERAC2 ATOMS=(1 4)"),
+        "{v3}"
+    );
+    let text = v3.replace("STERAC1 ATOMS=(1 2)", "STERAC1 ATOMS=(1 1)");
+    let d = import(&text);
+    assert_eq!(groups(&d), [(4, "and1".into())]);
+    let back = d.to_molfile_v3000();
+    assert!(
+        back.contains("STERAC1 ATOMS=(1 4)") && !back.contains("STERAC2"),
+        "{back}"
+    );
+    assert_eq!(d.to_smiles().unwrap(), "C[C@H](O)[C@@H](F)Cl |&1:3|");
+}
+
+#[test]
+fn only_the_pieces_a_patch_touches_are_judged_and_a_group_gone_anywhere_compacts_the_rest() {
+    // two structures: atoms 2 and 4 (the first), 9 and 11 (the second) are centres
+    let d = import(&format!("{TWO}.{TWO}"));
+    let mut s = Session::new(d);
+    let c: Vec<u32> = s.doc.stereocentres().into_iter().collect();
+    assert_eq!(c.len(), 4);
+    let second = *c.iter().max().unwrap();
+    s.run(&[
+        op(json!({"op": "stereo.group", "atoms": [2], "g": "and1"})),
+        op(json!({"op": "stereo.group", "atoms": [second], "g": "and2"})),
+    ])
+    .unwrap();
+    // an edit of the first structure that keeps its centre: the group of the second stays
+    s.run(&[op(
+        json!({"op": "move", "atoms": [1], "objects": [], "dx": 0.5, "dy": 0.0}),
+    )])
+    .unwrap();
+    assert_eq!(
+        groups(&s.doc),
+        [(2, "and1".into()), (second, "and2".into())]
+    );
+    // `none` on the first: the second's and2 is numbered and1 (the numbers of the whole drawing are compacted), one undo gives it back
+    let kept = s.doc.clone();
+    s.run(&[op(json!({"op": "stereo.group", "atoms": [2], "g": "none"}))])
+        .unwrap();
+    assert_eq!(groups(&s.doc), [(second, "and1".into())]);
+    s.undo();
+    assert_eq!(s.doc, kept);
+}
+
+#[test]
+fn a_subset_of_the_hunks_of_a_diff_keeps_a_group_with_its_wedge() {
+    // the diff of a drawing to the same with a wedge added and a group set on that new centre: the group's operation and the wedge
+    // touch the same atom, so they fall in one hunk, and no subset of the hunks applies the group without its wedge
+    let a = import(&format!("{TWO}.CC"));
+    let far = a.atoms.last().unwrap().id;
+    let mut s = Session::new(a.clone());
+    let wedged = (s.doc.bonds.iter())
+        .find(|b| b.a == 2 && b.s != 0)
+        .unwrap()
+        .id;
+    s.run(&[op(json!({"op": "bond.set", "id": wedged, "s": 0}))])
+        .unwrap();
+    let flat = s.doc.clone();
+    s.run(&[
+        op(json!({"op": "bond.set", "id": wedged, "s": 1})),
+        op(json!({"op": "stereo.group", "atoms": [2], "g": "or1"})),
+        op(json!({"op": "atom.set", "id": far, "el": "N"})),
+    ])
+    .unwrap();
+    let b = s.doc.clone();
+    let ops = mzdraw::diff::diff(&flat, &b);
+    let hunks = mzdraw::diff::hunks(&flat, &ops);
+    assert!(hunks.len() >= 2, "{hunks:?}");
+    let with_group: Vec<_> = (hunks.iter())
+        .filter(|h| h.ops.iter().any(|o| matches!(o, Op::StereoGroup { .. })))
+        .collect();
+    assert_eq!(with_group.len(), 1);
+    assert!(
+        (with_group[0].ops.iter()).any(|o| matches!(o, Op::BondSet { id, .. } if *id == wedged)),
+        "{hunks:?}"
+    );
+    // each hunk alone applies; the group's hunk gives the centre and its group
+    for h in &hunks {
+        let mut t = Session::new(flat.clone());
+        t.run(&h.ops).unwrap();
+    }
+    // the group's operation alone, without the wedge, fails whole (the rule of the end of a patch) and changes nothing
+    let lone: Vec<Op> = (with_group[0].ops.iter())
+        .filter(|o| matches!(o, Op::StereoGroup { .. }))
+        .cloned()
+        .collect();
+    let mut t = Session::new(flat.clone());
+    assert_eq!(t.run(&lone).unwrap_err().key, "error.draw2.stereoGroup");
+    assert_eq!(t.doc, flat);
+}
