@@ -4,6 +4,9 @@
 use mzdraw::settings::Ids;
 use mzdraw::{svg, Document, Editor, Style};
 
+#[path = "support/timing.rs"]
+mod timing;
+
 fn doc(text: &str) -> Document {
     let mut e = Editor::default();
     e.import(text).unwrap();
@@ -65,6 +68,15 @@ fn the_ids_are_off_by_default_and_each_word_draws_its_own() {
     assert_eq!(texts("bonds"), ["4", "5"]);
     assert_eq!(texts("both"), ["1", "2", "3", "4", "5"]);
     assert_eq!(texts("off"), Vec::<String>::new());
+    // the PDF draws the same words: atom ids only, bond ids only
+    let pdf = |w: &str| -> String {
+        (mzdraw::pdf::to_pdf(&d, &style(w)).iter())
+            .map(|&c| if c < 128 { c as char } else { '?' })
+            .collect()
+    };
+    let (atoms, bonds) = (pdf("atoms"), pdf("bonds"));
+    assert!(atoms.contains("(3) Tj") && !atoms.contains("(4) Tj"));
+    assert!(bonds.contains("(4) Tj") && !bonds.contains("(3) Tj"));
     // a word that is none is refused and changes nothing
     let mut s = style("atoms");
     assert_eq!(s.set_display("ids", "all"), Err("error.draw2.styleValue"));
@@ -77,7 +89,10 @@ fn the_ids_are_off_by_default_and_each_word_draws_its_own() {
 type IdText = (f64, f64, u32);
 type Line = (f64, f64, f64, f64);
 
-fn display(d: &Document, ids: &str) -> (Vec<IdText>, Vec<Line>, f64) {
+/// What `display` reads off the display list: the ids, the lines, the anchors of the label texts and the scale.
+type Display = (Vec<IdText>, Vec<Line>, Vec<(f64, f64)>, f64);
+
+fn display(d: &Document, ids: &str) -> Display {
     use mzdraw::scene::{self, colour, Overlay, View};
     let st = style(ids);
     let scale = st.bond_length;
@@ -91,7 +106,7 @@ fn display(d: &Document, ids: &str) -> (Vec<IdText>, Vec<Line>, f64) {
         &Overlay::default(),
         st.metrics(scale, false),
     );
-    let (mut texts, mut lines) = (Vec::new(), Vec::new());
+    let (mut texts, mut lines, mut labels) = (Vec::new(), Vec::new(), Vec::new());
     let v = &sc.data;
     let mut i = 0;
     while i < v.len() {
@@ -102,6 +117,8 @@ fn display(d: &Document, ids: &str) -> (Vec<IdText>, Vec<Line>, f64) {
         } else if op == scene::TEXT {
             if v[i + 4] == colour::MUTED {
                 texts.push((f(1), f(2), sc.strings[v[i + 5] as usize].parse().unwrap()));
+            } else {
+                labels.push((f(1), f(2)));
             }
             7
         } else if op == scene::TEXTX {
@@ -115,7 +132,7 @@ fn display(d: &Document, ids: &str) -> (Vec<IdText>, Vec<Line>, f64) {
         };
         i += size;
     }
-    (texts, lines, scale)
+    (texts, lines, labels, scale)
 }
 
 fn seg_dist(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
@@ -139,7 +156,7 @@ fn each_id_sits_by_its_own_atom_or_bond_clear_of_the_lines_and_of_the_other_ids(
         "OC1CCC(N)CC1",
     ] {
         let d = doc(smiles);
-        let (texts, lines, scale) = display(&d, "both");
+        let (texts, lines, labels, scale) = display(&d, "both");
         assert_eq!(
             texts.len(),
             d.atoms.len() + d.bonds.len(),
@@ -181,6 +198,15 @@ fn each_id_sits_by_its_own_atom_or_bond_clear_of_the_lines_and_of_the_other_ids(
                 assert!(
                     seg_dist((x, y), (x1, y1), (x2, y2)) > 0.15 * scale,
                     "{smiles}: id {id} on a line"
+                );
+            }
+        }
+        // no id on a label (the anchor of each text of a label: the symbol, its hydrogens, a charge)
+        for &(x, y, id) in &texts {
+            for l in &labels {
+                assert!(
+                    dist((x, y), *l) > 0.25 * scale,
+                    "{smiles}: id {id} on a label at {l:?}"
                 );
             }
         }
@@ -226,4 +252,61 @@ fn the_pdf_has_the_ids_and_the_settings_file_keeps_the_choice() {
         .save("settings")
         .unwrap()
         .contains("\"ids\""));
+}
+
+#[test]
+fn an_id_keeps_its_place_when_drawn_again_and_when_a_structure_is_added_far_away() {
+    // stable means: the same drawing gives the same places, and an id only looks at what is drawn within two bond lengths of it, so
+    // a structure added farther away moves no id of the others
+    let d = doc("OC1CCC(N)CC1");
+    let (first, ..) = display(&d, "both");
+    assert_eq!(display(&d, "both").0, first);
+    // ethanol drawn 20 bond lengths to the right (new atoms and a bond by operations)
+    let mut s = mzdraw::Session::new(d.clone());
+    let op = |v: serde_json::Value| mzdraw::Op::parse(&v).unwrap();
+    s.run(&[
+        op(serde_json::json!({"op": "atom.add", "id": 100, "el": "C", "x": 20.0, "y": 0.0})),
+        op(serde_json::json!({"op": "atom.add", "id": 101, "el": "C", "x": 21.0, "y": 0.0})),
+        op(serde_json::json!({"op": "atom.add", "id": 102, "el": "O", "x": 21.5, "y": 0.866})),
+        op(serde_json::json!({"op": "bond.add", "id": 103, "a": 100, "b": 101})),
+        op(serde_json::json!({"op": "bond.add", "id": 104, "a": 101, "b": 102})),
+    ])
+    .unwrap();
+    let far = s.doc;
+    let (after, ..) = display(&far, "both");
+    for t in &first {
+        assert!(
+            after.contains(t),
+            "id {} moved when a structure was added far away",
+            t.2
+        );
+    }
+}
+
+#[test]
+fn the_work_grows_with_the_drawing_not_with_its_square() {
+    // the same structure 40 and 160 times: the work the ids add (the picture with them less the picture without) is linear: indexed
+    // lookups, one label test per atom. A scan of every bond or of every placed id per id would make four times the structures cost
+    // sixteen times as much. The rest of the painter is not measured here (its label test scans the bonds: a queued follow-up). The
+    // least CPU time of runs taken in turns, no wall-clock bound
+    let one = "OC1CCC(N)CC1C=CC#N";
+    let (a, b) = (
+        doc(&vec![one; 40].join(".")),
+        doc(&vec![one; 160].join(".")),
+    );
+    let (on, off) = (style("both"), style("off"));
+    let ids_cost = |d: &Document| {
+        let (without, with) = timing::best_of_pair(
+            1,
+            5,
+            || drop(svg::to_svg_styled(d, &off)),
+            || drop(svg::to_svg_styled(d, &on)),
+        );
+        with.as_nanos().saturating_sub(without.as_nanos())
+    };
+    let (small, large) = (ids_cost(&a), ids_cost(&b));
+    assert!(
+        small > 0 && large <= 6 * small,
+        "the ids of 40 structures {small} ns, of 160 structures {large} ns"
+    );
 }

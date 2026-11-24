@@ -1176,85 +1176,135 @@ impl Painter<'_> {
     }
 
     /// The ids of the document (`display.ids`), the numbers the operations of `draw_edit/1` name, in the small size and the muted
-    /// ink. Each id is put where it is farthest from what is drawn near it (`id_spot`): an atom's on a circle round the atom, clear
-    /// of its label; a bond's on either side of its middle. "Near" is the atoms within two bonds, points along their bonds, the
-    /// extent of their labels, the lone pairs, and the ids already placed, so the work per id does not grow with the drawing.
+    /// ink. Each id is put where it is farthest from what is drawn near it (`id_spot`): an atom's on one of 16 places on a circle
+    /// round the atom, clear of its label; a bond's on either side of its middle. "Near" is the atoms within two bonds, points along
+    /// their bonds, the extent of their labels, their lone pairs, and the ids already placed within reach. Every lookup is indexed
+    /// (positions by id, the bonds of each atom, the placed ids in a grid of cells one bond length wide) and the label test of each
+    /// atom (`labelled`) and its lone pairs are taken once per atom, so the work the ids add depends on the bonds round each id, not
+    /// on the size of the drawing. (`labelled` itself scans the bonds of the drawing, `bonds_of`: a cost the painter has with or
+    /// without ids, queued as its own follow-up.)
     fn ids(&mut self) {
+        use std::collections::HashMap;
         let doc = self.doc;
         let (f, small, s) = (self.font, self.m.small, self.view.scale);
-        let at: std::collections::HashMap<u32, (f64, f64)> =
-            doc.atoms.iter().map(|a| (a.id, self.pos(a))).collect();
-        let mut next: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
-        for b in &doc.bonds {
-            next.entry(b.a).or_default().push(b.b);
-            next.entry(b.b).or_default().push(b.a);
-        }
-        let mut placed: Vec<(f64, f64)> = Vec::new();
-        // the points an id near the atoms `core` keeps away from (the bond `skip` left out: an id of a bond is beside it)
-        let near = |p: &Self, core: &[u32], skip: u32, placed: &[(f64, f64)]| -> Vec<(f64, f64)> {
-            let mut ring: Vec<u32> = core.to_vec();
-            for c in core {
-                for n in next.get(c).into_iter().flatten() {
-                    ring.push(*n);
-                    ring.extend(next.get(n).into_iter().flatten());
+        let at: HashMap<u32, (f64, f64)> = doc.atoms.iter().map(|a| (a.id, self.pos(a))).collect();
+        // once per atom: whether it is a label (the painter's own test) and the points of its label and its lone pairs
+        let mut marks: HashMap<u32, (bool, Vec<(f64, f64)>)> = HashMap::new();
+        for a in &doc.atoms {
+            let (x, y) = at[&a.id];
+            let mut pts = Vec::new();
+            let labelled = self.labelled(a);
+            if labelled {
+                // the label runs from the symbol to the right (hydrogens, their count, a charge)
+                let w = width(&a.el, f) / 2.0;
+                for k in 0..=4 {
+                    pts.push((x - w + (w * 2.0 + f) * f64::from(k) / 4.0, y));
                 }
             }
-            ring.sort_unstable();
-            ring.dedup();
-            let mut pts: Vec<(f64, f64)> = placed.to_vec();
-            for id in &ring {
-                let (Some(&(x, y)), Some(a)) = (at.get(id), doc.atom(*id)) else {
-                    continue;
-                };
-                pts.push((x, y));
-                if p.labelled(a) {
-                    // the label runs from the symbol to the right (hydrogens, their count, a charge)
-                    let w = width(&a.el, f) / 2.0;
-                    for k in 0..=4 {
-                        pts.push((x - w + (w * 2.0 + f) * f64::from(k) / 4.0, y));
+            if a.lp() != 0 {
+                let r = s * crate::curve::LP_REACH;
+                for d in crate::curve::lp_dirs(doc, a.id, a.lp()) {
+                    pts.push((x + m::cos(d) * r, y - m::sin(d) * r));
+                }
+            }
+            marks.insert(a.id, (labelled, pts));
+        }
+        // the bonds of each atom, as indices of `doc.bonds`
+        let mut bonds_at: HashMap<u32, Vec<usize>> = HashMap::new();
+        for (k, b) in doc.bonds.iter().enumerate() {
+            bonds_at.entry(b.a).or_default().push(k);
+            bonds_at.entry(b.b).or_default().push(k);
+        }
+        let other = |k: usize, id: u32| {
+            let b = &doc.bonds[k];
+            if b.a == id {
+                b.b
+            } else {
+                b.a
+            }
+        };
+        // the ids placed so far, by cell; a query looks at the cells round a point
+        let cell = s.max(1.0);
+        let key = |p: (f64, f64)| ((p.0 / cell).floor() as i64, (p.1 / cell).floor() as i64);
+        let mut placed: HashMap<(i64, i64), Vec<(f64, f64)>> = HashMap::new();
+        // the points an id near the atoms `core` keeps away from (the bond `skip` left out: an id of a bond is beside it)
+        let near =
+            |core: &[u32], skip: Option<usize>, placed: &HashMap<(i64, i64), Vec<(f64, f64)>>| {
+                let mut ring: Vec<u32> = core.to_vec();
+                for c in core {
+                    for &k in bonds_at.get(c).into_iter().flatten() {
+                        let n = other(k, *c);
+                        ring.push(n);
+                        ring.extend(bonds_at.get(&n).into_iter().flatten().map(|&j| other(j, n)));
                     }
                 }
-                for d in crate::curve::lp_dirs(doc, a.id, a.lp()) {
-                    pts.push((
-                        x + m::cos(d) * s * crate::curve::LP_REACH,
-                        y - m::sin(d) * s * crate::curve::LP_REACH,
-                    ));
+                ring.sort_unstable();
+                ring.dedup();
+                let mut pts: Vec<(f64, f64)> = Vec::new();
+                let mut bonds: Vec<usize> = Vec::new();
+                for id in &ring {
+                    let Some(&xy) = at.get(id) else {
+                        continue;
+                    };
+                    pts.push(xy);
+                    pts.extend(marks.get(id).into_iter().flat_map(|m| m.1.iter().copied()));
+                    bonds.extend(bonds_at.get(id).into_iter().flatten().copied());
                 }
-            }
-            for b in doc.bonds.iter().filter(|b| b.id != skip) {
-                if !(ring.binary_search(&b.a).is_ok() && ring.binary_search(&b.b).is_ok()) {
-                    continue;
+                bonds.sort_unstable();
+                bonds.dedup();
+                for k in bonds.into_iter().filter(|&k| Some(k) != skip) {
+                    let b = &doc.bonds[k];
+                    if !(ring.binary_search(&b.a).is_ok() && ring.binary_search(&b.b).is_ok()) {
+                        continue;
+                    }
+                    let (Some(&p), Some(&q)) = (at.get(&b.a), at.get(&b.b)) else {
+                        continue;
+                    };
+                    for t in [0.25, 0.5, 0.75] {
+                        pts.push((p.0 + (q.0 - p.0) * t, p.1 + (q.1 - p.1) * t));
+                    }
                 }
-                let (Some(&p), Some(&q)) = (at.get(&b.a), at.get(&b.b)) else {
-                    continue;
-                };
-                for t in [0.25, 0.5, 0.75] {
-                    pts.push((p.0 + (q.0 - p.0) * t, p.1 + (q.1 - p.1) * t));
+                // the placed ids within two cells of the core
+                for c in core {
+                    let Some(&o) = at.get(c) else {
+                        continue;
+                    };
+                    let (cx, cy) = key(o);
+                    for dx in -2..=2 {
+                        for dy in -2..=2 {
+                            pts.extend(
+                                placed
+                                    .get(&(cx + dx, cy + dy))
+                                    .into_iter()
+                                    .flatten()
+                                    .copied(),
+                            );
+                        }
+                    }
                 }
-            }
-            pts
-        };
+                pts
+            };
         if self.m.ids.atoms() {
             for a in &doc.atoms {
                 let (x, y) = at[&a.id];
-                let side = if self.labelled(a) {
+                let side = if marks[&a.id].0 {
                     width(&a.el, f) / 2.0
                 } else {
                     0.0
                 };
                 let reach = (s * 0.42).max(side + small * 0.8);
-                let pts = near(self, &[a.id], 0, &placed);
+                let pts = near(&[a.id], None, &placed);
                 let spots: Vec<(f64, f64)> = (0..16)
                     .map(|k| f64::from(k) * std::f64::consts::PI / 8.0)
                     .map(|t| (x + m::cos(t) * reach, y - m::sin(t) * reach))
                     .collect();
                 let spot = id_spot(&spots, &pts);
-                placed.push(spot);
+                placed.entry(key(spot)).or_default().push(spot);
                 self.text(spot.0, spot.1, small, colour::MUTED, &a.id.to_string(), 0.0);
             }
         }
         if self.m.ids.bonds() {
-            for b in &doc.bonds {
+            for (k, b) in doc.bonds.iter().enumerate() {
                 let (Some(&p), Some(&q)) = (at.get(&b.a), at.get(&b.b)) else {
                     continue;
                 };
@@ -1265,15 +1315,15 @@ impl Painter<'_> {
                 }
                 let (nx, ny) = (dy / len, -dx / len);
                 // past the second and third lines of a double or triple bond, on whichever side they are
-                let k = small * 0.9 + self.m.spacing * f64::from(b.o.saturating_sub(1));
+                let k_off = small * 0.9 + self.m.spacing * f64::from(b.o.saturating_sub(1));
                 let mid = ((p.0 + q.0) / 2.0, (p.1 + q.1) / 2.0);
                 let spots = [
-                    (mid.0 + nx * k, mid.1 + ny * k),
-                    (mid.0 - nx * k, mid.1 - ny * k),
+                    (mid.0 + nx * k_off, mid.1 + ny * k_off),
+                    (mid.0 - nx * k_off, mid.1 - ny * k_off),
                 ];
-                let pts = near(self, &[b.a, b.b], b.id, &placed);
+                let pts = near(&[b.a, b.b], Some(k), &placed);
                 let spot = id_spot(&spots, &pts);
-                placed.push(spot);
+                placed.entry(key(spot)).or_default().push(spot);
                 self.text(spot.0, spot.1, small, colour::MUTED, &b.id.to_string(), 0.0);
             }
         }
