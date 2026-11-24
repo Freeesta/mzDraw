@@ -3813,6 +3813,35 @@ try {
     assert(!(await pfSvg()).includes('fill="#5c5850"'), "no id is drawn once they are off");
     await pg.keyboard.press("Escape"); await pfShown(false);
   });
+  await step("display cip (rdkit-compare 6): the Preferences draw the CIP labels of the engine cip by keyboard, by touch and by pen; the page equals the golden of cip.json (the glue door) and Reset hides them", async () => {
+    const cGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/cip.json"), "utf8")).values[0];
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const penTap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    await pg.evaluate("window.MZDRAW.set_style('mzlab')");
+    await pg.evaluate(text => { const m = /** @type {any} */ (window).MZDRAW; m.open(m.replay(JSON.stringify({ import: text, out: "mzdraw" }))); }, cGold.request.import);
+    await tool(pg, "fit"); await tool(pg, "select"); await frames(pg);
+    await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter"); await pfShown(true);
+    eq(await pg.locator(pfSel("display.cip") + " option").allInnerTexts(), await pg.evaluate("['off', 'on'].map(w => I18N.t('draw2.prefs.display.cip.' + w))"));
+    eq(await pg.inputValue(pfSel("display.cip")), "off");
+    // the keyboard: one step down from off is on; the page has the engine, so its picture is the glue door's
+    await pg.focus(pfSel("display.cip")); await pg.keyboard.press("ArrowDown"); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.get('display.cip')"), "on");
+    await pfSame(cGold.out, "labels by keyboard");
+    await shot(pg, "rdkit-compare-6-display-cip-prefs");
+    await pg.keyboard.press("Escape"); await pfShown(false); await shot(pg, "rdkit-compare-6-display-cip-canvas");
+    await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter"); await pfShown(true);
+    // a finger: Reset of the group Display hides them, a tap on the row and a choice draws them again
+    await pg.touchscreen.tap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.get('display.cip')"), "off");
+    assert(!(await pfSvg()).includes(">(S)<"), "no label once they are off");
+    await pg.touchscreen.tap(...await pfAt(pfSel("display.cip"))); await pg.selectOption(pfSel("display.cip"), "on"); await frames(pg);
+    await pfSame(cGold.out, "labels by touch");
+    // a pen: the reset by a pen tap
+    await penTap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.get('display.cip')"), "off");
+    await pg.keyboard.press("Escape"); await pfShown(false);
+  });
   await ctx.close();
 
   await step("preferences: a stored dark theme is on the page before the first paint and before the module loads; a corrupt stored theme drops only itself with a note; without storage the page still starts", async () => {

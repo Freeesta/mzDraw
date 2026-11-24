@@ -57,6 +57,9 @@ pub struct Style {
     pub hash_lines: bool,
     /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
     pub maps: bool,
+    /// Whether the CIP labels are drawn (`display.cip`, `off` by default): R/S at a stereocentre, E/Z beside a double bond, from
+    /// the engine `cip` the editor is given (`cip::Labeller`).
+    pub cip: bool,
     /// Which ids of the document are drawn (`display.ids`, `off` by default): the atom ids, the bond ids or both, the numbers the
     /// operations of `draw_edit/1` name.
     pub ids: Ids,
@@ -230,6 +233,7 @@ fn known(key: &str) -> bool {
             | "hash_style"
             | "maps"
             | "ids"
+            | "cip"
             | "display.values"
             | "display.adducts"
             | "lens"
@@ -266,7 +270,7 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"ids":["off","atoms","bonds","both"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],{},"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"cip":["off","on"],"ids":["off","atoms","bonds","both"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],{},"fields":[{}]}}"#,
         PRESETS.join("\",\""),
         crate::values::ADDUCTS
             .iter()
@@ -319,6 +323,7 @@ impl Default for Style {
             hash_lines: false,
             maps: true,
             ids: Ids::Off,
+            cip: false,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
             lens: LensMode::Off,
@@ -481,6 +486,7 @@ impl Style {
             hash_lines: false,
             maps: true,
             ids: Ids::Off,
+            cip: false,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
             lens: LensMode::Off,
@@ -556,6 +562,9 @@ impl Style {
             ("maps", "off") => self.maps = false,
             ("maps", _) => return Err("error.draw2.styleValue"),
             ("ids", v) => self.ids = Ids::parse(v).ok_or("error.draw2.styleValue")?,
+            ("cip", "on") => self.cip = true,
+            ("cip", "off") => self.cip = false,
+            ("cip", _) => return Err("error.draw2.styleValue"),
             ("values", v) => {
                 self.values = crate::values::Mode::parse(v).ok_or("error.draw2.styleValue")?
             }
@@ -634,6 +643,7 @@ impl Style {
             "style.hash_style" => Some(if self.hash_lines { "lines" } else { "wedge" }.into()),
             "display.maps" => Some(on(self.maps)),
             "display.ids" => Some(self.ids.name().into()),
+            "display.cip" => Some(on(self.cip)),
             "display.values" => Some(self.values.name().into()),
             "display.adducts" => Some(self.adducts.join(",")),
             "display.lens" => Some(self.lens.name().into()),
@@ -739,6 +749,12 @@ impl Style {
             None => base.ids,
             Some(v) => Ids::parse(v)?,
         };
+        let cip = match g.s("cip").ok()?.as_deref() {
+            None => base.cip,
+            Some("on") => true,
+            Some("off") => false,
+            Some(_) => return None,
+        };
         let values = match g.s("display.values").ok()? {
             None => base.values,
             Some(v) => crate::values::Mode::parse(&v)?,
@@ -788,6 +804,7 @@ impl Style {
             hash_lines,
             maps,
             ids,
+            cip,
             values,
             adducts,
             lens,
@@ -833,6 +850,9 @@ impl Style {
         }
         if self.ids != Ids::Off {
             style.push(("ids".to_string(), text(self.ids.name())));
+        }
+        if self.cip {
+            style.push(("cip".to_string(), text("on")));
         }
         if self.values != crate::values::Mode::Off {
             style.push(("display.values".to_string(), text(self.values.name())));

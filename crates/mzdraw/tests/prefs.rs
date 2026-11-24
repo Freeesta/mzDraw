@@ -165,6 +165,7 @@ fn a_reset_puts_a_group_back_and_leaves_the_others() {
             "style.colour=element",
             "display.maps=on",
             "display.ids=off",
+            "display.cip=off",
             "display.values=off",
             "display.adducts=[M+H]+,[M-H]-",
             "display.lens=off",

@@ -26,13 +26,16 @@ struct Page {
     std_none: bool,
 }
 
-/// A page with the editor connected to the engine that gives the masses (`glue::measure`, the engine `sel` of mzLab).
+/// A page with the editor connected to the engines that give the masses (`glue::measure`, the engine `sel` of mzLab) and the CIP
+/// labels (`glue::cip_labels`, the engine `cip`).
 fn new_page() -> Page {
     let mut page = Page::default();
     #[cfg(feature = "sel")]
     {
         page.editor.measurer = Some(glue::measure);
     }
+    // the CIP labels of `display.cip` (the engine `cip`, always in the build)
+    page.editor.labeller = Some(glue::cip_labels);
     page
 }
 
