@@ -3798,8 +3798,8 @@ try {
     await pg.focus(pfSel("display.titles")); await pg.keyboard.press("ArrowDown"); await frames(pg);
     eq(await pg.evaluate("window.MZDRAW.get('display.titles')"), "on");
     await pfSame(tGold.out.svg, "titles by keyboard");
-    await shot(pg, "display-titles-keyboard");
-    await pg.keyboard.press("Escape"); await pfShown(false); await shot(pg, "display-titles-canvas");
+    await shot(pg, "rdkit-compare-5-display-titles-prefs");
+    await pg.keyboard.press("Escape"); await pfShown(false); await shot(pg, "rdkit-compare-5-display-titles-canvas");
     await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter"); await pfShown(true);
     // a finger: Reset of the group Display hides them, a tap on the row and a choice draws them again
     await pg.touchscreen.tap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
