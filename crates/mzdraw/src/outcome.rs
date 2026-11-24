@@ -360,6 +360,28 @@ impl Failed {
     }
 }
 
+/// The items of `imported` from the notes of the imports of a request, in their order (`io::Imported::notes` of the start text,
+/// then of the file): a note whose number is 0 is left out, and so is the computed layout (`draw2.import.placeholder`, no loss);
+/// two notes of one key (the text and the file both had query atoms) are one item whose `n` is their sum. The exception is
+/// `draw2.import.smilesLine`, whose `n` is the 1-based number of a SMILES line that could not be read: one item per line (at most
+/// `io::MAX_SAID`, the others counted by `draw2.import.smilesMore`). So every key is one item, but that one.
+pub fn import_notes(notes: Vec<(&'static str, usize)>) -> Vec<(&'static str, usize)> {
+    let mut out: Vec<(&'static str, usize)> = Vec::new();
+    for (key, n) in notes {
+        if n == 0 || key == "draw2.import.placeholder" {
+            continue;
+        }
+        match out
+            .iter_mut()
+            .find(|x| x.0 == key && key != "draw2.import.smilesLine")
+        {
+            Some(x) => x.1 += n,
+            None => out.push((key, n)),
+        }
+    }
+    out
+}
+
 /// The verdict on a run, ready to be written.
 pub struct Outcome {
     /// The request's own `id` as a JSON text, or the index of the request in its batch.
@@ -369,9 +391,9 @@ pub struct Outcome {
     pub out: Option<String>,
     pub created: IdSets,
     pub removed: IdSets,
-    /// What the import of the start text or file did not keep or changed, as (i18n key, count): the notes the page shows under its
-    /// import (`io::Imported::notes`) but the computed layout (`draw2.import.placeholder`, no loss); `draw2.import.stereoGroups` for
-    /// the enhanced-stereo groups the drawing does not keep, query atoms, S-groups, skipped records. Empty: nothing to say.
+    /// What the import of the start text or file did not keep or changed, as (i18n key, number): `import_notes` of the notes the
+    /// page shows under its import (`io::Imported::notes`); `draw2.import.stereoGroups` for the enhanced-stereo groups the drawing
+    /// does not keep, query atoms, S-groups, skipped records. Empty: nothing to say.
     pub imported: Vec<(&'static str, usize)>,
     /// What the output format `out` cannot hold, as (i18n key, count): `draw2.export.mapsLost` for atom maps. Empty: nothing lost.
     pub lost: Vec<(&'static str, usize)>,

@@ -31,7 +31,7 @@
     "imported": {
       "type": "array",
       "minItems": 1,
-      "description": "what the import of the start text or file did not keep or changed, the notes the page shows under its import (io::Imported::notes) but the computed layout (draw2.import.placeholder, no loss): one item per kind, only when there is something to say; draw2.import.stereoGroups for the enhanced-stereo groups the drawing does not keep, query atoms, S-groups, skipped records",
+      "description": "what the import of the start text (import) and the file (import_base64) did not keep or changed: the notes the page shows under its import (io::Imported::notes), in that order, less the computed layout (draw2.import.placeholder, no loss) and less a note whose number is 0 (outcome::import_notes); the key is left out when there is nothing to say. One item per key, n the sum over the text and the file (draw2.import.stereoGroups for the enhanced-stereo groups the drawing does not keep, queryAtoms, queryBonds, sgroups, skipped records, ...), except draw2.import.smilesLine: one item per SMILES line that could not be read, n its 1-based line number, at most 10, the others counted by draw2.import.smilesMore. The key was added to draw-result/1 without a new format id: a consumer must accept keys it does not know (additive keys)",
       "items": {
         "type": "object",
         "x-key-order": ["key", "n"],
@@ -39,7 +39,7 @@
         "additionalProperties": false,
         "properties": {
           "key": {"type": "string", "description": "the i18n key of the note, draw2.import.*"},
-          "n": {"type": "integer", "minimum": 1}
+          "n": {"type": "integer", "minimum": 1, "description": "how many (the sum over the text and the file); for draw2.import.smilesLine the 1-based number of the line"}
         }
       }
     },

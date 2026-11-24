@@ -304,6 +304,41 @@ fn check_document(text: &str, schema: &Value) {
             );
         }
     }
+    if let Some(list) = v.get("imported") {
+        // `{key, n}` and nothing else, in that order on the raw text; a key of the import notes; n from 1; one item per key but the
+        // line numbers of draw2.import.smilesLine (the item schema: `docs/schemas/draw-result-1.json`)
+        let text_of = &top.iter().find(|(key, _)| key == "imported").unwrap().1;
+        let items = list.as_array().unwrap();
+        assert!(!items.is_empty(), "an empty list is left out: {text}");
+        assert_eq!(
+            text_of.matches(r#"{"key":"#).count(),
+            items.len(),
+            "{text_of}"
+        );
+        let item_schema = &schema["properties"]["imported"]["items"];
+        assert_eq!(item_schema["additionalProperties"], false);
+        let mut seen = BTreeSet::new();
+        for x in items {
+            assert_eq!(keys(x), ["key", "n"], "{x}");
+            let key = x["key"].as_str().unwrap();
+            assert!(
+                key.starts_with("draw2.import.") && key != "draw2.import.placeholder",
+                "{key}"
+            );
+            assert!(x["n"].as_u64().unwrap() >= 1, "{x}");
+            assert!(
+                key == "draw2.import.smilesLine" || seen.insert(key.to_string()),
+                "{key} twice"
+            );
+        }
+        for item in text_of.split(r#"{"key":"#).skip(1) {
+            assert!(
+                item.contains(r#","n":"#)
+                    && item.trim_end_matches([']', '}', ',']).matches(':').count() == 1,
+                "{item}"
+            );
+        }
+    }
     if let Some(f) = v.get("failed") {
         let text_of = &top.iter().find(|(key, _)| key == "failed").unwrap().1;
         let fk: Vec<String> = members(text_of).into_iter().map(|(k, _)| k).collect();
@@ -533,4 +568,69 @@ fn what_the_import_does_not_keep_is_in_imported_as_the_page_says_it() {
         ),
         "{text}"
     );
+}
+
+/// A synthetic molfile with a query atom list, query atoms, a query bond and two S-groups (the test of `formats.rs` reads the same).
+const QUERY_V2000: &str = "synthetic\n  test\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.0000    0.0000    0.0000 A   0  0  0  0  0  0  0  0  0  0  0  0\n    2.0000    0.0000    0.0000 Q   0  0  0  0  0  0  0  0  0  0  0  0\n    3.0000    0.0000    0.0000 L   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  6  0  0  0  0\n  3  4  8  0  0  0  0\nM  ALS   4  2 F N   O   \nM  STY  2   1 SUP   2 DAT\nM  END\n";
+
+#[test]
+fn every_kind_of_import_note_comes_through_and_one_key_is_one_item() {
+    let items = |v: &Value| -> Vec<(String, u64)> {
+        (v["imported"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+            .iter())
+        .map(|i| {
+            (
+                i["key"].as_str().unwrap().to_string(),
+                i["n"].as_u64().unwrap(),
+            )
+        })
+        .collect()
+    };
+    let k = |key: &str, n: u64| (format!("draw2.import.{key}"), n);
+    // query atoms and bonds and S-groups: opened, and said
+    let v = run(json!({"import": QUERY_V2000, "report": true, "out": "smiles"}));
+    assert_eq!(
+        items(&v),
+        [k("queryAtoms", 3), k("queryBonds", 2), k("sgroups", 2)],
+        "{v}"
+    );
+    // an SDF longer than the bound: the records past it are skipped, and said
+    let record = "\n  t\n\n  1  0  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\nM  END\n$$$$\n";
+    let sdf = record.repeat(mzdraw::io::MAX_RECORDS + 4);
+    let v = run(json!({"import": sdf, "dry_run": true}));
+    assert!(items(&v).contains(&k("skipped", 4)), "{:?}", items(&v));
+    // the start text and the file together: the notes of both, the text first
+    let pdf = mzdraw::replay::replay(&json!({"import": "CCO", "out": "pdf"}).to_string()).unwrap();
+    let v = run(
+        json!({"import": "C[C@H](F)Cl |&1:1|", "import_base64": pdf, "report": true, "out": "smiles"}),
+    );
+    assert_eq!(items(&v), [k("stereoGroups", 1)], "{v}");
+    // one key from the text and from the file is one item with the sum; smilesLine keeps one item per line; 0 and the layout go
+    use mzdraw::outcome::import_notes;
+    assert_eq!(
+        import_notes(vec![
+            ("draw2.import.placeholder", 1),
+            ("draw2.import.queryAtoms", 3),
+            ("draw2.import.smilesLine", 2),
+            ("draw2.import.sgroups", 0),
+            ("draw2.import.queryAtoms", 2),
+            ("draw2.import.smilesLine", 5),
+        ]),
+        [
+            ("draw2.import.queryAtoms", 5),
+            ("draw2.import.smilesLine", 2),
+            ("draw2.import.smilesLine", 5)
+        ]
+    );
+    // lines of a SMILES file that cannot be read: one item per line, n the line number
+    let v = run(json!({"import": "CCO\nnot a smiles\nCC\n((\n", "dry_run": true}));
+    let lines: Vec<u64> = items(&v)
+        .iter()
+        .filter(|x| x.0 == "draw2.import.smilesLine")
+        .map(|x| x.1)
+        .collect();
+    assert_eq!(lines, [2, 4], "{v}");
 }
