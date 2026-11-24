@@ -42,6 +42,7 @@ pub(crate) fn known(name: &str) -> bool {
                 | "rotate"
                 | "flip"
                 | "scheme:row"
+                | "grid"
                 | "pathway:anchor"
                 | "pathway:route"
                 | "pathway:tree"
@@ -113,6 +114,9 @@ pub(crate) fn check(name: &str, args: &Value) -> Result<(), &'static str> {
     }
     if name == "scheme:row" {
         return crate::scheme::Opts::parse(args).map(|_| ());
+    }
+    if name == "grid" {
+        return crate::grid::Opts::parse(args).map(|_| ());
     }
     if name == "pathway:label" {
         return crate::steplabel::Opts::parse(args).map(|_| ());
@@ -486,6 +490,12 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     if name == "scheme:row" {
         let opts = crate::scheme::Opts::parse(args).map_err(bad)?;
         let ops = crate::scheme::row(e.doc(), &e.style, &opts).map_err(bad)?;
+        let ops = e.following(&ops);
+        return e.run_guarded(&ops);
+    }
+    if name == "grid" {
+        let opts = crate::grid::Opts::parse(args).map_err(bad)?;
+        let ops = crate::grid::grid(e.doc(), &e.style, &e.measured, &opts).map_err(bad)?;
         let ops = e.following(&ops);
         return e.run_guarded(&ops);
     }

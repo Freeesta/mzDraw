@@ -175,6 +175,28 @@ impl Editor {
         self.scheme_row_with(1.0, 0.0)
     }
 
+    /// Lays the structures of the selection (or of the drawing) out in a grid with room for their legends, one undo step
+    /// (`grid::grid`, the command `grid` with its defaults; what the page's button runs). When every structure stands in its cell,
+    /// nothing changes and the status line says so.
+    pub fn grid(&mut self) -> u32 {
+        let opts = crate::grid::Opts {
+            atoms: self.over.sel_atoms.clone(),
+            ..crate::grid::Opts::default()
+        };
+        match crate::grid::grid(self.doc(), &self.style, &self.measured, &opts) {
+            Ok(ops) if ops.is_empty() => {
+                self.said = ("draw2.say.gridDone", String::new());
+                self.error = "";
+                REPAINT
+            }
+            Ok(ops) => self.run(&ops, "draw2.say.grid", ""),
+            Err(key) => {
+                self.error = key;
+                REPAINT
+            }
+        }
+    }
+
     /// The same with a `gap` and a `wrap` (bond lengths). When everything stands where the row puts it, nothing changes and the
     /// status line says so.
     pub fn scheme_row_with(&mut self, gap: f64, wrap: f64) -> u32 {

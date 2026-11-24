@@ -975,6 +975,8 @@ pub fn document_props(
 /// The text drawn under one structure.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Caption {
+    /// The id of the first atom of its structure (`Structure::anchor`).
+    pub anchor: u32,
     /// The middle of the structure and its lowest atom, in document units.
     pub x: f64,
     pub y: f64,
@@ -1106,7 +1108,7 @@ pub fn captions_titled(
         }
         (s.ids.iter())
             .filter_map(|id| doc.atom(*id))
-            .map(|a| a.title())
+            .map(|a| legend(&a.title()))
             .find(|t| !t.is_empty())
             .unwrap_or_default()
     };
@@ -1145,6 +1147,7 @@ pub fn captions_titled(
                 std::iter::once(title).chain(lines).collect()
             };
             Caption {
+                anchor: s.anchor,
                 x: (s.bbox[0] + s.bbox[2]) / 2.0,
                 y: s.bbox[1],
                 lines,
@@ -1152,6 +1155,26 @@ pub fn captions_titled(
             }
         })
         .collect()
+}
+
+/// A title as the one line of its legend: each run of control characters (a line break, a tab, a carriage return) is one blank and
+/// the ends are trimmed, so the SVG, the PDF and the CDXML draw the same single line the caption height counts (a CDXML text would
+/// break at a kept line feed).
+pub fn legend(title: &str) -> String {
+    let mut out = String::with_capacity(title.len());
+    let mut gap = false;
+    for c in title.chars() {
+        if c.is_control() {
+            gap = true;
+            continue;
+        }
+        if gap && !out.is_empty() {
+            out.push(' ');
+        }
+        gap = false;
+        out.push(c);
+    }
+    out.trim().to_string()
 }
 
 /// Where the lines of a caption stand, in pixels below the lowest atom of the structure and the height they take, for a font size
