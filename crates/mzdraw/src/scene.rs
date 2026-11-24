@@ -1188,7 +1188,12 @@ impl Painter<'_> {
     fn ids(&mut self) {
         use std::collections::HashMap;
         // nothing to place: no work at all (the label test below scans the bonds per atom)
-        if self.m.ids == crate::settings::Ids::Off && self.over.cip.is_empty() {
+        let grouped = self
+            .doc
+            .atoms
+            .iter()
+            .any(|a| a.more.iter().any(|m| m.0 == "sg"));
+        if self.m.ids == crate::settings::Ids::Off && self.over.cip.is_empty() && !grouped {
             return;
         }
         let doc = self.doc;
@@ -1342,6 +1347,17 @@ impl Painter<'_> {
             .filter(|c| c.bond != 0)
             .map(|c| (c.bond, format!("({})", c.text)))
             .collect();
+        // the enhanced-stereo group of each atom (`atom.sg`): `and1`, `or2`, and `abs` when the drawing also has a group of another
+        // kind (a drawing whose centres are all absolute says nothing more than its wedges)
+        let mixed = doc.atoms.iter().any(|a| {
+            let g = a.sg();
+            g.starts_with("and") || g.starts_with("or")
+        });
+        let group: HashMap<u32, String> = (doc.atoms.iter())
+            .filter(|_| grouped)
+            .map(|a| (a.id, a.sg()))
+            .filter(|(_, g)| !g.is_empty() && (g != "abs" || mixed))
+            .collect();
         let notes = |id: u32, ids: bool, cip: &HashMap<u32, String>| -> Vec<(String, f32)> {
             let mut out = Vec::new();
             if ids {
@@ -1354,7 +1370,10 @@ impl Painter<'_> {
         };
         {
             for a in &doc.atoms {
-                let list = notes(a.id, self.m.ids.atoms(), &cip_atom);
+                let mut list = notes(a.id, self.m.ids.atoms(), &cip_atom);
+                if let Some(g) = group.get(&a.id) {
+                    list.push((g.clone(), colour::INK));
+                }
                 if list.is_empty() {
                     continue;
                 }

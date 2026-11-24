@@ -110,6 +110,7 @@ Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms 
 | `atom.lp` | no | no | no | no | no | no | no | no | yes | yes |
 | `atom.map` | yes | yes | yes | yes | yes | no | no | yes | yes | yes |
 | `atom.radical` | yes | yes | drawing | yes | yes | yes | yes | yes | yes | yes |
+| `atom.stereoGroup` | no | drawing | drawing | no | no | no | no | no | yes | yes |
 | `bond.bdash` | no | no | no | no | no | no | no | no | yes | yes |
 | `bond.bold` | no | no | no | no | no | yes | no | no | yes | yes |
 | `bond.dash` | no | no | no | no | no | yes | no | no | yes | yes |

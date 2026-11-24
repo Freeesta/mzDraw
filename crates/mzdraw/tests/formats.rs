@@ -350,40 +350,59 @@ fn what_is_out_of_scope_opens_and_is_listed() {
         (info.query_atoms, info.query_bonds, info.sgroups),
         (2, 1, 1)
     );
-    // enhanced stereo: the centres keep their wedges, the "and"/"or" groups have no place in the drawing and are said
+    // enhanced stereo: the centres keep their wedges and the groups are kept on their atoms (`atom.sg`, rdkit-compare 3 part 2):
+    // nothing is said lost, and the SMILES written back carries them in its CXSMILES tail
+    let sgs = |d: &mzdraw::Document| -> Vec<String> {
+        d.atoms
+            .iter()
+            .map(|a| a.sg())
+            .filter(|g| !g.is_empty())
+            .collect()
+    };
     for (text, groups) in [
-        ("N[C@@H](C)C(=O)O |a:1|", 0),
-        ("N[C@@H](C)C(=O)O |&1:1|", 1),
-        ("C[C@H](O)[C@@H](N)C |o1:1,o2:3|", 2),
+        ("N[C@@H](C)C(=O)O |a:1|", vec!["abs"]),
+        ("N[C@@H](C)C(=O)O |&1:1|", vec!["and1"]),
+        ("C[C@H](O)[C@@H](N)C |o1:1,o2:3|", vec!["or1", "or2"]),
     ] {
         let (d, info) = import(text).unwrap();
         assert!(
             marks(&d).iter().any(|&m| m != 0),
             "{text} is drawn with wedges"
         );
+        let back = d.to_smiles().unwrap();
+        let (core, tail) = back.split_once(' ').unwrap();
         assert_eq!(
-            canonical(&d.to_smiles().unwrap()),
+            canonical(core),
             canonical(text.split(' ').next().unwrap()),
             "{text}"
         );
-        assert_eq!(info.stereo_groups, groups, "{text}");
         assert_eq!(
-            info.notes()
-                .contains(&("draw2.import.stereoGroups", groups)),
-            groups > 0,
+            tail,
+            text.split_once(' ').unwrap().1,
+            "{text}: the tail written back"
+        );
+        assert_eq!(sgs(&d), groups, "{text}");
+        assert_eq!(info.stereo_groups, 0, "{text}");
+        assert!(
+            !info
+                .notes()
+                .iter()
+                .any(|n| n.0 == "draw2.import.stereoGroups"),
             "{text}"
         );
     }
-    // the same through a V3000 file with its collections
+    // the same through a V3000 file with its collections, and back to one
     let racemic = Mol::from_smiles("N[C@@H](C)C(=O)O |&1:1|").unwrap();
     let mut placed = racemic.clone();
     placed.coords = drawn("NC(C)C(=O)O").to_mol().coords;
     let v3 = placed.to_molfile("synthetic");
     assert!(v3.contains("V3000") && v3.contains("STERAC1"), "{v3}");
     let (d, info) = import(&v3).unwrap();
-    assert!(marks(&d).iter().any(|&m| m != 0) && info.stereo_groups == 1);
+    assert!(marks(&d).iter().any(|&m| m != 0) && info.stereo_groups == 0);
+    assert_eq!(sgs(&d), ["and1"]);
+    assert!(d.to_molfile_v3000().contains("MDLV30/STERAC1 ATOMS=(1 2)"));
     assert_eq!(
-        canonical(&d.to_smiles().unwrap()),
+        canonical(d.to_smiles().unwrap().split(' ').next().unwrap()),
         canonical("N[C@@H](C)C(=O)O")
     );
     // a plain file has nothing to say

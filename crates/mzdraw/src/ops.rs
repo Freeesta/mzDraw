@@ -60,6 +60,8 @@ pub enum Op {
     /// Replaces the title kept on an atom (the name of its structure, the title line of the files it is written as: one line of at
     /// most `doc::MAX_TITLE` characters, no control character); the empty text takes it away.
     AtomTitle { id: u32, title: String },
+    /// Replaces the enhanced-stereo group of an atom (`doc::sg_valid`: `abs`, `andN`, `orN`); the empty text takes it away.
+    AtomSg { id: u32, sg: String },
     /// Replaces the lines kept under the molecule this atom holds the choice of (`props`: line keys in the order they are written);
     /// the empty list takes the choice away (the molecule follows `display.values` again).
     AtomCap { id: u32, lines: Vec<String> },
@@ -283,6 +285,11 @@ impl Op {
                 w.text("op", "atom.title");
                 w.int("id", i64::from(*i));
                 w.text("title", title);
+            }
+            Op::AtomSg { id: i, sg } => {
+                w.text("op", "atom.sg");
+                w.int("id", i64::from(*i));
+                w.text("sg", sg);
             }
             Op::AtomCap { id: i, lines } => {
                 w.text("op", "atom.cap");
@@ -589,6 +596,10 @@ impl Op {
             "atom.title" => Op::AtomTitle {
                 id: g.u("id")?.ok_or(())?,
                 title: g.s("title")?.ok_or(())?,
+            },
+            "atom.sg" => Op::AtomSg {
+                id: g.u("id")?.ok_or(())?,
+                sg: g.s("sg")?.ok_or(())?,
             },
             "atom.cap" => Op::AtomCap {
                 id: g.u("id")?.ok_or(())?,
@@ -1051,6 +1062,17 @@ impl Document {
                 }
                 inv.push(Inv::SetAtom(self.atoms[i].clone()));
                 self.atoms[i].set_title(title);
+                done.push(op.clone());
+            }
+            Op::AtomSg { id, sg } => {
+                let Some(i) = self.atom_index(*id) else {
+                    return err("error.draw2.noAtom", *id);
+                };
+                if !crate::doc::sg_valid(sg) {
+                    return err("error.draw2.stereoGroup", *id);
+                }
+                inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                self.atoms[i].set_sg(sg);
                 done.push(op.clone());
             }
             Op::AtomCap { id, lines } => {

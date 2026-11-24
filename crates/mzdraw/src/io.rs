@@ -845,9 +845,32 @@ pub(crate) fn labelled(
     labels: Vec<(usize, String)>,
     info: &mut Imported,
 ) -> (Document, bool) {
-    let grouped = |g: &&mzlab_mol::StereoGroup| g.kind != mzlab_mol::GroupKind::Abs;
-    info.stereo_groups += m.groups.iter().filter(grouped).count();
     let (mut d, placeholder) = Document::from_mol(m);
+    // the enhanced-stereo groups are kept on their atoms (`atom.sg`): `abs`, and the `and` and `or` groups numbered in the order of
+    // the record; a group with an atom the drawing does not have is said as not kept
+    let (mut and, mut or) = (0, 0);
+    for g in &m.groups {
+        let sg = match g.kind {
+            mzlab_mol::GroupKind::Abs => "abs".to_string(),
+            mzlab_mol::GroupKind::And => {
+                and += 1;
+                format!("and{and}")
+            }
+            mzlab_mol::GroupKind::Or => {
+                or += 1;
+                format!("or{or}")
+            }
+        };
+        let fits =
+            crate::doc::sg_valid(&sg) && g.atoms.iter().all(|&i| (i as usize) < d.atoms.len());
+        if !fits {
+            info.stereo_groups += usize::from(g.kind != mzlab_mol::GroupKind::Abs);
+            continue;
+        }
+        for &i in &g.atoms {
+            d.atoms[i as usize].set_sg(&sg);
+        }
+    }
     // the bonds the file drew from one atom to the other: dative and hydrogen bonds (the donor is the first atom of the line)
     for (from, to, kind) in std::mem::take(&mut info.links) {
         let ids = (

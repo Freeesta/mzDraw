@@ -99,6 +99,8 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("atom.lp", [N, N, N, N, N, N, N, N, Y, Y]),
     ("atom.map", [Y, Y, Y, Y, Y, N, N, Y, Y, Y]),
     ("atom.radical", [Y, Y, P, Y, Y, Y, Y, Y, Y, Y]),
+    // V3000 collections and the CXSMILES tail; a group on an atom that is no stereocentre there is dropped by the reader
+    ("atom.stereoGroup", [N, P, P, N, N, N, N, N, Y, Y]),
     ("bond.bdash", [N, N, N, N, N, N, N, N, Y, Y]),
     ("bond.bold", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("bond.dash", [N, N, N, N, N, Y, N, N, Y, Y]),
@@ -202,9 +204,12 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if !a.ann().is_empty() {
             push("annotation", a.ann(), a.id, 0, 0);
         }
+        if !a.sg().is_empty() {
+            push("atom.stereoGroup", a.sg(), a.id, 0, 0);
+        }
         // `col` is not unknown when it is a colour (it has its own row); a value that is not one (a newer file) is
         for (key, _) in (a.more.iter()).filter(|m| {
-            !["data", "ann", "lp"].contains(&m.0.as_str())
+            !["data", "ann", "lp", "sg"].contains(&m.0.as_str())
                 && (m.0 != "col" || a.col().is_empty())
                 && (m.0 != "cap" || a.cap().is_empty())
         }) {

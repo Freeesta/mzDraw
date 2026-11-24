@@ -203,6 +203,23 @@ pub const OPS: &[OpSpec] = &[
         mzlab: false,
     },
     OpSpec {
+        name: "atom.sg",
+        fields: &[
+            f("id", "uint", true, "", ""),
+            nf(
+                "sg",
+                "string",
+                true,
+                "",
+                "the enhanced-stereo group of the atom: `abs` (absolute), `andN` (`&N` of CXSMILES, `STERAC` of V3000: one of the two enantiomers, unknown ratio) or `orN` (`oN`, `STEREL`: one of the two, unknown which), N from 1 to 99; the empty text takes it away; drawn next to the atom; written to V3000 and to the CXSMILES tail of a SMILES; another word is `error.draw2.stereoGroup`",
+            ),
+        ],
+        inverse: "SetAtom",
+        since: crate::brand::FIRST_DOCUMENT_ID,
+        mzdraw: true,
+        mzlab: false,
+    },
+    OpSpec {
         name: "atom.cap",
         fields: &[
             nf("id", "uint", true, "", "an atom of the molecule; the choice is kept on it"),

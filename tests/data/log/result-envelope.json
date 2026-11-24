@@ -186,8 +186,8 @@
       }
     },
     {
-      "name": "an enhanced-stereo group of a CXSMILES the drawing does not keep is in imported",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"C[C@H](F)Cl\",\"created\":{},\"removed\":{},\"imported\":[{\"key\":\"draw2.import.stereoGroups\",\"n\":1}],\"dirty\":false}",
+      "name": "an enhanced-stereo group of a CXSMILES is kept (written back in the tail), nothing in imported",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"C[C@H](F)Cl |&1:1|\",\"created\":{},\"removed\":{},\"dirty\":false}",
       "request": {
         "import": "C[C@H](F)Cl |&1:1|",
         "out": "smiles",
@@ -195,8 +195,8 @@
       }
     },
     {
-      "name": "an enhanced-stereo collection of a V3000 molfile is in imported",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"mzDraw\\n  mzLab             2D\\n\\n  0  0  0     0  0            999 V3000\\nM  V30 BEGIN CTAB\\nM  V30 COUNTS 4 3 0 0 0\\nM  V30 BEGIN ATOM\\nM  V30 1 C -0.866000 -0.500000 0.000000 0\\nM  V30 2 C 0.000000 0.000000 0.000000 0\\nM  V30 3 F 0.866000 -0.500000 0.000000 0\\nM  V30 4 Cl 0.000000 1.000000 0.000000 0\\nM  V30 END ATOM\\nM  V30 BEGIN BOND\\nM  V30 1 1 2 1 CFG=1\\nM  V30 2 1 2 3\\nM  V30 3 1 2 4\\nM  V30 END BOND\\nM  V30 END CTAB\\nM  END\\n\",\"created\":{},\"removed\":{},\"imported\":[{\"key\":\"draw2.import.stereoGroups\",\"n\":1}],\"dirty\":false}",
+      "name": "an enhanced-stereo collection of a V3000 molfile is kept (written back as a collection), nothing in imported",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"mzDraw\\n  mzLab             2D\\n\\n  0  0  0     0  0            999 V3000\\nM  V30 BEGIN CTAB\\nM  V30 COUNTS 4 3 0 0 0\\nM  V30 BEGIN ATOM\\nM  V30 1 C -0.866000 -0.500000 0.000000 0\\nM  V30 2 C 0.000000 0.000000 0.000000 0\\nM  V30 3 F 0.866000 -0.500000 0.000000 0\\nM  V30 4 Cl 0.000000 1.000000 0.000000 0\\nM  V30 END ATOM\\nM  V30 BEGIN BOND\\nM  V30 1 1 2 1 CFG=1\\nM  V30 2 1 2 3\\nM  V30 3 1 2 4\\nM  V30 END BOND\\nM  V30 BEGIN COLLECTION\\nM  V30 MDLV30/STERAC1 ATOMS=(1 2)\\nM  V30 END COLLECTION\\nM  V30 END CTAB\\nM  END\\n\",\"created\":{},\"removed\":{},\"dirty\":false}",
       "request": {
         "import": "\n     RDKit          2D\n\n  0  0  0  0  0  0  0  0  0  0999 V3000\nM  V30 BEGIN CTAB\nM  V30 COUNTS 4 3 0 0 0\nM  V30 BEGIN ATOM\nM  V30 1 C -1.299038 -0.750000 0.000000 0\nM  V30 2 C 0.000000 0.000000 0.000000 0\nM  V30 3 F 1.299038 -0.750000 0.000000 0\nM  V30 4 Cl 0.000000 1.500000 0.000000 0\nM  V30 END ATOM\nM  V30 BEGIN BOND\nM  V30 1 1 2 1 CFG=1\nM  V30 2 1 2 3\nM  V30 3 1 2 4\nM  V30 END BOND\nM  V30 BEGIN COLLECTION\nM  V30 MDLV30/STERAC1 ATOMS=(1 2)\nM  V30 END COLLECTION\nM  V30 END CTAB\nM  END\n",
         "out": "molfile-v3000",
@@ -204,8 +204,8 @@
       }
     },
     {
-      "name": "a dry run of a CXSMILES with an or group says the import notes too",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{},\"removed\":{},\"imported\":[{\"key\":\"draw2.import.stereoGroups\",\"n\":1}],\"dirty\":false}",
+      "name": "a dry run of a CXSMILES with an or group: the group is kept, no import note",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{},\"removed\":{},\"dirty\":false}",
       "request": {
         "dry_run": true,
         "import": "C[C@H](F)Cl.CCO |o1:1|"
@@ -221,8 +221,8 @@
       }
     },
     {
-      "name": "the start text and the file together: the notes of both, the text first",
-      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"C[C@H](F)Cl.CCO\",\"created\":{},\"removed\":{},\"imported\":[{\"key\":\"draw2.import.stereoGroups\",\"n\":1}],\"dirty\":false}",
+      "name": "the start text and the file together: the notes of both, the text first (an enhanced-stereo group is kept, no note)",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"out\":\"C[C@H](F)Cl.CCO |&1:1|\",\"created\":{},\"removed\":{},\"dirty\":false}",
       "request": {
         "import": "C[C@H](F)Cl |&1:1|",
         "import_base64": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgL05hbWVzIDw8IC9FbWJlZGRlZEZpbGVzIDw8IC9OYW1lcyBbKG16ZHJhdy5qc29uKSA2IDAgUiAobXpkcmF3Lm1vbCkgOCAwIFJdID4+ID4+ID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgMTEzLjQgOTQuMzhdIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDQgMCBSID4+ID4+IC9Db250ZW50cyA1IDAgUiA+PgplbmRvYmoKNCAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcgPj4KZW5kb2JqCjUgMCBvYmoKPDwgIC9MZW5ndGggMjAxID4+CnN0cmVhbQoxIEoKMCAwIDAgUkcgMS4zNSB3IDM0LjIgNjAuMTggbSA2NC4yIDYwLjE4IGwgUwowIDAgMCBSRyAxLjM1IHcgNjQuMiA2MC4xOCBtIDc1LjQ4IDQwLjY0IGwgUwpCVCAvRjEgMTIgVGYgMC43NTMgMC4xMjUgMC4xMjUgcmcgNzUgMzAgVGQgKE8pIFRqIEVUCkJUIC9GMSAxMiBUZiAwLjc1MyAwLjEyNSAwLjEyNSByZyA4My40IDMwIFRkIChIKSBUaiBFVAoKZW5kc3RyZWFtCmVuZG9iago2IDAgb2JqCjw8IC9UeXBlIC9GaWxlc3BlYyAvRiAobXpkcmF3Lmpzb24pIC9VRiAobXpkcmF3Lmpzb24pIC9FRiA8PCAvRiA3IDAgUiA+PiA+PgplbmRvYmoKNyAwIG9iago8PCAvVHlwZSAvRW1iZWRkZWRGaWxlIC9TdWJ0eXBlIC9hcHBsaWNhdGlvbiMyRmpzb24gL1BhcmFtcyA8PCAvU2l6ZSAyMTMgPj4gL0xlbmd0aCAyMTMgPj4Kc3RyZWFtCnsiZm9ybWF0IjoibXpkcmF3LzEiLCJuZXh0Ijo2LCJhdG9tcyI6W3siaWQiOjEsImVsIjoiQyIsIngiOjAuMCwieSI6MC40MzN9LHsiaWQiOjIsImVsIjoiQyIsIngiOjEuMCwieSI6MC40MzN9LHsiaWQiOjMsImVsIjoiTyIsIngiOjEuNSwieSI6LTAuNDMzfV0sImJvbmRzIjpbeyJpZCI6NCwiYSI6MSwiYiI6MiwibyI6MX0seyJpZCI6NSwiYSI6MiwiYiI6MywibyI6MX1dfQplbmRzdHJlYW0KZW5kb2JqCjggMCBvYmoKPDwgL1R5cGUgL0ZpbGVzcGVjIC9GIChtemRyYXcubW9sKSAvVUYgKG16ZHJhdy5tb2wpIC9FRiA8PCAvRiA5IDAgUiA+PiA+PgplbmRvYmoKOSAwIG9iago8PCAvVHlwZSAvRW1iZWRkZWRGaWxlIC9TdWJ0eXBlIC9jaGVtaWNhbCMyRngtbWRsLW1vbGZpbGUgL1BhcmFtcyA8PCAvU2l6ZSAzNTUgPj4gL0xlbmd0aCAzNTUgPj4Kc3RyZWFtCm16RHJhdwogIG16TGFiICAgICAgICAgICAgIDJECgogIDAgIDAgIDAgICAgIDAgIDAgICAgICAgICAgICA5OTkgVjMwMDAKTSAgVjMwIEJFR0lOIENUQUIKTSAgVjMwIENPVU5UUyAzIDIgMCAwIDAKTSAgVjMwIEJFR0lOIEFUT00KTSAgVjMwIDEgQyAwLjAwMDAwMCAwLjQzMzAwMCAwLjAwMDAwMCAwCk0gIFYzMCAyIEMgMS4wMDAwMDAgMC40MzMwMDAgMC4wMDAwMDAgMApNICBWMzAgMyBPIDEuNTAwMDAwIC0wLjQzMzAwMCAwLjAwMDAwMCAwCk0gIFYzMCBFTkQgQVRPTQpNICBWMzAgQkVHSU4gQk9ORApNICBWMzAgMSAxIDEgMgpNICBWMzAgMiAxIDIgMwpNICBWMzAgRU5EIEJPTkQKTSAgVjMwIEVORCBDVEFCCk0gIEVORAoKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgMTAKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE1IDAwMDAwIG4gCjAwMDAwMDAxNDYgMDAwMDAgbiAKMDAwMDAwMDIwMyAwMDAwMCBuIAowMDAwMDAwMzMzIDAwMDAwIG4gCjAwMDAwMDA0MzAgMDAwMDAgbiAKMDAwMDAwMDY4MyAwMDAwMCBuIAowMDAwMDAwNzc0IDAwMDAwIG4gCjAwMDAwMDExMTEgMDAwMDAgbiAKMDAwMDAwMTIwMCAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDEwIC9Sb290IDEgMCBSIC9JRCBbPGJjMGQxYmQwMTJhN2U0MTNkNTcwNzNhMjI2YWQ5MTdjPiA8YmMwZDFiZDAxMmE3ZTQxM2Q1NzA3M2EyMjZhZDkxN2M+XSA+PgpzdGFydHhyZWYKMTY4NQolJUVPRgo=",

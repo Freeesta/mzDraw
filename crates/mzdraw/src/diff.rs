@@ -226,6 +226,12 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                 title: y.title(),
             });
         }
+        if x.sg() != y.sg() {
+            out.push(Op::AtomSg {
+                id: y.id,
+                sg: y.sg(),
+            });
+        }
         if x.cap() != y.cap() {
             out.push(Op::AtomCap {
                 id: y.id,
@@ -655,6 +661,7 @@ pub(crate) fn touched(op: &Op) -> Vec<u32> {
         | Op::AtomAnn { id, .. }
         | Op::AtomCap { id, .. }
         | Op::AtomTitle { id, .. }
+        | Op::AtomSg { id, .. }
         | Op::BondSet { id, .. } => vec![*id],
         // the set of a curve (the diff always says its two flags) is in one hunk with the pieces it is anchored to
         Op::ObjSet {

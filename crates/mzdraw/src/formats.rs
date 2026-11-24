@@ -70,6 +70,9 @@ impl Document {
             rest = &rest[close..];
         }
         out.push_str(rest);
+        // the enhanced-stereo groups, as the CXSMILES tail (the positions are those of the written atoms)
+        let order: Vec<usize> = order.iter().map(|&i| i as usize).collect();
+        out.push_str(&self.sg_tail(&order));
         Ok(out)
     }
 
@@ -155,12 +158,102 @@ impl Document {
                 }
                 _ => {}
             }
+            // the enhanced-stereo groups of the atoms (`atom.sg`), as the collections of V3000, before the end of the table
+            if body == "END CTAB" {
+                out.push_str(&self.sg_collection());
+            }
             if block != 'c' {
                 out.push_str(marked.as_deref().unwrap_or(line));
                 out.push('\n');
             }
         }
         out
+    }
+
+    /// The enhanced-stereo groups of the drawing (`atom.sg`), in the order of the files: `abs`, then the `and` groups, then the `or`
+    /// groups, each by its number, with the indices (0-based, pool order) of its atoms. Files number the groups of a kind 1, 2, ...
+    /// in this order (a reader numbers them by their order), so the number of a file is the rank of the drawing's number.
+    pub(crate) fn sg_groups(&self) -> Vec<(&'static str, u32, Vec<usize>)> {
+        let mut groups: std::collections::BTreeMap<(u8, u32), Vec<usize>> = Default::default();
+        for (i, a) in self.atoms.iter().enumerate() {
+            let g = a.sg();
+            let key = if g == "abs" {
+                (0, 0)
+            } else if let Some(n) = g.strip_prefix("and").and_then(|n| n.parse().ok()) {
+                (1, n)
+            } else if let Some(n) = g.strip_prefix("or").and_then(|n| n.parse().ok()) {
+                (2, n)
+            } else {
+                continue;
+            };
+            groups.entry(key).or_default().push(i);
+        }
+        let mut rank = [0u32; 3];
+        groups
+            .into_iter()
+            .map(|((kind, _), atoms)| {
+                rank[kind as usize] += 1;
+                (
+                    ["abs", "and", "or"][kind as usize],
+                    rank[kind as usize],
+                    atoms,
+                )
+            })
+            .collect()
+    }
+
+    /// The `BEGIN COLLECTION` block of V3000 with the enhanced-stereo groups (`STEABS`, `STERACn`, `STERELn`), empty for none.
+    fn sg_collection(&self) -> String {
+        let groups = self.sg_groups();
+        if groups.is_empty() {
+            return String::new();
+        }
+        let mut out = String::from("M  V30 BEGIN COLLECTION\n");
+        for (kind, n, atoms) in groups {
+            let name = match kind {
+                "abs" => "STEABS".to_string(),
+                "and" => format!("STERAC{n}"),
+                _ => format!("STEREL{n}"),
+            };
+            let list: Vec<String> = atoms.iter().map(|i| (i + 1).to_string()).collect();
+            out += &format!(
+                "M  V30 MDLV30/{name} ATOMS=({} {})\n",
+                atoms.len(),
+                list.join(" ")
+            );
+        }
+        out + "M  V30 END COLLECTION\n"
+    }
+
+    /// The CXSMILES tail of the enhanced-stereo groups (`|a:..,&1:..,o1:..|`) for a SMILES whose atoms are written in `order`
+    /// (the index in the pool of each written atom); empty for none.
+    pub(crate) fn sg_tail(&self, order: &[usize]) -> String {
+        let groups = self.sg_groups();
+        if groups.is_empty() {
+            return String::new();
+        }
+        let at: std::collections::HashMap<usize, usize> =
+            order.iter().enumerate().map(|(k, &i)| (i, k)).collect();
+        let mut parts = Vec::new();
+        for (kind, n, atoms) in groups {
+            let mut pos: Vec<usize> = atoms.iter().filter_map(|i| at.get(i).copied()).collect();
+            if pos.is_empty() {
+                continue;
+            }
+            pos.sort_unstable();
+            let head = match kind {
+                "abs" => "a".to_string(),
+                "and" => format!("&{n}"),
+                _ => format!("o{n}"),
+            };
+            let list: Vec<String> = pos.iter().map(usize::to_string).collect();
+            parts.push(format!("{head}:{}", list.join(",")));
+        }
+        if parts.is_empty() {
+            String::new()
+        } else {
+            format!(" |{}|", parts.join(","))
+        }
     }
 
     /// Adds every atom and bond of `other` to the right of this document, with ids after the ones in use.
