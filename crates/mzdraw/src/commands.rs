@@ -495,8 +495,9 @@ pub(crate) fn run(e: &mut Editor, name: &str, args: &Value) -> Result<(), OpErro
     }
     if name == "grid" {
         let opts = crate::grid::Opts::parse(args).map_err(bad)?;
-        let ops = crate::grid::grid(e.doc(), &e.style, &e.measured, &opts).map_err(bad)?;
-        let ops = e.following(&ops);
+        let plan = crate::grid::grid(e.doc(), &e.style, &e.measured, &opts).map_err(bad)?;
+        e.grid_left = plan.left;
+        let ops = e.following(&plan.ops);
         return e.run_guarded(&ops);
     }
     if name == "pathway:label" {

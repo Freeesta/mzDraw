@@ -175,6 +175,11 @@ impl Editor {
         self.scheme_row_with(1.0, 0.0)
     }
 
+    /// The free objects the last `grid` left where they were (`grid::Plan::left`).
+    pub fn grid_left(&self) -> &[u32] {
+        &self.grid_left
+    }
+
     /// Lays the structures of the selection (or of the drawing) out in a grid with room for their legends, one undo step
     /// (`grid::grid`, the command `grid` with its defaults; what the page's button runs). When every structure stands in its cell,
     /// nothing changes and the status line says so.
@@ -184,12 +189,22 @@ impl Editor {
             ..crate::grid::Opts::default()
         };
         match crate::grid::grid(self.doc(), &self.style, &self.measured, &opts) {
-            Ok(ops) if ops.is_empty() => {
+            Ok(plan) if plan.ops.is_empty() => {
+                self.grid_left = plan.left;
                 self.said = ("draw2.say.gridDone", String::new());
                 self.error = "";
                 REPAINT
             }
-            Ok(ops) => self.run(&ops, "draw2.say.grid", ""),
+            Ok(plan) => {
+                // the free objects it leaves are said, never left silently
+                let (say, what) = if plan.left.is_empty() {
+                    ("draw2.say.grid", String::new())
+                } else {
+                    ("draw2.say.gridLeft", plan.left.len().to_string())
+                };
+                self.grid_left = plan.left;
+                self.run(&plan.ops, say, &what)
+            }
             Err(key) => {
                 self.error = key;
                 REPAINT

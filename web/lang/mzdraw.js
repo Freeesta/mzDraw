@@ -685,6 +685,7 @@ I18N.add("en", {
   "draw2.say.schemeRowDone": "The scheme is already laid out.",
   "draw2.say.grid": "Structures laid out in a grid.",
   "draw2.say.gridDone": "The structures already stand in the grid.",
+  "draw2.say.gridLeft": "Structures laid out in a grid; {what} free objects by them (texts, arrows, plus signs) stayed where they were.",
   "draw2.announce.moved": "Moved {what} bond length.",
   "draw2.announce.noturn": "Nothing to turn: only atoms turn, and none is selected.",
   "draw2.announce.rotated": "Rotated {what} degrees.",

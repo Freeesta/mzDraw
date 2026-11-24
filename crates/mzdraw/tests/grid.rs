@@ -24,7 +24,7 @@ fn editor(text: &str, set: &[&str]) -> Editor {
 }
 
 fn run(e: &mut Editor, args: Value) -> Result<(), &'static str> {
-    let ops = grid(e.doc(), &e.style, &[], &Opts::parse(&args)?)?;
+    let ops = grid(e.doc(), &e.style, &[], &Opts::parse(&args)?)?.ops;
     e.session.run(&ops).map_err(|x| x.key)
 }
 
@@ -157,7 +157,9 @@ fn the_order_is_that_of_the_drawing_of_the_titles_or_of_reading_and_a_second_gri
     );
     // laid out again, nothing moves: by title, by reading (the grid read row by row is the same order), with the same arguments
     for args in [json!({"order": "title"}), json!({"order": "reading"})] {
-        let ops = grid(e.doc(), &st, &[], &Opts::parse(&args).unwrap()).unwrap();
+        let ops = grid(e.doc(), &st, &[], &Opts::parse(&args).unwrap())
+            .unwrap()
+            .ops;
         assert!(ops.is_empty(), "{args}: {ops:?}");
     }
     // the order of the drawing: the order of the SMILES lines
@@ -174,6 +176,7 @@ fn the_order_is_that_of_the_drawing_of_the_titles_or_of_reading_and_a_second_gri
     );
     assert!(grid(e.doc(), &st, &[], &Opts::default())
         .unwrap()
+        .ops
         .is_empty());
     // titles are the order key even when they are not drawn; structures without a title come last, in the order of the drawing
     let mut e = editor("CCN\nCCO b\nCCC\nCCCl a", &[]);
@@ -250,6 +253,7 @@ fn the_selection_alone_moves_and_a_bad_request_is_refused() {
         &Opts::default()
     )
     .unwrap()
+    .ops
     .is_empty());
     let o = Opts::parse(&json!({"order": "reading"})).unwrap();
     assert_eq!(o.order, Order::Reading);
@@ -273,7 +277,9 @@ fn the_button_is_one_undo_step_and_the_cli_replay_gives_the_page_bytes() {
     let request =
         json!({"import": NAMED, "set": ["display.titles=on"], "command": "grid", "args": {}});
     assert_eq!(mzdraw::replay::replay(&request.to_string()).unwrap(), page);
+    // redo gives the page's bytes again
     e.redo();
+    assert_eq!(e.save("mzdraw").unwrap(), page);
     let log: Value = serde_json::from_str(&e.session.log_json()).unwrap();
     assert_eq!(
         mzdraw::replay::replay(&json!({"log": log}).to_string()).unwrap(),
@@ -319,6 +325,25 @@ fn an_anchored_arrow_follows_its_structures() {
         routed.is_empty(),
         "the arrow is on its routed ends: {routed:?}"
     );
+    // it keeps its atoms, and each end stands by the structure of its atom where the grid put it (re-routed as a straight line)
+    assert_eq!((after.from, after.to), (a, b));
+    let gap = |p: (f64, f64), r: [f64; 4]| {
+        let dx = (r[0] - p.0).max(p.0 - r[2]).max(0.0);
+        let dy = (r[1] - p.1).max(p.1 - r[3]).max(0.0);
+        dx.hypot(dy)
+    };
+    let (ba, bb) = (
+        structure_box(e.doc(), a, &e.style).unwrap(),
+        structure_box(e.doc(), b, &e.style).unwrap(),
+    );
+    assert!(
+        gap((after.x, after.y), ba) < 1.0 && gap((after.x2, after.y2), bb) < 1.0,
+        "{after:?} {ba:?} {bb:?}"
+    );
+    assert!(
+        e.grid_left().is_empty(),
+        "an anchored arrow is not left behind"
+    );
 }
 
 #[test]
@@ -346,4 +371,114 @@ fn the_work_grows_with_the_structures_not_with_their_square() {
         large.as_nanos() <= 8 * small.as_nanos(),
         "100 structures {small:?}, 400 structures {large:?}"
     );
+}
+
+#[test]
+fn a_grid_of_a_selection_keeps_off_the_structures_outside_it() {
+    // the case of the review: benzene left out, hexane and ethanol selected; and more: titles, columns, orders
+    for (text, set, args) in [
+        ("CCCCCC.c1ccccc1.CCO", vec![], json!({})),
+        ("CCCCCC.c1ccccc1.CCO", vec![], json!({"cols": 1})),
+        (
+            "CCCCCC.c1ccccc1.CCO",
+            vec!["display.titles=on"],
+            json!({"cols": 2, "order": "reading"}),
+        ),
+        (
+            "c1ccccc1.CCCCCC.CCO.CCN.CC(C)C",
+            vec![],
+            json!({"cols": 3, "gap": 0.2}),
+        ),
+    ] {
+        let mut e = editor(text, &set);
+        let pieces = mzdraw::layout::pieces(e.doc());
+        // the ring: the piece with as many bonds as atoms
+        let benzene = (pieces.iter())
+            .find(|p| e.doc().bonds.iter().filter(|b| p.contains(&b.a)).count() == p.len())
+            .unwrap()
+            .clone();
+        let selected: Vec<u32> = pieces
+            .iter()
+            .filter(|p| **p != benzene)
+            .map(|p| p[0])
+            .collect();
+        let mut args = args.clone();
+        args["atoms"] = json!(selected);
+        let before = e.doc().clone();
+        run(&mut e, args.clone()).unwrap();
+        let st = e.style.clone();
+        let c = cells(e.doc(), &st);
+        let outside = c.iter().find(|x| benzene.contains(&x.0)).unwrap();
+        // the structure outside is where it was
+        for a in &benzene {
+            assert_eq!(before.atom(*a), e.doc().atom(*a));
+        }
+        assert_ne!(before, *e.doc(), "{text} {args}: the selection moved");
+        for x in c.iter().filter(|x| !benzene.contains(&x.0)) {
+            assert!(
+                !overlap(&x.3, &outside.3),
+                "{text} {args}: {x:?} over the benzene {outside:?}"
+            );
+        }
+        // a second grid moves nothing
+        let again = grid(e.doc(), &st, &[], &Opts::parse(&args).unwrap()).unwrap();
+        assert!(again.ops.is_empty(), "{text} {args}: {:?}", again.ops);
+    }
+}
+
+#[test]
+fn free_objects_stay_where_they_are_are_kept_off_and_are_reported() {
+    let mut e = editor(NAMED, &["display.titles=on"]);
+    // by ethanol (TP10): a text, a free arrow and a plus sign; far from everything: a text
+    let (x, y) = {
+        let a = e.doc().atom(1).unwrap();
+        (a.x, a.y)
+    };
+    let add = |v: Value| mzdraw::Op::parse(&v).unwrap();
+    e.session
+        .run(&[
+            add(json!({"op": "obj.add", "t": "text", "x": x, "y": y - 1.5, "text": "a note"})),
+            add(json!({"op": "obj.add", "t": "arrow", "x": x + 0.5, "y": y + 1.5, "x2": x + 2.5, "y2": y + 1.5})),
+            add(json!({"op": "obj.add", "t": "plus", "x": x - 1.5, "y": y})),
+            add(json!({"op": "obj.add", "t": "text", "x": x - 60.0, "y": y + 60.0, "text": "far away"})),
+        ])
+        .unwrap();
+    let objects = e.doc().objects.clone();
+    let near: Vec<u32> = objects[..3].iter().map(|o| o.id).collect();
+    let start = e.doc().to_json();
+    // the page: the live line says how many stayed
+    assert!(e.grid() != 0);
+    assert_eq!(e.said, ("draw2.say.gridLeft", "3".to_string()));
+    assert_eq!(e.grid_left(), near.as_slice());
+    // they did not move, and no cell covers one of them
+    assert_eq!(e.doc().objects, objects);
+    let st = e.style.clone();
+    for o in &objects {
+        let b = match o.t {
+            mzdraw::ObjKind::Text => mzdraw::scheme::text_box(e.doc(), o.id, &st).unwrap(),
+            mzdraw::ObjKind::Plus => mzdraw::scheme::plus_box(e.doc(), o.id).unwrap(),
+            _ => [o.x.min(o.x2), o.y.min(o.y2), o.x.max(o.x2), o.y.max(o.y2)],
+        };
+        for x in cells(e.doc(), &st) {
+            assert!(!overlap(&x.3, &b), "{o:?} under {x:?}");
+        }
+    }
+    // the CLI: the result names them (`grid.left`), the same moves as the page
+    let request = json!({"import": start, "set": ["display.titles=on"], "command": "grid", "args": {}, "report": true});
+    let r: Value =
+        serde_json::from_str(&mzdraw::replay::replay(&request.to_string()).unwrap()).unwrap();
+    assert_eq!(r["grid"]["left"], json!(near), "{r}");
+    let out = json!({"import": start, "set": ["display.titles=on"], "command": "grid", "args": {}, "out": "mzdraw"});
+    assert_eq!(
+        mzdraw::replay::replay(&out.to_string()).unwrap(),
+        e.save("mzdraw").unwrap()
+    );
+    // no free object by the structures: an empty list, and the plain live line
+    let mut e = editor(NAMED, &[]);
+    e.grid();
+    assert_eq!(e.said.0, "draw2.say.grid");
+    let request = json!({"import": NAMED, "command": "grid", "args": {}, "dry_run": true});
+    let r: Value =
+        serde_json::from_str(&mzdraw::replay::replay(&request.to_string()).unwrap()).unwrap();
+    assert_eq!(r["grid"], json!({"left": []}));
 }

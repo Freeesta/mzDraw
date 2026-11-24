@@ -170,15 +170,46 @@ struct Cell {
     down: f64,
 }
 
-/// The operations that put the structures in a grid. Empty when there is no structure or every structure stands where the grid
-/// puts it. `measured` are the values the editor holds (the captions with numbers are as wide as the pictures draw them). The error
-/// is an i18n key (a bad argument, or a selection that names an atom the drawing does not have).
+/// What `grid` does: its operations, and the free objects it leaves where they are.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Plan {
+    /// The `move` operations (empty: every structure stands in its cell).
+    pub ops: Vec<Op>,
+    /// The ids of the free objects (a text, an arrow, a plus sign or a curve anchored at no atom) that stood within `NEAR` of a
+    /// structure of the grid: the grid does not move them (it cannot tell which structure a free object belongs to), and says so
+    /// (`draw-result/1` key `grid`, the page's live line `draw2.say.gridLeft`).
+    pub left: Vec<u32>,
+}
+
+/// How near a structure (bond lengths, from its box with its caption) a free object counts as standing by it.
+pub const NEAR: f64 = 3.0;
+
+/// The box of an object: a text and a plus sign as they are laid out, an arrow or a curve as the box of its two ends.
+fn object_box(doc: &Document, o: &crate::doc::Obj, style: &Style) -> [f64; 4] {
+    match o.t {
+        crate::doc::ObjKind::Text => crate::scheme::text_box(doc, o.id, style),
+        crate::doc::ObjKind::Plus => crate::scheme::plus_box(doc, o.id),
+        _ => None,
+    }
+    .unwrap_or([o.x.min(o.x2), o.y.min(o.y2), o.x.max(o.x2), o.y.max(o.y2)])
+}
+
+fn overlap(a: &[f64; 4], b: &[f64; 4]) -> bool {
+    a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
+}
+
+/// The operations that put the structures in a grid, and the free objects left in place (`Plan`). Nothing to do when there is no
+/// structure or every structure stands where the grid puts it. `measured` are the values the editor holds (the captions with numbers
+/// are as wide as the pictures draw them). The grid never covers what it does not move: when the cells, where they would stand,
+/// reach a structure outside the selection (with its caption) or an object that does not follow the grid, the whole grid goes under
+/// the lowest of them, `gap` below it. The error is an i18n key (a bad argument, or a selection that names an atom the drawing does
+/// not have).
 pub fn grid(
     doc: &Document,
     style: &Style,
     measured: &[crate::values::Entry],
     o: &Opts,
-) -> Result<Vec<Op>, &'static str> {
+) -> Result<Plan, &'static str> {
     if !(o.gap.is_finite() && o.gap > 0.0) || u64::from(o.cols) > MAX_COLS {
         return Err("error.draw2.request");
     }
@@ -199,10 +230,10 @@ pub fn grid(
             .map(|c| (c.anchor, c))
             .collect();
     let mut cells: Vec<Cell> = Vec::new();
+    // the structures outside the selection, each as the box of its ink and its caption: the grid keeps off them
+    let mut keep_off: Vec<[f64; 4]> = Vec::new();
     for piece in st.pieces() {
-        if !chosen.is_empty() && !piece.iter().any(|a| chosen.contains(a)) {
-            continue;
-        }
+        let outside = !chosen.is_empty() && !piece.iter().any(|a| chosen.contains(a));
         let mut atoms = piece.clone();
         atoms.sort_by_key(|a| pool[a]);
         let rank = pool[&atoms[0]];
@@ -234,6 +265,10 @@ pub fn grid(
             left = left.max(half / scale);
             right = right.max(half / scale);
         }
+        if outside {
+            keep_off.push([cx - left, low - down, cx + right, low + up]);
+            continue;
+        }
         cells.push(Cell {
             atoms,
             rank,
@@ -248,7 +283,41 @@ pub fn grid(
         });
     }
     if cells.is_empty() {
-        return Ok(Vec::new());
+        return Ok(Plan::default());
+    }
+    // the objects: one anchored at an atom (or a bond) of a structure of the grid follows it; the others stay where they are, and the
+    // grid keeps off them; a free one that stood by a structure of the grid is reported
+    let moved: std::collections::HashSet<u32> =
+        cells.iter().flat_map(|c| c.atoms.iter().copied()).collect();
+    let at_moved = |id: u32| -> bool {
+        id != 0 && (moved.contains(&id) || doc.bond(id).is_some_and(|b| moved.contains(&b.a)))
+    };
+    let mut left_ids: Vec<u32> = Vec::new();
+    for ob in &doc.objects {
+        if at_moved(ob.from) || at_moved(ob.to) {
+            continue;
+        }
+        let free = ob.from == 0 && ob.to == 0;
+        if !free && ob.t == crate::doc::ObjKind::Curve {
+            // a curve anchored at a structure outside the grid is drawn at its atoms: that structure's box holds it
+            continue;
+        }
+        let b = object_box(doc, ob, style);
+        if free {
+            let by = cells.iter().any(|c| {
+                let r = [
+                    c.cx - c.left - NEAR,
+                    c.low - c.down - NEAR,
+                    c.cx + c.right + NEAR,
+                    c.low + c.up + NEAR,
+                ];
+                overlap(&b, &r)
+            });
+            if by {
+                left_ids.push(ob.id);
+            }
+        }
+        keep_off.push(b);
     }
     cells.sort_by_key(|c| c.rank);
     match o.order {
@@ -308,21 +377,53 @@ pub fn grid(
     );
     let pitch = snap(2.0 * half + o.gap);
     let x0 = snap(cells.iter().map(|c| c.cx).fold(f64::MAX, f64::min));
-    let mut y = snap(cells.iter().map(|c| c.low).fold(f64::MIN, f64::max));
-    let mut ops = Vec::new();
-    let mut below_prev = 0.0;
-    for (r, row) in cells.chunks(cols).enumerate() {
-        let above = row.iter().map(|c| c.up).fold(0.0, f64::max);
-        if r > 0 {
-            y = snap(y - (below_prev + o.gap + above));
+    // the line of each row, from the line of the first one
+    let rows_at = |first: f64| -> Vec<f64> {
+        let mut y = first;
+        let mut below_prev = 0.0;
+        let mut out = Vec::new();
+        for (r, row) in cells.chunks(cols).enumerate() {
+            let above = row.iter().map(|c| c.up).fold(0.0, f64::max);
+            if r > 0 {
+                y = snap(y - (below_prev + o.gap + above));
+            }
+            below_prev = row.iter().map(|c| c.down).fold(0.0, f64::max);
+            out.push(y);
         }
-        below_prev = row.iter().map(|c| c.down).fold(0.0, f64::max);
+        out
+    };
+    let first = snap(cells.iter().map(|c| c.low).fold(f64::MIN, f64::max));
+    let mut lines = rows_at(first);
+    // the box of each row where it would stand: when one reaches what the grid does not move, the grid goes under all of it
+    let covers = |lines: &[f64]| -> bool {
+        (cells.chunks(cols).zip(lines)).any(|(row, &y)| {
+            let above = row.iter().map(|c| c.up).fold(0.0, f64::max);
+            let below = row.iter().map(|c| c.down).fold(0.0, f64::max);
+            let r = [
+                x0 - half,
+                y - below,
+                x0 + pitch * (row.len() - 1) as f64 + half,
+                y + above,
+            ];
+            keep_off.iter().any(|b| overlap(b, &r))
+        })
+    };
+    if covers(&lines) {
+        let floor = keep_off.iter().map(|b| b[1]).fold(f64::MAX, f64::min);
+        let above = cells[..cols].iter().map(|c| c.up).fold(0.0, f64::max);
+        lines = rows_at(snap(floor - o.gap - above));
+    }
+    let mut ops = Vec::new();
+    for (row, &y) in cells.chunks(cols).zip(&lines) {
         for (k, c) in row.iter().enumerate() {
             let x = x0 + pitch * k as f64;
             shift(&mut ops, c.atoms.clone(), x - c.cx, y - c.low);
         }
     }
-    Ok(ops)
+    Ok(Plan {
+        ops,
+        left: left_ids,
+    })
 }
 
 /// A `move` of `dx`, `dy`, rounded to the four decimals the document keeps; nothing when both are within half the last decimal (so
