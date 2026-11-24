@@ -147,6 +147,7 @@ Work that is named in `docs/plan/backlog.md` or in a "Not built" line of `docs/b
 | Values: an `Alt+C` key for the values dialog, copy of a selection with numbers (the isotope pattern, the lasso values and the dialog itself are the struct-props rows above) | built/arch-web-17-values.md | QUEUED | |
 | Equal molecules in a TP import freeze the page (6 or more equal molecules): does not reproduce; regression tests and a pin of the callers of `Mol::canonical()` added | built/tp-import-equal.md | RUNNING | PR #104 |
 | `mzlab-mol` `Mol::canonical()` doubles in time per equal component on a whole drawing (benzene, debug: 6 ms at 4 copies, 87 ms at 8) | built/tp-import-equal.md, built/pin-bump.md | RUNNING | mzLab fixed it (#3661); the pin bump moves mzDraw to it; PR of branch claude/pin-bump |
+| pin bump 3: `mzlab-mol` and `mzlab-feat` to mzLab `8bcfdc3` (#3690, #3691, #3694: `cip/1` per piece, `error.cip.tooComplex`) | built/pin-bump-3.md | RUNNING | caps of `cip.rs` kept; the refusal is already the lost item `draw2.export.cipFailed` |
 | TP table: adducts beyond the seven of `display.adducts`; the table drawn on the canvas | built/tp-09-tp-table.md; backlog 11.1 (deferred) | QUEUED | |
 | TP table: `InChIKey` is NOT wanted now (owner decision; there is no InChI in `mzlab-mol`): do not build it, do not fake it | built/tp-09-tp-table.md ("Not built") | GATED | reopens only if the owner asks |
 | TP: uncertain L3 TP as a site mark mapped onto `trasf/1` uncertain form; "metro" mode of `pathway:tree` | backlog 11.1 (deferred) | QUEUED | after plan-12, tp-06 |
