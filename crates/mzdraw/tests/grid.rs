@@ -543,25 +543,34 @@ fn a_far_structure_below_does_not_drag_the_grid_and_the_page_says_what_stays_whe
     .unwrap()
     .ops
     .is_empty());
-    // (e) nothing moves but free objects stand by the structures: the page says them; (d) one is said in the singular
-    let mut e = editor(NAMED, &[]);
-    e.grid();
-    let (x, y) = (e.doc().atom(1).unwrap().x, e.doc().atom(1).unwrap().y);
-    e.session
-        .run(&[mzdraw::Op::parse(
-            &json!({"op": "obj.add", "t": "text", "x": x + 6.0, "y": y + 0.2, "text": "n"}),
-        )
-        .unwrap()])
-        .unwrap();
+    // (e) the grid is already laid out, a free text stands just right of the last cell (clear of every row, within `NEAR`): nothing
+    // moves, and the page says the free object anyway; (d) in the singular for one, then the plural for two
+    let mut e = editor(&["CCO"; 9].join("."), &[]);
+    assert!(e.grid() != 0);
+    let laid = e.doc().clone();
+    let last = mzdraw::layout::pieces(&laid).last().unwrap().clone();
+    let b = structure_box(&laid, last[0], &e.style).unwrap();
+    let low = last
+        .iter()
+        .map(|a| laid.atom(*a).unwrap().y)
+        .fold(f64::MAX, f64::min);
+    let text = |x: f64, y: f64| {
+        mzdraw::Op::parse(&json!({"op": "obj.add", "t": "text", "x": x, "y": y, "text": "n"}))
+            .unwrap()
+    };
+    e.session.run(&[text(b[2] + 1.0, low)]).unwrap();
     let before = e.doc().clone();
     e.grid();
-    if *e.doc() == before {
-        assert_eq!(e.said.0, "draw2.say.gridDoneLeft");
-    } else {
-        assert_eq!(e.said.0, "draw2.say.gridLeft");
-    }
+    assert_eq!(*e.doc(), before, "nothing moves");
+    assert_eq!(e.said.0, "draw2.say.gridDoneLeft");
     assert_eq!(e.said_params, vec![("n", 1)]);
     assert_eq!(e.grid_left().len(), 1);
+    e.session.run(&[text(b[2] + 1.0, b[3])]).unwrap();
+    let before = e.doc().clone();
+    e.grid();
+    assert_eq!(*e.doc(), before, "nothing moves");
+    assert_eq!(e.said.0, "draw2.say.gridDoneLeft");
+    assert_eq!(e.said_params, vec![("n", 2)]);
 }
 
 #[test]
@@ -602,4 +611,55 @@ fn a_free_object_by_a_structure_where_the_grid_puts_it_is_reported() {
         "the text is clear of the cells: the same grid"
     );
     assert_eq!(plan2.left, vec![id]);
+}
+
+#[test]
+fn the_grid_goes_down_again_when_the_first_step_lands_on_another_box() {
+    // two structures left out, one under the other: the grid where it would stand reaches the first (benzene); one step under it
+    // lands on the second (propane, just below); a second step takes it under that one too
+    let mut e = editor("CCCCCC.c1ccccc1.CCO.CCC", &[]);
+    let pieces = mzdraw::layout::pieces(e.doc());
+    let ring = (pieces.iter())
+        .find(|p| e.doc().bonds.iter().filter(|b| p.contains(&b.a)).count() == p.len())
+        .unwrap()
+        .clone();
+    let propane = pieces.last().unwrap().clone();
+    assert_eq!(propane.len(), 3);
+    // the propane under the benzene: its top 1.5 bond lengths under the benzene's bottom, its middle under the benzene's
+    let st = e.style.clone();
+    let rb = structure_box(e.doc(), ring[0], &st).unwrap();
+    let pb = structure_box(e.doc(), propane[0], &st).unwrap();
+    let (dx, dy) = (
+        (rb[0] + rb[2]) / 2.0 - (pb[0] + pb[2]) / 2.0,
+        rb[1] - 1.5 - pb[3],
+    );
+    e.session
+        .run(&[mzdraw::Op::parse(&json!({"op": "move", "atoms": propane, "dx": (dx * 1e4).round() / 1e4, "dy": (dy * 1e4).round() / 1e4})).unwrap()])
+        .unwrap();
+    let chosen: Vec<u32> = pieces
+        .iter()
+        .filter(|p| **p != ring && **p != propane)
+        .map(|p| p[0])
+        .collect();
+    let args = json!({"atoms": chosen, "cols": 2});
+    // one step under the benzene alone would land on the propane: the case needs the second step
+    let c0 = cells(e.doc(), &st);
+    let ring_bottom = c0.iter().find(|x| ring.contains(&x.0)).unwrap().3[1];
+    let prop = c0.iter().find(|x| propane.contains(&x.0)).unwrap().3;
+    assert!(
+        prop[3] > ring_bottom - 1.0 - 4.0,
+        "the propane is within one grid height under the benzene"
+    );
+    run(&mut e, args.clone()).unwrap();
+    let c = cells(e.doc(), &st);
+    for x in c.iter().filter(|x| chosen.contains(&x.0)) {
+        for o in c.iter().filter(|o| !chosen.contains(&o.0)) {
+            assert!(!overlap(&x.3, &o.3), "{x:?} over {o:?}");
+        }
+        assert!(x.2 < prop[1], "under the propane too");
+    }
+    assert!(grid(e.doc(), &st, &[], &Opts::parse(&args).unwrap())
+        .unwrap()
+        .ops
+        .is_empty());
 }
