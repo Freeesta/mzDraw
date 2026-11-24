@@ -607,6 +607,8 @@ I18N.add("en", {
   "draw2.say.lines": "Lines under the molecule: {what}.",
   "draw2.export.captionsLost": "This format has no place for the lines kept under a molecule: {n, plural, one {# molecule is} other {# molecules are}} written without them.",
   "draw2.export.cipEngine": "CIP labels need the engine cip, which this build does not carry: the picture is written without them.",
+  "draw2.export.cipCapped": "{n} structures have too many open stereo sites or atoms for the CIP labels: they are drawn without them.",
+  "draw2.export.cipFailed": "The engine cip could not label {n} structures: they are drawn without CIP labels.",
   "error.draw2.lines": "The lines under a molecule must be a list of at most 24 names of at most 40 characters.",
   "error.draw2.linesNone": "Select a molecule (or focus one of its atoms) first, then choose its lines.",
   "error.draw2.linesMixed": "The selected molecules have different lines: choose a whole list for all of them.",

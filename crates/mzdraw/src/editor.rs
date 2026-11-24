@@ -259,7 +259,7 @@ pub struct Editor {
     /// label is drawn and `lost_on_save` says so.
     pub labeller: Option<crate::cip::Labeller>,
     /// The labels of the drawing as the labeller last gave them, with the generation of the session they are for (`cip_labels`).
-    pub(crate) cip_cache: std::cell::RefCell<Option<(u64, Vec<crate::cip::CipLabel>)>>,
+    pub(crate) cip_cache: std::cell::RefCell<Option<(u64, crate::cip::Labelled)>>,
     /// What the last `save("tptable")` or `save("tptable-csv")` left empty, as (i18n key, count): said by `lost_on_save` and the page.
     pub table_notes: std::cell::RefCell<Vec<(&'static str, usize)>>,
     /// Whether the last `save("pathway-check")` found an error (the CLI answers with its own exit code).
@@ -969,6 +969,13 @@ impl Editor {
         ]
         .into_iter()
         .filter(|l| l.1 > 0)
+        // the structures the engine was not given (capped) or refused: drawn without labels, and that is said
+        .chain(
+            (matches!(kind, "svg" | "pdf" | "png"))
+                .then(|| self.cip_notes())
+                .into_iter()
+                .flatten(),
+        )
         .chain(
             self.label_notes
                 .iter()
@@ -1088,24 +1095,30 @@ impl Editor {
     /// labeller gives, by document ids, in a stable order, computed once per change of the drawing (the generation of the session).
     /// A drawing the engine refuses has no label.
     pub fn cip_labels(&self) -> Vec<crate::cip::CipLabel> {
+        self.cip_labelled().labels
+    }
+
+    /// The labels and what was left without them (`cip::label`: structure by structure, the capped and the refused counted), once
+    /// per change of the drawing; empty when `display.cip` is off or there is no labeller.
+    pub fn cip_labelled(&self) -> crate::cip::Labelled {
         let (true, Some(engine)) = (self.style.cip, self.labeller) else {
-            return Vec::new();
+            return crate::cip::Labelled::default();
         };
         let now = self.session.generation();
-        if let Some((at, labels)) = self.cip_cache.borrow().as_ref()
+        if let Some((at, done)) = self.cip_cache.borrow().as_ref()
             && *at == now
         {
-            return labels.clone();
+            return done.clone();
         }
-        let labels = if self.doc().atoms.is_empty() {
-            Vec::new()
-        } else {
-            engine(self.doc())
-                .map(crate::cip::sorted)
-                .unwrap_or_default()
-        };
-        *self.cip_cache.borrow_mut() = Some((now, labels.clone()));
-        labels
+        let done = crate::cip::label(self.doc(), engine);
+        *self.cip_cache.borrow_mut() = Some((now, done.clone()));
+        done
+    }
+
+    /// The notes of the CIP labels of the drawing as it is: the structures capped and refused, as (i18n key, count); the page shows
+    /// them, the pictures list them in `lost`.
+    pub fn cip_notes(&self) -> Vec<(&'static str, usize)> {
+        self.cip_labelled().notes()
     }
 
     /// `import`, also giving the ids of what was added.

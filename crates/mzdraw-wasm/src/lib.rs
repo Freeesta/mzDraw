@@ -426,6 +426,13 @@ pub fn save_notes() -> String {
     with(|p| serde_json::to_string(&*p.editor.table_notes.borrow()).unwrap_or_else(|_| "[]".into()))
 }
 
+/// What the CIP labels of the drawing as it is leave out (`display.cip` on): the structures not given to the engine (too many open
+/// stereo sites or atoms) and the ones it refused, as JSON `[[key, n], ...]`, empty when nothing is left out (the page says each).
+#[wasm_bindgen]
+pub fn cip_notes() -> String {
+    with(|p| serde_json::to_string(&p.editor.cip_notes()).unwrap_or_else(|_| "[]".into()))
+}
+
 /// The drawing as a PDF file (vector, text as text, the document inside so that it opens again).
 #[wasm_bindgen]
 pub fn save_pdf() -> Vec<u8> {

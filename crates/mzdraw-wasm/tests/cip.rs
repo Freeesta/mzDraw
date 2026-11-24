@@ -6,6 +6,9 @@ use mzdraw::Editor;
 use mzdraw_wasm::glue;
 use serde_json::{json, Value};
 
+#[path = "../../mzdraw/tests/support/timing.rs"]
+mod timing;
+
 fn labels(smiles: &str) -> Vec<(u32, u32, String)> {
     let mut e = Editor::default();
     e.import(smiles).unwrap();
@@ -71,4 +74,51 @@ fn the_golden_requests_give_the_recorded_bytes() {
     if bless {
         std::fs::write(&path, serde_json::to_string_pretty(&file).unwrap() + "\n").unwrap();
     }
+}
+
+#[test]
+fn the_labels_of_many_structures_cost_their_sum_with_the_real_engine() {
+    // the record of the review: a structure with two open double bonds and open ring centres, 8 and 40 times. Given whole, the
+    // engine took 108 s for 8 (exponential in the open sites); given one structure at a time, 40 cost about five times 8. The least
+    // CPU time of runs taken in turns, no wall-clock bound
+    let one = "CC(C)C=CC(=O)NC1CCC(CC1)C=CC";
+    let editor = |n: usize| {
+        let mut e = Editor::default();
+        e.import(&vec![one; n].join(".")).unwrap();
+        e.labeller = Some(glue::cip_labels);
+        e.set("display.cip=on").unwrap();
+        e
+    };
+    let (a, b) = (editor(8), editor(40));
+    let (small, large) = timing::best_of_pair(
+        1,
+        3,
+        || drop(mzdraw::cip::label(a.doc(), glue::cip_labels)),
+        || drop(mzdraw::cip::label(b.doc(), glue::cip_labels)),
+    );
+    assert!(
+        large.as_nanos() <= 10 * small.as_nanos(),
+        "8 structures {small:?}, 40 structures {large:?}"
+    );
+    // nothing refused, nothing capped: these structures are within the caps
+    let done = b.cip_labelled();
+    assert_eq!((done.capped, done.failed), (0, 0));
+    // one structure joined four times over is past the cap: no label, said, and no call that could hang
+    let mut e = Editor::default();
+    // (each copy's last carbon bonds to the next copy's first: one chain)
+    e.import(&format!("{}C", one.repeat(4))).unwrap();
+    e.labeller = Some(glue::cip_labels);
+    e.set("display.cip=on").unwrap();
+    let done = e.cip_labelled();
+    assert_eq!(mzdraw::layout::pieces(e.doc()).len(), 1);
+    assert_eq!((done.capped, done.labels.len()), (1, 0));
+    assert_eq!(e.cip_notes(), vec![(mzdraw::cip::CAPPED, 1)]);
+    // the CLI (the glue door): the picture's result lists it in `lost`
+    let req = json!({"import": e.doc().to_json(), "set": ["display.cip=on"], "out": "svg", "report": true});
+    let r: Value = serde_json::from_str(&glue::replay(&req.to_string()).unwrap()).unwrap();
+    assert_eq!(
+        r["lost"],
+        json!([{"key": "draw2.export.cipCapped", "n": 1}]),
+        "{r}"
+    );
 }

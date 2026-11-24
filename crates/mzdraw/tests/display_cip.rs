@@ -156,3 +156,77 @@ fn without_a_labeller_nothing_is_drawn_and_the_result_says_so() {
     assert!(file.contains("\"cip\":\"on\""), "{file}");
     assert!(mzdraw::Style::from_text(&file).unwrap().cip);
 }
+
+thread_local! {
+    /// The number of atoms of each document the piece labeller was given, in order.
+    static GIVEN: std::cell::RefCell<Vec<usize>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// A labeller that records what it is given, labels the first atom of each structure `R`, and refuses a structure with a nitrogen.
+fn by_piece(d: &Document) -> Result<Vec<CipLabel>, &'static str> {
+    GIVEN.with(|g| g.borrow_mut().push(d.atoms.len()));
+    if d.atoms.iter().any(|a| a.el == "N") {
+        return Err("error.draw2.cipEngine");
+    }
+    Ok(vec![CipLabel {
+        atom: d.atoms[0].id,
+        bond: 0,
+        text: "R".into(),
+    }])
+}
+
+#[test]
+fn the_engine_is_given_each_structure_on_its_own_and_what_it_refuses_or_is_not_given_is_said() {
+    // three structures: one labelled, one refused (a nitrogen), one with too many open sites (a chain of 17 undrawn centres)
+    let open = format!("C{}C", "C(C)".repeat(mzdraw::cip::MAX_OPEN + 1));
+    let text = format!("C[C@H](O)CC.CCN.{open}");
+    let mut e = Editor::default();
+    e.import(&text).unwrap();
+    let pieces = mzdraw::layout::pieces(e.doc());
+    assert_eq!(pieces.len(), 3);
+    assert!(mzdraw::cip::open_sites(e.doc(), &pieces[2]) > mzdraw::cip::MAX_OPEN);
+    assert!(mzdraw::cip::open_sites(e.doc(), &pieces[0]) <= 1);
+    e.labeller = Some(by_piece);
+    e.set("display.cip=on").unwrap();
+    GIVEN.with(|g| g.borrow_mut().clear());
+    let done = e.cip_labelled();
+    // one call per structure given, each with that structure alone; the capped one is not given
+    let given = GIVEN.with(|g| g.borrow().clone());
+    assert_eq!(given, [pieces[0].len(), pieces[1].len()]);
+    assert_eq!(done.labels.len(), 1);
+    assert_eq!((done.capped, done.failed), (1, 1));
+    // the notes: on the page (`cip_notes`) and in `lost` of a picture
+    let notes = vec![(mzdraw::cip::CAPPED, 1), (mzdraw::cip::FAILED, 1)];
+    assert_eq!(e.cip_notes(), notes);
+    for kind in ["svg", "pdf", "png"] {
+        let lost = e.lost_on_save(kind);
+        assert!(notes.iter().all(|n| lost.contains(n)), "{kind}: {lost:?}");
+    }
+    assert!(!e
+        .lost_on_save("molfile")
+        .iter()
+        .any(|l| l.0 == mzdraw::cip::CAPPED));
+    // the label of the labelled structure is drawn, the others draw none
+    assert_eq!(e.svg().matches(">(R)<").count(), 1);
+    // off: nothing is asked and nothing is said
+    e.set("display.cip=off").unwrap();
+    assert!(e.cip_notes().is_empty());
+}
+
+#[test]
+fn one_structure_per_call_whatever_the_number_of_structures() {
+    // the work of the engine grows exponentially with the open sites of what it is given: the drawing is never given whole. The
+    // structure of the review (two open double bonds, open ring centres), 8 and 40 times: every call has one structure's atoms
+    let one = "CC(C)C=CC(=O)NC1CCC(CC1)C=CC";
+    for n in [8, 40] {
+        let mut e = Editor::default();
+        e.import(&vec![one; n].join(".")).unwrap();
+        let size = e.doc().atoms.len() / n;
+        e.labeller = Some(by_piece);
+        e.set("display.cip=on").unwrap();
+        GIVEN.with(|g| g.borrow_mut().clear());
+        e.cip_labelled();
+        let given = GIVEN.with(|g| g.borrow().clone());
+        assert_eq!(given, vec![size; n], "{n} structures");
+    }
+}
