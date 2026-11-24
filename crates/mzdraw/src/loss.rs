@@ -103,6 +103,7 @@ pub const TABLE: &[(&str, [Carry; 10])] = &[
     ("bond.bold", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("bond.dash", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("bond.dative", [N, Y, N, N, Y, Y, N, N, Y, Y]),
+    ("bond.either", [P, P, P, P, N, P, N, P, Y, Y]),
     ("bond.hbond", [N, Y, N, N, Y, Y, N, N, Y, Y]),
     ("bond.hash", [N, N, N, N, N, Y, N, N, Y, Y]),
     ("bond.pos", [N, N, N, N, N, Y, N, N, Y, Y]),
@@ -223,6 +224,9 @@ pub fn instances(d: &Document) -> Vec<Instance> {
         if !b.col().is_empty() {
             push("colour", b.col(), 0, b.id, 0);
         }
+        if b.either() {
+            push("bond.either", String::new(), 0, b.id, 0);
+        }
         if !b.pos().is_empty() && crate::bonddisp::POS.contains(&b.pos().as_str()) {
             push("bond.pos", b.pos(), 0, b.id, 0);
         }
@@ -240,6 +244,7 @@ pub fn instances(d: &Document) -> Vec<Instance> {
             "col" => !b.col().is_empty(),
             "pos" => crate::bonddisp::POS.contains(&b.pos().as_str()),
             "k" => crate::bonddisp::KINDS.contains(&b.kind().as_str()),
+            "ez" => b.either(),
             _ => false,
         };
         for (key, _) in (b.more.iter()).filter(|m| !known(&m.0)) {

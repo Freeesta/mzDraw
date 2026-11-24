@@ -149,6 +149,9 @@ fn content(sc: &scene::Scene, h: f32) -> String {
                 y(d[i + 6])
             ));
             i += 8;
+        } else if op == scene::DISC {
+            s.push_str(&disc(d[i + 1], h - d[i + 2], d[i + 3], &rgb(d[i + 4])));
+            i += 5;
         } else if op == scene::RECT {
             i += 6;
         } else {
@@ -156,6 +159,19 @@ fn content(sc: &scene::Scene, h: f32) -> String {
         }
     }
     s
+}
+
+/// A filled dot of radius `r` at `(x, y)` (PDF coordinates): four cubic Bezier quarters, the usual circle of PDF writers.
+fn disc(x: f32, y: f32, r: f32, colour: &str) -> String {
+    let k = r * 0.552_284_8;
+    format!(
+        "{colour} rg {} {} m {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c f\n",
+        num(x + r), num(y),
+        num(x + r), num(y + k), num(x + k), num(y + r), num(x), num(y + r),
+        num(x - k), num(y + r), num(x - r), num(y + k), num(x - r), num(y),
+        num(x - r), num(y - k), num(x - k), num(y - r), num(x), num(y - r),
+        num(x + k), num(y - r), num(x + r), num(y - k), num(x + r), num(y)
+    )
 }
 
 /// The objects of a file with the byte offset of each, written in order from 1.

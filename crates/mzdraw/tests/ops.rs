@@ -1619,3 +1619,38 @@ fn a_proposal_accepted_hunk_by_hunk_has_the_bytes_of_apply_of_the_same_hunks_and
         "{proposals} proposals, {accepted} accepts"
     );
 }
+
+#[test]
+fn either_on_a_double_bond_applies_then_undoes_to_the_identical_bytes() {
+    // but-2-ene without E/Z (the double bond 6 is "either" on import) and drawn E (no mark): every step on the mark, and on the
+    // order that drops it, then its undo, gives back the identical document; redo gives the identical result (rule 11)
+    let bond = |o: Option<u8>, s: Option<u8>| Op::BondSet {
+        id: 6,
+        o,
+        s,
+        pos: None,
+        k: None,
+        rev: false,
+    };
+    for start in ["CC=CC", "C/C=C/C"] {
+        let mut e = mzdraw::Editor::default();
+        e.import(start).unwrap();
+        for step in [
+            vec![bond(None, Some(3))],
+            vec![bond(None, Some(0))],
+            vec![bond(Some(1), None)],
+            vec![bond(Some(3), None)],
+            vec![bond(Some(1), None), bond(Some(2), None)],
+            vec![bond(None, Some(3)), bond(Some(2), Some(0))],
+        ] {
+            let mut s = Session::new(e.doc().clone());
+            let before = s.doc.to_json();
+            s.run(&step).unwrap();
+            let after = s.doc.to_json();
+            assert!(s.undo());
+            assert_eq!(s.doc.to_json(), before, "{start} {step:?} undone");
+            assert!(s.redo());
+            assert_eq!(s.doc.to_json(), after, "{start} {step:?} redone");
+        }
+    }
+}

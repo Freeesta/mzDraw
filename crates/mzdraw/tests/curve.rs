@@ -746,3 +746,91 @@ fn a_document_with_a_pair_count_or_a_curve_field_it_cannot_read_is_refused() {
         );
     }
 }
+
+/// The centres of the `<circle>` elements of an SVG, in points.
+fn circles(svg: &str) -> Vec<(f64, f64)> {
+    let attr = |e: &str, k: &str| -> f64 {
+        e.split(&format!(" {k}=\""))
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap()
+    };
+    svg.split("<circle")
+        .skip(1)
+        .map(|e| (attr(e, "cx"), attr(e, "cy")))
+        .collect()
+}
+
+/// The anchor of the first `<text>` whose content is `label`, in points.
+fn label_at(svg: &str, label: &str) -> (f64, f64) {
+    let e = svg
+        .split("<text")
+        .find(|e| e.contains(&format!(">{label}</text>")))
+        .unwrap();
+    let attr = |k: &str| -> f64 {
+        e.split(&format!(" {k}=\""))
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap()
+    };
+    (attr("x"), attr("y"))
+}
+
+#[test]
+fn the_lone_pairs_are_dots_in_the_svg_and_the_pdf() {
+    // methanol: two pairs on the oxygen (atom 2); then one more pair on the carbon (atom 1), coloured
+    let mut s = Session::new(doc("CO"));
+    s.run(&[set_lp(2, 2)]).unwrap();
+    let style = mzdraw::Style::default();
+    let svg = svg::to_svg(&s.doc);
+    let dots = circles(&svg);
+    assert_eq!(dots.len(), 4, "two dots per pair: {svg}");
+    // each dot is at the reach of the pairs from the oxygen (`curve::LP_REACH` bond lengths, a dot 0.07 to either side)
+    let o = label_at(&svg, "O");
+    let reach = curve::LP_REACH * style.bond_length;
+    for (x, y) in &dots {
+        let r = ((x - o.0).powi(2) + (y - o.1).powi(2)).sqrt();
+        assert!(
+            (r - reach).abs() < 0.1 * style.bond_length,
+            "{r} from O, reach {reach}"
+        );
+    }
+    // the PDF has the same dots: one filled closed curve each
+    let pdf = mzdraw::pdf::to_pdf(&s.doc, &style);
+    let text: String = pdf
+        .iter()
+        .map(|&c| if c < 128 { c as char } else { '?' })
+        .collect();
+    assert_eq!(
+        text.matches(" c f\n").count(),
+        4,
+        "four filled dots in the page"
+    );
+    // a coloured atom gives its pairs its colour; a drawing without pairs has no dot at all
+    s.run(&[set_lp(1, 1)]).unwrap();
+    s.run(&[
+        Op::parse(&serde_json::json!({"op": "colour", "atoms": [1], "col": "#2060c0"})).unwrap(),
+    ])
+    .unwrap();
+    let svg = svg::to_svg(&s.doc);
+    assert_eq!(circles(&svg).len(), 6);
+    assert_eq!(
+        svg.matches("fill=\"#2060c0\"/>").count(),
+        2,
+        "the pair of the coloured carbon"
+    );
+    assert!(
+        !svg::to_svg(&doc("CO")).contains("<circle"),
+        "no pair, no dot"
+    );
+    let plain = mzdraw::pdf::to_pdf(&doc("CO"), &style);
+    assert!(!String::from_utf8_lossy(&plain).contains(" c f\n"));
+}

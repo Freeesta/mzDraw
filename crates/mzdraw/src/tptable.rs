@@ -198,17 +198,6 @@ fn field(atoms: &[&Atom], name: &str) -> String {
     String::new()
 }
 
-fn hill(composition: &[(String, u32)]) -> String {
-    let mut out = String::new();
-    for (el, n) in composition {
-        out.push_str(el);
-        if *n > 1 {
-            out.push_str(&n.to_string());
-        }
-    }
-    out
-}
-
 /// Builds the table of the drawing. `engine` gives the masses (the bridge passes `glue::measure`); without it the mass cells are
 /// empty and the notes say so. The error is an i18n key.
 pub fn build(
@@ -403,7 +392,7 @@ pub fn build_with(
         base[0] = i.id.clone();
         base[2] = layer.map_or(String::new(), |l| l.to_string());
         base[3] = smiles[k].clone();
-        base[4] = hill(&s.composition);
+        base[4] = crate::outline::hill_text(&s.composition);
         base[5] = mass[k].map_or(String::new(), |m| show(units(m), false));
         base[6] = i.adduct.clone();
         base[7] = mz[k].map_or(String::new(), |m| show(m, false));

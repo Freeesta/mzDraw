@@ -114,6 +114,7 @@ Apart from `loss`, a SMILES of a drawing with a connected piece above 500 atoms 
 | `bond.bold` | no | no | no | no | no | yes | no | no | yes | yes |
 | `bond.dash` | no | no | no | no | no | yes | no | no | yes | yes |
 | `bond.dative` | no | yes | no | no | yes | yes | no | no | yes | yes |
+| `bond.either` | drawing | drawing | drawing | drawing | no | drawing | no | drawing | yes | yes |
 | `bond.hbond` | no | yes | no | no | yes | yes | no | no | yes | yes |
 | `bond.hash` | no | no | no | no | no | yes | no | no | yes | yes |
 | `bond.pos` | no | no | no | no | no | yes | no | no | yes | yes |

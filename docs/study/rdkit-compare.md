@@ -107,7 +107,7 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | 22 | charges, isotopes, radicals | drawn; `isotopeLabels`, `atomLabelDeuteriumTritium` (D, T) | drawn (`2H`, no D/T option) | built | harness (isotopes, radical, zwitterion) | M |
 | 23 | wedges and hashes from stereo | `WedgeMolBonds` | wedges written by `mzlab-mol` on our coordinates; read back by RDKit 29 of 30 | built | `stereo-guard.json` | M |
 | 24 | wavy bond | unknown stereo (`unspecifiedStereoIsUnknown`) | `bond.set s 3` | built | `core.json` | M |
-| 25 | unspecified double bond marked "either" in the molfile | crossed bond, stereo 3 | none (F3) | missing | | M |
+| 25 | unspecified double bond marked "either" in the molfile | crossed bond, stereo 3 | built after F3: bond stereo 3, V3000 `CFG=2`, CDXML `Display="Wavy"`, read back (`built/either-double-bond.md`) | built | `either.json`, `crates/mzdraw/tests/either.rs` | M |
 | 26 | hash drawn as wedge ladder or parallel lines | ladder (no option found among `MolDrawOptions`) | `style.hash_style` wedge/lines | better | `label-display.json` | M (mzDraw), D (RDKit) |
 | 27 | bond kinds: bold, dashed, bold dashed, plain hash | none of these as display kinds (not found among `MolDrawOptions` or the bond types drawn) | `bond.set k` bold/dash/bdash/hash | better | `bond-display.json`, `bond-kinds.json` | M (mzDraw), D (RDKit) |
 | 28 | dative bond drawn as an arrow; hydrogen bond drawn dashed or dotted | `BondType.DATIVE`; `BondType.HYDROGEN` (dashed) | `bond.set k dative`, `k hbond` (dotted) | built | `bond-kinds.json` | M |
@@ -122,7 +122,7 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | 37 | CIP labels R/S, E/Z | `addStereoAnnotation`, `showAllCIPCodes` | computed by the engine `cip` (glue `replay_glue`), not drawn | partial | `crates/mzdraw-wasm/tests/glue.rs` | M |
 | 38 | enhanced-stereo labels, chiral flag | `addStereoGroupAnnotation`, `includeChiralFlagLabel` | none (F2) | missing | | M (first), D (second) |
 | 39 | atom notes, bond notes | `atomNote`, `bondNote` properties | `atom.data` kept in the document and SDF, not drawn | missing | | M |
-| 40 | lone pairs | none | `atom.set lp` on the canvas; not in SVG/PDF (F1) | partial | `curve.json` | M |
+| 40 | lone pairs | none | `atom.set lp` on the canvas, and in SVG and PDF since PR #127 (dfa7ddf) (F1; `built/lone-pairs-export.md`) | better | `curve.json`, `crates/mzdraw/tests/curve.rs` | M |
 
 ### 4.3 Highlighting, captions, grids
 
@@ -190,14 +190,14 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 
 | status | rows |
 |---|---|
-| built | 21 |
-| better | 21 |
-| partial | 7 |
-| missing | 23 |
+| built | 22 |
+| better | 22 |
+| partial | 6 |
+| missing | 22 |
 | n.a. | 5 |
 | total | 77 |
 
-Built or better: 42 of 77 (the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 23 missing rows and in part of the 7 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
+Built or better: 44 of 77 (after F1, PR #127, and F3, the "either" PR: #40 partial to better (PR #127, merged), #25 missing to built; the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 22 missing rows and in part of the 6 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
 
 ## 5. Where mzDraw is already better, with evidence
 
