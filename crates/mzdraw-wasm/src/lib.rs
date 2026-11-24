@@ -909,7 +909,15 @@ pub fn state() -> String {
             q(e.said.0),
             q(&e.said.1),
             (e.said_params.iter())
-                .filter(|_| matches!(e.said.0, "draw2.say.pathway" | "draw2.say.labelled"))
+                .filter(|_| {
+                    matches!(
+                        e.said.0,
+                        "draw2.say.pathway"
+                            | "draw2.say.labelled"
+                            | "draw2.say.gridLeft"
+                            | "draw2.say.gridDoneLeft"
+                    )
+                })
                 .map(|(k, n)| format!("\"{k}\":{n}"))
                 .collect::<Vec<_>>()
                 .join(","),

@@ -448,7 +448,8 @@ fn free_objects_stay_where_they_are_are_kept_off_and_are_reported() {
     let start = e.doc().to_json();
     // the page: the live line says how many stayed
     assert!(e.grid() != 0);
-    assert_eq!(e.said, ("draw2.say.gridLeft", "3".to_string()));
+    assert_eq!(e.said.0, "draw2.say.gridLeft");
+    assert_eq!(e.said_params, vec![("n", 3)]);
     assert_eq!(e.grid_left(), near.as_slice());
     // they did not move, and no cell covers one of them
     assert_eq!(e.doc().objects, objects);
@@ -481,4 +482,124 @@ fn free_objects_stay_where_they_are_are_kept_off_and_are_reported() {
     let r: Value =
         serde_json::from_str(&mzdraw::replay::replay(&request.to_string()).unwrap()).unwrap();
     assert_eq!(r["grid"], json!({"left": []}));
+}
+
+#[test]
+fn a_far_structure_below_does_not_drag_the_grid_and_the_page_says_what_stays_when_nothing_moves() {
+    // (review of #135, a) benzene left out where the grid would stand, propane left out 60 bond lengths below: the grid goes under
+    // the benzene only, not under the propane
+    let mut e = editor("CCCCCC.c1ccccc1.CCO.CCC", &[]);
+    let pieces = mzdraw::layout::pieces(e.doc());
+    let ring = (pieces.iter())
+        .find(|p| e.doc().bonds.iter().filter(|b| p.contains(&b.a)).count() == p.len())
+        .unwrap()
+        .clone();
+    let propane = pieces
+        .iter()
+        .find(|p| {
+            p.len() == 3
+                && e.doc().atom(p[0]).unwrap().el == "C"
+                && p.iter().all(|a| e.doc().atom(*a).unwrap().el == "C")
+        })
+        .unwrap()
+        .clone();
+    let mut s = mzdraw::Session::new(e.doc().clone());
+    s.run(&[
+        mzdraw::Op::parse(&json!({"op": "move", "atoms": propane, "dx": 0, "dy": -60})).unwrap(),
+    ])
+    .unwrap();
+    e.session = s;
+    let low_of = |e: &Editor, p: &[u32]| {
+        p.iter()
+            .map(|a| e.doc().atom(*a).unwrap().y)
+            .fold(f64::MAX, f64::min)
+    };
+    let ring_low = low_of(&e, &ring);
+    let propane_low = low_of(&e, &propane);
+    let chosen: Vec<u32> = pieces
+        .iter()
+        .filter(|p| **p != ring && **p != propane)
+        .map(|p| p[0])
+        .collect();
+    run(&mut e, json!({"atoms": chosen, "cols": 2})).unwrap();
+    let st = e.style.clone();
+    let c = cells(e.doc(), &st);
+    for x in c.iter().filter(|x| chosen.contains(&x.0)) {
+        // under the benzene, far above the propane, clear of both
+        assert!(
+            x.2 < ring_low && x.2 > propane_low + 30.0,
+            "{x:?} ring {ring_low} propane {propane_low}"
+        );
+        for o in c.iter().filter(|o| !chosen.contains(&o.0)) {
+            assert!(!overlap(&x.3, &o.3), "{x:?} {o:?}");
+        }
+    }
+    assert!(grid(
+        e.doc(),
+        &st,
+        &[],
+        &Opts::parse(&json!({"atoms": chosen, "cols": 2})).unwrap()
+    )
+    .unwrap()
+    .ops
+    .is_empty());
+    // (e) nothing moves but free objects stand by the structures: the page says them; (d) one is said in the singular
+    let mut e = editor(NAMED, &[]);
+    e.grid();
+    let (x, y) = (e.doc().atom(1).unwrap().x, e.doc().atom(1).unwrap().y);
+    e.session
+        .run(&[mzdraw::Op::parse(
+            &json!({"op": "obj.add", "t": "text", "x": x + 6.0, "y": y + 0.2, "text": "n"}),
+        )
+        .unwrap()])
+        .unwrap();
+    let before = e.doc().clone();
+    e.grid();
+    if *e.doc() == before {
+        assert_eq!(e.said.0, "draw2.say.gridDoneLeft");
+    } else {
+        assert_eq!(e.said.0, "draw2.say.gridLeft");
+    }
+    assert_eq!(e.said_params, vec![("n", 1)]);
+    assert_eq!(e.grid_left().len(), 1);
+}
+
+#[test]
+fn a_free_object_by_a_structure_where_the_grid_puts_it_is_reported() {
+    // (review of #135, c) nine equal structures in a row, a grid of two columns: the last one goes to the fifth row. A text just
+    // right of its new cell (clear of the row, within `NEAR`) and far from every structure as they stand now is reported
+    let mut e = editor(&["CCO"; 9].join("."), &[]);
+    let opts = Opts::parse(&json!({"cols": 2})).unwrap();
+    let plan = grid(e.doc(), &e.style, &[], &opts).unwrap();
+    let mut s = mzdraw::Session::new(e.doc().clone());
+    s.run(&plan.ops).unwrap();
+    let last = mzdraw::layout::pieces(&s.doc).last().unwrap().clone();
+    let b = structure_box(&s.doc, last[0], &e.style).unwrap();
+    let low = last
+        .iter()
+        .map(|a| s.doc.atom(*a).unwrap().y)
+        .fold(f64::MAX, f64::min);
+    let (x, y) = (b[2] + 1.0, low);
+    // far from the structures as they stand
+    for p in mzdraw::layout::pieces(e.doc()) {
+        let r = structure_box(e.doc(), p[0], &e.style).unwrap();
+        let d = (r[0] - x)
+            .max(x - r[2])
+            .max(0.0)
+            .hypot((r[1] - y).max(y - r[3]).max(0.0));
+        assert!(d > mzdraw::grid::NEAR + 0.5, "{d}");
+    }
+    e.session
+        .run(&[mzdraw::Op::parse(
+            &json!({"op": "obj.add", "t": "text", "x": x, "y": y, "text": "here"}),
+        )
+        .unwrap()])
+        .unwrap();
+    let id = e.doc().objects[0].id;
+    let plan2 = grid(e.doc(), &e.style, &[], &opts).unwrap();
+    assert_eq!(
+        plan2.ops, plan.ops,
+        "the text is clear of the cells: the same grid"
+    );
+    assert_eq!(plan2.left, vec![id]);
 }
