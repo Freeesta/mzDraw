@@ -150,7 +150,7 @@ pub(crate) fn laid_out_with(
     let m = style.metrics(scale, false);
     // the calculated values under the structures take room: the page grows to hold them
     let captions =
-        crate::values::captions(doc, style.values, &style.adducts, measured, style.titles);
+        crate::values::captions_titled(doc, style.values, &style.adducts, measured, style.titles);
     let cf = crate::values::caption_font(m.font);
     for c in &captions {
         let depth = crate::values::caption_first(scale, cf, c.below)

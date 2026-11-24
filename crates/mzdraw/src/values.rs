@@ -1075,9 +1075,18 @@ pub fn chosen_lines(keys: &[String], adducts: &[String], x: &Subject) -> Vec<Str
 }
 
 /// The captions of a drawing: a molecule with a choice of lines (`props`) writes them; the others follow the mode (none for `Off`);
-/// `measured` are the results kept by the editor. With `titles` (`display.titles`) the title of a structure (`atom.title`) is its
-/// first line, its legend.
+/// `measured` are the results kept by the editor. No titles: `captions_titled` with `display.titles`.
 pub fn captions(
+    doc: &Document,
+    mode: Mode,
+    adducts: &[String],
+    measured: &[Entry],
+) -> Vec<Caption> {
+    captions_titled(doc, mode, adducts, measured, false)
+}
+
+/// `captions`, and with `titles` (`display.titles`) the title of a structure (`atom.title`) is its first line, its legend.
+pub fn captions_titled(
     doc: &Document,
     mode: Mode,
     adducts: &[String],

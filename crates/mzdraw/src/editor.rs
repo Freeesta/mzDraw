@@ -882,7 +882,7 @@ impl Editor {
             "molfile-v3000" => self.doc().to_molfile_v3000(),
             "smiles" => self.doc().to_smiles()?,
             "ket" => self.doc().to_ket(),
-            "cdxml" => self.doc().to_cdxml_with(&crate::values::captions(
+            "cdxml" => self.doc().to_cdxml_with(&crate::values::captions_titled(
                 self.doc(),
                 self.style.values,
                 &self.style.adducts,
@@ -1485,7 +1485,7 @@ impl Editor {
             } else {
                 self.over.marks.clone()
             },
-            captions: crate::values::captions(
+            captions: crate::values::captions_titled(
                 self.doc(),
                 self.style.values,
                 &self.style.adducts,
