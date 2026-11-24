@@ -214,7 +214,7 @@ I18N.add("en", {
   "draw2.tool.pathway-label.title": "Write the formula difference on each anchored arrow; text you typed is kept",
   "draw2.tool.scheme-row.title": "Lay out the selection, or everything, as one reaction scheme on a line",
   "draw2.tool.structure-grid": "Structure grid",
-  "draw2.tool.structure-grid.title": "Lay out the structures of the selection, or all of them, in a grid with room for their legends",
+  "draw2.tool.structure-grid.title": "Lay out the selected structures, or all of them, in a grid with their legends",
   "draw2.tool.text": "Text",
   "draw2.tool.text.title": "A line of text: type it, press Enter, then click an empty spot, or an arrow to write above it (T)",
   "draw2.tool.text.hint": "H2, Pd/C",
