@@ -130,5 +130,15 @@
         "import": ">>"
       }
     }
+  ],
+  "results": [
+    {
+      "name": "the CXSMILES tail of a reaction line is said, not read",
+      "out": "{\"format\":\"draw-result/1\",\"id\":0,\"ok\":true,\"dry_run\":true,\"created\":{},\"removed\":{},\"imported\":[{\"key\":\"draw2.import.reactionTail\",\"n\":1}],\"dirty\":false}",
+      "request": {
+        "dry_run": true,
+        "import": "C[C@H](O)F>>CC |&1:1|"
+      }
+    }
   ]
 }

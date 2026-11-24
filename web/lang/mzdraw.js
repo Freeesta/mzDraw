@@ -51,6 +51,7 @@ I18N.add("en", {
   "draw2.import.mapsLeft": "Atom map fields that are no whole number from 1 to 999 were read as no map: {n}.",
   "draw2.import.smilesLine": "Line {n} is not a SMILES; it was not read, the other lines were.",
   "draw2.import.nameCut": "Names longer than 80 characters were cut to 80: {n}.",
+  "draw2.import.reactionTail": "{n, plural, one {The CXSMILES tail of a reaction line was not read (its stereo groups, coordinates and labels): the reaction is drawn without it.} other {The CXSMILES tails of # reaction lines were not read (their stereo groups, coordinates and labels): the reactions are drawn without them.}}",
   "draw2.import.smilesMore": "More lines that are not a SMILES (not named one by one): {n}.",
   "draw2.import.mapsDuplicate": "Structures with the same atom map number on more than one atom (kept as read): {n}.",
   "draw2.export.tpEngine": "No mass engine in this run: the mass, m/z, ppm and mass difference cells are empty for structures: {n}.",

@@ -142,3 +142,37 @@ fn the_cli_and_the_page_draw_the_same_reaction() {
     .unwrap();
     assert_eq!(roles(&Document::from_json(&laid).unwrap()), roles(e.doc()));
 }
+
+#[test]
+fn the_cxsmiles_tail_of_a_reaction_line_is_said_not_read() {
+    // a molecule line reads its tail (an enhanced-stereo group is said as not kept); a reaction line does not read it and says so
+    let say = |text: &str| -> Value {
+        let r = json!({"import": text, "dry_run": true});
+        let v: Value =
+            serde_json::from_str(&mzdraw::replay::replay(&r.to_string()).unwrap()).unwrap();
+        v["imported"].clone()
+    };
+    assert_eq!(
+        say("C[C@H](O)F |&1:1|"),
+        json!([{"key": "draw2.import.stereoGroups", "n": 1}])
+    );
+    assert_eq!(
+        say("C[C@H](O)F>>CC |&1:1|"),
+        json!([{"key": "draw2.import.reactionTail", "n": 1}])
+    );
+    // a name is not a tail; two reaction lines with tails are counted
+    assert_eq!(say("C[C@H](O)F>>CC esterification"), Value::Null);
+    let two = say("CC>>CO |&1:1|\nCN>>CO |$;;$|");
+    assert!(
+        two.as_array()
+            .unwrap()
+            .contains(&json!({"key": "draw2.import.reactionTail", "n": 2})),
+        "{two}"
+    );
+    // the reaction is drawn all the same
+    let d = import("C[C@H](O)F>>CC |&1:1|").unwrap();
+    assert_eq!(
+        d.objects.iter().filter(|o| o.t == ObjKind::Arrow).count(),
+        1
+    );
+}

@@ -102,8 +102,10 @@ pub(crate) fn datives(smiles: &str) -> Result<(String, Vec<(usize, usize)>), ()>
             (b'.', _) => prev = None,
             _ => {}
         }
-        out.push(c as char);
-        i += 1;
+        // a character of more than one byte (outside a bracket) is copied whole
+        let ch = smiles[i..].chars().next().unwrap_or(c as char);
+        out.push(ch);
+        i += ch.len_utf8();
     }
     if pending.is_some() {
         return Err(());
@@ -135,12 +137,17 @@ mod tests {
     fn a_dative_bond_is_a_single_bond_with_its_donor_and_acceptor() {
         assert_eq!(datives("N->[Cu+2]"), Ok(("N-[Cu+2]".into(), vec![(0, 1)])));
         assert_eq!(datives("[Cu+2]<-N"), Ok(("[Cu+2]-N".into(), vec![(1, 0)])));
-        // through branches and two-letter atoms: N(->[Fe]<-Cl)C
+        // through a branch and two-letter atoms: the N and the Br of the branch both give to the Fe
         assert_eq!(
             datives("ClC(N->[Fe]<-Br)O"),
             Ok(("ClC(N-[Fe]-Br)O".into(), vec![(2, 3), (4, 3)]))
         );
         assert_eq!(datives("CCO"), Ok(("CCO".into(), vec![])));
+        // a character of more than one byte is copied whole (the reader judges it), never cut into bytes
+        assert_eq!(
+            datives("N->[Cu]\u{e9}\u{4e2d}"),
+            Ok(("N-[Cu]\u{e9}\u{4e2d}".into(), vec![(0, 1)]))
+        );
         // at the start of a branch the atom before is the branch's own
         assert_eq!(datives("C(->N)O"), Ok(("C(-N)O".into(), vec![(0, 1)])));
         // not between two atoms written next to each other

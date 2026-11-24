@@ -59,6 +59,8 @@ pub struct Imported {
     pub smiles_lines: Vec<usize>,
     /// Names of a SMILES file longer than the 80 characters of a title line: cut, counted.
     pub names_cut: usize,
+    /// Reaction SMILES lines whose CXSMILES tail (`|...|`) was not read: the reaction is drawn without it (`draw2.import.reactionTail`).
+    pub reaction_tails: usize,
     /// CDXML: bonds that carried a display (`Dash`, `Hash`) or the side of a double bond, in a file where the reader refused a bond
     /// (so the bonds of the file and of the drawing cannot be paired): the display of every bond is left out, counted.
     pub bond_display_left: usize,
@@ -100,6 +102,7 @@ impl Imported {
         .chain([
             ("draw2.import.smilesMore", more),
             ("draw2.import.nameCut", self.names_cut),
+            ("draw2.import.reactionTail", self.reaction_tails),
         ])
         .filter(|n| n.1 > 0)
         .collect()
@@ -763,6 +766,8 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
                 };
                 match (side(r, &mut info), side(a, &mut info), side(p, &mut info)) {
                     (Some(r), Some(a), Some(p)) if !(r.is_empty() && p.is_empty()) => {
+                        // the CXSMILES tail of a reaction line (stereo groups, coordinates of its molecules) is not read: said
+                        info.reaction_tails += usize::from(smiles.len() > core.len());
                         Some(crate::rxn::reaction_of(r, p, a))
                     }
                     _ => None,
