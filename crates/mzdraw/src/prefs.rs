@@ -55,6 +55,7 @@ const ADDUCT_WORDS: &[&str] = &[
     "[M+HCOO]-",
 ];
 const LENS: &[&str] = &["off", "tint", "tint+ghost"];
+const IDS: &[&str] = &["off", "atoms", "bonds", "both"];
 const DIR: &[&str] = &["right", "down"];
 const ORDER: &[&str] = &["id", "mz", "rt"];
 const NUMBER: &[&str] = &["layout", "mz", "rt"];
@@ -75,7 +76,7 @@ const fn p(setting: &'static str, group: &'static str, label: &'static str, kind
 }
 
 /// The options, in the order of the panel. The numbers of the style come after this table (`all`), from `FIELDS`.
-const WORDS: [Pref; 18] = [
+const WORDS: [Pref; 19] = [
     p(
         "style.colour",
         "display",
@@ -87,6 +88,12 @@ const WORDS: [Pref; 18] = [
         "display",
         "draw2.prefs.display.maps",
         Kind::Words(ONOFF),
+    ),
+    p(
+        "display.ids",
+        "display",
+        "draw2.prefs.display.ids",
+        Kind::Words(IDS),
     ),
     p(
         "display.titles",
