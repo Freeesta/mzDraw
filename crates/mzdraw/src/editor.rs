@@ -1091,10 +1091,10 @@ impl Editor {
             return Vec::new();
         };
         let now = self.session.generation();
-        if let Some((at, labels)) = self.cip_cache.borrow().as_ref() {
-            if *at == now {
-                return labels.clone();
-            }
+        if let Some((at, labels)) = self.cip_cache.borrow().as_ref()
+            && *at == now
+        {
+            return labels.clone();
         }
         let labels = if self.doc().atoms.is_empty() {
             Vec::new()

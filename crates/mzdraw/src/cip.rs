@@ -22,6 +22,6 @@ pub const NO_ENGINE: &str = "draw2.export.cipEngine";
 
 /// The labels in a stable order: atoms by id, then bonds by id (the engine's order is the molfile's, which follows the pool).
 pub fn sorted(mut labels: Vec<CipLabel>) -> Vec<CipLabel> {
-    labels.sort_by(|a, b| (a.bond != 0, a.atom, a.bond).cmp(&(b.bond != 0, b.atom, b.bond)));
+    labels.sort_by_key(|a| (a.bond != 0, a.atom, a.bond));
     labels
 }

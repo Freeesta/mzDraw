@@ -593,8 +593,10 @@ pub fn replay_engines(request: &str, n: u64, engines: Engines) -> Result<Reply, 
             check_failed: false,
         });
     }
-    let mut e = Editor::default();
-    e.labeller = engines.cip;
+    let mut e = Editor {
+        labeller: engines.cip,
+        ..Default::default()
+    };
     // the notes of the import, as the page shows them: the start text, then the file
     let mut notes: Vec<(&'static str, usize)> = Vec::new();
     if let Some(text) = &r.import {
