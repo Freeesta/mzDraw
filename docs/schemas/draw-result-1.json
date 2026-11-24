@@ -85,7 +85,7 @@
       "required": ["left"],
       "additionalProperties": false,
       "properties": {
-        "left": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "the ids of the free objects (a text, an arrow, a plus sign or a curve anchored at no atom) that stood within 3 bond lengths of a structure of the grid: the grid does not move them" }
+        "left": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "the ids of the free objects (a text, an arrow, a plus sign or a curve anchored at no atom) that stood within 3 bond lengths of a structure of the grid, where it stood or where the grid puts it, in the order of the drawing: the grid does not move them" }
       }
     },
     "failed": {

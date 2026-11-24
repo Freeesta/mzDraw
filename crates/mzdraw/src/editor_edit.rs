@@ -190,20 +190,29 @@ impl Editor {
         };
         match crate::grid::grid(self.doc(), &self.style, &self.measured, &opts) {
             Ok(plan) if plan.ops.is_empty() => {
+                // the free objects by the structures are said here too
+                self.said = if plan.left.is_empty() {
+                    ("draw2.say.gridDone", String::new())
+                } else {
+                    ("draw2.say.gridDoneLeft", String::new())
+                };
+                self.said_params = vec![("n", plan.left.len() as u32)];
                 self.grid_left = plan.left;
-                self.said = ("draw2.say.gridDone", String::new());
                 self.error = "";
                 REPAINT
             }
             Ok(plan) => {
                 // the free objects it leaves are said, never left silently
-                let (say, what) = if plan.left.is_empty() {
-                    ("draw2.say.grid", String::new())
+                let say = if plan.left.is_empty() {
+                    "draw2.say.grid"
                 } else {
-                    ("draw2.say.gridLeft", plan.left.len().to_string())
+                    "draw2.say.gridLeft"
                 };
+                let n = plan.left.len() as u32;
                 self.grid_left = plan.left;
-                self.run(&plan.ops, say, &what)
+                let flags = self.run(&plan.ops, say, "");
+                self.said_params = vec![("n", n)];
+                flags
             }
             Err(key) => {
                 self.error = key;
