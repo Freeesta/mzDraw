@@ -57,6 +57,9 @@ pub struct Style {
     pub hash_lines: bool,
     /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
     pub maps: bool,
+    /// Which ids of the document are drawn (`display.ids`, `off` by default): the atom ids, the bond ids or both, the numbers the
+    /// operations of `draw_edit/1` name.
+    pub ids: Ids,
     /// What is drawn under each structure (`display.values`): nothing (default), the formula, the formula and the monoisotopic mass,
     /// or the m/z of the adducts.
     pub values: crate::values::Mode,
@@ -226,6 +229,7 @@ fn known(key: &str) -> bool {
             | "hydrogens"
             | "hash_style"
             | "maps"
+            | "ids"
             | "display.values"
             | "display.adducts"
             | "lens"
@@ -262,7 +266,7 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],{},"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"ids":["off","atoms","bonds","both"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],{},"fields":[{}]}}"#,
         PRESETS.join("\",\""),
         crate::values::ADDUCTS
             .iter()
@@ -314,6 +318,7 @@ impl Default for Style {
             hydrogens_all: false,
             hash_lines: false,
             maps: true,
+            ids: Ids::Off,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
             lens: LensMode::Off,
@@ -344,6 +349,8 @@ pub struct Metrics {
     pub hash_lines: bool,
     /// Whether the map numbers of the atoms are drawn.
     pub maps: bool,
+    /// Which ids are drawn (`display.ids`).
+    pub ids: Ids,
     /// The diff lens mode (`display.lens`).
     pub lens: LensMode,
 }
@@ -406,6 +413,44 @@ impl LensMode {
     }
 }
 
+/// Which ids of the document a drawing shows (`display.ids`): none (default), the atom ids, the bond ids, or both.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Ids {
+    #[default]
+    Off,
+    Atoms,
+    Bonds,
+    Both,
+}
+
+impl Ids {
+    /// The word of the setting.
+    pub fn name(self) -> &'static str {
+        match self {
+            Ids::Off => "off",
+            Ids::Atoms => "atoms",
+            Ids::Bonds => "bonds",
+            Ids::Both => "both",
+        }
+    }
+
+    pub fn parse(v: &str) -> Option<Ids> {
+        [Ids::Off, Ids::Atoms, Ids::Bonds, Ids::Both]
+            .into_iter()
+            .find(|m| m.name() == v)
+    }
+
+    /// Whether the atom ids are drawn.
+    pub fn atoms(self) -> bool {
+        matches!(self, Ids::Atoms | Ids::Both)
+    }
+
+    /// Whether the bond ids are drawn.
+    pub fn bonds(self) -> bool {
+        matches!(self, Ids::Bonds | Ids::Both)
+    }
+}
+
 impl Style {
     /// A built-in preset by name.
     pub fn preset(name: &str) -> Option<Style> {
@@ -435,6 +480,7 @@ impl Style {
             hydrogens_all: false,
             hash_lines: false,
             maps: true,
+            ids: Ids::Off,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
             lens: LensMode::Off,
@@ -509,6 +555,7 @@ impl Style {
             ("maps", "on") => self.maps = true,
             ("maps", "off") => self.maps = false,
             ("maps", _) => return Err("error.draw2.styleValue"),
+            ("ids", v) => self.ids = Ids::parse(v).ok_or("error.draw2.styleValue")?,
             ("values", v) => {
                 self.values = crate::values::Mode::parse(v).ok_or("error.draw2.styleValue")?
             }
@@ -586,6 +633,7 @@ impl Style {
             "style.hydrogens" => Some(if self.hydrogens_all { "all" } else { "hetero" }.into()),
             "style.hash_style" => Some(if self.hash_lines { "lines" } else { "wedge" }.into()),
             "display.maps" => Some(on(self.maps)),
+            "display.ids" => Some(self.ids.name().into()),
             "display.values" => Some(self.values.name().into()),
             "display.adducts" => Some(self.adducts.join(",")),
             "display.lens" => Some(self.lens.name().into()),
@@ -687,6 +735,10 @@ impl Style {
             Some("off") => false,
             Some(_) => return None,
         };
+        let ids = match g.s("ids").ok()?.as_deref() {
+            None => base.ids,
+            Some(v) => Ids::parse(v)?,
+        };
         let values = match g.s("display.values").ok()? {
             None => base.values,
             Some(v) => crate::values::Mode::parse(&v)?,
@@ -735,6 +787,7 @@ impl Style {
             hydrogens_all,
             hash_lines,
             maps,
+            ids,
             values,
             adducts,
             lens,
@@ -777,6 +830,9 @@ impl Style {
         }
         if !self.maps {
             style.push(("maps".to_string(), text("off")));
+        }
+        if self.ids != Ids::Off {
+            style.push(("ids".to_string(), text(self.ids.name())));
         }
         if self.values != crate::values::Mode::Off {
             style.push(("display.values".to_string(), text(self.values.name())));
@@ -842,6 +898,7 @@ impl Style {
             h_all: self.hydrogens_all,
             hash_lines: self.hash_lines,
             maps: self.maps,
+            ids: self.ids,
             lens: self.lens,
         }
     }

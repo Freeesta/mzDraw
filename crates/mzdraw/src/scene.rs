@@ -1175,6 +1175,110 @@ impl Painter<'_> {
         }
     }
 
+    /// The ids of the document (`display.ids`), the numbers the operations of `draw_edit/1` name, in the small size and the muted
+    /// ink. Each id is put where it is farthest from what is drawn near it (`id_spot`): an atom's on a circle round the atom, clear
+    /// of its label; a bond's on either side of its middle. "Near" is the atoms within two bonds, points along their bonds, the
+    /// extent of their labels, the lone pairs, and the ids already placed, so the work per id does not grow with the drawing.
+    fn ids(&mut self) {
+        let doc = self.doc;
+        let (f, small, s) = (self.font, self.m.small, self.view.scale);
+        let at: std::collections::HashMap<u32, (f64, f64)> =
+            doc.atoms.iter().map(|a| (a.id, self.pos(a))).collect();
+        let mut next: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
+        for b in &doc.bonds {
+            next.entry(b.a).or_default().push(b.b);
+            next.entry(b.b).or_default().push(b.a);
+        }
+        let mut placed: Vec<(f64, f64)> = Vec::new();
+        // the points an id near the atoms `core` keeps away from (the bond `skip` left out: an id of a bond is beside it)
+        let near = |p: &Self, core: &[u32], skip: u32, placed: &[(f64, f64)]| -> Vec<(f64, f64)> {
+            let mut ring: Vec<u32> = core.to_vec();
+            for c in core {
+                for n in next.get(c).into_iter().flatten() {
+                    ring.push(*n);
+                    ring.extend(next.get(n).into_iter().flatten());
+                }
+            }
+            ring.sort_unstable();
+            ring.dedup();
+            let mut pts: Vec<(f64, f64)> = placed.to_vec();
+            for id in &ring {
+                let (Some(&(x, y)), Some(a)) = (at.get(id), doc.atom(*id)) else {
+                    continue;
+                };
+                pts.push((x, y));
+                if p.labelled(a) {
+                    // the label runs from the symbol to the right (hydrogens, their count, a charge)
+                    let w = width(&a.el, f) / 2.0;
+                    for k in 0..=4 {
+                        pts.push((x - w + (w * 2.0 + f) * f64::from(k) / 4.0, y));
+                    }
+                }
+                for d in crate::curve::lp_dirs(doc, a.id, a.lp()) {
+                    pts.push((
+                        x + m::cos(d) * s * crate::curve::LP_REACH,
+                        y - m::sin(d) * s * crate::curve::LP_REACH,
+                    ));
+                }
+            }
+            for b in doc.bonds.iter().filter(|b| b.id != skip) {
+                if !(ring.binary_search(&b.a).is_ok() && ring.binary_search(&b.b).is_ok()) {
+                    continue;
+                }
+                let (Some(&p), Some(&q)) = (at.get(&b.a), at.get(&b.b)) else {
+                    continue;
+                };
+                for t in [0.25, 0.5, 0.75] {
+                    pts.push((p.0 + (q.0 - p.0) * t, p.1 + (q.1 - p.1) * t));
+                }
+            }
+            pts
+        };
+        if self.m.ids.atoms() {
+            for a in &doc.atoms {
+                let (x, y) = at[&a.id];
+                let side = if self.labelled(a) {
+                    width(&a.el, f) / 2.0
+                } else {
+                    0.0
+                };
+                let reach = (s * 0.42).max(side + small * 0.8);
+                let pts = near(self, &[a.id], 0, &placed);
+                let spots: Vec<(f64, f64)> = (0..16)
+                    .map(|k| f64::from(k) * std::f64::consts::PI / 8.0)
+                    .map(|t| (x + m::cos(t) * reach, y - m::sin(t) * reach))
+                    .collect();
+                let spot = id_spot(&spots, &pts);
+                placed.push(spot);
+                self.text(spot.0, spot.1, small, colour::MUTED, &a.id.to_string(), 0.0);
+            }
+        }
+        if self.m.ids.bonds() {
+            for b in &doc.bonds {
+                let (Some(&p), Some(&q)) = (at.get(&b.a), at.get(&b.b)) else {
+                    continue;
+                };
+                let (dx, dy) = (q.0 - p.0, q.1 - p.1);
+                let len = m::hypot(dx, dy);
+                if len < 1e-9 {
+                    continue;
+                }
+                let (nx, ny) = (dy / len, -dx / len);
+                // past the second and third lines of a double or triple bond, on whichever side they are
+                let k = small * 0.9 + self.m.spacing * f64::from(b.o.saturating_sub(1));
+                let mid = ((p.0 + q.0) / 2.0, (p.1 + q.1) / 2.0);
+                let spots = [
+                    (mid.0 + nx * k, mid.1 + ny * k),
+                    (mid.0 - nx * k, mid.1 - ny * k),
+                ];
+                let pts = near(self, &[b.a, b.b], b.id, &placed);
+                let spot = id_spot(&spots, &pts);
+                placed.push(spot);
+                self.text(spot.0, spot.1, small, colour::MUTED, &b.id.to_string(), 0.0);
+            }
+        }
+    }
+
     /// The atom-to-atom map number at the lower right of the atom, in the small size.
     fn map_number(&mut self, a: &Atom) {
         let (x, y) = self.pos(a);
@@ -1193,6 +1297,24 @@ impl Painter<'_> {
             1.0,
         );
     }
+}
+
+/// Of the candidate places of an id, the one farthest from the nearest of `pts` (the first of equals: the same drawing gives the same
+/// picture).
+fn id_spot(spots: &[(f64, f64)], pts: &[(f64, f64)]) -> (f64, f64) {
+    let clear = |c: &(f64, f64)| {
+        pts.iter()
+            .map(|p| m::hypot(p.0 - c.0, p.1 - c.1))
+            .fold(f64::INFINITY, f64::min)
+    };
+    let mut best = (spots[0], clear(&spots[0]));
+    for c in &spots[1..] {
+        let d = clear(c);
+        if d > best.1 + 1e-9 {
+            best = (*c, d);
+        }
+    }
+    best.0
 }
 
 /// What the lens of the drawing paints under `mode`: nothing when it is off or when a pair cannot be compared (`tp::lenses`).
@@ -1234,6 +1356,7 @@ pub fn build(doc: &Document, view: View, over: &Overlay, m: Metrics) -> Scene {
         p.bond(b);
     }
     p.atoms();
+    p.ids();
     p.levels();
     p.captions();
     for o in &doc.objects {
