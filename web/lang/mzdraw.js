@@ -752,6 +752,7 @@ I18N.add("en", {
   "error.draw2.ann": "This annotation cannot be kept: a level and a kind of evidence are one word (letters, digits, - _ .); an identifier is one line.",
   "error.draw2.map": "Focus or select one atom, and give a map number from 0 to 999.",
   "error.draw2.title": "A title is one line of at most 80 characters, with no control character.",
+  "error.draw2.stereoGroup": "An enhanced-stereo group is abs, andN or orN (N from 1 to 2000, no leading zero), or none, and it goes on a stereocentre (a centre with a wedge).",
   "error.draw2.engineMissing": "This build does not carry the engine this needs.",
   "error.draw2.cipEngine": "The engine cip could not label this drawing.",
   "error.draw2.data": "This data cannot be kept: a name is one line without < and >; a value has no empty line and no line starting with > or $$$$.",

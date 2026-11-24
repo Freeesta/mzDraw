@@ -104,6 +104,26 @@ pub fn title_valid(title: &str) -> bool {
     title.chars().count() <= MAX_TITLE && !title.chars().any(char::is_control)
 }
 
+/// The most groups of one kind (`and`, `or`) an enhanced-stereo group number goes to.
+pub const MAX_SG: u32 = 2000;
+
+/// Whether a text is an enhanced-stereo group of an atom: `abs` (the absolute configuration), `andN` (one of two enantiomers in an
+/// unknown ratio, all the centres of group N together, `&N` of CXSMILES, `STERAC` of V3000) or `orN` (one of the two, unknown which,
+/// `oN`, `STEREL`), N from 1 to `MAX_SG` (2000) without a leading zero; the empty text is no group.
+pub fn stg_valid(sg: &str) -> bool {
+    let n = |rest: &str| {
+        // ASCII digits only: `parse` would take a sign (`+1`), and no other digit is a number of the file formats
+        !rest.is_empty()
+            && rest.bytes().all(|b| b.is_ascii_digit())
+            && !rest.starts_with('0')
+            && rest.parse::<u32>().is_ok_and(|n| (1..=MAX_SG).contains(&n))
+    };
+    sg.is_empty()
+        || sg == "abs"
+        || sg.strip_prefix("and").is_some_and(n)
+        || sg.strip_prefix("or").is_some_and(n)
+}
+
 /// Fields one atom can carry, and the longest name and value, in characters.
 pub const MAX_DATA: (usize, usize, usize) = (100, 80, 10_000);
 
@@ -213,6 +233,30 @@ impl Atom {
         if !title.is_empty() {
             self.more
                 .push(("title".into(), Value::from(title).to_string()));
+            crate::m::sort(&mut self.more);
+        }
+    }
+
+    /// The enhanced-stereo group of this atom (the field `stg`: `abs`, `and1`, `or2`, ...), empty for none.
+    /// Whether the atom has an enhanced-stereo group, without reading it (`stg` reads the JSON value).
+    pub(crate) fn has_stg(&self) -> bool {
+        self.more.iter().any(|m| m.0 == "stg")
+    }
+
+    pub fn stg(&self) -> String {
+        self.more
+            .iter()
+            .find(|m| m.0 == "stg")
+            .and_then(|m| serde_json::from_str::<Value>(&m.1).ok())
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default()
+    }
+
+    /// Replaces the enhanced-stereo group of this atom (`stg_valid` text); the empty text takes the field away.
+    pub(crate) fn set_stg(&mut self, stg: &str) {
+        self.more.retain(|m| m.0 != "stg");
+        if !stg.is_empty() {
+            self.more.push(("stg".into(), Value::from(stg).to_string()));
             crate::m::sort(&mut self.more);
         }
     }

@@ -461,6 +461,18 @@ fn random_step(s: &Session, r: &mut Rng) -> Vec<Op> {
                 ann: format!("[{}]", entries.join(",")),
             }]
         }
+        15 if r.next(4) == 0 => {
+            // an enhanced-stereo group on one or two atoms: set, replaced, taken away; refused (a word that is none, an atom that is
+            // no stereocentre: most atoms of the random drawings)
+            let groups = [
+                "none", "abs", "and1", "or2", "and99", "or0", "and100", "&1", "",
+            ];
+            let atoms = (0..1 + r.next(2)).map(|_| atom(r)).collect();
+            vec![Op::StereoGroup {
+                atoms,
+                g: groups[r.next(9)].into(),
+            }]
+        }
         15 if r.next(3) == 0 => {
             // a title on an atom: set, replaced, taken away
             let words = ["", "ethanol", "a name with spaces", "caf\u{e9} 2"];
@@ -775,6 +787,97 @@ fn undo_restores_the_identical_document_and_redo_the_identical_result() {
     assert!(
         pairs > 20 && anchored > 20 && freed > 5,
         "{pairs} {anchored} {freed}"
+    );
+}
+
+#[test]
+fn stereo_groups_set_compacted_and_dropped_undo_to_the_identical_document() {
+    // a drawing with four wedged stereocentres, so that the random groups are set (and not only refused), their numbers compacted at
+    // the end of the patch, and a group dropped when a wedge goes: each step undone and redone to the identical document
+    let (mut set, mut compacted, mut dropped) = (0, 0, 0);
+    let words = [
+        "abs", "and1", "and2", "and7", "and2000", "or1", "or3", "or1999", "none",
+    ];
+    for seed in 1..=40u64 {
+        let mut r = Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15));
+        let mut e = mzdraw::Editor::default();
+        e.import("C[C@H](O)[C@@H](F)[C@H](Cl)[C@@H](Br)C").unwrap();
+        let mut s = Session::new(e.doc().clone());
+        for _ in 0..40 {
+            let ids: Vec<u32> = s.doc.atoms.iter().map(|a| a.id).collect();
+            let bonds: Vec<u32> = s.doc.bonds.iter().map(|b| b.id).collect();
+            let ops = match r.next(4) {
+                0 | 1 if !ids.is_empty() => {
+                    let atoms: Vec<u32> =
+                        (0..1 + r.next(2)).map(|_| ids[r.next(ids.len())]).collect();
+                    let g = words[r.next(words.len())];
+                    vec![Op::parse(
+                        &serde_json::json!({"op": "stereo.group", "atoms": atoms, "g": g}),
+                    )
+                    .unwrap()]
+                }
+                2 if !bonds.is_empty() => {
+                    let id = bonds[r.next(bonds.len())];
+                    let w = [0, 0, 1, 6][r.next(4)];
+                    vec![
+                        Op::parse(&serde_json::json!({"op": "bond.set", "id": id, "s": w}))
+                            .unwrap(),
+                    ]
+                }
+                _ => random_step(&s, &mut r),
+            };
+            let grouped = |d: &Document| d.atoms.iter().filter(|a| !a.stg().is_empty()).count();
+            let (before, had, steps) = (s.doc.to_json(), grouped(&s.doc), s.steps());
+            if s.run(&ops).is_err() {
+                assert_eq!(
+                    s.doc.to_json(),
+                    before,
+                    "a refused step changes nothing (seed {seed})"
+                );
+                continue;
+            }
+            if s.steps() == steps {
+                assert_eq!(
+                    s.doc.to_json(),
+                    before,
+                    "a step that adds no history changes nothing (seed {seed})"
+                );
+                continue;
+            }
+            let after = s.doc.to_json();
+            let group_op = ops.iter().find_map(|o| match o {
+                Op::StereoGroup { atoms, g } if g != "none" => Some((atoms.clone(), g.clone())),
+                _ => None,
+            });
+            match &group_op {
+                Some((atoms, g)) => {
+                    set += 1;
+                    compacted += usize::from(
+                        atoms
+                            .iter()
+                            .any(|&id| s.doc.atom(id).is_some_and(|a| a.stg() != *g)),
+                    );
+                }
+                None => {
+                    dropped += usize::from(
+                        grouped(&s.doc) < had
+                            && !ops.iter().any(|o| matches!(o, Op::StereoGroup { .. })),
+                    )
+                }
+            }
+            assert!(s.undo());
+            assert_eq!(s.doc.to_json(), before, "undo (seed {seed}) after {ops:?}");
+            assert!(s.redo());
+            assert_eq!(s.doc.to_json(), after, "redo (seed {seed})");
+        }
+        // the log alone rebuilds the document
+        let mut again = Session::new(e.doc().clone());
+        again.replay(&s.log_json()).unwrap();
+        assert_eq!(again.doc.to_json(), s.doc.to_json(), "replay (seed {seed})");
+    }
+    assert!(
+        set > 80 && compacted > 30 && dropped > 15,
+        "{set} {compacted} {dropped}"
     );
 }
 
@@ -1311,7 +1414,11 @@ fn the_patch_is_in_the_fixed_order() {
         Op::AtomAdd { .. } => 3,
         Op::BondAdd { .. } => 4,
         Op::ObjAdd { .. } => 5,
-        Op::AtomSet { .. } | Op::AtomData { .. } | Op::AtomAnn { .. } | Op::AtomTitle { .. } => 6,
+        Op::AtomSet { .. }
+        | Op::AtomData { .. }
+        | Op::AtomAnn { .. }
+        | Op::AtomTitle { .. }
+        | Op::StereoGroup { .. } => 6,
         // the colour of an atom is said with the atom, the colour of a bond with the bond
         Op::AtomCap { .. } => 6,
         Op::Colour { atoms, .. } if !atoms.is_empty() => 6,

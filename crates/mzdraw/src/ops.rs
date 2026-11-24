@@ -60,6 +60,9 @@ pub enum Op {
     /// Replaces the title kept on an atom (the name of its structure, the title line of the files it is written as: one line of at
     /// most `doc::MAX_TITLE` characters, no control character); the empty text takes it away.
     AtomTitle { id: u32, title: String },
+    /// Puts the stereocentres `atoms` in one enhanced-stereo group (`g`: `abs`, `andN`, `orN`, `doc::stg_valid`), or takes them out
+    /// of any group (`g` `none`); the inverse keeps the group each atom had.
+    StereoGroup { atoms: Vec<u32>, g: String },
     /// Replaces the lines kept under the molecule this atom holds the choice of (`props`: line keys in the order they are written);
     /// the empty list takes the choice away (the molecule follows `display.values` again).
     AtomCap { id: u32, lines: Vec<String> },
@@ -283,6 +286,11 @@ impl Op {
                 w.text("op", "atom.title");
                 w.int("id", i64::from(*i));
                 w.text("title", title);
+            }
+            Op::StereoGroup { atoms, g } => {
+                w.text("op", "stereo.group");
+                ids(&mut w, "atoms", atoms, true);
+                w.text("g", g);
             }
             Op::AtomCap { id: i, lines } => {
                 w.text("op", "atom.cap");
@@ -589,6 +597,15 @@ impl Op {
             "atom.title" => Op::AtomTitle {
                 id: g.u("id")?.ok_or(())?,
                 title: g.s("title")?.ok_or(())?,
+            },
+            "stereo.group" => Op::StereoGroup {
+                // the list of atoms is required (an empty one is refused when the operation runs)
+                atoms: if g.0.get("atoms").is_some() {
+                    g.ids("atoms")?
+                } else {
+                    return Err(());
+                },
+                g: g.s("g")?.ok_or(())?,
             },
             "atom.cap" => Op::AtomCap {
                 id: g.u("id")?.ok_or(())?,
@@ -1051,6 +1068,29 @@ impl Document {
                 }
                 inv.push(Inv::SetAtom(self.atoms[i].clone()));
                 self.atoms[i].set_title(title);
+                done.push(op.clone());
+            }
+            Op::StereoGroup { atoms, g } => {
+                // `none` takes the atoms out of any group; a group is checked on the final record at the end of the patch
+                // (`settle_groups`): its number is literal until then
+                let clear = g == "none";
+                if atoms.is_empty() || !(clear || (!g.is_empty() && crate::doc::stg_valid(g))) {
+                    return err(
+                        "error.draw2.stereoGroup",
+                        atoms.first().copied().unwrap_or(0),
+                    );
+                }
+                let mut index = Vec::with_capacity(atoms.len());
+                for id in atoms {
+                    let Some(i) = self.atom_index(*id) else {
+                        return err("error.draw2.noAtom", *id);
+                    };
+                    index.push(i);
+                }
+                for i in index {
+                    inv.push(Inv::SetAtom(self.atoms[i].clone()));
+                    self.atoms[i].set_stg(if clear { "" } else { g });
+                }
                 done.push(op.clone());
             }
             Op::AtomCap { id, lines } => {
@@ -1554,7 +1594,181 @@ impl Document {
             self.revert(inv);
             return err("error.draw2.coordinate", 0);
         }
+        if let Err(e) = self.settle_groups(ops, &mut inv) {
+            self.revert(inv);
+            return Err(e);
+        }
         Ok((done, inv))
+    }
+
+    /// The enhanced-stereo groups at the end of a patch, on the final record (the rules of `stereo.group` in `draw_edit/1`, shared
+    /// with mzLab): a group a `stereo.group` of this patch put on an atom that is no defined tetrahedral centre fails the patch
+    /// (`error.draw2.stereoGroup` with the atom); an atom that had its group before and is no centre any more (a bond changed) leaves
+    /// it; then the groups of each kind are numbered 1, 2, ... in the order of their numbers (`and1` + `and3` becomes `and1` +
+    /// `and2`). Every change is in the inverse. Nothing to do when no atom has a group.
+    fn settle_groups(&mut self, ops: &[Op], inv: &mut Vec<Inv>) -> Result<(), OpError> {
+        if !self.atoms.iter().any(Atom::has_stg) {
+            return Ok(());
+        }
+        let set: std::collections::HashSet<u32> = (ops.iter())
+            .filter_map(|o| match o {
+                Op::StereoGroup { atoms, g } if g != "none" => Some(atoms.iter().copied()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        // only the pieces this patch touched can have changed their centres: those are read again, so that an edit of one structure
+        // of a drawing of many stays as quick as without groups; an atom of another piece keeps its group, judged by the patch that
+        // set it or changed its piece last
+        let region = self.touched_pieces(&set, inv);
+        let inside = |id: u32| region.as_ref().is_none_or(|r| r.contains(&id));
+        let centres = match &region {
+            // no group left in the pieces touched: no centre to read (the numbers are still compacted, a group may have gone)
+            _ if !self.atoms.iter().any(|a| a.has_stg() && inside(a.id)) => Default::default(),
+            None => self.stereocentres(),
+            Some(r) => Document {
+                format: self.format.clone(),
+                next: self.next,
+                atoms: (self.atoms.iter())
+                    .filter(|a| r.contains(&a.id))
+                    .cloned()
+                    .collect(),
+                bonds: (self.bonds.iter())
+                    .filter(|b| r.contains(&b.a) && r.contains(&b.b))
+                    .cloned()
+                    .collect(),
+                objects: Vec::new(),
+                more: self.more.clone(),
+            }
+            .stereocentres(),
+        };
+        for i in 0..self.atoms.len() {
+            let a = &self.atoms[i];
+            if !a.has_stg() || !inside(a.id) || centres.contains(&a.id) {
+                continue;
+            }
+            if set.contains(&a.id) {
+                return err("error.draw2.stereoGroup", a.id);
+            }
+            inv.push(Inv::SetAtom(a.clone()));
+            self.atoms[i].set_stg("");
+        }
+        for old in self.compact_groups() {
+            inv.push(Inv::SetAtom(old));
+        }
+        Ok(())
+    }
+
+    /// The atoms of the pieces that hold an atom or a bond this patch changed (its inverse says which) or an atom it set a group on;
+    /// `None` (all of them) when it changed the fields of the document itself.
+    fn touched_pieces(
+        &self,
+        set: &std::collections::HashSet<u32>,
+        inv: &[Inv],
+    ) -> Option<std::collections::HashSet<u32>> {
+        let mut seeds: std::collections::HashSet<u32> = set.clone();
+        for i in inv {
+            match i {
+                Inv::DropAtom(id) => {
+                    seeds.insert(*id);
+                }
+                Inv::PutAtom(_, a) | Inv::SetAtom(a) => {
+                    seeds.insert(a.id);
+                }
+                Inv::DropBond(id) => {
+                    if let Some(b) = self.bond(*id) {
+                        seeds.extend([b.a, b.b]);
+                    }
+                }
+                Inv::PutBond(_, b) | Inv::SetBond(b) => {
+                    seeds.extend([b.a, b.b]);
+                    if let Some(now) = self.bond(b.id) {
+                        seeds.extend([now.a, now.b]);
+                    }
+                }
+                Inv::SetMore(_) => return None,
+                Inv::DropObj(_) | Inv::PutObj(..) | Inv::SetObj(_) | Inv::Next(_) => {}
+            }
+        }
+        // the pieces by union-find over the atoms' places (no map of the whole drawing: an edit stays linear and light)
+        let at = |id: u32| self.atoms.iter().position(|a| a.id == id);
+        let mut place = vec![usize::MAX; self.next as usize + 1];
+        for (i, a) in self.atoms.iter().enumerate() {
+            if let Some(p) = place.get_mut(a.id as usize) {
+                *p = i;
+            }
+        }
+        let index = |id: u32| match place.get(id as usize) {
+            Some(&i) if i != usize::MAX => Some(i),
+            _ => at(id),
+        };
+        let mut up: Vec<usize> = (0..self.atoms.len()).collect();
+        fn root(up: &mut [usize], mut i: usize) -> usize {
+            while up[i] != i {
+                up[i] = up[up[i]];
+                i = up[i];
+            }
+            i
+        }
+        for b in &self.bonds {
+            if let (Some(x), Some(y)) = (index(b.a), index(b.b)) {
+                let (x, y) = (root(&mut up, x), root(&mut up, y));
+                up[x] = y;
+            }
+        }
+        let roots: std::collections::HashSet<usize> = (seeds.iter())
+            .filter_map(|&id| index(id))
+            .map(|i| root(&mut up, i))
+            .collect();
+        Some(
+            (0..self.atoms.len())
+                .filter(|&i| roots.contains(&root(&mut up, i)))
+                .map(|i| self.atoms[i].id)
+                .collect(),
+        )
+    }
+
+    /// Numbers the groups of each kind (`and`, `or`) 1, 2, ... in their order, so that no number is left out; gives the atoms as
+    /// they were before for each atom it renumbered. The end of a patch and the read of a file both call it.
+    pub(crate) fn compact_groups(&mut self) -> Vec<Atom> {
+        let mut used: [std::collections::BTreeSet<u32>; 2] = Default::default();
+        let kind = |g: &str| -> Option<(usize, u32)> {
+            if let Some(n) = g.strip_prefix("and").and_then(|n| n.parse().ok()) {
+                Some((0, n))
+            } else {
+                g.strip_prefix("or")
+                    .and_then(|n| n.parse().ok())
+                    .map(|n| (1, n))
+            }
+        };
+        // one read of each group: (place, kind, number)
+        let found: Vec<(usize, usize, u32)> = (self.atoms.iter().enumerate())
+            .filter(|(_, a)| a.has_stg())
+            .filter_map(|(i, a)| kind(&a.stg()).map(|(k, n)| (i, k, n)))
+            .collect();
+        for &(_, k, n) in &found {
+            used[k].insert(n);
+        }
+        let mut old = Vec::new();
+        // already 1, 2, ... in each kind: nothing to renumber
+        if used
+            .iter()
+            .all(|u| u.iter().enumerate().all(|(r, &n)| n == r as u32 + 1))
+        {
+            return old;
+        }
+        for (i, k, n) in found {
+            let r = used[k]
+                .iter()
+                .position(|&m| m == n)
+                .map_or(n, |r| r as u32 + 1);
+            if r == n {
+                continue;
+            }
+            old.push(self.atoms[i].clone());
+            self.atoms[i].set_stg(&format!("{}{r}", ["and", "or"][k]));
+        }
+        old
     }
 }
 

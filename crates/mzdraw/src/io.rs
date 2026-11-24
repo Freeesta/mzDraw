@@ -486,6 +486,21 @@ impl Document {
 
     /// The document as a record with its stereo: the molfile as drawn, read back by `mzlab-mol` (its rules decide what the wedges
     /// mean). A drawing its reader refuses gives the record without stereo.
+    /// The ids of the atoms the record calls stereocentres: the defined tetrahedral centres of `to_mol_stereo` (the wedges as
+    /// drawn). An enhanced-stereo group (`stereo.group`) goes on these only.
+    pub fn stereocentres(&self) -> std::collections::HashSet<u32> {
+        (self.to_mol_stereo().stereo.iter())
+            .filter_map(|s| match s {
+                mzlab_mol::Stereo::Tetra {
+                    c,
+                    status: mzlab_mol::Status::Defined,
+                    ..
+                } => self.atoms.get(*c as usize).map(|a| a.id),
+                _ => None,
+            })
+            .collect()
+    }
+
     pub fn to_mol_stereo(&self) -> Mol {
         let m = self.to_mol();
         // without the R-group marks: the reader of the record refuses `R#`, the stand-in element carries the stereo through
@@ -890,9 +905,46 @@ pub(crate) fn labelled(
     labels: Vec<(usize, String)>,
     info: &mut Imported,
 ) -> (Document, bool) {
-    let grouped = |g: &&mzlab_mol::StereoGroup| g.kind != mzlab_mol::GroupKind::Abs;
-    info.stereo_groups += m.groups.iter().filter(grouped).count();
     let (mut d, placeholder) = Document::from_mol(m);
+    // the enhanced-stereo groups are kept on their atoms (`stereo.group`): `abs`, and the `and` and `or` groups numbered in the order of
+    // the record; a group with an atom the drawing does not have is said as not kept
+    let (mut and, mut or) = (0, 0);
+    for g in &m.groups {
+        let sg = match g.kind {
+            mzlab_mol::GroupKind::Abs => "abs".to_string(),
+            mzlab_mol::GroupKind::And => {
+                and += 1;
+                format!("and{and}")
+            }
+            mzlab_mol::GroupKind::Or => {
+                or += 1;
+                format!("or{or}")
+            }
+        };
+        let fits =
+            crate::doc::stg_valid(&sg) && g.atoms.iter().all(|&i| (i as usize) < d.atoms.len());
+        if !fits {
+            info.stereo_groups += usize::from(g.kind != mzlab_mol::GroupKind::Abs);
+            continue;
+        }
+        for &i in &g.atoms {
+            d.atoms[i as usize].set_stg(&sg);
+        }
+    }
+    // a group only stands on a stereocentre of the drawing (the wedges it has): one on another atom is said as not kept
+    if d.atoms.iter().any(|a| !a.stg().is_empty()) {
+        let centres = d.stereocentres();
+        let mut dropped = std::collections::BTreeSet::new();
+        for a in &mut d.atoms {
+            if !a.stg().is_empty() && !centres.contains(&a.id) {
+                dropped.insert(a.stg());
+                a.set_stg("");
+            }
+        }
+        info.stereo_groups += dropped.len();
+        // a group dropped leaves no gap: `and1` dropped and `and2` kept is read `and1`, as the end of a patch numbers them
+        d.compact_groups();
+    }
     // the bonds the file drew from one atom to the other: dative and hydrogen bonds (the donor is the first atom of the line)
     for (from, to, kind) in std::mem::take(&mut info.links) {
         let ids = (
@@ -917,4 +969,40 @@ pub(crate) fn labelled(
         }
     }
     (d, placeholder)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_group_dropped_on_read_for_not_being_a_centre_leaves_no_gap() {
+        // a record whose first `and` group stands on atom 0, no stereocentre of the drawing (the file readers of `mzlab-mol` drop
+        // such an atom themselves; a record built otherwise may hold it): the group is dropped and counted, the second is read and1
+        let mut m = Mol::from_smiles("C[C@H](O)[C@@H](F)Cl").unwrap();
+        m.groups = vec![
+            mzlab_mol::StereoGroup {
+                kind: mzlab_mol::GroupKind::And,
+                atoms: vec![0],
+            },
+            mzlab_mol::StereoGroup {
+                kind: mzlab_mol::GroupKind::And,
+                atoms: vec![3],
+            },
+            mzlab_mol::StereoGroup {
+                kind: mzlab_mol::GroupKind::Or,
+                atoms: vec![1],
+            },
+        ];
+        let mut info = Imported::default();
+        let (d, _) = labelled(&m, Vec::new(), &mut info);
+        let groups: Vec<(u32, String)> = (d.atoms.iter())
+            .filter(|a| a.has_stg())
+            .map(|a| (a.id, a.stg()))
+            .collect();
+        assert_eq!(groups, [(2, "or1".into()), (4, "and1".into())]);
+        assert_eq!(info.stereo_groups, 1);
+        // the ranks written are the ones read
+        assert_eq!(d.to_smiles().unwrap(), "C[C@H](O)[C@@H](F)Cl |&1:3,o1:1|");
+    }
 }

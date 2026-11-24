@@ -226,6 +226,13 @@ pub fn diff(a: &Document, b: &Document) -> Vec<Op> {
                 title: y.title(),
             });
         }
+        if x.stg() != y.stg() {
+            let g = y.stg();
+            out.push(Op::StereoGroup {
+                atoms: vec![y.id],
+                g: if g.is_empty() { "none".into() } else { g },
+            });
+        }
         if x.cap() != y.cap() {
             out.push(Op::AtomCap {
                 id: y.id,
@@ -656,6 +663,7 @@ pub(crate) fn touched(op: &Op) -> Vec<u32> {
         | Op::AtomCap { id, .. }
         | Op::AtomTitle { id, .. }
         | Op::BondSet { id, .. } => vec![*id],
+        Op::StereoGroup { atoms, .. } => atoms.clone(),
         // the set of a curve (the diff always says its two flags) is in one hunk with the pieces it is anchored to
         Op::ObjSet {
             id, from, to, cv, ..
