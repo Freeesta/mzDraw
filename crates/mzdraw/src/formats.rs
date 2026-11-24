@@ -138,6 +138,11 @@ impl Document {
                         if let (Some(i), Some(j)) = (index.get(&b.a), index.get(&b.b)) {
                             marked = Some(format!("M  V30 {} {t} {} {}", k + 1, i + 1, j + 1));
                         }
+                    } else if let Some(b) = self.bonds.get(k).filter(|b| b.either()) {
+                        // a double bond whose E/Z is unknown
+                        if let (Some(i), Some(j)) = (index.get(&b.a), index.get(&b.b)) {
+                            marked = Some(format!("M  V30 {} 2 {} {} CFG=2", k + 1, i + 1, j + 1));
+                        }
                     } else if let Some((s, i, j)) = ends {
                         let cfg = match s {
                             WEDGE_UP => 1,

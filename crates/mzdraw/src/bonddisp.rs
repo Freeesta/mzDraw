@@ -64,6 +64,16 @@ pub(crate) fn k_put(more: &mut More, v: &str) {
     put(more, "k", v)
 }
 
+/// Whether the E/Z of a double bond is said to be unknown ("either"): the field `ez` with the one value `either`.
+pub(crate) fn ez_get(more: &More) -> bool {
+    get(more, "ez") == "either"
+}
+
+/// Marks a double bond "either" (`true`) or takes the mark away.
+pub(crate) fn ez_put(more: &mut More, on: bool) {
+    put(more, "ez", if on { "either" } else { "" })
+}
+
 /// The canonical `pos` of an operation: `auto` (or empty) gives the empty text; `None` if the value is not one of the sides.
 pub fn pos_canon(v: &str) -> Option<String> {
     match v {
@@ -97,5 +107,9 @@ impl crate::doc::Bond {
     /// The display of the line (one of `KINDS`); empty for a plain line.
     pub fn kind(&self) -> String {
         k_get(&self.more)
+    }
+    /// A double bond whose E/Z is unknown ("either"): written as bond stereo 3 (V2000), `CFG=2` (V3000), `Display="Wavy"` (CDXML).
+    pub fn either(&self) -> bool {
+        self.o == 2 && ez_get(&self.more)
     }
 }
