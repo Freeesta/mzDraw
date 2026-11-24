@@ -83,8 +83,8 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | 3 | depict every record of an SDF | `SDMolSupplier` (+ grid) | `import` an SDF: records side by side | built | `sdf-data.json` | M |
 | 4 | coordinates given in a CXSMILES | read `\|(...)\|` | ignored, layout computed (F6) | missing | | M |
 | 5 | enhanced stereo groups (`&1`, `o1`, V3000 `STERAC`) | kept and drawn | dropped; the page's import note says so, the CLI route gives no loss item (F2) | missing | `crates/mzdraw/tests/formats.rs` (the page note) | M |
-| 6 | dative bonds in SMILES (`->`) | read | refused (F5) | missing | | M |
-| 7 | reaction SMILES (`A>>B`) | `ReactionFromSmarts(useSmiles=True)` | refused (F4); RXN file works (#41) | missing | | M |
+| 6 | dative bonds in SMILES (`->`) | read | read: `->` and `<-` are bonds of the kind `dative` from the donor, which take no part in the valence (`N->[Cu+2]` keeps NH3); not written (a single bond, a `loss` item) (`built/reaction-smiles.md`) | built | `reaction-smiles.json`, `crates/mzdraw/tests/reaction_smiles.rs` | M |
+| 7 | reaction SMILES (`A>>B`) | `ReactionFromSmarts(useSmiles=True)` | read: drawn as a reaction file is, reactants with plus signs, the arrow, the agents above it, the products, atom maps kept; not written (`built/reaction-smiles.md`) | built | `reaction-smiles.json`, `crates/mzdraw/tests/reaction_smiles.rs` | M |
 | 8 | CDXML / CDX read | `MolsFromCDXML` (CDXML) | CDXML and binary CDX | better | `cdx.json` | M |
 | 9 | 2D layout quality, ordinary molecules | default depictor | `mzlab-mol` layout D1: identical measures on 25 of 30 | built | harness | M |
 | 10 | layout of cages and crowded polycycles | stretched bonds, no clash | uniform bonds, 3 clashes | partial | harness | M |
@@ -190,14 +190,14 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 
 | status | rows |
 |---|---|
-| built | 25 |
+| built | 27 |
 | better | 22 |
 | partial | 5 |
-| missing | 20 |
+| missing | 18 |
 | n.a. | 5 |
 | total | 77 |
 
-Built or better: 47 of 77 (#36 missing to built, rdkit-compare 4; #45 partial to built, rdkit-compare 5; #48 missing to built, rdkit-compare 8; after F1, PR #127, and F3, the "either" PR: #40 partial to better (PR #127, merged), #25 missing to built; the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 20 missing rows and in part of the 5 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
+Built or better: 49 of 77 (#36 missing to built, rdkit-compare 4; #45 partial to built, rdkit-compare 5; #48 missing to built, rdkit-compare 8; #6 and #7 missing to built, rdkit-compare 7; after F1, PR #127, and F3, the "either" PR: #40 partial to better (PR #127, merged), #25 missing to built; the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 18 missing rows and in part of the 5 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
 
 ## 5. Where mzDraw is already better, with evidence
 
