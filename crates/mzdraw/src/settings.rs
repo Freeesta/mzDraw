@@ -57,6 +57,8 @@ pub struct Style {
     pub hash_lines: bool,
     /// Whether atom-to-atom map numbers are drawn at the atoms (`display.maps`, `on` by default).
     pub maps: bool,
+    /// Whether the title of each structure (`atom.title`) is drawn under it as its legend (`display.titles`, `off` by default).
+    pub titles: bool,
     /// Whether the CIP labels are drawn (`display.cip`, `off` by default): R/S at a stereocentre, E/Z beside a double bond, from
     /// the engine `cip` the editor is given (`cip::Labeller`).
     pub cip: bool,
@@ -233,6 +235,7 @@ fn known(key: &str) -> bool {
             | "hash_style"
             | "maps"
             | "ids"
+            | "titles"
             | "cip"
             | "display.values"
             | "display.adducts"
@@ -270,7 +273,7 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"cip":["off","on"],"ids":["off","atoms","bonds","both"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],{},"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"titles":["off","on"],"cip":["off","on"],"ids":["off","atoms","bonds","both"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],{},"fields":[{}]}}"#,
         PRESETS.join("\",\""),
         crate::values::ADDUCTS
             .iter()
@@ -323,6 +326,7 @@ impl Default for Style {
             hash_lines: false,
             maps: true,
             ids: Ids::Off,
+            titles: false,
             cip: false,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
@@ -486,6 +490,7 @@ impl Style {
             hash_lines: false,
             maps: true,
             ids: Ids::Off,
+            titles: false,
             cip: false,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
@@ -562,6 +567,9 @@ impl Style {
             ("maps", "off") => self.maps = false,
             ("maps", _) => return Err("error.draw2.styleValue"),
             ("ids", v) => self.ids = Ids::parse(v).ok_or("error.draw2.styleValue")?,
+            ("titles", "on") => self.titles = true,
+            ("titles", "off") => self.titles = false,
+            ("titles", _) => return Err("error.draw2.styleValue"),
             ("cip", "on") => self.cip = true,
             ("cip", "off") => self.cip = false,
             ("cip", _) => return Err("error.draw2.styleValue"),
@@ -643,6 +651,7 @@ impl Style {
             "style.hash_style" => Some(if self.hash_lines { "lines" } else { "wedge" }.into()),
             "display.maps" => Some(on(self.maps)),
             "display.ids" => Some(self.ids.name().into()),
+            "display.titles" => Some(on(self.titles)),
             "display.cip" => Some(on(self.cip)),
             "display.values" => Some(self.values.name().into()),
             "display.adducts" => Some(self.adducts.join(",")),
@@ -749,6 +758,12 @@ impl Style {
             None => base.ids,
             Some(v) => Ids::parse(v)?,
         };
+        let titles = match g.s("titles").ok()?.as_deref() {
+            None => base.titles,
+            Some("on") => true,
+            Some("off") => false,
+            Some(_) => return None,
+        };
         let cip = match g.s("cip").ok()?.as_deref() {
             None => base.cip,
             Some("on") => true,
@@ -804,6 +819,7 @@ impl Style {
             hash_lines,
             maps,
             ids,
+            titles,
             cip,
             values,
             adducts,
@@ -850,6 +866,9 @@ impl Style {
         }
         if self.ids != Ids::Off {
             style.push(("ids".to_string(), text(self.ids.name())));
+        }
+        if self.titles {
+            style.push(("titles".to_string(), text("on")));
         }
         if self.cip {
             style.push(("cip".to_string(), text("on")));

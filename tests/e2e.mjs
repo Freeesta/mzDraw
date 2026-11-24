@@ -3813,6 +3813,36 @@ try {
     assert(!(await pfSvg()).includes('fill="#5c5850"'), "no id is drawn once they are off");
     await pg.keyboard.press("Escape"); await pfShown(false);
   });
+  await step("display titles (rdkit-compare 5): the Preferences draw each structure's title under it by keyboard, by touch and by pen; the page equals the golden of display-titles.json and Reset hides them", async () => {
+    const tGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/display-titles.json"), "utf8")).cases[0];
+    const cdp = await ctx.newCDPSession(pg);
+    const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" ? "none" : "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+    const penTap = async (x, y) => { await pen("mouseMoved", x, y); await pen("mousePressed", x, y); await pen("mouseReleased", x, y); };
+    await pg.evaluate("window.MZDRAW.set_style('mzlab')");
+    await pg.evaluate(req => { const m = /** @type {any} */ (window).MZDRAW; m.open(m.replay(JSON.stringify({ import: req.import, log: req.log, out: "mzdraw" }))); }, tGold.request);
+    await tool(pg, "fit"); await tool(pg, "select"); await frames(pg);
+    await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter"); await pfShown(true);
+    eq(await pg.locator(pfSel("display.titles") + " option").allInnerTexts(), await pg.evaluate("['off', 'on'].map(w => I18N.t('draw2.prefs.display.titles.' + w))"));
+    eq(await pg.inputValue(pfSel("display.titles")), "off");
+    // the keyboard: one step down from off is on
+    await pg.focus(pfSel("display.titles")); await pg.keyboard.press("ArrowDown"); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.get('display.titles')"), "on");
+    await pfSame(tGold.out.svg, "titles by keyboard");
+    await shot(pg, "rdkit-compare-5-display-titles-prefs");
+    await pg.keyboard.press("Escape"); await pfShown(false); await shot(pg, "rdkit-compare-5-display-titles-canvas");
+    await pg.focus('[data-testid="d2-prefs"]'); await pg.keyboard.press("Enter"); await pfShown(true);
+    // a finger: Reset of the group Display hides them, a tap on the row and a choice draws them again
+    await pg.touchscreen.tap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.get('display.titles')"), "off");
+    assert(!(await pfSvg()).includes(">compound 1<"), "no title once they are off");
+    await pg.touchscreen.tap(...await pfAt(pfSel("display.titles"))); await pg.selectOption(pfSel("display.titles"), "on"); await frames(pg);
+    await pfSame(tGold.out.svg, "titles by touch");
+    // a pen: the reset by a pen tap
+    await penTap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
+    eq(await pg.evaluate("window.MZDRAW.get('display.titles')"), "off");
+    await pg.keyboard.press("Escape"); await pfShown(false);
+  });
+
   await step("display cip (rdkit-compare 6): the Preferences draw the CIP labels of the engine cip by keyboard, by touch and by pen; the page equals the golden of cip.json (the glue door) and Reset hides them", async () => {
     const cGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/cip.json"), "utf8")).values[0];
     const cdp = await ctx.newCDPSession(pg);
