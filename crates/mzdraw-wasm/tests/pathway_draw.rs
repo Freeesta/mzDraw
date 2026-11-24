@@ -351,3 +351,34 @@ fn the_goldens_are_what_the_glue_door_writes() {
         std::fs::write(&path, serde_json::to_string_pretty(&file).unwrap() + "\n").unwrap();
     }
 }
+
+#[test]
+fn the_node_mass_of_the_check_is_the_mass_of_the_shared_engine_sel_for_the_same_molfile() {
+    // the check holds no mass code: its number is what `sel` of mzLab gives for the structure, rounded to 4 decimals
+    for smiles in ["Cc1ccccc1", "OC(=O)c1ccccc1", "Cn1cnc2c1c(=O)n(C)c(=O)n2C"] {
+        let molfile =
+            glue::replay(&json!({"import": smiles, "out": "molfile"}).to_string()).unwrap();
+        let sel: Value = serde_json::from_str(
+            &mzlab_feat::chem::sel::sel_json(&json!({"molfile": molfile}).to_string()).unwrap(),
+        )
+        .unwrap();
+        let want = sel["label"]["mass"].as_f64().unwrap();
+        let c: Value = serde_json::from_str(
+            &glue::replay(
+                &json!({"commands": [{"command": "pathway:build", "args": {"model":
+                    {"format": "pathway/1", "nodes": [{"id": "N", "smiles": smiles}], "edges": []}}}],
+                    "out": "pathway-check"})
+                .to_string(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let got = c["nodes"][0]["monoisotopic_mass"].as_f64().unwrap();
+        assert_eq!(got, (want * 1e4).round() / 1e4, "{smiles}: {c}");
+        // the check's formula text is the Hill text of the one shared writer
+        assert_eq!(
+            c["nodes"][0]["formula"], sel["label"]["formula"],
+            "{smiles}"
+        );
+    }
+}
