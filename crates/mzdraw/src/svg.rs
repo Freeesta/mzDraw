@@ -135,7 +135,17 @@ pub fn to_svg_styled(doc: &Document, style: &Style) -> String {
 /// `to_svg_styled` with the calculated values the editor holds (`values::Entry`): the numbers of `display.values` that need an engine
 /// are drawn only for the structures they are held for.
 pub fn to_svg_measured(doc: &Document, style: &Style, measured: &[crate::values::Entry]) -> String {
-    drawn_with(doc, style, measured).0
+    drawn_with(doc, style, measured, &[]).0
+}
+
+/// `to_svg_measured` with the CIP labels the editor holds (`display.cip`, drawn only when the style has it on).
+pub fn to_svg_full(
+    doc: &Document,
+    style: &Style,
+    measured: &[crate::values::Entry],
+    cip: &[crate::cip::CipLabel],
+) -> String {
+    drawn_with(doc, style, measured, cip).0
 }
 
 /// The display list of the whole drawing in a style, in points, with the width and the height of the page (`None` for an empty
@@ -144,6 +154,7 @@ pub(crate) fn laid_out_with(
     doc: &Document,
     style: &Style,
     measured: &[crate::values::Entry],
+    cip: &[crate::cip::CipLabel],
 ) -> Option<(scene::Scene, f64, f64)> {
     let (mut x0, mut y0, mut x1, y1) = doc.bounds()?;
     let scale = style.bond_length;
@@ -189,6 +200,7 @@ pub(crate) fn laid_out_with(
     let (w, h) = ((x1 - x0) * scale + 2.0 * pad, (y1 - y0) * scale + 2.0 * pad);
     let over = Overlay {
         captions,
+        cip: if style.cip { cip.to_vec() } else { Vec::new() },
         ..Overlay::default()
     };
     Some((scene::build(doc, view, &over, m), w, h))
@@ -196,15 +208,16 @@ pub(crate) fn laid_out_with(
 
 /// `to_svg_styled` with the width and the height of the drawing in points.
 pub(crate) fn drawn(doc: &Document, style: &Style) -> (String, f64, f64) {
-    drawn_with(doc, style, &[])
+    drawn_with(doc, style, &[], &[])
 }
 
 pub(crate) fn drawn_with(
     doc: &Document,
     style: &Style,
     measured: &[crate::values::Entry],
+    cip: &[crate::cip::CipLabel],
 ) -> (String, f64, f64) {
-    let Some((sc, w, h)) = laid_out_with(doc, style, measured) else {
+    let Some((sc, w, h)) = laid_out_with(doc, style, measured, cip) else {
         let (attrs, elements) = alternative(doc);
         let empty = format!(
             "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\" viewBox=\"0 0 1 1\"{attrs}>\n{elements}</svg>\n"

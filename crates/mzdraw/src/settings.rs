@@ -59,6 +59,9 @@ pub struct Style {
     pub maps: bool,
     /// Whether the title of each structure (`atom.title`) is drawn under it as its legend (`display.titles`, `off` by default).
     pub titles: bool,
+    /// Whether the CIP labels are drawn (`display.cip`, `off` by default): R/S at a stereocentre, E/Z beside a double bond, from
+    /// the engine `cip` the editor is given (`cip::Labeller`).
+    pub cip: bool,
     /// Which ids of the document are drawn (`display.ids`, `off` by default): the atom ids, the bond ids or both, the numbers the
     /// operations of `draw_edit/1` name.
     pub ids: Ids,
@@ -233,6 +236,7 @@ fn known(key: &str) -> bool {
             | "maps"
             | "ids"
             | "titles"
+            | "cip"
             | "display.values"
             | "display.adducts"
             | "lens"
@@ -269,7 +273,7 @@ pub fn schema_json() -> String {
         })
         .collect();
     format!(
-        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"titles":["off","on"],"ids":["off","atoms","bonds","both"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],{},"fields":[{}]}}"#,
+        r#"{{"format":"{FORMAT}","presets":["{}"],"colours":["element","mono"],"display":{{"maps":["on","off"],"titles":["off","on"],"cip":["off","on"],"ids":["off","atoms","bonds","both"],"values":["off","formula","mass","mz"],"adducts":[{}],"lens":["off","tint","tint+ghost"]}},"choices":[{CHOICES}],{},"fields":[{}]}}"#,
         PRESETS.join("\",\""),
         crate::values::ADDUCTS
             .iter()
@@ -323,6 +327,7 @@ impl Default for Style {
             maps: true,
             ids: Ids::Off,
             titles: false,
+            cip: false,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
             lens: LensMode::Off,
@@ -486,6 +491,7 @@ impl Style {
             maps: true,
             ids: Ids::Off,
             titles: false,
+            cip: false,
             values: crate::values::Mode::Off,
             adducts: default_adducts(),
             lens: LensMode::Off,
@@ -564,6 +570,9 @@ impl Style {
             ("titles", "on") => self.titles = true,
             ("titles", "off") => self.titles = false,
             ("titles", _) => return Err("error.draw2.styleValue"),
+            ("cip", "on") => self.cip = true,
+            ("cip", "off") => self.cip = false,
+            ("cip", _) => return Err("error.draw2.styleValue"),
             ("values", v) => {
                 self.values = crate::values::Mode::parse(v).ok_or("error.draw2.styleValue")?
             }
@@ -643,6 +652,7 @@ impl Style {
             "display.maps" => Some(on(self.maps)),
             "display.ids" => Some(self.ids.name().into()),
             "display.titles" => Some(on(self.titles)),
+            "display.cip" => Some(on(self.cip)),
             "display.values" => Some(self.values.name().into()),
             "display.adducts" => Some(self.adducts.join(",")),
             "display.lens" => Some(self.lens.name().into()),
@@ -754,6 +764,12 @@ impl Style {
             Some("off") => false,
             Some(_) => return None,
         };
+        let cip = match g.s("cip").ok()?.as_deref() {
+            None => base.cip,
+            Some("on") => true,
+            Some("off") => false,
+            Some(_) => return None,
+        };
         let values = match g.s("display.values").ok()? {
             None => base.values,
             Some(v) => crate::values::Mode::parse(&v)?,
@@ -804,6 +820,7 @@ impl Style {
             maps,
             ids,
             titles,
+            cip,
             values,
             adducts,
             lens,
@@ -852,6 +869,9 @@ impl Style {
         }
         if self.titles {
             style.push(("titles".to_string(), text("on")));
+        }
+        if self.cip {
+            style.push(("cip".to_string(), text("on")));
         }
         if self.values != crate::values::Mode::Off {
             style.push(("display.values".to_string(), text(self.values.name())));

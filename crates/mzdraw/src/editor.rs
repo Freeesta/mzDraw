@@ -257,6 +257,11 @@ pub struct Editor {
     pub(crate) step_masses: Option<std::collections::BTreeMap<String, f64>>,
     /// The engine that gives masses (`values`): none in the core, set by the bridge. Without it no mass is ever shown.
     pub measurer: Option<crate::values::Measurer>,
+    /// The engine that gives the CIP labels (`display.cip`): none in the core, set by the bridge (`cip::Labeller`). Without it no
+    /// label is drawn and `lost_on_save` says so.
+    pub labeller: Option<crate::cip::Labeller>,
+    /// The labels of the drawing as the labeller last gave them, with the generation of the session they are for (`cip_labels`).
+    pub(crate) cip_cache: std::cell::RefCell<Option<(u64, crate::cip::Labelled)>>,
     /// What the last `save("tptable")` or `save("tptable-csv")` left empty, as (i18n key, count): said by `lost_on_save` and the page.
     pub table_notes: std::cell::RefCell<Vec<(&'static str, usize)>>,
     /// Whether the last `save("pathway-check")` found an error (the CLI answers with its own exit code).
@@ -445,6 +450,8 @@ impl Default for Editor {
             ui: Default::default(),
             textp: Default::default(),
             measurer: None,
+            labeller: None,
+            cip_cache: std::cell::RefCell::new(None),
             table_notes: std::cell::RefCell::default(),
             check_failed: std::cell::Cell::new(false),
             check_opts: crate::pathcheck::Opts::default(),
@@ -952,9 +959,26 @@ impl Editor {
             ("draw2.export.mapsLost", self.doc().maps_lost(kind)),
             ("draw2.export.coloursLost", self.doc().colours_lost(kind)),
             ("draw2.export.captionsLost", self.doc().caps_lost(kind)),
+            // `display.cip` on in a picture with no engine to give the labels: none is drawn, and that is said
+            (
+                crate::cip::NO_ENGINE,
+                usize::from(
+                    self.style.cip
+                        && self.labeller.is_none()
+                        && matches!(kind, "svg" | "pdf" | "png")
+                        && !self.doc().atoms.is_empty(),
+                ),
+            ),
         ]
         .into_iter()
         .filter(|l| l.1 > 0)
+        // the structures the engine was not given (capped) or refused: drawn without labels, and that is said
+        .chain(
+            (matches!(kind, "svg" | "pdf" | "png"))
+                .then(|| self.cip_notes())
+                .into_iter()
+                .flatten(),
+        )
         .chain(
             self.label_notes
                 .iter()
@@ -1067,7 +1091,37 @@ impl Editor {
 
     /// The PNG of the drawing in the editor's style, for the surface that has a rasteriser (`png::plan`).
     pub fn png_plan(&self) -> crate::png::Plan {
-        crate::png::plan_with(self.doc(), &self.style, &self.measured)
+        crate::png::plan_full(self.doc(), &self.style, &self.measured, &self.cip_labels())
+    }
+
+    /// The CIP labels of the drawing (`display.cip`): empty when the style has them off or no labeller is attached; else what the
+    /// labeller gives, by document ids, in a stable order, computed once per change of the drawing (the generation of the session).
+    /// A drawing the engine refuses has no label.
+    pub fn cip_labels(&self) -> Vec<crate::cip::CipLabel> {
+        self.cip_labelled().labels
+    }
+
+    /// The labels and what was left without them (`cip::label`: structure by structure, the capped and the refused counted), once
+    /// per change of the drawing; empty when `display.cip` is off or there is no labeller.
+    pub fn cip_labelled(&self) -> crate::cip::Labelled {
+        let (true, Some(engine)) = (self.style.cip, self.labeller) else {
+            return crate::cip::Labelled::default();
+        };
+        let now = self.session.generation();
+        if let Some((at, done)) = self.cip_cache.borrow().as_ref()
+            && *at == now
+        {
+            return done.clone();
+        }
+        let done = crate::cip::label(self.doc(), engine);
+        *self.cip_cache.borrow_mut() = Some((now, done.clone()));
+        done
+    }
+
+    /// The notes of the CIP labels of the drawing as it is: the structures capped and refused, as (i18n key, count); the page shows
+    /// them, the pictures list them in `lost`.
+    pub fn cip_notes(&self) -> Vec<(&'static str, usize)> {
+        self.cip_labelled().notes()
     }
 
     /// `import`, also giving the ids of what was added.
@@ -1463,14 +1517,14 @@ impl Editor {
     /// The drawing as an SVG in the editor's style, carrying its document (`svg::carrying`).
     pub fn svg(&self) -> String {
         crate::svg::carrying(
-            crate::svg::to_svg_measured(self.doc(), &self.style, &self.measured),
+            crate::svg::to_svg_full(self.doc(), &self.style, &self.measured, &self.cip_labels()),
             self.doc(),
         )
     }
 
     /// The drawing as a PDF file in the editor's style, carrying its document (`pdf::to_pdf`).
     pub fn pdf(&self) -> Vec<u8> {
-        crate::pdf::to_pdf_with(self.doc(), &self.style, &self.measured)
+        crate::pdf::to_pdf_full(self.doc(), &self.style, &self.measured, &self.cip_labels())
     }
 
     /// Marks the atoms a check flagged (ids), replacing the previous marks.
@@ -1495,6 +1549,7 @@ impl Editor {
                 &self.measured,
                 self.style.titles,
             ),
+            cip: self.cip_labels(),
             ..self.over.clone()
         };
         scene::build(self.doc(), self.view, &over, metrics)

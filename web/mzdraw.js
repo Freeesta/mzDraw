@@ -30,7 +30,18 @@ async function load() {
   return mod;
 }
 
+/** the CIP notes of the drawing as it is (the module counts what it left without labels); a new one is said once on the live line */
+let cipSaid = "[]";
+function cipNote() {
+  const n = ed.cip_notes();
+  if (n === cipSaid) return;
+  cipSaid = n;
+  const said = JSON.parse(n).map((/** @type {[string, number]} */ [key, k]) => t(key, { n: k })).join(" ");
+  if (said) $("d2-live").textContent = said;
+}
+
 function paint() {
+  cipNote();
   const d = ed.scene(), s = ed.strings(), css = getComputedStyle(document.documentElement), col = COLOURS.map(c => css.getPropertyValue(c).trim());
   const r = devicePixelRatio || 1;
   g.setTransform(r, 0, 0, r, 0, 0);
@@ -746,6 +757,7 @@ function save(what, name, type) {
     if (dim) left.unshift(t("draw2.export.coloursLost", { n: dim }));
     const caps = ed.captions_lost(what);
     if (caps) left.unshift(t("draw2.export.captionsLost", { n: caps }));
+    if (what === "svg") left.push(...JSON.parse(ed.cip_notes()).map((/** @type {[string, number]} */ [key, n]) => t(key, { n })));
     if (lost) left.unshift(t("draw2.export.mapsLost", { n: lost }));
     if (left.length) { note.textContent = left.join(" "); $("d2-live").textContent = note.textContent; } else open("saveas", false);
     return true;
