@@ -59,6 +59,8 @@ pub struct Imported {
     pub smiles_lines: Vec<usize>,
     /// Names of a SMILES file longer than the 80 characters of a title line: cut, counted.
     pub names_cut: usize,
+    /// Reaction SMILES lines whose CXSMILES tail (`|...|`) was not read: the reaction is drawn without it (`draw2.import.reactionTail`).
+    pub reaction_tails: usize,
     /// CDXML: bonds that carried a display (`Dash`, `Hash`) or the side of a double bond, in a file where the reader refused a bond
     /// (so the bonds of the file and of the drawing cannot be paired): the display of every bond is left out, counted.
     pub bond_display_left: usize,
@@ -100,6 +102,7 @@ impl Imported {
         .chain([
             ("draw2.import.smilesMore", more),
             ("draw2.import.nameCut", self.names_cut),
+            ("draw2.import.reactionTail", self.reaction_tails),
         ])
         .filter(|n| n.1 > 0)
         .collect()
@@ -767,14 +770,31 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
             continue;
         }
         let (smiles, name, cut) = smiles_record(line);
-        let (clean, labels) = formats::r_atoms(smiles);
-        let Ok(m) = Mol::from_smiles(&clean) else {
+        // a reaction SMILES (`reactants>agents>products`) is drawn as a reaction file is; a molecule may have dative bonds
+        let core = smiles.split([' ', '\t']).next().unwrap_or(smiles);
+        let read = match crate::rsmiles::reaction(core) {
+            Ok(Some([r, a, p])) => {
+                let side = |part: &str, info: &mut Imported| -> Option<Vec<Document>> {
+                    (crate::rsmiles::molecules(part).into_iter())
+                        .map(|m| smiles_molecule(m, info))
+                        .collect()
+                };
+                match (side(r, &mut info), side(a, &mut info), side(p, &mut info)) {
+                    (Some(r), Some(a), Some(p)) if !(r.is_empty() && p.is_empty()) => {
+                        // the CXSMILES tail of a reaction line (stereo groups, coordinates of its molecules) is not read: said
+                        info.reaction_tails += usize::from(smiles.len() > core.len());
+                        Some(crate::rxn::reaction_of(r, p, a))
+                    }
+                    _ => None,
+                }
+            }
+            Ok(None) => smiles_molecule(smiles, &mut info),
+            Err(()) => None,
+        };
+        let Some(mut d) = read else {
             broken.push(n + 1);
             continue;
         };
-        let (mut d, placeholder) = labelled(&m, labels, &mut info);
-        d.set_maps(crate::maps::of_smiles(smiles), &mut info);
-        info.placeholder |= placeholder;
         if let Some(a) = d.atoms.first_mut() {
             a.set_title(&name);
         }
@@ -791,6 +811,31 @@ pub fn import(text: &str) -> Result<(Document, Imported), &'static str> {
     }
     info.smiles_lines = broken;
     checked(all, info, "error.draw2.smiles")
+}
+
+/// One molecule of a SMILES (with its CXSMILES tail): its dative bonds (`->`, `<-`, `rsmiles::datives`) made bonds of the kind
+/// `dative` from the donor to the acceptor, its R groups and its atom maps read. `None` when the reader refuses it.
+fn smiles_molecule(smiles: &str, info: &mut Imported) -> Option<Document> {
+    // the dative arrows of the SMILES itself: the CXSMILES tail after the first blank (labels may hold `->`) is kept as it is
+    let at = smiles.find([' ', '\t']).unwrap_or(smiles.len());
+    let (core, tail) = smiles.split_at(at);
+    let (plain, pairs) = crate::rsmiles::datives(core).ok()?;
+    let plain = plain + tail;
+    let (clean, labels) = formats::r_atoms(&plain);
+    let m = Mol::from_smiles(&clean).ok()?;
+    let (mut d, placeholder) = labelled(&m, labels, info);
+    d.set_maps(crate::maps::of_smiles(&plain), info);
+    info.placeholder |= placeholder;
+    for (donor, acceptor) in pairs {
+        let (x, y) = (d.atoms.get(donor)?.id, d.atoms.get(acceptor)?.id);
+        let b = (d.bonds.iter_mut()).find(|b| (b.a, b.b) == (x, y) || (b.a, b.b) == (y, x))?;
+        if b.o != 1 {
+            return None;
+        }
+        (b.a, b.b, b.s) = (x, y, 0);
+        crate::bonddisp::k_put(&mut b.more, "dative");
+    }
+    Some(d)
 }
 
 /// A line of a SMILES file: the SMILES (with its CXSMILES tail, `|...|`, when the first word after it opens one), the name of the

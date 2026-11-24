@@ -122,3 +122,31 @@ fn the_labels_of_many_structures_cost_their_sum_with_the_real_engine() {
         "{r}"
     );
 }
+
+#[test]
+fn the_engine_alone_is_cheap_on_open_sites_and_the_caps_stay() {
+    // pin-bump-3: `cip/1` now tests only the defined elements of each piece (it labels nothing else) and refuses a piece past its own
+    // work limit (`error.cip.tooComplex`, counted `failed` by `cip::label`). Given whole, without the caps, records whose sites are
+    // all open cost their sum too; the caps of `cip::label` stay (a joined piece with defined sites is not measured here).
+    let one = "CC(C)C=CC(=O)NC1CCC(CC1)C=CC";
+    let doc = |smi: &str| {
+        let mut e = Editor::default();
+        e.import(smi).unwrap();
+        e
+    };
+    let (a, b) = (doc(&[one; 8].join(".")), doc(&[one; 40].join(".")));
+    let (small, large) = timing::best_of_pair(
+        1,
+        3,
+        || drop(glue::cip_labels(a.doc())),
+        || drop(glue::cip_labels(b.doc())),
+    );
+    assert!(
+        large.as_nanos() <= 10 * small.as_nanos(),
+        "8 copies {small:?}, 40 copies {large:?}"
+    );
+    // a joined piece over the caps: the engine answers (no label for open sites), the editor still caps it and says so
+    let joined = doc(&format!("{}C", one.repeat(4)));
+    assert_eq!(glue::cip_labels(joined.doc()).map(|l| l.len()), Ok(0));
+    assert_eq!(mzdraw::cip::label(joined.doc(), glue::cip_labels).capped, 1);
+}
