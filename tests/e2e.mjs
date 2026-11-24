@@ -3871,6 +3871,8 @@ try {
     await penTap(...await pfAt('#d2-fly-prefs [data-reset="display"]')); await frames(pg);
     eq(await pg.evaluate("window.MZDRAW.get('display.cip')"), "off");
     await pg.keyboard.press("Escape"); await pfShown(false);
+  });
+
   await step("structure grid (rdkit-compare 8): five named structures are put in a grid with their legends by the button, with the keyboard, by touch and by pen; one undo step, the drawing equals the golden of grid.json, a second press says it is done", async () => {
     const gGold = JSON.parse(readFileSync(path.join(root, "tests/data/log/grid.json"), "utf8")).cases.find(c => c.name.startsWith("the page's button"));
     const cdp = await ctx.newCDPSession(pg);
