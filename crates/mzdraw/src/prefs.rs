@@ -76,7 +76,7 @@ const fn p(setting: &'static str, group: &'static str, label: &'static str, kind
 }
 
 /// The options, in the order of the panel. The numbers of the style come after this table (`all`), from `FIELDS`.
-const WORDS: [Pref; 18] = [
+const WORDS: [Pref; 19] = [
     p(
         "style.colour",
         "display",
@@ -94,6 +94,12 @@ const WORDS: [Pref; 18] = [
         "display",
         "draw2.prefs.display.ids",
         Kind::Words(IDS),
+    ),
+    p(
+        "display.titles",
+        "display",
+        "draw2.prefs.display.titles",
+        Kind::Words(OFFON),
     ),
     p(
         "display.values",
