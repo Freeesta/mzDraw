@@ -119,7 +119,7 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 | 34 | R groups, attachment points | dummy atoms, `dummiesAreAttachments` (wavy attachment) | `R`, `R1`..`R32` labels; no attachment-point mark | partial | `labels.json` | M |
 | 35 | atom map numbers | drawn by default | drawn, `display.maps` on/off | built | `atom-maps.json` | M |
 | 36 | atom and bond indices | `addAtomIndices`, `addBondIndices` | `display.ids` off/atoms/bonds/both: the document ids the operations name, placed clear of lines and labels (`built/display-ids.md`) | built | `display-ids.json`, `crates/mzdraw/tests/display_ids.rs` | M |
-| 37 | CIP labels R/S, E/Z | `addStereoAnnotation`, `showAllCIPCodes` | computed by the engine `cip` (glue `replay_glue`), not drawn | partial | `crates/mzdraw-wasm/tests/glue.rs` | M |
+| 37 | CIP labels R/S, E/Z | `addStereoAnnotation`, `showAllCIPCodes` | `display.cip`: the labels of the engine `cip` (glue) drawn in brackets, placed as the ids; the plain core replay says it has no engine (`built/display-cip.md`) | built | `cip.json`, `crates/mzdraw-wasm/tests/cip.rs` | M |
 | 38 | enhanced-stereo labels, chiral flag | `addStereoGroupAnnotation`, `includeChiralFlagLabel` | none (F2) | missing | | M (first), D (second) |
 | 39 | atom notes, bond notes | `atomNote`, `bondNote` properties | `atom.data` kept in the document and SDF, not drawn | missing | | M |
 | 40 | lone pairs | none | `atom.set lp` on the canvas, and in SVG and PDF since PR #127 (dfa7ddf) (F1; `built/lone-pairs-export.md`) | better | `curve.json`, `crates/mzdraw/tests/curve.rs` | M |
@@ -190,14 +190,14 @@ Status: **built** (both do it), **better** (mzDraw does more, or RDKit cannot), 
 
 | status | rows |
 |---|---|
-| built | 25 |
+| built | 26 |
 | better | 22 |
-| partial | 5 |
+| partial | 4 |
 | missing | 20 |
 | n.a. | 5 |
 | total | 77 |
 
-Built or better: 47 of 77 (#36 missing to built, rdkit-compare 4; #45 partial to built, rdkit-compare 5; #48 missing to built, rdkit-compare 8; after F1, PR #127, and F3, the "either" PR: #40 partial to better (PR #127, merged), #25 missing to built; the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 20 missing rows and in part of the 5 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
+Built or better: 48 of 77 (#36 missing to built, rdkit-compare 4; #45 partial to built, rdkit-compare 5; #37 partial to built, rdkit-compare 6; #48 missing to built, rdkit-compare 8; after F1, PR #127, and F3, the "either" PR: #40 partial to better (PR #127, merged), #25 missing to built; the review moved the hydrogen bond from #27, better, to #28, built: both rows keep their status, so the totals did not change). RDKit does something mzDraw cannot in the 20 missing rows and in part of the 4 partial ones. Evidence: 67 rows measured, 3 measured in part (#26, #27: the mzDraw side; #38: its first half), 7 documented only (#43, #49, #51, #56, #58, #61, #77).
 
 ## 5. Where mzDraw is already better, with evidence
 

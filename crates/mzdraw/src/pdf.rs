@@ -231,7 +231,17 @@ pub fn to_pdf(doc: &Document, style: &Style) -> Vec<u8> {
 
 /// `to_pdf` with the calculated values the editor holds (`svg::to_svg_measured`).
 pub fn to_pdf_with(doc: &Document, style: &Style, measured: &[crate::values::Entry]) -> Vec<u8> {
-    let (body, w, h) = match crate::svg::laid_out_with(doc, style, measured) {
+    to_pdf_full(doc, style, measured, &[])
+}
+
+/// `to_pdf_with` with the CIP labels the editor holds (`svg::to_svg_full`).
+pub fn to_pdf_full(
+    doc: &Document,
+    style: &Style,
+    measured: &[crate::values::Entry],
+    cip: &[crate::cip::CipLabel],
+) -> Vec<u8> {
+    let (body, w, h) = match crate::svg::laid_out_with(doc, style, measured, cip) {
         Some((sc, w, h)) => {
             // the size as the SVG states it (two decimals)
             let (w, h) = (

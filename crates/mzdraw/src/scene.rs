@@ -123,6 +123,8 @@ pub struct Overlay {
     pub marks: Vec<Mark>,
     /// The calculated values drawn under the structures (`display.values`), filled by the editor and by the exports.
     pub captions: Vec<crate::values::Caption>,
+    /// The CIP labels to draw (`display.cip`), by document ids: given by the editor's `cip::Labeller`.
+    pub cip: Vec<crate::cip::CipLabel>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -1185,6 +1187,10 @@ impl Painter<'_> {
     /// without ids, queued as its own follow-up.)
     fn ids(&mut self) {
         use std::collections::HashMap;
+        // nothing to place: no work at all (the label test below scans the bonds per atom)
+        if self.m.ids == crate::settings::Ids::Off && self.over.cip.is_empty() {
+            return;
+        }
         let doc = self.doc;
         let (f, small, s) = (self.font, self.m.small, self.view.scale);
         let at: HashMap<u32, (f64, f64)> = doc.atoms.iter().map(|a| (a.id, self.pos(a))).collect();
@@ -1327,8 +1333,31 @@ impl Painter<'_> {
                 }
                 pts
             };
-        if self.m.ids.atoms() {
+        // the notes of each atom and bond, in their order: the id (`display.ids`), then the CIP label (`display.cip`, in brackets)
+        let cip_atom: HashMap<u32, String> = (self.over.cip.iter())
+            .filter(|c| c.atom != 0)
+            .map(|c| (c.atom, format!("({})", c.text)))
+            .collect();
+        let cip_bond: HashMap<u32, String> = (self.over.cip.iter())
+            .filter(|c| c.bond != 0)
+            .map(|c| (c.bond, format!("({})", c.text)))
+            .collect();
+        let notes = |id: u32, ids: bool, cip: &HashMap<u32, String>| -> Vec<(String, f32)> {
+            let mut out = Vec::new();
+            if ids {
+                out.push((id.to_string(), colour::MUTED));
+            }
+            if let Some(t) = cip.get(&id) {
+                out.push((t.clone(), colour::INK));
+            }
+            out
+        };
+        {
             for a in &doc.atoms {
+                let list = notes(a.id, self.m.ids.atoms(), &cip_atom);
+                if list.is_empty() {
+                    continue;
+                }
                 let (x, y) = at[&a.id];
                 let side = if marks[&a.id].0 {
                     width(&a.el, f) / 2.0
@@ -1336,18 +1365,24 @@ impl Painter<'_> {
                     0.0
                 };
                 let reach = (s * 0.42).max(side + small * 0.8);
-                let pts = near(&[a.id], None, &placed);
                 let spots: Vec<(f64, f64)> = (0..16)
                     .map(|k| f64::from(k) * std::f64::consts::PI / 8.0)
                     .map(|t| (x + m::cos(t) * reach, y - m::sin(t) * reach))
                     .collect();
-                let spot = id_spot(&clear_of_captions(&spots, &a.id.to_string()), &pts);
-                placed.entry(key(spot)).or_default().push(spot);
-                self.text(spot.0, spot.1, small, colour::MUTED, &a.id.to_string(), 0.0);
+                for (text, ink) in list {
+                    let pts = near(&[a.id], None, &placed);
+                    let spot = id_spot(&clear_of_captions(&spots, &text), &pts);
+                    placed.entry(key(spot)).or_default().push(spot);
+                    self.text(spot.0, spot.1, small, ink, &text, 0.0);
+                }
             }
         }
-        if self.m.ids.bonds() {
+        {
             for (k, b) in doc.bonds.iter().enumerate() {
+                let list = notes(b.id, self.m.ids.bonds(), &cip_bond);
+                if list.is_empty() {
+                    continue;
+                }
                 let (Some(&p), Some(&q)) = (at.get(&b.a), at.get(&b.b)) else {
                     continue;
                 };
@@ -1364,10 +1399,12 @@ impl Painter<'_> {
                     (mid.0 + nx * k_off, mid.1 + ny * k_off),
                     (mid.0 - nx * k_off, mid.1 - ny * k_off),
                 ];
-                let pts = near(&[b.a, b.b], Some(k), &placed);
-                let spot = id_spot(&clear_of_captions(&spots, &b.id.to_string()), &pts);
-                placed.entry(key(spot)).or_default().push(spot);
-                self.text(spot.0, spot.1, small, colour::MUTED, &b.id.to_string(), 0.0);
+                for (text, ink) in list {
+                    let pts = near(&[b.a, b.b], Some(k), &placed);
+                    let spot = id_spot(&clear_of_captions(&spots, &text), &pts);
+                    placed.entry(key(spot)).or_default().push(spot);
+                    self.text(spot.0, spot.1, small, ink, &text, 0.0);
+                }
             }
         }
     }

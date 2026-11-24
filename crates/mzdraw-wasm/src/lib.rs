@@ -26,13 +26,16 @@ struct Page {
     std_none: bool,
 }
 
-/// A page with the editor connected to the engine that gives the masses (`glue::measure`, the engine `sel` of mzLab).
+/// A page with the editor connected to the engines that give the masses (`glue::measure`, the engine `sel` of mzLab) and the CIP
+/// labels (`glue::cip_labels`, the engine `cip`).
 fn new_page() -> Page {
     let mut page = Page::default();
     #[cfg(feature = "sel")]
     {
         page.editor.measurer = Some(glue::measure);
     }
+    // the CIP labels of `display.cip` (the engine `cip`, always in the build)
+    page.editor.labeller = Some(glue::cip_labels);
     page
 }
 
@@ -422,6 +425,13 @@ pub fn save(kind: &str) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn save_notes() -> String {
     with(|p| serde_json::to_string(&*p.editor.table_notes.borrow()).unwrap_or_else(|_| "[]".into()))
+}
+
+/// What the CIP labels of the drawing as it is leave out (`display.cip` on): the structures not given to the engine (too many open
+/// stereo sites or atoms) and the ones it refused, as JSON `[[key, n], ...]`, empty when nothing is left out (the page says each).
+#[wasm_bindgen]
+pub fn cip_notes() -> String {
+    with(|p| serde_json::to_string(&p.editor.cip_notes()).unwrap_or_else(|_| "[]".into()))
 }
 
 /// The drawing as a PDF file (vector, text as text, the document inside so that it opens again).
