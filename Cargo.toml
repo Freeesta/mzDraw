@@ -11,8 +11,8 @@ repository = "https://github.com/Freeesta/mzdraw"
 
 # The molecule record and the structure check come from mzLab, pinned to ONE commit of its main: change the two `rev` together.
 [workspace.dependencies]
-mzlab-mol = { git = "https://github.com/Freeesta/mzlab", rev = "4529765d63d1eca2ac2d3fd19808617cc39710a1" }
-mzlab-feat = { git = "https://github.com/Freeesta/mzlab", rev = "4529765d63d1eca2ac2d3fd19808617cc39710a1", default-features = false }
+mzlab-mol = { git = "https://github.com/Freeesta/mzlab", rev = "8bcfdc3658b7abea31c135f7b0c0327b0175d1e9" }
+mzlab-feat = { git = "https://github.com/Freeesta/mzlab", rev = "8bcfdc3658b7abea31c135f7b0c0327b0175d1e9", default-features = false }
 
 [profile.release]
 panic = "abort"
